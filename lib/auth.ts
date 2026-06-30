@@ -26,6 +26,12 @@ export const auth = betterAuth({
       },
     },
   },
-  trustedOrigins: ["invohub://", "exp://"],
+  trustedOrigins: [
+    "invohub://",
+    "exp://",
+    ...(process.env.EXPO_PUBLIC_AUTH_BASE_URL
+      ? [process.env.EXPO_PUBLIC_AUTH_BASE_URL]
+      : []),
+  ],
   plugins: [expo()],
 });
