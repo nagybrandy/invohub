@@ -54,5 +54,8 @@
     "auth:generate": "npx @better-auth/cli generate",
     "vercel-build": "expo export -p web"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  }
 }
