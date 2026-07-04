@@ -17,6 +17,25 @@ test.describe("Production smoke", () => {
     expect(body.service).toBe("invohub");
   });
 
+  test("entry javascript bundle loads", async ({ request }) => {
+    const home = await request.get("/");
+    expect(home.ok()).toBeTruthy();
+
+    const html = await home.text();
+    const match = html.match(/\/_expo\/static\/js\/web\/entry-[^"]+\.js/);
+    expect(match).not.toBeNull();
+
+    const response = await request.get(match![0]);
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()["content-type"]).toContain("javascript");
+  });
+
+  test("get started navigates to login", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: /get started/i }).click();
+    await expect(page).toHaveURL(/login/);
+  });
+
   test("home page loads", async ({ page }) => {
     const response = await page.goto("/");
     expect(response?.ok()).toBeTruthy();
