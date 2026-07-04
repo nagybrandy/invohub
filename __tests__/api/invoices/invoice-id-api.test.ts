@@ -1,4 +1,4 @@
-// app/api/invoices/[id]/invoice-id-api.test.ts
+// __tests__/api/invoices/invoice-id-api.test.ts
 jest.mock("@/lib/api/session", () => ({
   requireSession: jest.fn(),
   unauthorizedResponse: () =>

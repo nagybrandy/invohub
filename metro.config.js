@@ -5,6 +5,19 @@ const { withNativeWind } = require("nativewind/metro");
 
 const config = getDefaultConfig(__dirname);
 
+config.resolver = {
+  ...config.resolver,
+  blockList: [
+    ...(Array.isArray(config.resolver?.blockList)
+      ? config.resolver.blockList
+      : config.resolver?.blockList
+        ? [config.resolver.blockList]
+        : []),
+    /\/__tests__\/.*/,
+    /\.(test|spec)\.(ts|tsx)$/,
+  ],
+};
+
 config.server = {
   ...config.server,
   unstable_serverExternalModules: [

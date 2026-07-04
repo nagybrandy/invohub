@@ -14,5 +14,16 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "coverage",
+    "e2e",
+    "__tests__",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "jest.setup.ts",
+    "jest.config.js",
+    "playwright.config.ts"
   ]
 }

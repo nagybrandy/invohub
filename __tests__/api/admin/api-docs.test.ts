@@ -1,4 +1,4 @@
-// app/api/admin/api-docs.test.ts
+// __tests__/api/admin/api-docs.test.ts
 jest.mock("@/lib/api/session", () => ({
   requireSession: jest.fn(),
   unauthorizedResponse: () =>

@@ -1,4 +1,4 @@
-// app/api/receipts/verify.test.ts
+// __tests__/api/receipts/verify.test.ts
 jest.mock("@/lib/receipts/service", () => ({
   getPublicReceiptByToken: jest.fn(),
 }));

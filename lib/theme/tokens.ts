@@ -67,4 +67,5 @@ export const iconColors = {
   },
 } as const;
 
-export type IconColorSet = (typeof iconColors)["light"];
+export type IconColorSet =
+  (typeof iconColors)["light"] | (typeof iconColors)["dark"];

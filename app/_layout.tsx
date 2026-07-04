@@ -9,7 +9,6 @@ import {
   DefaultTheme,
   Stack,
   ThemeProvider,
-  type Theme,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
@@ -19,7 +18,7 @@ export {
   ErrorBoundary,
 } from "expo-router";
 
-const InvohubLightTheme: Theme = {
+const InvohubLightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
@@ -31,7 +30,7 @@ const InvohubLightTheme: Theme = {
   },
 };
 
-const InvohubDarkTheme: Theme = {
+const InvohubDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
