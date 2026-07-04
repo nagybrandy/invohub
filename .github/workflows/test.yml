@@ -83,3 +83,27 @@ jobs:
           export PATH="$PATH:$HOME/.maestro/bin"
           export APP_ID="${APP_ID:-hu.invohub.app}"
           maestro test e2e/maestro/flows/smoke.yaml --platform android || echo "Android E2E skipped (no emulator/app build)"
+
+  production-smoke:
+    name: Production smoke
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Wait for production deploy
+        run: npm run test:smoke:production:curl
+        env:
+          PRODUCTION_BASE_URL: https://invohub.vercel.app
+          SMOKE_MAX_ATTEMPTS: 24
+          SMOKE_SLEEP_SECONDS: 15
+      - name: Playwright production smoke
+        run: npm run test:smoke:production
+        env:
+          PRODUCTION_BASE_URL: https://invohub.vercel.app
+          CI: true
