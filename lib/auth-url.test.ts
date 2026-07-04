@@ -9,6 +9,7 @@ describe("auth-url", () => {
   });
 
   it("falls back to localhost when window is unavailable", () => {
+    delete process.env.EXPO_PUBLIC_AUTH_BASE_URL;
     expect(getClientAuthBaseURL()).toMatch(/localhost:8081/);
   });
 

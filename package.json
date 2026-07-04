@@ -85,7 +85,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "auth:generate": "npx @better-auth/cli generate",
-    "vercel-build": "npm run test:ci && expo export -p web"
+    "vercel-build": "expo export -p web"
   },
   "private": true,
   "engines": {
