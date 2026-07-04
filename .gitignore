@@ -37,6 +37,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# testing
+coverage/
+playwright-report/
+playwright/.cache/
+test-results/
+.maestro/
+
 # generated native folders
 /ios
 /android
+.vercel

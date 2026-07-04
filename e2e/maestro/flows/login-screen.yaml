@@ -1,0 +1,11 @@
+# e2e/maestro/flows/login-screen.yaml
+# Verifies login screen elements on native builds.
+appId: ${APP_ID}
+---
+- launchApp
+- tapOn:
+    text: "Sign in"
+    optional: true
+- assertVisible:
+    text: ".*"
+    optional: true

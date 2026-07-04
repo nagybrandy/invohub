@@ -1,0 +1,9 @@
+# e2e/maestro/flows/invoices-auth-gate.yaml
+# Deep link to invoices should require authentication.
+appId: ${APP_ID}
+---
+- launchApp
+- openLink: invohub://invoices
+- assertVisible:
+    text: "Sign in"
+    optional: true

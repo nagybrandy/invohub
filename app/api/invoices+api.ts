@@ -1,0 +1,73 @@
+// app/api/invoices+api.ts
+// Invoice list and create API.
+import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { createId } from "@/lib/id";
+import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
+import {
+  getInvoiceStats,
+  listInvoices,
+  upsertInvoice,
+} from "@/lib/invoices/service";
+import type { Invoice } from "@/lib/invoices/types";
+
+function parseLimit(url: URL): number {
+  const raw = url.searchParams.get("limit");
+  if (!raw) return INVOICE_LIST_LIMIT;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) return INVOICE_LIST_LIMIT;
+  return Math.min(Math.max(1, parsed), INVOICE_LIST_MAX_LIMIT);
+}
+
+function parseOffset(url: URL): number {
+  const raw = url.searchParams.get("offset");
+  if (!raw) return 0;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+}
+
+export async function GET(request: Request) {
+  const session = await requireSession(request);
+  if (!session) return unauthorizedResponse();
+
+  const url = new URL(request.url);
+  const limit = parseLimit(url);
+  const offset = parseOffset(url);
+
+  const [listResult, stats] = await Promise.all([
+    listInvoices(session.user.id, { limit, offset }),
+    getInvoiceStats(session.user.id),
+  ]);
+
+  return jsonResponse({
+    invoices: listResult.invoices,
+    total: listResult.total,
+    limit: listResult.limit,
+    offset: listResult.offset,
+    stats,
+  });
+}
+
+export async function POST(request: Request) {
+  const session = await requireSession(request);
+  if (!session) return unauthorizedResponse();
+
+  const body = (await request.json()) as Partial<Invoice>;
+  const now = new Date().toISOString();
+  const invoice: Invoice = {
+    id: body.id ?? createId(),
+    invoiceNumber: body.invoiceNumber ?? `INV-${Date.now()}`,
+    clientName: body.clientName ?? "",
+    clientTaxNumber: body.clientTaxNumber,
+    issueDate: body.issueDate ?? now.slice(0, 10),
+    dueDate: body.dueDate ?? now.slice(0, 10),
+    status: body.status ?? "draft",
+    currency: body.currency ?? "EUR",
+    lineItems: body.lineItems ?? [],
+    notes: body.notes,
+    createdAt: body.createdAt ?? now,
+    updatedAt: now,
+  };
+
+  const saved = await upsertInvoice(session.user.id, invoice);
+  return jsonResponse({ invoice: saved }, 201);
+}

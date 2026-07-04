@@ -3,9 +3,10 @@
 import { createAuthClient } from "better-auth/react";
 import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
+import { getClientAuthBaseURL } from "@/lib/auth-url";
 
 export const authClient = createAuthClient({
-  baseURL: process.env.EXPO_PUBLIC_AUTH_BASE_URL ?? "http://localhost:8081",
+  baseURL: getClientAuthBaseURL(),
   plugins: [
     expoClient({
       scheme: "invohub",

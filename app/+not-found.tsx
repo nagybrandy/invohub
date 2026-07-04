@@ -2,8 +2,9 @@
 // Fallback screen for unmatched routes.
 import { View } from "react-native";
 import { Link, Stack } from "expo-router";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonText } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { routes } from "@/lib/navigation";
 
 export default function NotFound() {
   return (
@@ -13,9 +14,14 @@ export default function NotFound() {
         <Text className="text-xl font-semibold text-foreground">
           This screen doesn&apos;t exist.
         </Text>
-        <Link href="/" asChild>
+        <Link href={routes.home} asChild>
           <Button variant="outline">
-            <Text>Go home</Text>
+            <ButtonText>Go home</ButtonText>
+          </Button>
+        </Link>
+        <Link href={routes.invoices} asChild>
+          <Button variant="ghost">
+            <ButtonText>Go to invoices</ButtonText>
           </Button>
         </Link>
       </View>

@@ -1,0 +1,6 @@
+# e2e/maestro/config.yaml
+# Maestro workspace config for iOS/Android E2E flows.
+flows:
+  - flows/**/*.yaml
+executionOrder:
+  continueOnFailure: false

@@ -8,7 +8,8 @@
     "scheme": "invohub",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "hu.invohub.app"
     },
     "android": {
       "adaptiveIcon": {

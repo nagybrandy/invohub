@@ -1,0 +1,89 @@
+// hooks/useInvoices.ts
+// React hook for loading and mutating invoices via the API.
+import * as React from "react";
+import { apiFetch } from "@/lib/api/client";
+import { INVOICE_LIST_LIMIT } from "@/lib/invoices/constants";
+import type { InvoiceStats } from "@/lib/invoices/service";
+import type { Invoice } from "@/lib/invoices/types";
+
+type InvoicesResponse = {
+  invoices: Invoice[];
+  total: number;
+  limit: number;
+  offset: number;
+  stats: InvoiceStats;
+};
+
+type InvoiceResponse = { invoice: Invoice };
+
+const EMPTY_STATS: InvoiceStats = {
+  count: 0,
+  thisMonthCount: 0,
+  monthlyTotal: 0,
+};
+
+export function useInvoices() {
+  const [invoices, setInvoices] = React.useState<Invoice[]>([]);
+  const [total, setTotal] = React.useState(0);
+  const [stats, setStats] = React.useState<InvoiceStats>(EMPTY_STATS);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch<InvoicesResponse>(
+        `/api/invoices?limit=${INVOICE_LIST_LIMIT}`
+      );
+      setInvoices(data.invoices);
+      setTotal(data.total);
+      setStats(data.stats);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load invoices.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const addOrUpdate = React.useCallback(
+    async (invoice: Invoice) => {
+      const existing = invoices.find((inv) => inv.id === invoice.id);
+      const data = existing
+        ? await apiFetch<InvoiceResponse>(`/api/invoices/${invoice.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(invoice),
+          })
+        : await apiFetch<InvoiceResponse>("/api/invoices", {
+            method: "POST",
+            body: JSON.stringify(invoice),
+          });
+      await refresh();
+      return data.invoice;
+    },
+    [invoices, refresh]
+  );
+
+  const remove = React.useCallback(
+    async (id: string) => {
+      await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
+      await refresh();
+    },
+    [refresh]
+  );
+
+  return {
+    invoices,
+    total,
+    loading,
+    error,
+    stats,
+    refresh,
+    addOrUpdate,
+    remove,
+  };
+}

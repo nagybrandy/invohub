@@ -5,6 +5,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { expo } from "@better-auth/expo";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { getAuthTrustedOrigins } from "@/lib/auth-trusted-origins";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -12,7 +13,8 @@ export const auth = betterAuth({
     schema,
   }),
   secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.EXPO_PUBLIC_AUTH_BASE_URL,
+  // When unset, Better Auth derives the origin from each request (localhost in dev, deployed URL in prod).
+  ...(process.env.BETTER_AUTH_URL ? { baseURL: process.env.BETTER_AUTH_URL } : {}),
   emailAndPassword: {
     enabled: true,
   },
@@ -21,17 +23,11 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "user",
-        input: false,
+        defaultValue: "entrepreneur",
+        input: true,
       },
     },
   },
-  trustedOrigins: [
-    "invohub://",
-    "exp://",
-    ...(process.env.EXPO_PUBLIC_AUTH_BASE_URL
-      ? [process.env.EXPO_PUBLIC_AUTH_BASE_URL]
-      : []),
-  ],
+  trustedOrigins: getAuthTrustedOrigins(),
   plugins: [expo()],
 });

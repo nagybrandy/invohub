@@ -11,32 +11,38 @@ Cross-platform app (iOS · Android · Web) from a single codebase.
 | ------------ | --------------------------------------------------------------------- |
 | Framework    | [Expo](https://expo.dev) + [Expo Router](https://docs.expo.dev/router) (SDK 56) |
 | Language     | TypeScript                                                             |
-| UI / Design  | [react-native-reusables](https://reactnativereusables.com) — **shadcn/ui for React Native** |
+| UI / Design  | [gluestack-ui](https://gluestack.io/ui) v5                             |
 | Styling      | [NativeWind](https://nativewind.dev) (Tailwind CSS)                    |
 | Auth         | [Better Auth](https://better-auth.com) (email + password, Expo plugin) |
+| Local data   | [AsyncStorage](https://react-native-async-storage.github.io/async-storage/) (invoices on device) |
 | ORM          | [Drizzle](https://orm.drizzle.team)                                   |
-| Database     | [Neon](https://neon.tech) (serverless Postgres)                       |
+| Database     | [Neon](https://neon.tech) (serverless Postgres — auth only)           |
 
-Every UI element is built from the shadcn design system. Web components live in
-`components/ui/` and render natively on iOS/Android and as DOM on web through NativeWind.
+UI components live in `components/ui/` (Gluestack CLI). Invoices are stored locally on the device; auth uses Neon via Better Auth.
 
 ## Project structure
 
 ```
 app/
-  _layout.tsx              Root layout (theme + Tailwind + portal host)
+  _layout.tsx              Root layout (GluestackUIProvider + stack)
   index.tsx                Landing page
   login.tsx                Sign in / sign up
-  admin/
-    _layout.tsx            Auth gate (redirects to /login)
-    index.tsx              Protected admin dashboard
-  api/auth/[...auth]+api.ts Better Auth server handler (Expo API route)
-components/ui/             shadcn / react-native-reusables primitives
-db/                        Drizzle schema + Neon client
+  (app)/
+    _layout.tsx            Auth gate + responsive AppShell
+    invoices/
+      index.tsx            Invoice list
+      new.tsx              Create invoice
+  api/auth/[...auth]+api.ts Better Auth server handler
+components/
+  ui/                      Gluestack UI primitives
+  navigation/AppShell.tsx  Mobile tabs + desktop sidebar
+  invoices/                Invoice-specific components
+hooks/useInvoices.ts       AsyncStorage invoice hook
+lib/invoices/              Types, calculations, storage
+db/                        Drizzle schema + Neon client (auth)
 lib/
   auth.ts                  Better Auth server instance
   auth-client.ts           Better Auth client (web + native)
-  utils.ts                 cn() class helper
 ```
 
 ## Setup
@@ -73,16 +79,15 @@ lib/
 
 ## Auth notes
 
-- Email/password is enabled out of the box. Sign up at `/login`, then you land on `/admin`.
-- The `user.role` column defaults to `user`. Promote an admin directly in Neon:
-
-  ```sql
-  update "user" set role = 'admin' where email = 'you@example.com';
-  ```
-
+- Email/password is enabled out of the box. Sign up at `/login`, then you land on `/invoices`.
 - On native, sessions are stored securely via `expo-secure-store`; on web via cookies.
-- For physical devices / production, set `EXPO_PUBLIC_AUTH_BASE_URL` to your deployed URL
-  and add the scheme to `trustedOrigins` in `lib/auth.ts`.
+- Invoices are stored in AsyncStorage on the device (not synced to the server yet).
+
+## Adding Gluestack components
+
+```bash
+npx gluestack-ui@latest add dialog select table avatar
+```
 
 ## Scripts
 
@@ -93,9 +98,3 @@ lib/
 | `npm run db:generate` | Generate Drizzle migrations          |
 | `npm run db:push`     | Push schema to Neon                  |
 | `npm run auth:generate` | Regenerate Better Auth schema      |
-
-## Adding more shadcn components
-
-```bash
-npx @react-native-reusables/cli@latest add dialog select table badge avatar
-```

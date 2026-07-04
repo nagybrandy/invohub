@@ -1,0 +1,28 @@
+// lib/email/templates/render.test.ts
+import { renderTemplate } from "@/lib/email/templates/render";
+
+describe("renderTemplate", () => {
+  it("substitutes variables", () => {
+    const result = renderTemplate(
+      "Hello {{clientName}}, invoice {{invoiceNumber}} for {{total}}",
+      {
+        clientName: "Acme",
+        invoiceNumber: "INV-001",
+        total: "€127.00",
+      }
+    );
+    expect(result).toBe("Hello Acme, invoice INV-001 for €127.00");
+  });
+
+  it("replaces missing variables with empty string", () => {
+    expect(renderTemplate("Due: {{dueDate}}", {})).toBe("Due: ");
+  });
+
+  it("handles repeated placeholders", () => {
+    expect(
+      renderTemplate("{{invoiceNumber}} / {{invoiceNumber}}", {
+        invoiceNumber: "X",
+      })
+    ).toBe("X / X");
+  });
+});
