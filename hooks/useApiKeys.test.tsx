@@ -39,4 +39,49 @@ describe("useApiKeys", () => {
     expect(mockApiFetch).toHaveBeenCalledWith("/api/api-keys");
     expect(ref.current?.loading).toBe(false);
   });
+
+  it("creates a key and refreshes the list", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ keys: [] })
+      .mockResolvedValueOnce({
+        key: {
+          id: "key-1",
+          publicKey: "pk_test",
+          secretKey: "sk_test",
+          name: "ERP",
+          userId: "u1",
+          enabled: true,
+          lastUsedAt: null,
+          createdAt: "",
+          updatedAt: "",
+        },
+      })
+      .mockResolvedValueOnce({ keys: [{ id: "key-1", publicKey: "pk_test", name: "ERP" }] });
+
+    const ref = await renderHook();
+    await act(async () => {
+      await ref.current?.create("ERP");
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/api-keys", {
+      method: "POST",
+      body: JSON.stringify({ name: "ERP" }),
+    });
+    expect(ref.current?.keys).toHaveLength(1);
+  });
+
+  it("revokes a key and refreshes the list", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ keys: [{ id: "key-1", publicKey: "pk_test", name: "ERP" }] })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ keys: [] });
+
+    const ref = await renderHook();
+    await act(async () => {
+      await ref.current?.revoke("key-1");
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/api-keys/key-1", { method: "DELETE" });
+    expect(ref.current?.keys).toHaveLength(0);
+  });
 });
