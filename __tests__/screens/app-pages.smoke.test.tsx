@@ -6,6 +6,7 @@ import { makeInvoice } from "@/__tests__/fixtures/invoices";
 jest.mock("expo-router", () => ({
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
   useLocalSearchParams: jest.fn(() => ({ id: "inv-test-1" })),
+  useGlobalSearchParams: jest.fn(() => ({ id: "inv-test-1" })),
   usePathname: jest.fn(() => "/dashboard"),
 }));
 

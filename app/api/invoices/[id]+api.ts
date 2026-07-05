@@ -1,6 +1,7 @@
 // app/api/invoices/[id]+api.ts
 // Single invoice CRUD.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import {
   deleteInvoiceById,
   getInvoiceById,
@@ -10,13 +11,6 @@ import type { Invoice } from "@/lib/invoices/types";
 
 type Params = { id: string };
 
-async function resolveParams(
-  params: Promise<Params> | Params | undefined
-): Promise<Params> {
-  if (params == null) return { id: "" };
-  return params instanceof Promise ? params : Promise.resolve(params);
-}
-
 export async function GET(
   request: Request,
   { params }: { params?: Promise<Params> | Params }
@@ -25,7 +19,7 @@ export async function GET(
     const session = await requireSession(request);
     if (!session) return unauthorizedResponse();
 
-    const { id } = await resolveParams(params);
+    const id = await resolveIdParam(request, params);
     if (!id?.trim()) {
       return jsonResponse({ error: "Invoice id is required." }, 400);
     }
@@ -52,7 +46,7 @@ export async function PATCH(
     const session = await requireSession(request);
     if (!session) return unauthorizedResponse();
 
-    const { id } = await resolveParams(params);
+    const id = await resolveIdParam(request, params);
     const existing = await getInvoiceById(session.user.id, id);
     if (!existing) {
       return jsonResponse({ error: "Not found" }, 404);
@@ -86,7 +80,7 @@ export async function DELETE(
     const session = await requireSession(request);
     if (!session) return unauthorizedResponse();
 
-    const { id } = await resolveParams(params);
+    const id = await resolveIdParam(request, params);
     const deleted = await deleteInvoiceById(session.user.id, id);
     if (!deleted) {
       return jsonResponse({ error: "Not found" }, 404);

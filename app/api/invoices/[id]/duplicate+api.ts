@@ -1,6 +1,7 @@
 // app/api/invoices/[id]/duplicate+api.ts
 // Duplicate an invoice as a new draft.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import {
   duplicateInvoice,
   getInvoiceById,
@@ -16,7 +17,7 @@ export async function POST(
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const existing = await getInvoiceById(session.user.id, id);
   if (!existing) {
     return jsonResponse({ error: "Not found" }, 404);

@@ -58,7 +58,19 @@ describe("GET /api/invoices/[id]", () => {
 
   it("handles undefined params safely", async () => {
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
-    const response = await GET(new Request("http://localhost/api/invoices/missing"), {});
+    const response = await GET(new Request("http://localhost/api/invoices"), {});
     expect(response.status).toBe(400);
+  });
+
+  it("resolves id from request URL when params are missing", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockGet.mockResolvedValue(null);
+
+    const response = await GET(
+      new Request("http://localhost/api/invoices/mr682pvd-ketybxz3p"),
+      {}
+    );
+    expect(mockGet).toHaveBeenCalledWith("user-1", "mr682pvd-ketybxz3p");
+    expect(response.status).toBe(404);
   });
 });

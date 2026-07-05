@@ -2,7 +2,7 @@
 // Invoice detail with inline HTML/PDF preview and actions.
 import * as React from "react";
 import { ActivityIndicator, Alert } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Badge, BadgeText } from "@/components/ui/badge";
 import { Button, ButtonText } from "@/components/ui/button";
@@ -20,10 +20,10 @@ import {
 } from "@/lib/invoices/calculations";
 import type { Invoice } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
+import { useRouteParam } from "@/lib/routing/route-param";
 
 export default function InvoiceDetailScreen() {
-  const params = useLocalSearchParams<{ id: string | string[] }>();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const id = useRouteParam("id");
   const { t } = useTranslation();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [loading, setLoading] = React.useState(true);

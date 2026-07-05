@@ -2,7 +2,7 @@
 // Edit an existing client.
 import * as React from "react";
 import { ActivityIndicator } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { Button, ButtonText } from "@/components/ui/button";
 import {
   FormControl,
@@ -15,10 +15,11 @@ import { VStack } from "@/components/ui/vstack";
 import { FormScreen } from "@/components/layout/FormScreen";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { routes } from "@/lib/navigation";
+import { useRouteParam } from "@/lib/routing/route-param";
 import { useClients } from "@/hooks/useClients";
 
 export default function EditClientScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const id = useRouteParam("id");
   const { update, getById } = useClients();
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");

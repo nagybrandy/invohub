@@ -1,6 +1,7 @@
 // app/api/email-templates/[id]+api.ts
 // Update a single email template.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { updateEmailTemplate } from "@/lib/email/templates/service";
 
 type Params = { id: string };
@@ -12,7 +13,7 @@ export async function PATCH(
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const body = (await request.json()) as {
     subject?: string;
     bodyHtml?: string;

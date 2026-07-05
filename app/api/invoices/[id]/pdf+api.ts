@@ -1,6 +1,7 @@
 // app/api/invoices/[id]/pdf+api.ts
 // Returns invoice as application/pdf for preview and download.
 import { requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { buildInvoicePdfContext } from "@/lib/invoices/build-pdf-context";
 import {
   generateInvoicePdf,
@@ -17,7 +18,7 @@ export async function GET(
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const invoice = await getInvoiceById(session.user.id, id);
   if (!invoice) {
     return new Response(JSON.stringify({ error: "Not found" }), {

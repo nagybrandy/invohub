@@ -4,6 +4,7 @@ import {
   jsonApiResponse,
   requireApiKey,
 } from "@/lib/api/api-key-auth";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
 
@@ -16,7 +17,7 @@ export async function POST(
   const auth = await requireApiKey(request);
   if (!auth.ok) return auth.response;
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const invoice = await getInvoiceById(auth.userId, id);
   if (!invoice) {
     return jsonApiResponse({ error: "Invoice not found." }, 404);

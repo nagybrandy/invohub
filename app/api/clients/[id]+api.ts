@@ -1,6 +1,7 @@
 // app/api/clients/[id]+api.ts
 // Single client CRUD.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { requireAccountantAccess } from "@/lib/api/permissions";
 import {
   deleteClientById,
@@ -21,7 +22,7 @@ export async function GET(
   const denied = requireAccountantAccess(session);
   if (denied) return denied;
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const client = await getClientById(session.user.id, id);
   if (!client) return jsonResponse({ error: "Not found" }, 404);
   return jsonResponse({ client });
@@ -37,7 +38,7 @@ export async function PATCH(
   const denied = requireAccountantAccess(session);
   if (denied) return denied;
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const body = (await request.json()) as Partial<ClientInput>;
   const client = await updateClient(session.user.id, id, body);
   if (!client) return jsonResponse({ error: "Not found" }, 404);
@@ -54,7 +55,7 @@ export async function DELETE(
   const denied = requireAccountantAccess(session);
   if (denied) return denied;
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const deleted = await deleteClientById(session.user.id, id);
   if (!deleted) return jsonResponse({ error: "Not found" }, 404);
   return new Response(null, { status: 204 });

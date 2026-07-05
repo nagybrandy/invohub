@@ -1,16 +1,10 @@
 // app/api/receipts/[id]+api.ts
 // Single receipt GET.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { getReceiptById } from "@/lib/receipts/service";
 
 type Params = { id: string };
-
-async function resolveParams(
-  params: Promise<Params> | Params | undefined
-): Promise<Params> {
-  if (params == null) return { id: "" };
-  return params instanceof Promise ? params : Promise.resolve(params);
-}
 
 export async function GET(
   request: Request,
@@ -20,7 +14,7 @@ export async function GET(
     const session = await requireSession(request);
     if (!session) return unauthorizedResponse();
 
-    const { id } = await resolveParams(params);
+    const id = await resolveIdParam(request, params);
     if (!id?.trim()) {
       return jsonResponse({ error: "Receipt id is required." }, 400);
     }

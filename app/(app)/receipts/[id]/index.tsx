@@ -2,7 +2,7 @@
 // Receipt detail with QR code and verification link.
 import * as React from "react";
 import { ActivityIndicator, Linking, Platform } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,11 +15,11 @@ import { apiFetch } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import type { ReceiptRecord } from "@/lib/receipts/service";
 import QRCode from "react-native-qrcode-svg";
+import { useRouteParam } from "@/lib/routing/route-param";
 
 export default function ReceiptDetailScreen() {
   const { t } = useTranslation();
-  const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>();
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
+  const id = useRouteParam("id");
   const [receipt, setReceipt] = React.useState<ReceiptRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);

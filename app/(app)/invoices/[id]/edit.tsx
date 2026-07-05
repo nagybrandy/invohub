@@ -2,7 +2,7 @@
 // Edit an existing invoice.
 import * as React from "react";
 import { ActivityIndicator } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,10 +20,11 @@ import { apiFetch } from "@/lib/api/client";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
 import type { Invoice } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
+import { useRouteParam } from "@/lib/routing/route-param";
 import { useInvoices } from "@/hooks/useInvoices";
 
 export default function EditInvoiceScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const id = useRouteParam("id");
   const { addOrUpdate } = useInvoices();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [loading, setLoading] = React.useState(true);

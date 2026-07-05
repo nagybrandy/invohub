@@ -5,6 +5,7 @@ import {
   requireAdminAccess,
 } from "@/lib/api/permissions";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { updateUserRole } from "@/lib/admin/service";
 
 type Params = { id: string };
@@ -19,7 +20,7 @@ export async function PATCH(
   const denied = requireAdminAccess(session);
   if (denied) return denied;
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const body = (await request.json()) as { role?: string };
 
   if (!body.role?.trim()) {

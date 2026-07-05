@@ -1,6 +1,7 @@
 // app/api/invoices/[id]/send+api.ts
 // Send invoice notification email with PDF attachment.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
 
 type Params = { id: string };
@@ -12,7 +13,7 @@ export async function POST(
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const body = (await request.json()) as { to?: string; templateType?: string };
 
   const result = await sendInvoiceNotificationEmail(session.user.id, id, {

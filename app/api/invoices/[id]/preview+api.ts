@@ -1,6 +1,7 @@
 // app/api/invoices/[id]/preview+api.ts
 // Returns HTML preview for an invoice.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
 import { getInvoiceById } from "@/lib/invoices/service";
 
@@ -13,7 +14,7 @@ export async function GET(
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  const { id } = await params;
+  const id = await resolveIdParam(request, params);
   const invoice = await getInvoiceById(session.user.id, id);
   if (!invoice) return jsonResponse({ error: "Not found" }, 404);
 
