@@ -21,6 +21,10 @@ import {
 import type { Invoice } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
+import {
+  formatInvoiceDueDate,
+  formatInvoiceIssueDateTime,
+} from "@/lib/dates/format";
 
 export default function InvoiceDetailScreen() {
   const id = useRouteParam("id");
@@ -180,13 +184,13 @@ export default function InvoiceDetailScreen() {
               <Text size="sm" className="text-muted-foreground">
                 Issue date
               </Text>
-              <Text>{invoice.issueDate}</Text>
+              <Text>{formatInvoiceIssueDateTime(invoice)}</Text>
             </HStack>
             <HStack className="justify-between">
               <Text size="sm" className="text-muted-foreground">
                 Due date
               </Text>
-              <Text>{invoice.dueDate}</Text>
+              <Text>{formatInvoiceDueDate(invoice)}</Text>
             </HStack>
             <HStack className="justify-between">
               <Text size="sm" className="text-muted-foreground">

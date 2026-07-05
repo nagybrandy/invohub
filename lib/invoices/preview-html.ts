@@ -1,6 +1,10 @@
 // lib/invoices/preview-html.ts
 // Generates HTML preview for invoice modal display.
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
+import {
+  formatInvoiceDueDate,
+  formatInvoiceIssueDateTime,
+} from "@/lib/dates/format";
 import type { Invoice } from "@/lib/invoices/types";
 
 export function generateInvoicePreviewHtml(invoice: Invoice): string {
@@ -41,7 +45,7 @@ export function generateInvoicePreviewHtml(invoice: Invoice): string {
     <p>VAT: ${formatCurrency(totals.vatTotal, invoice.currency)}</p>
     <p><strong>Total: ${formatCurrency(totals.totalAmount, invoice.currency)}</strong></p>
   </div>
-  <p style="color:#666;margin-top:24px">Issue: ${escapeHtml(invoice.issueDate)} · Due: ${escapeHtml(invoice.dueDate)}</p>
+  <p style="color:#666;margin-top:24px">Issue: ${escapeHtml(formatInvoiceIssueDateTime(invoice))} · Due: ${escapeHtml(formatInvoiceDueDate(invoice))}</p>
   ${invoice.notes ? `<p style="margin-top:16px">${escapeHtml(invoice.notes)}</p>` : ""}
 </body>
 </html>`;

@@ -12,6 +12,7 @@ import { ListScreen } from "@/components/layout/ListScreen";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useReceipts } from "@/hooks/useReceipts";
 import { formatCurrency } from "@/lib/invoices/calculations";
+import { formatDateWithTime } from "@/lib/dates/format";
 import { routes } from "@/lib/navigation";
 
 export default function ReceiptsScreen() {
@@ -64,7 +65,7 @@ export default function ReceiptsScreen() {
                   </Text>
                 ) : null}
                 <Text size="xs" className="text-muted-foreground">
-                  {new Date(item.issuedAt).toLocaleString()}
+                  {formatDateWithTime(item.issuedAt)}
                 </Text>
               </VStack>
               <Text className="font-semibold text-foreground">

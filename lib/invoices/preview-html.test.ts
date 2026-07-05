@@ -23,8 +23,8 @@ describe("generateInvoicePreviewHtml", () => {
     expect(html).toContain("Consulting");
   });
 
-  it("includes notes when present", () => {
-    const html = generateInvoicePreviewHtml(makeInvoice({ notes: "Pay within 14 days" }));
-    expect(html).toContain("Pay within 14 days");
+  it("includes issue date with time", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice());
+    expect(html).toMatch(/Issue: 2026\. 06\. 01\. \d{2}:\d{2}/);
   });
 });

@@ -15,6 +15,7 @@ import { apiFetch } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import type { ReceiptRecord } from "@/lib/receipts/service";
 import QRCode from "react-native-qrcode-svg";
+import { formatDateWithTime } from "@/lib/dates/format";
 import { useRouteParam } from "@/lib/routing/route-param";
 
 export default function ReceiptDetailScreen() {
@@ -102,7 +103,7 @@ export default function ReceiptDetailScreen() {
               <Text size="sm" className="text-muted-foreground">
                 {t("receipts.issued")}
               </Text>
-              <Text>{new Date(receipt.issuedAt).toLocaleString()}</Text>
+              <Text>{formatDateWithTime(receipt.issuedAt)}</Text>
             </HStack>
             <HStack className="justify-between">
               <Text size="sm" className="text-muted-foreground">

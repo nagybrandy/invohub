@@ -4,6 +4,10 @@ import {
   calculateInvoiceTotals,
   formatCurrency,
 } from "@/lib/invoices/calculations";
+import {
+  formatInvoiceDueDate,
+  formatInvoiceIssueDateTime,
+} from "@/lib/dates/format";
 import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
 import {
   companyInitials,
@@ -113,9 +117,9 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.font("Helvetica").fontSize(fonts.body).fillColor("#666666");
         doc.text(`Status: ${invoice.status}`, metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.body + 4;
-        doc.text(`Issue: ${invoice.issueDate}`, metaX, metaY, { width: metaWidth, align: "right" });
+        doc.text(`Issue: ${formatInvoiceIssueDateTime(invoice)}`, metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.body + 3;
-        doc.text(`Due: ${invoice.dueDate}`, metaX, metaY, { width: metaWidth, align: "right" });
+        doc.text(`Due: ${formatInvoiceDueDate(invoice)}`, metaX, metaY, { width: metaWidth, align: "right" });
         doc.fillColor("#000000");
 
         doc.y = Math.max(headerBlockBottom, metaY) + 20;

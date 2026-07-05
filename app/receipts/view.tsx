@@ -12,6 +12,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { formatCurrency } from "@/lib/invoices/calculations";
+import { formatDateWithTime } from "@/lib/dates/format";
 import type { PublicReceiptView } from "@/lib/receipts/types";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
@@ -99,7 +100,7 @@ export default function PublicReceiptViewScreen() {
                   />
                   <Row
                     label="Issued"
-                    value={new Date(receipt.issuedAt).toLocaleString()}
+                    value={formatDateWithTime(receipt.issuedAt)}
                   />
                 </VStack>
               </VStack>

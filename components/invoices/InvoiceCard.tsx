@@ -12,6 +12,7 @@ import {
   calculateInvoiceTotals,
   formatCurrency,
 } from "@/lib/invoices/calculations";
+import { formatInvoiceIssueDateTime } from "@/lib/dates/format";
 import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
@@ -35,12 +36,8 @@ const STATUS_VARIANT: Record<
   cancelled: "destructive",
 };
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+function formatDate(invoice: Invoice): string {
+  return formatInvoiceIssueDateTime(invoice);
 }
 
 export function InvoiceCard({
@@ -90,7 +87,7 @@ export function InvoiceCard({
           </HStack>
           <HStack className="items-center justify-between">
             <Text size="sm" className="text-muted-foreground">
-              Issued {formatDate(invoice.issueDate)}
+              Issued {formatDate(invoice)}
             </Text>
             <Text className="font-semibold text-foreground">
               {formatCurrency(totals.totalAmount, invoice.currency)}
