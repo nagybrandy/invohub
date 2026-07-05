@@ -87,7 +87,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "auth:generate": "npx @better-auth/cli generate",
-    "vercel-build": "expo export -p web"
+    "vercel-build": "expo export -p web && node scripts/copy-pdfkit-fonts.mjs",
+    "assets:pdfkit-fonts": "mkdir -p assets/pdfkit-data && cp node_modules/pdfkit/js/data/*.afm assets/pdfkit-data/"
   },
   "private": true,
   "engines": {

@@ -8,39 +8,52 @@ type PdfDocumentInstance = InstanceType<typeof import("pdfkit")>;
 
 let pdfkitDataDir: string | null = null;
 
-function getProjectRequire(): NodeRequire {
-  // Bundled Expo API routes live under dist/server/...; resolve deps from project root.
-  return createRequire(path.join(process.cwd(), "package.json"));
+const FONT_MARKER = "Helvetica.afm";
+
+function collectSearchRoots(): string[] {
+  const roots = new Set<string>();
+
+  roots.add(process.cwd());
+
+  if (typeof __filename !== "undefined") {
+    let dir = path.dirname(__filename);
+    for (let depth = 0; depth < 10; depth += 1) {
+      roots.add(dir);
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+
+  return [...roots];
+}
+
+function hasFontData(dir: string): boolean {
+  return fs.existsSync(path.join(dir, FONT_MARKER));
+}
+
+function fontDirCandidates(root: string): string[] {
+  return [
+    path.join(root, "dist/server/assets/pdfkit-data"),
+    path.join(root, "assets/pdfkit-data"),
+    path.join(root, "node_modules/pdfkit/js/data"),
+  ];
 }
 
 export function resolvePdfkitDataDir(): string {
   if (pdfkitDataDir) return pdfkitDataDir;
 
-  const candidates = [
-    () => {
-      const nodeRequire = getProjectRequire();
-      return path.join(
-        path.dirname(nodeRequire.resolve("pdfkit/package.json")),
-        "js/data"
-      );
-    },
-    () => path.join(process.cwd(), "node_modules/pdfkit/js/data"),
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      const dir = candidate();
-      if (fs.existsSync(dir)) {
+  for (const root of collectSearchRoots()) {
+    for (const dir of fontDirCandidates(root)) {
+      if (hasFontData(dir)) {
         pdfkitDataDir = dir;
         return dir;
       }
-    } catch {
-      // try next candidate
     }
   }
 
   throw new Error(
-    "PDFKit font data directory not found. Ensure the pdfkit package is installed."
+    "PDFKit font data directory not found. Ensure assets/pdfkit-data is bundled with the deployment."
   );
 }
 
@@ -61,7 +74,19 @@ function patchPdfKitFontPaths(): () => void {
 }
 
 function loadPdfDocumentCtor(): typeof import("pdfkit") {
-  return getProjectRequire()("pdfkit") as typeof import("pdfkit");
+  for (const root of collectSearchRoots()) {
+    const pkgJson = path.join(root, "package.json");
+    if (!fs.existsSync(pkgJson)) continue;
+
+    try {
+      const nodeRequire = createRequire(pkgJson);
+      return nodeRequire("pdfkit") as typeof import("pdfkit");
+    } catch {
+      // try next root
+    }
+  }
+
+  throw new Error("pdfkit module not found. Ensure pdfkit is listed in production dependencies.");
 }
 
 export function createPdfDocument(
