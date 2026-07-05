@@ -1,7 +1,7 @@
 // app/(app)/settings/pdf.tsx
 // Invoice PDF layout settings with live sample preview.
 import * as React from "react";
-import { ActivityIndicator, Linking, Platform } from "react-native";
+import { ActivityIndicator, Linking } from "react-native";
 import { FileText } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,9 +18,11 @@ import { Text } from "@/components/ui/text";
 import { Textarea, TextareaInput } from "@/components/ui/textarea";
 import { VStack } from "@/components/ui/vstack";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { PdfPreviewEmbed } from "@/components/invoices/PdfPreviewEmbed";
 import { usePdfTemplate } from "@/hooks/usePdfTemplate";
 import { DEFAULT_PDF_TEMPLATE, PDF_FONT_SCALES } from "@/lib/invoices/pdf-template/defaults";
 import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
+import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
 function ToggleRow({
@@ -90,7 +92,7 @@ export default function PdfSettingsScreen() {
     setMessage(null);
     try {
       const blob = await previewSample(draft);
-      if (Platform.OS === "web" && typeof URL !== "undefined") {
+      if (isWeb() && typeof URL !== "undefined") {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
@@ -236,7 +238,7 @@ export default function PdfSettingsScreen() {
             {message ? <Text className="text-primary">{message}</Text> : null}
             {error ? <Text className="text-destructive">{error}</Text> : null}
 
-            {previewUrl && Platform.OS === "web" ? (
+            {previewUrl && isWeb() ? (
               <Card className="overflow-hidden p-0">
                 <VStack space="xs" className="border-b border-border p-3">
                   <Text size="sm" className="font-medium">
@@ -246,11 +248,11 @@ export default function PdfSettingsScreen() {
                     INV-PREVIEW-001 — sample client and line items
                   </Text>
                 </VStack>
-                {React.createElement("iframe", {
-                  title: "Sample invoice PDF",
-                  src: previewUrl,
-                  style: { width: "100%", height: 640, border: "none", background: "white" },
-                })}
+                <PdfPreviewEmbed
+                  src={previewUrl}
+                  title="Sample invoice PDF"
+                  minHeight={640}
+                />
               </Card>
             ) : null}
           </>

@@ -1,7 +1,7 @@
 // components/invoices/InvoiceDocumentPreview.tsx
 // Inline HTML/PDF invoice preview — tabs on mobile, side-by-side on desktop.
 import * as React from "react";
-import { ActivityIndicator, Linking, Platform } from "react-native";
+import { ActivityIndicator, Linking } from "react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,10 +9,12 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { apiFetch, apiFetchBlob, invoicePdfUrl } from "@/lib/api/client";
+import { PdfPreviewEmbed } from "@/components/invoices/PdfPreviewEmbed";
+import { apiFetch, invoicePdfUrl } from "@/lib/api/client";
 import { getAuthBaseUrl } from "@/lib/auth-url";
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
 import type { Invoice } from "@/lib/invoices/types";
+import { isWeb } from "@/lib/platform";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 
 type PreviewTab = "html" | "pdf";
@@ -45,7 +47,7 @@ function PreviewTabButton({
 function PreviewFrame({
   title,
   html,
-  pdfUrl,
+  pdfSrc,
   loading,
   error,
   minHeight,
@@ -53,7 +55,7 @@ function PreviewFrame({
 }: {
   title: string;
   html?: string | null;
-  pdfUrl?: string | null;
+  pdfSrc?: string | null;
   loading: boolean;
   error: string | null;
   minHeight: number;
@@ -69,13 +71,18 @@ function PreviewFrame({
 
   if (error) {
     return (
-      <Box className="py-6" style={{ minHeight }}>
+      <VStack space="md" className="py-6" style={{ minHeight }}>
         <Text className="text-destructive">{error}</Text>
-      </Box>
+        {onOpenPdf ? (
+          <Button variant="outline" onPress={() => void onOpenPdf()}>
+            <ButtonText>Open PDF in browser</ButtonText>
+          </Button>
+        ) : null}
+      </VStack>
     );
   }
 
-  if (html && Platform.OS === "web") {
+  if (html && isWeb()) {
     return React.createElement("iframe", {
       title,
       srcDoc: html,
@@ -83,12 +90,8 @@ function PreviewFrame({
     });
   }
 
-  if (pdfUrl && Platform.OS === "web") {
-    return React.createElement("iframe", {
-      title,
-      src: pdfUrl,
-      style: { width: "100%", height: minHeight, border: "none", background: "white" },
-    });
+  if (pdfSrc && isWeb()) {
+    return <PdfPreviewEmbed src={pdfSrc} title={title} minHeight={minHeight} />;
   }
 
   return (
@@ -96,7 +99,7 @@ function PreviewFrame({
       <Text className="text-center text-muted-foreground">
         {html
           ? "HTML preview is available on web."
-          : "Open the PDF in your browser to preview on this device."}
+          : "PDF preview is available on web. Open it in your browser if the embed does not load."}
       </Text>
       {onOpenPdf ? (
         <Button onPress={() => void onOpenPdf()}>
@@ -125,11 +128,14 @@ export function InvoiceDocumentPreview({
 
   const [tab, setTab] = React.useState<PreviewTab>("html");
   const [html, setHtml] = React.useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = React.useState<string | null>(null);
+  const [draftPdfUrl, setDraftPdfUrl] = React.useState<string | null>(null);
   const [loadingHtml, setLoadingHtml] = React.useState(false);
   const [loadingPdf, setLoadingPdf] = React.useState(false);
   const [errorHtml, setErrorHtml] = React.useState<string | null>(null);
   const [errorPdf, setErrorPdf] = React.useState<string | null>(null);
+
+  const savedPdfSrc = invoiceId ? invoicePdfUrl(invoiceId) : null;
+  const pdfSrc = savedPdfSrc ?? draftPdfUrl;
 
   const invoiceKey = React.useMemo(() => {
     const lines = invoice.lineItems
@@ -148,18 +154,18 @@ export function InvoiceDocumentPreview({
   }, [invoice, invoiceId]);
 
   React.useEffect(() => {
-    if (pdfUrl?.startsWith("blob:")) URL.revokeObjectURL(pdfUrl);
+    if (draftPdfUrl?.startsWith("blob:")) URL.revokeObjectURL(draftPdfUrl);
     setHtml(null);
-    setPdfUrl(null);
+    setDraftPdfUrl(null);
     setErrorHtml(null);
     setErrorPdf(null);
   }, [invoiceKey]);
 
   React.useEffect(() => {
     return () => {
-      if (pdfUrl?.startsWith("blob:")) URL.revokeObjectURL(pdfUrl);
+      if (draftPdfUrl?.startsWith("blob:")) URL.revokeObjectURL(draftPdfUrl);
     };
-  }, [pdfUrl]);
+  }, [draftPdfUrl]);
 
   const needsHtml = effectiveLayout === "split" || tab === "html";
   const needsPdf = effectiveLayout === "split" || tab === "pdf";
@@ -183,43 +189,44 @@ export function InvoiceDocumentPreview({
   }, [needsHtml, html, invoice, invoiceId, invoiceKey]);
 
   React.useEffect(() => {
-    if (!needsPdf || pdfUrl) return;
-    if (Platform.OS !== "web") return;
+    if (!needsPdf || invoiceId || draftPdfUrl) return;
 
     setLoadingPdf(true);
     setErrorPdf(null);
 
-    const loadPdf = invoiceId
-      ? apiFetchBlob(`/api/invoices/${invoiceId}/pdf`)
-      : fetch(`${getAuthBaseUrl()}/api/invoices/preview/pdf`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ invoice }),
-        }).then(async (response) => {
-          if (!response.ok) {
-            const body = (await response.json().catch(() => ({}))) as { error?: string };
-            throw new Error(body.error ?? response.statusText);
-          }
-          return response.blob();
-        });
-
-    void loadPdf
-      .then((blob) => setPdfUrl(URL.createObjectURL(blob)))
+    void fetch(`${getAuthBaseUrl()}/api/invoices/preview/pdf`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoice }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? response.statusText);
+        }
+        return response.blob();
+      })
+      .then((blob) => setDraftPdfUrl(URL.createObjectURL(blob)))
       .catch((e) =>
         setErrorPdf(e instanceof Error ? e.message : "Failed to load PDF preview.")
       )
       .finally(() => setLoadingPdf(false));
-  }, [needsPdf, pdfUrl, invoice, invoiceId, invoiceKey]);
+  }, [needsPdf, draftPdfUrl, invoice, invoiceId, invoiceKey]);
 
-  async function handleOpenPdfNative() {
-    if (invoiceId) {
-      await Linking.openURL(invoicePdfUrl(invoiceId));
+  async function handleOpenPdf() {
+    const url = savedPdfSrc ?? draftPdfUrl;
+    if (!url) return;
+
+    if (isWeb() && typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
       return;
     }
-    const base = getAuthBaseUrl();
-    await Linking.openURL(`${base}/api/invoices/preview/pdf`);
+
+    await Linking.openURL(url);
   }
+
+  const pdfLoading = invoiceId ? false : loadingPdf;
 
   if (effectiveLayout === "split") {
     return (
@@ -250,11 +257,11 @@ export function InvoiceDocumentPreview({
             </Box>
             <PreviewFrame
               title={`PDF ${invoice.invoiceNumber}`}
-              pdfUrl={pdfUrl}
-              loading={loadingPdf}
+              pdfSrc={pdfSrc}
+              loading={pdfLoading}
               error={errorPdf}
               minHeight={minHeight}
-              onOpenPdf={Platform.OS !== "web" ? handleOpenPdfNative : undefined}
+              onOpenPdf={pdfSrc || errorPdf ? handleOpenPdf : undefined}
             />
           </Card>
         </HStack>
@@ -291,11 +298,11 @@ export function InvoiceDocumentPreview({
         ) : (
           <PreviewFrame
             title={`PDF ${invoice.invoiceNumber}`}
-            pdfUrl={pdfUrl}
-            loading={loadingPdf}
+            pdfSrc={pdfSrc}
+            loading={pdfLoading}
             error={errorPdf}
             minHeight={minHeight}
-            onOpenPdf={Platform.OS !== "web" ? handleOpenPdfNative : undefined}
+            onOpenPdf={pdfSrc || errorPdf ? handleOpenPdf : undefined}
           />
         )}
       </Card>
