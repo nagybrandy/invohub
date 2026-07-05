@@ -5,6 +5,7 @@ import { navSubmission } from "@/db/schema";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
 import type { Invoice } from "@/lib/invoices/types";
+import { buildNavCredentials } from "@/lib/nav/credentials";
 import { submitInvoiceToNav } from "@/lib/nav/client";
 import { buildNavInvoiceXml } from "@/lib/nav/invoice-xml";
 
@@ -22,14 +23,7 @@ export async function submitOutgoingInvoiceToNav(
   const company = await getCompanyByUserId(userId);
   const invoiceXml = buildNavInvoiceXml(invoice, company);
 
-  const result = await submitInvoiceToNav(
-    {
-      technicalUser: company?.navTechnicalUser ?? "sandbox",
-      xmlSignKey: company?.navXmlSignKey ?? "sandbox",
-      taxNumber: company?.taxNumber ?? "00000000-0-00",
-    },
-    invoiceXml
-  );
+  const result = await submitInvoiceToNav(buildNavCredentials(company), invoiceXml);
 
   const now = new Date();
   const submissionId = createId();

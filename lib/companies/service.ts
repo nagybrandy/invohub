@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { company } from "@/db/schema";
 import { findClientByName } from "@/lib/clients/service";
 import { createId } from "@/lib/id";
+import { isNavEnvironment, parseNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
 
 export type CompanyInput = {
   name: string;
@@ -21,6 +22,7 @@ export type CompanyInput = {
   navTechnicalUser?: string;
   navTechnicalPassword?: string;
   navXmlSignKey?: string;
+  navEnvironment?: NavEnvironment;
 };
 
 export type CompanyPatchInput = Partial<CompanyInput> & { name?: string };
@@ -59,6 +61,7 @@ function mapRow(row: typeof company.$inferSelect): Company {
     navTechnicalUser: row.navTechnicalUser ?? undefined,
     navTechnicalPassword: row.navTechnicalPassword ?? undefined,
     navXmlSignKey: row.navXmlSignKey ?? undefined,
+    navEnvironment: parseNavEnvironment(row.navEnvironment),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -86,6 +89,12 @@ function buildCompanyValues(
       existing?.navTechnicalPassword
     ),
     navXmlSignKey: patchOptionalField(input.navXmlSignKey, existing?.navXmlSignKey),
+    navEnvironment:
+      input.navEnvironment !== undefined
+        ? isNavEnvironment(input.navEnvironment)
+          ? input.navEnvironment
+          : parseNavEnvironment(existing?.navEnvironment)
+        : parseNavEnvironment(existing?.navEnvironment),
   };
 }
 

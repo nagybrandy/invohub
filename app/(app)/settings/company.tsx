@@ -14,7 +14,9 @@ import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { FormScreen } from "@/components/layout/FormScreen";
+import { NavEnvironmentPicker } from "@/components/settings/NavEnvironmentPicker";
 import { useCompany } from "@/hooks/useCompany";
+import { NAV_API_BASE_URL, type NavEnvironment } from "@/lib/nav/environment";
 
 export default function CompanySettingsScreen() {
   const { company, loading, save, lookup } = useCompany();
@@ -29,6 +31,7 @@ export default function CompanySettingsScreen() {
   const [navTechnicalUser, setNavTechnicalUser] = React.useState("");
   const [navTechnicalPassword, setNavTechnicalPassword] = React.useState("");
   const [navXmlSignKey, setNavXmlSignKey] = React.useState("");
+  const [navEnvironment, setNavEnvironment] = React.useState<NavEnvironment>("test");
   const [showNavSecrets, setShowNavSecrets] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
@@ -48,6 +51,7 @@ export default function CompanySettingsScreen() {
       setNavTechnicalUser(company.navTechnicalUser ?? "");
       setNavTechnicalPassword(company.navTechnicalPassword ?? "");
       setNavXmlSignKey(company.navXmlSignKey ?? "");
+      setNavEnvironment(company.navEnvironment ?? "test");
     }
   }, [company]);
 
@@ -92,6 +96,7 @@ export default function CompanySettingsScreen() {
         navTechnicalUser: navTechnicalUser.trim() || undefined,
         navTechnicalPassword: navTechnicalPassword.trim() || undefined,
         navXmlSignKey: navXmlSignKey.trim() || undefined,
+        navEnvironment,
       });
       setSuccess("Company profile saved.");
     } catch (e) {
@@ -231,8 +236,18 @@ export default function CompanySettingsScreen() {
             ) : null}
           </HStack>
           <Text size="sm" className="text-muted-foreground">
-            Technical user credentials for NAV API integration (backend only, not shown in the app UI).
+            Technical user credentials for NAV API integration. Choose test or live environment
+            before saving credentials.
           </Text>
+          <FormControl>
+            <FormControlLabel>
+              <FormControlLabelText>NAV környezet</FormControlLabelText>
+            </FormControlLabel>
+            <NavEnvironmentPicker value={navEnvironment} onChange={setNavEnvironment} />
+            <Text size="xs" className="mt-2 text-muted-foreground">
+              API: {NAV_API_BASE_URL[navEnvironment]}
+            </Text>
+          </FormControl>
           <FormControl>
             <FormControlLabel>
               <FormControlLabelText>NAV technical user</FormControlLabelText>

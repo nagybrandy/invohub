@@ -82,6 +82,7 @@ export const company = pgTable(
     navTechnicalUser: text("nav_technical_user"),
     navTechnicalPassword: text("nav_technical_password"),
     navXmlSignKey: text("nav_xml_sign_key"),
+    navEnvironment: text("nav_environment").default("test"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

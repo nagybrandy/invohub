@@ -267,7 +267,7 @@ sequenceDiagram
 ```
 
 1. Hozz létre API kulcsot InvoHub Settings-ben.
-2. Állítsd be a cégprofilt (számlázó adatok, invoice e-mail, NAV ha kell).
+2. Állítsd be a cégprofilt (számlázó adatok, invoice e-mail, NAV technikai user + **teszt vagy élő környezet**).
 3. Hívd a `POST /api/v1/invoices` végpontot.
 4. Ellenőrizd a válasz `email.sent` és `navSubmission.status` mezőit.
 

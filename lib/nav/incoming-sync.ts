@@ -5,15 +5,12 @@ import { db } from "@/db";
 import { incomingInvoice } from "@/db/schema";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
+import { buildNavCredentials } from "@/lib/nav/credentials";
 import { fetchIncomingInvoices } from "@/lib/nav/client";
 
 export async function syncIncomingInvoices(userId: string) {
   const company = await getCompanyByUserId(userId);
-  const credentials = {
-    technicalUser: company?.navTechnicalUser ?? "sandbox",
-    xmlSignKey: company?.navXmlSignKey ?? "sandbox",
-    taxNumber: company?.taxNumber ?? "00000000-0-00",
-  };
+  const credentials = buildNavCredentials(company);
 
   const navInvoices = await fetchIncomingInvoices(credentials);
   const now = new Date();
