@@ -22,8 +22,6 @@ config.server = {
   ...config.server,
   unstable_serverExternalModules: [
     ...(config.server?.unstable_serverExternalModules ?? []),
-    "pdfkit",
-    "fontkit",
   ],
 };
 

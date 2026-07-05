@@ -1,10 +1,10 @@
 // lib/invoices/pdf-document.ts
-// PDFKit wrapper — lazy-loaded to avoid breaking unrelated API routes in Metro bundles.
+// PDFKit wrapper with vendored font metrics for Vercel/serverless.
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
+import PDFDocument from "pdfkit";
 
-type PdfDocumentInstance = InstanceType<typeof import("pdfkit")>;
+type PdfDocumentInstance = InstanceType<typeof PDFDocument>;
 
 let pdfkitDataDir: string | null = null;
 
@@ -41,13 +41,6 @@ function fontDirCandidates(root: string): string[] {
   ];
 }
 
-function pdfkitModuleCandidates(root: string): string[] {
-  return [
-    path.join(root, "dist/server/vendor/node_modules/pdfkit"),
-    path.join(root, "node_modules/pdfkit"),
-  ];
-}
-
 export function resolvePdfkitDataDir(): string {
   if (pdfkitDataDir) return pdfkitDataDir;
 
@@ -81,40 +74,9 @@ function patchPdfKitFontPaths(): () => void {
   };
 }
 
-function loadPdfDocumentCtor(): typeof import("pdfkit") {
-  for (const root of collectSearchRoots()) {
-    for (const modDir of pdfkitModuleCandidates(root)) {
-      const pkgJson = path.join(modDir, "package.json");
-      if (!fs.existsSync(pkgJson)) continue;
-
-      try {
-        const nodeRequire = createRequire(pkgJson);
-        return nodeRequire(".") as typeof import("pdfkit");
-      } catch {
-        // try next candidate
-      }
-    }
-
-    const projectPkg = path.join(root, "package.json");
-    if (!fs.existsSync(projectPkg)) continue;
-
-    try {
-      const nodeRequire = createRequire(projectPkg);
-      return nodeRequire("pdfkit") as typeof import("pdfkit");
-    } catch {
-      // try next root
-    }
-  }
-
-  throw new Error(
-    "pdfkit module not found. Ensure dist/server/vendor is bundled with the deployment."
-  );
-}
-
 export function createPdfDocument(
-  options?: ConstructorParameters<typeof import("pdfkit")>[0]
+  options?: ConstructorParameters<typeof PDFDocument>[0]
 ): PdfDocumentInstance {
-  const PDFDocument = loadPdfDocumentCtor();
   return new PDFDocument(options);
 }
 

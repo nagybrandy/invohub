@@ -1,5 +1,12 @@
 // lib/invoices/pdf-document.test.ts
 /** @jest-environment node */
+jest.mock("pdfkit", () =>
+  jest.fn().mockImplementation(() => ({
+    on: jest.fn().mockReturnThis(),
+    end: jest.fn(),
+  }))
+);
+
 import fs from "node:fs";
 import path from "node:path";
 import { resolvePdfkitDataDir } from "@/lib/invoices/pdf-document";
