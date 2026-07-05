@@ -8,17 +8,40 @@ type PdfDocumentInstance = InstanceType<typeof import("pdfkit")>;
 
 let pdfkitDataDir: string | null = null;
 
-function resolvePdfkitDataDir(): string {
+function getProjectRequire(): NodeRequire {
+  // Bundled Expo API routes live under dist/server/...; resolve deps from project root.
+  return createRequire(path.join(process.cwd(), "package.json"));
+}
+
+export function resolvePdfkitDataDir(): string {
   if (pdfkitDataDir) return pdfkitDataDir;
 
-  const nodeRequire = createRequire(
-    typeof __filename !== "undefined" ? __filename : path.join(process.cwd(), "package.json")
+  const candidates = [
+    () => {
+      const nodeRequire = getProjectRequire();
+      return path.join(
+        path.dirname(nodeRequire.resolve("pdfkit/package.json")),
+        "js/data"
+      );
+    },
+    () => path.join(process.cwd(), "node_modules/pdfkit/js/data"),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const dir = candidate();
+      if (fs.existsSync(dir)) {
+        pdfkitDataDir = dir;
+        return dir;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  throw new Error(
+    "PDFKit font data directory not found. Ensure the pdfkit package is installed."
   );
-  pdfkitDataDir = path.join(
-    path.dirname(nodeRequire.resolve("pdfkit/package.json")),
-    "js/data"
-  );
-  return pdfkitDataDir;
 }
 
 function patchPdfKitFontPaths(): () => void {
@@ -38,10 +61,7 @@ function patchPdfKitFontPaths(): () => void {
 }
 
 function loadPdfDocumentCtor(): typeof import("pdfkit") {
-  const nodeRequire = createRequire(
-    typeof __filename !== "undefined" ? __filename : path.join(process.cwd(), "package.json")
-  );
-  return nodeRequire("pdfkit") as typeof import("pdfkit");
+  return getProjectRequire()("pdfkit") as typeof import("pdfkit");
 }
 
 export function createPdfDocument(
