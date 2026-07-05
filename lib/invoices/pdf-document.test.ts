@@ -1,4 +1,5 @@
 // lib/invoices/pdf-document.test.ts
+/** @jest-environment node */
 import fs from "node:fs";
 import path from "node:path";
 import { resolvePdfkitDataDir } from "@/lib/invoices/pdf-document";
