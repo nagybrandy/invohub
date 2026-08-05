@@ -14,10 +14,15 @@ export async function POST(
   if (!session) return unauthorizedResponse();
 
   const id = await resolveIdParam(request, params);
-  const body = (await request.json()) as { to?: string; templateType?: string };
+  const body = (await request.json()) as {
+    to?: string | string[];
+    cc?: string | string[];
+    templateType?: string;
+  };
 
   const result = await sendInvoiceNotificationEmail(session.user.id, id, {
     to: body.to,
+    cc: body.cc,
     templateType: body.templateType,
   });
 

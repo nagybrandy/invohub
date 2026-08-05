@@ -2,6 +2,9 @@
 import TestRenderer, { act } from "react-test-renderer";
 import { ScreenModeTabs } from "@/components/invoices/ScreenModeTabs";
 
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
 jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
@@ -15,8 +18,8 @@ describe("ScreenModeTabs", () => {
       );
     });
     const json = JSON.stringify(tree!.toJSON());
-    expect(json).toContain("edit");
-    expect(json).toContain("preview");
+    expect(json).toContain("invoices.screenModes.edit");
+    expect(json).toContain("invoices.screenModes.preview");
   });
 
   it("calls onChange when preview pressed", () => {
@@ -31,7 +34,9 @@ describe("ScreenModeTabs", () => {
     const previewPressable = tree!.root
       .findAll((node) => typeof node.props?.onPress === "function")
       .find((node) =>
-        node.findAll((child) => child.props?.children === "preview").length > 0
+        node.findAll(
+          (child) => child.props?.children === "invoices.screenModes.preview"
+        ).length > 0
       );
     act(() => {
       previewPressable?.props.onPress?.();

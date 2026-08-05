@@ -1,6 +1,6 @@
 // app/(app)/settings/templates.tsx
-// Editable email templates list and editor.
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
@@ -12,6 +12,7 @@ import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 
 export default function EmailTemplatesScreen() {
+  const { t } = useTranslation();
   const { templates, loading, update } = useEmailTemplates();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [subject, setSubject] = React.useState("");

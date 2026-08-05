@@ -1,6 +1,6 @@
 // app/(app)/settings/reminders.tsx
-// Payment reminder schedule settings.
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
@@ -23,6 +23,7 @@ type Schedule = {
 };
 
 export default function RemindersSettingsScreen() {
+  const { t } = useTranslation();
   const [schedule, setSchedule] = React.useState<Schedule | null>(null);
   const [intervalDays, setIntervalDays] = React.useState("7");
   const [maxReminders, setMaxReminders] = React.useState("3");
@@ -54,7 +55,7 @@ export default function RemindersSettingsScreen() {
       }),
     });
     setSchedule(data.schedule);
-    setMessage("Schedule saved.");
+    setMessage(t("reminders.scheduleSaved"));
   }
 
   async function handleRunNow() {
@@ -65,28 +66,28 @@ export default function RemindersSettingsScreen() {
         "/api/reminders/run",
         { method: "POST" }
       );
-      setMessage(`Processed ${result.processed}, sent ${result.sent}.`);
+      setMessage(t("reminders.runResult", { processed: result.processed, sent: result.sent }));
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Run failed.");
+      setMessage(e instanceof Error ? e.message : t("reminders.runFailed"));
     } finally {
       setRunning(false);
     }
   }
 
   return (
-    <ScreenLayout header={<Heading size="2xl">Payment reminders</Heading>}>
+    <ScreenLayout header={<Heading size="2xl">{t("reminders.title")}</Heading>}>
       <VStack space="md">
         <Text size="sm" className="text-muted-foreground">
-          Automatic reminders are sent via SMTP for overdue invoices.
+          {t("reminders.subtitle")}
         </Text>
         {loading ? (
-          <Text>Loading…</Text>
+          <Text>{t("common.loading")}</Text>
         ) : (
           <Card className="p-4">
             <VStack space="md">
               <FormControl>
                 <FormControlLabel>
-                  <FormControlLabelText>Interval (days)</FormControlLabelText>
+                  <FormControlLabelText>{t("reminders.intervalDays")}</FormControlLabelText>
                 </FormControlLabel>
                 <Input>
                   <InputField
@@ -98,7 +99,7 @@ export default function RemindersSettingsScreen() {
               </FormControl>
               <FormControl>
                 <FormControlLabel>
-                  <FormControlLabelText>Max reminders</FormControlLabelText>
+                  <FormControlLabelText>{t("reminders.maxReminders")}</FormControlLabelText>
                 </FormControlLabel>
                 <Input>
                   <InputField
@@ -109,10 +110,10 @@ export default function RemindersSettingsScreen() {
                 </Input>
               </FormControl>
               <Button onPress={handleSave}>
-                <ButtonText>Save schedule</ButtonText>
+                <ButtonText>{t("reminders.saveSchedule")}</ButtonText>
               </Button>
               <Button variant="outline" onPress={handleRunNow} disabled={running}>
-                <ButtonText>Run reminders now</ButtonText>
+                <ButtonText>{t("reminders.runNow")}</ButtonText>
               </Button>
             </VStack>
           </Card>

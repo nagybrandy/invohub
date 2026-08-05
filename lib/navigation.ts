@@ -27,6 +27,7 @@ export const routes = {
   receiptDetail: (id: string) => `/receipts/${id}` as Href,
   admin: "/admin" as Href,
   adminApiDocs: "/admin/api-docs" as Href,
+  onboarding: "/onboarding" as Href,
 } as const;
 
 export type AppRoute = Href;

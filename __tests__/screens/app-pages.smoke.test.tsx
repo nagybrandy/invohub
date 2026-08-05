@@ -27,6 +27,28 @@ jest.mock("lucide-react-native", () => {
   return new Proxy({}, { get: () => View });
 });
 
+jest.mock("@/db", () => ({
+  db: {
+    select: jest.fn(() => ({
+      from: jest.fn(() => ({
+        where: jest.fn(() => ({
+          orderBy: jest.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
+    insert: jest.fn(() => ({
+      values: jest.fn(() => ({
+        returning: jest.fn().mockResolvedValue([]),
+      })),
+    })),
+    update: jest.fn(() => ({
+      set: jest.fn(() => ({
+        where: jest.fn().mockResolvedValue([]),
+      })),
+    })),
+  },
+}));
+
 jest.mock("@/lib/auth-client", () => ({
   useSession: () => ({
     data: { user: { id: "user-1", name: "Test", email: "test@example.com", role: "admin" } },

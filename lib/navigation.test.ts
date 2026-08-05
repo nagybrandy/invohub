@@ -21,4 +21,16 @@ describe("routes", () => {
     expect(routes.clientEdit("c1")).toBe("/clients/c1/edit");
     expect(routes.productEdit("p1")).toBe("/products/p1/edit");
   });
+
+  it("builds receipt detail path", () => {
+    expect(routes.receiptDetail("r1")).toBe("/receipts/r1");
+  });
+
+  it("exposes onboarding route", () => {
+    expect(routes.onboarding).toBe("/onboarding");
+  });
+
+  it("exposes new receipt route", () => {
+    expect(routes.newReceipt).toBe("/receipts/new");
+  });
 });

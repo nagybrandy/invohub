@@ -2,6 +2,7 @@
 // Validates and builds an Invoice from API / external payloads.
 import { createEmptyLineItem, generateInvoiceNumber } from "@/lib/invoices/calculations";
 import { INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
+import { validateEmailRecipientsInput } from "@/lib/email/recipients";
 import { listInvoices, upsertInvoice } from "@/lib/invoices/service";
 import type {
   Invoice,
@@ -42,8 +43,10 @@ export type ExternalInvoiceInput = {
   submitToNav?: boolean;
   /** Send invoice email immediately after creation (default true). */
   sendEmail?: boolean;
-  /** Override recipient; falls back to company default or client email. */
-  emailTo?: string;
+  /** Override To recipients; string, comma-separated string, or array. */
+  emailTo?: string | string[];
+  /** Override Cc recipients; string, comma-separated string, or array. */
+  emailCc?: string | string[];
 };
 
 export function validateExternalInvoiceInput(
@@ -75,6 +78,13 @@ export function validateExternalInvoiceInput(
   if (body.currency && body.currency !== "EUR" && body.currency !== "HUF") {
     return "currency must be EUR or HUF.";
   }
+
+  const emailToError = validateEmailRecipientsInput("emailTo", body.emailTo);
+  if (emailToError) return emailToError;
+
+  const emailCcError = validateEmailRecipientsInput("emailCc", body.emailCc);
+  if (emailCcError) return emailCcError;
+
   return null;
 }
 

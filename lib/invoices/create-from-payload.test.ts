@@ -39,4 +39,22 @@ describe("validateExternalInvoiceInput", () => {
       })
     ).toContain("vatRate");
   });
+
+  it("validates emailTo format", () => {
+    expect(
+      validateExternalInvoiceInput({
+        ...valid,
+        emailTo: ["billing@acme.hu", "not-an-email"],
+      })
+    ).toContain("emailTo");
+  });
+
+  it("accepts emailTo as array", () => {
+    expect(
+      validateExternalInvoiceInput({
+        ...valid,
+        emailTo: ["billing@acme.hu", "accounting@acme.hu"],
+      })
+    ).toBeNull();
+  });
 });

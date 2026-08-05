@@ -1,11 +1,13 @@
 // app/(app)/receipts/[id]/index.tsx
-// Receipt detail with QR code and verification link.
 import * as React from "react";
 import { ActivityIndicator, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { Badge, BadgeText } from "@/components/ui/badge";
+import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
@@ -122,6 +124,42 @@ export default function ReceiptDetailScreen() {
               </HStack>
             ) : null}
           </VStack>
+        </Card>
+
+        {receipt.lineItems.length > 0 ? (
+          <Card className="p-4">
+            <VStack space="sm">
+              <Heading size="sm">{t("receipts.lineItems")}</Heading>
+              {receipt.lineItems.map((li, idx) => (
+                <HStack key={idx} className="items-center justify-between border-b border-border pb-2 last:border-b-0">
+                  <VStack>
+                    <Text size="sm" className="font-medium">{li.description}</Text>
+                    <Text size="xs" className="text-muted-foreground">
+                      {li.quantity} × {formatCurrency(li.unitPrice, receipt.currency)} ({li.vatRate}% VAT)
+                    </Text>
+                  </VStack>
+                  <Text size="sm" className="font-medium">
+                    {formatCurrency(li.quantity * li.unitPrice * (1 + li.vatRate / 100), receipt.currency)}
+                  </Text>
+                </HStack>
+              ))}
+            </VStack>
+          </Card>
+        ) : null}
+
+        <Card className="p-4">
+          <HStack className="items-center justify-between">
+            <Text size="sm" className="text-muted-foreground">NAV</Text>
+            {receipt.navSubmitted ? (
+              <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
+                <BadgeText className="text-xs text-green-600">{t("receipts.navSubmitted")}</BadgeText>
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="rounded-full px-2 py-0.5">
+                <BadgeText className="text-xs text-muted-foreground">{t("receipts.navPending")}</BadgeText>
+              </Badge>
+            )}
+          </HStack>
         </Card>
 
         <Text size="xs" selectable className="font-mono text-muted-foreground">

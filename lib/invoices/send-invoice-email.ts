@@ -1,7 +1,8 @@
 // lib/invoices/send-invoice-email.ts
 // Sends invoice notification email with PDF attachment.
-import { getCompanyByUserId, resolveInvoiceEmailRecipient } from "@/lib/companies/service";
+import { getCompanyByUserId, resolveInvoiceEmailRecipients } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
+import { normalizeEmailList } from "@/lib/email/recipients";
 import { renderTemplate } from "@/lib/email/templates/render";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
@@ -13,7 +14,7 @@ import type { Invoice } from "@/lib/invoices/types";
 export type SendInvoiceEmailResult = {
   ok: boolean;
   error?: string;
-  to?: string;
+  to?: string[];
   cc?: string[];
   invoice?: Invoice;
   pdfAttached?: boolean;
@@ -31,8 +32,8 @@ export async function sendInvoiceNotificationEmail(
   userId: string,
   invoiceId: string,
   options?: {
-    to?: string;
-    cc?: string[];
+    to?: string | string[];
+    cc?: string | string[];
     templateType?: string;
     markSent?: boolean;
   }
@@ -42,8 +43,8 @@ export async function sendInvoiceNotificationEmail(
     return { ok: false, error: "Invoice not found." };
   }
 
-  const to = await resolveInvoiceEmailRecipient(userId, invoice.clientName, options?.to);
-  if (!to) {
+  const to = await resolveInvoiceEmailRecipients(userId, invoice.clientName, options?.to);
+  if (to.length === 0) {
     return {
       ok: false,
       error:
@@ -65,7 +66,8 @@ export async function sendInvoiceNotificationEmail(
   }
 
   const company = await getCompanyByUserId(userId);
-  const cc = options?.cc ?? parseCcList(company?.invoiceEmailCc);
+  const ccOverride = options?.cc !== undefined ? normalizeEmailList(options.cc) : undefined;
+  const cc = ccOverride ?? parseCcList(company?.invoiceEmailCc);
   const totals = calculateInvoiceTotals(invoice.lineItems);
   const vars = {
     invoiceNumber: invoice.invoiceNumber,

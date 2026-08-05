@@ -83,9 +83,9 @@ export default function SettingsScreen() {
         method: "POST",
         body: JSON.stringify({ promoteAdmin: true }),
       });
-      setSeedMessage("Your account is now admin. Refresh or sign in again to see the admin panel.");
+      setSeedMessage(t("settings.promoteSuccess"));
     } catch (e) {
-      setSeedMessage(e instanceof Error ? e.message : "Promotion failed.");
+      setSeedMessage(e instanceof Error ? e.message : t("settings.promoteFailed"));
     } finally {
       setPromoting(false);
     }
@@ -101,12 +101,19 @@ export default function SettingsScreen() {
         invoices: number;
         receipts: number;
         incoming: number;
+        receiptLineItems: number;
+        navReceiptSubmissions: number;
       }>("/api/dev/seed", { method: "POST" });
       setSeedMessage(
-        `Loaded ${result.invoices} invoices, ${result.clients} clients, ${result.products} products, and ${result.receipts} receipts.`
+        t("settings.seedResult", {
+          invoices: result.invoices,
+          clients: result.clients,
+          products: result.products,
+          receipts: result.receipts,
+        })
       );
     } catch (e) {
-      setSeedMessage(e instanceof Error ? e.message : "Seed failed.");
+      setSeedMessage(e instanceof Error ? e.message : t("settings.seedFailed"));
     } finally {
       setSeeding(false);
     }
@@ -170,7 +177,7 @@ export default function SettingsScreen() {
                       </Text>
                     </HStack>
                     <Text size="xs" className="text-muted-foreground">
-                      {isDarkColorScheme ? "Currently on" : "Currently off"}
+                      {isDarkColorScheme ? t("settings.darkModeOn") : t("settings.darkModeOff")}
                     </Text>
                   </VStack>
                   <ChevronRight size={16} color={icons.muted} />
@@ -211,7 +218,7 @@ export default function SettingsScreen() {
                 {promoting ? (
                   <ButtonSpinner />
                 ) : (
-                  <ButtonText>Make me admin (dev)</ButtonText>
+                  <ButtonText>{t("settings.promoteAdmin")}</ButtonText>
                 )}
               </Button>
             ) : null}

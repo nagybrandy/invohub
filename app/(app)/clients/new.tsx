@@ -1,7 +1,7 @@
 // app/(app)/clients/new.tsx
-// Create a new client.
 import * as React from "react";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import {
   FormControl,
@@ -17,6 +17,7 @@ import { routes } from "@/lib/navigation";
 import { useClients } from "@/hooks/useClients";
 
 export default function NewClientScreen() {
+  const { t } = useTranslation();
   const { create } = useClients();
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -26,7 +27,7 @@ export default function NewClientScreen() {
 
   async function handleSave() {
     if (!name.trim()) {
-      setError("Name is required.");
+      setError(t("clients.nameRequired"));
       return;
     }
     setSaving(true);
@@ -34,18 +35,18 @@ export default function NewClientScreen() {
       await create({ name: name.trim(), email: email.trim() || undefined, taxNumber: taxNumber.trim() || undefined });
       router.replace(routes.clients);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save.");
+      setError(e instanceof Error ? e.message : t("clients.saveFailed"));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <FormScreen header={<Heading size="2xl">New client</Heading>}>
+    <FormScreen header={<Heading size="2xl">{t("clients.new")}</Heading>}>
       <VStack space="md">
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Name</FormControlLabelText>
+            <FormControlLabelText>{t("clients.name")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={name} onChangeText={setName} placeholder="Acme Kft." />
@@ -53,7 +54,7 @@ export default function NewClientScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Email</FormControlLabelText>
+            <FormControlLabelText>{t("auth.email")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={email} onChangeText={setEmail} placeholder="billing@acme.hu" />
@@ -61,7 +62,7 @@ export default function NewClientScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Tax number</FormControlLabelText>
+            <FormControlLabelText>{t("company.taxNumber")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={taxNumber} onChangeText={setTaxNumber} placeholder="12345678-1-23" />
@@ -69,7 +70,7 @@ export default function NewClientScreen() {
         </FormControl>
         {error ? <Text className="text-destructive">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
-          <ButtonText>Save client</ButtonText>
+          <ButtonText>{saving ? t("common.saving") : t("clients.save")}</ButtonText>
         </Button>
       </VStack>
     </FormScreen>

@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     if (shouldSendEmail) {
       emailResult = await sendInvoiceNotificationEmail(auth.userId, invoice.id, {
         to: body.emailTo,
+        cc: body.emailCc,
         markSent: true,
       });
     }

@@ -1,7 +1,7 @@
 // app/login.tsx
-// Email + password auth with role selection for accountants vs entrepreneurs.
 import * as React from "react";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   FormControlLabelText,
 } from "@/components/ui/form-control";
 import { Heading } from "@/components/ui/heading";
-import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -22,6 +21,7 @@ import { routes } from "@/lib/navigation";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/user-roles";
 
 export default function Login() {
+  const { t } = useTranslation();
   const [mode, setMode] = React.useState<"signin" | "signup">("signin");
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -46,12 +46,12 @@ export default function Login() {
         : await authClient.signIn.email({ email, password });
 
       if (result.error) {
-        setError(result.error.message ?? "Authentication failed.");
+        setError(result.error.message ?? t("common.error"));
         return;
       }
       router.replace(routes.dashboard);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -60,16 +60,14 @@ export default function Login() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <Box className="flex-1 items-center justify-center px-6 py-8">
-        <Card className="w-full max-w-md p-6">
+        <Card className="w-full max-w-md p-8">
           <VStack space="lg">
             <VStack space="xs">
               <Heading size="xl">
-                {isSignup ? "Create account" : "Welcome back"}
+                {isSignup ? t("auth.createAccount") : t("auth.welcomeBack")}
               </Heading>
-              <Text size="sm" className="text-muted-foreground">
-                {isSignup
-                  ? "InvoHub for Hungarian invoicing, NAV compliance, and bookkeeping."
-                  : "Sign in to your InvoHub account."}
+              <Text size="sm" className="font-light text-muted-foreground">
+                {isSignup ? t("auth.signUpSubtitle") : t("auth.signInSubtitle")}
               </Text>
             </VStack>
 
@@ -78,7 +76,7 @@ export default function Login() {
                 <>
                   <FormControl>
                     <FormControlLabel>
-                      <FormControlLabelText>Name</FormControlLabelText>
+                      <FormControlLabelText>{t("auth.name")}</FormControlLabelText>
                     </FormControlLabel>
                     <Input>
                       <InputField
@@ -86,13 +84,16 @@ export default function Login() {
                         autoCapitalize="words"
                         value={name}
                         onChangeText={setName}
+                        className="font-light"
                       />
                     </Input>
                   </FormControl>
 
                   <FormControl>
                     <FormControlLabel>
-                      <FormControlLabelText>Account type</FormControlLabelText>
+                      <FormControlLabelText>
+                        {t("auth.accountType")}
+                      </FormControlLabelText>
                     </FormControlLabel>
                     <VStack space="sm">
                       {SIGNUP_ROLES.map((r) => (
@@ -100,14 +101,16 @@ export default function Login() {
                           key={r}
                           onPress={() => setRole(r)}
                           className={`rounded-lg border p-3 ${
-                            role === r ? "border-primary bg-accent" : "border-border bg-card"
+                            role === r
+                              ? "border-primary bg-primary/10"
+                              : "border-border bg-card"
                           }`}
                         >
-                          <Text className="font-medium capitalize">{r}</Text>
-                          <Text size="xs" className="text-muted-foreground">
-                            {r === "accountant"
-                              ? "Manage multiple clients, products, and full workflows."
-                              : "Invoice for your own business — simplified navigation."}
+                          <Text className="font-medium">
+                            {t(`roles.${r}`)}
+                          </Text>
+                          <Text size="xs" className="font-light text-muted-foreground">
+                            {t(`roles.${r}Hint`)}
                           </Text>
                         </Pressable>
                       ))}
@@ -118,23 +121,26 @@ export default function Login() {
 
               <FormControl>
                 <FormControlLabel>
-                  <FormControlLabelText>Email</FormControlLabelText>
+                  <FormControlLabelText>{t("auth.email")}</FormControlLabelText>
                 </FormControlLabel>
                 <Input>
                   <InputField
-                    placeholder="you@example.com"
+                    placeholder="te@pelda.hu"
                     autoCapitalize="none"
                     autoComplete="email"
                     keyboardType="email-address"
                     value={email}
                     onChangeText={setEmail}
+                    className="font-light"
                   />
                 </Input>
               </FormControl>
 
               <FormControl>
                 <FormControlLabel>
-                  <FormControlLabelText>Password</FormControlLabelText>
+                  <FormControlLabelText>
+                    {t("auth.password")}
+                  </FormControlLabelText>
                 </FormControlLabel>
                 <Input>
                   <InputField
@@ -142,6 +148,7 @@ export default function Login() {
                     secureTextEntry
                     value={password}
                     onChangeText={setPassword}
+                    className="font-light"
                   />
                 </Input>
               </FormControl>
@@ -156,7 +163,9 @@ export default function Login() {
                 {loading ? (
                   <ButtonSpinner />
                 ) : (
-                  <ButtonText>{isSignup ? "Sign up" : "Sign in"}</ButtonText>
+                  <ButtonText>
+                    {isSignup ? t("auth.signUp") : t("auth.signIn")}
+                  </ButtonText>
                 )}
               </Button>
             </VStack>
@@ -170,8 +179,8 @@ export default function Login() {
             >
               <Text size="sm" className="text-primary">
                 {isSignup
-                  ? "Already have an account? Sign in"
-                  : "No account? Create one"}
+                  ? t("auth.alreadyHaveAccount")
+                  : t("auth.noAccount")}
               </Text>
             </Pressable>
           </VStack>
@@ -179,7 +188,7 @@ export default function Login() {
 
         <Pressable onPress={() => router.push(routes.home)} className="mt-4 py-2">
           <Text size="sm" className="text-muted-foreground">
-            Back to home
+            {t("auth.backToHome")}
           </Text>
         </Pressable>
       </Box>

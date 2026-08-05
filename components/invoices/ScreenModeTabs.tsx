@@ -1,10 +1,15 @@
 // components/invoices/ScreenModeTabs.tsx
-// Top-level Edit / Preview switch for invoice forms.
+import { useTranslation } from "react-i18next";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 
 export type ScreenMode = "edit" | "preview";
+
+const MODE_I18N: Record<ScreenMode, string> = {
+  edit: "invoices.screenModes.edit",
+  preview: "invoices.screenModes.preview",
+};
 
 export function ScreenModeTabs({
   mode,
@@ -13,6 +18,7 @@ export function ScreenModeTabs({
   mode: ScreenMode;
   onChange: (mode: ScreenMode) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <HStack className="rounded-lg border border-border bg-muted p-1">
       {(["edit", "preview"] as ScreenMode[]).map((value) => (
@@ -25,11 +31,11 @@ export function ScreenModeTabs({
         >
           <Text
             size="sm"
-            className={`text-center font-medium capitalize ${
+            className={`text-center font-medium ${
               mode === value ? "text-foreground" : "text-muted-foreground"
             }`}
           >
-            {value}
+            {t(MODE_I18N[value])}
           </Text>
         </Pressable>
       ))}

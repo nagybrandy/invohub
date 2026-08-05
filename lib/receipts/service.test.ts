@@ -3,6 +3,7 @@ jest.mock("@/db", () => ({
   db: {
     select: jest.fn(),
     insert: jest.fn(),
+    update: jest.fn(),
   },
 }));
 
@@ -15,19 +16,27 @@ jest.mock("@/lib/id", () => ({
 }));
 
 jest.mock("@/lib/receipts/qr-payload", () => ({
-  buildReceiptQrUrl: (token: string) => `http://localhost:8081/receipts/view?token=${token}`,
+  buildReceiptQrUrl: (token: string) =>
+    `http://localhost:8081/receipts/view?token=${token}`,
 }));
 
 import { db } from "@/db";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import {
+  calculateLineItemTotals,
   createReceipt,
   getPublicReceiptByToken,
   validateReceiptInput,
 } from "@/lib/receipts/service";
 
-const mockDb = db as unknown as { select: jest.Mock; insert: jest.Mock };
-const mockCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
+const mockDb = db as unknown as {
+  select: jest.Mock;
+  insert: jest.Mock;
+  update: jest.Mock;
+};
+const mockCompany = getCompanyByUserId as jest.MockedFunction<
+  typeof getCompanyByUserId
+>;
 
 function makeWhereResult(rows: unknown[]) {
   return {
@@ -45,12 +54,100 @@ function selectChain(rows: unknown[]) {
 }
 
 describe("validateReceiptInput", () => {
-  it("rejects non-positive totals", () => {
-    expect(validateReceiptInput({ totalAmount: 0 })).toContain("greater than zero");
+  it("rejects when no totalAmount and no lineItems", () => {
+    expect(validateReceiptInput({})).toContain("totalAmount or lineItems");
   });
 
-  it("accepts valid input", () => {
-    expect(validateReceiptInput({ totalAmount: 100, currency: "HUF" })).toBeNull();
+  it("rejects non-positive totals without line items", () => {
+    expect(validateReceiptInput({ totalAmount: 0 })).toContain(
+      "greater than zero"
+    );
+  });
+
+  it("accepts valid totalAmount input", () => {
+    expect(
+      validateReceiptInput({ totalAmount: 100, currency: "HUF" })
+    ).toBeNull();
+  });
+
+  it("accepts valid lineItems input", () => {
+    expect(
+      validateReceiptInput({
+        lineItems: [
+          { description: "Item", quantity: 1, unitPrice: 1000, vatRate: 27 },
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("rejects line item with empty description", () => {
+    expect(
+      validateReceiptInput({
+        lineItems: [
+          { description: "", quantity: 1, unitPrice: 1000, vatRate: 27 },
+        ],
+      })
+    ).toContain("description");
+  });
+
+  it("rejects line item with zero quantity", () => {
+    expect(
+      validateReceiptInput({
+        lineItems: [
+          { description: "Item", quantity: 0, unitPrice: 1000, vatRate: 27 },
+        ],
+      })
+    ).toContain("quantity");
+  });
+
+  it("rejects invalid currency", () => {
+    expect(
+      validateReceiptInput({
+        totalAmount: 100,
+        currency: "USD" as "EUR" | "HUF",
+      })
+    ).toContain("currency");
+  });
+});
+
+describe("calculateLineItemTotals", () => {
+  it("calculates single item with 27% VAT", () => {
+    const result = calculateLineItemTotals([
+      { description: "Item", quantity: 2, unitPrice: 1000, vatRate: 27 },
+    ]);
+    expect(result.netTotal).toBe(2000);
+    expect(result.vatTotal).toBe(540);
+    expect(result.grossTotal).toBe(2540);
+    expect(result.vatBreakdown).toHaveLength(1);
+    expect(result.vatBreakdown[0].vatRate).toBe(27);
+  });
+
+  it("aggregates multiple VAT rates", () => {
+    const result = calculateLineItemTotals([
+      { description: "A", quantity: 1, unitPrice: 1000, vatRate: 27 },
+      { description: "B", quantity: 1, unitPrice: 500, vatRate: 5 },
+      { description: "C", quantity: 1, unitPrice: 200, vatRate: 27 },
+    ]);
+    expect(result.vatBreakdown).toHaveLength(2);
+
+    const vat27 = result.vatBreakdown.find((v) => v.vatRate === 27)!;
+    expect(vat27.netAmount).toBe(1200);
+    expect(vat27.vatAmount).toBe(324);
+    expect(vat27.itemCount).toBe(2);
+
+    const vat5 = result.vatBreakdown.find((v) => v.vatRate === 5)!;
+    expect(vat5.netAmount).toBe(500);
+    expect(vat5.vatAmount).toBe(25);
+    expect(vat5.itemCount).toBe(1);
+  });
+
+  it("handles zero VAT rate", () => {
+    const result = calculateLineItemTotals([
+      { description: "Tax-free", quantity: 1, unitPrice: 1000, vatRate: 0 },
+    ]);
+    expect(result.netTotal).toBe(1000);
+    expect(result.vatTotal).toBe(0);
+    expect(result.grossTotal).toBe(1000);
   });
 });
 
@@ -81,6 +178,8 @@ describe("getPublicReceiptByToken", () => {
           totalAmount: "12500",
           currency: "HUF",
           qrToken: "qr-token",
+          paymentMethod: "cash",
+          navSubmitted: false,
           issuedAt: new Date("2026-07-04T10:00:00.000Z"),
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -109,6 +208,8 @@ describe("createReceipt", () => {
             clientName: "Walk-in",
             totalAmount: "5000",
             currency: "HUF",
+            paymentMethod: "cash",
+            navSubmitted: false,
             qrToken: "receipt-id-1",
             issuedAt: new Date("2026-07-04T10:00:00.000Z"),
             createdAt: new Date(),
@@ -123,5 +224,15 @@ describe("createReceipt", () => {
     const record = await createReceipt("u1", { totalAmount: 5000 });
     expect(record.receiptNumber).toMatch(/^NYG-/);
     expect(record.qrUrl).toContain("/receipts/view?token=");
+  });
+
+  it("creates receipt with line items and calculates total", async () => {
+    const record = await createReceipt("u1", {
+      lineItems: [
+        { description: "Kávé", quantity: 2, unitPrice: 500, vatRate: 27 },
+      ],
+    });
+    expect(record.receiptNumber).toMatch(/^NYG-/);
+    expect(mockDb.insert).toHaveBeenCalledTimes(2);
   });
 });

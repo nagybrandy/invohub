@@ -83,6 +83,7 @@ export const company = pgTable(
     navTechnicalPassword: text("nav_technical_password"),
     navXmlSignKey: text("nav_xml_sign_key"),
     navEnvironment: text("nav_environment").default("test"),
+    navReceiptSoftwareId: text("nav_receipt_software_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -305,18 +306,79 @@ export const receipt = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    companyId: text("company_id").references(() => company.id, {
+      onDelete: "set null",
+    }),
     receiptNumber: text("receipt_number").notNull(),
     clientName: text("client_name"),
     totalAmount: numeric("total_amount", { precision: 12, scale: 2 })
       .notNull()
       .default("0"),
     currency: text("currency").notNull().default("HUF"),
+    paymentMethod: text("payment_method").default("cash"),
     qrToken: text("qr_token").notNull().unique(),
+    navSubmitted: boolean("nav_submitted").notNull().default(false),
     issuedAt: timestamp("issued_at").notNull().defaultNow(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [index("receipt_user_id_idx").on(table.userId)]
+  (table) => [
+    index("receipt_user_id_idx").on(table.userId),
+    index("receipt_issued_at_idx").on(table.issuedAt),
+  ]
+);
+
+export const receiptLineItem = pgTable(
+  "receipt_line_item",
+  {
+    id: text("id").primaryKey(),
+    receiptId: text("receipt_id")
+      .notNull()
+      .references(() => receipt.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 4 })
+      .notNull()
+      .default("1"),
+    unitPrice: numeric("unit_price", { precision: 12, scale: 2 })
+      .notNull()
+      .default("0"),
+    vatRate: integer("vat_rate").notNull().default(27),
+    unit: text("unit").default("db"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("receipt_line_item_receipt_id_idx").on(table.receiptId)]
+);
+
+export const navReceiptSubmission = pgTable(
+  "nav_receipt_submission",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    companyId: text("company_id").references(() => company.id, {
+      onDelete: "set null",
+    }),
+    reportDate: text("report_date").notNull(),
+    status: text("status").notNull().default("pending"),
+    transactionId: text("transaction_id"),
+    receiptCount: integer("receipt_count").notNull().default(0),
+    cancelledCount: integer("cancelled_count").notNull().default(0),
+    startReceiptNumber: text("start_receipt_number"),
+    endReceiptNumber: text("end_receipt_number"),
+    vatBreakdown: text("vat_breakdown"),
+    errorMessage: text("error_message"),
+    submittedAt: timestamp("submitted_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("nav_receipt_sub_user_id_idx").on(table.userId),
+    index("nav_receipt_sub_date_idx").on(table.reportDate),
+    index("nav_receipt_sub_status_idx").on(table.status),
+  ]
 );
 
 export const notification = pgTable(
@@ -379,6 +441,8 @@ export const schema = {
   paymentReminderSchedule,
   incomingInvoice,
   receipt,
+  receiptLineItem,
+  navReceiptSubmission,
   notification,
   apiKey,
 };

@@ -8,9 +8,10 @@ describe("themeTokens", () => {
     expect(themeTokens.dark["--primary-foreground"]).toBe("255 255 255");
   });
 
-  it("uses subtle dark accent (not saturated purple block)", () => {
-    expect(themeTokens.dark["--accent"]).toBe("30 38 56");
-    expect(themeTokens.dark["--accent-foreground"]).toBe("199 210 254");
+  it("uses Figma design system colors", () => {
+    expect(themeTokens.light["--primary"]).toBe("100 149 237");
+    expect(themeTokens.light["--secondary"]).toBe("31 48 94");
+    expect(themeTokens.light["--accent"]).toBe("141 182 0");
     expect(themeTokens.dark["--muted-foreground"]).toBe("180 190 204");
   });
 });

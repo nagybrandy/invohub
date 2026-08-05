@@ -2,6 +2,7 @@
 // Receipt list with link to create new receipt.
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { Badge, BadgeText } from "@/components/ui/badge";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
@@ -68,9 +69,16 @@ export default function ReceiptsScreen() {
                   {formatDateWithTime(item.issuedAt)}
                 </Text>
               </VStack>
-              <Text className="font-semibold text-foreground">
-                {formatCurrency(item.totalAmount, item.currency)}
-              </Text>
+              <VStack space="xs" className="items-end">
+                <Text className="font-semibold text-foreground">
+                  {formatCurrency(item.totalAmount, item.currency)}
+                </Text>
+                {item.navSubmitted ? (
+                  <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
+                    <BadgeText className="text-[10px] text-green-600">NAV ✓</BadgeText>
+                  </Badge>
+                ) : null}
+              </VStack>
             </HStack>
           </Card>
         </Pressable>

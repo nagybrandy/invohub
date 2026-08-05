@@ -9,7 +9,7 @@ export type EmailAttachment = {
 };
 
 export type SendEmailInput = {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   text?: string;

@@ -1,0 +1,34 @@
+---
+description: Require unit tests when adding or changing app features
+globs: "**/*.{ts,tsx}"
+alwaysApply: true
+---
+
+# Tests for every new feature
+
+When you add or materially change a feature, **add or update tests in the same change**. Do not merge feature-only diffs without test coverage.
+
+## What to test
+
+| Change type | Test location | Minimum coverage |
+|-------------|---------------|------------------|
+| Pure logic in `lib/` | `lib/**/*.test.ts` next to module or under `__tests__/` | Happy path + one edge/error case |
+| React hooks in `hooks/` | `hooks/**/*.test.tsx` | Mount, success load, error/update action |
+| UI components with behavior | `components/**/*.test.tsx` | Render key content + primary interaction |
+| Route helpers / nav | `lib/navigation.test.ts`, `lib/app-navigation.test.ts` | New routes and active-state rules |
+| API route handlers | Prefer testing `lib/` service used by route | Auth rejection if trivial |
+
+## Conventions
+
+- Follow existing Jest + jest-expo setup (`jest.config.js`, `jest.setup.ts`).
+- Reuse fixtures from `__tests__/fixtures/` and Gluestack mocks from `__tests__/mocks/gluestack-ui`.
+- Mock `@/db` for Drizzle services; mock `@/lib/api/client` for hooks.
+- Hook tests: `react-test-renderer` + `act()` (see `hooks/useInvoices.test.tsx`).
+
+## Before finishing
+
+1. Run `npm run test:unit` — all suites must pass.
+2. If you added routes or user-visible flows, consider a Playwright spec in `e2e/web/`.
+3. Update `TESTING.md` only when commands or layers change.
+
+Full guide: `AGENTS.md` § Testing, `TESTING.md`.

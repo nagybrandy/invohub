@@ -1,7 +1,7 @@
 // app/(app)/settings/company.tsx
-// Company profile with billing email, tax lookup, and NAV credentials.
 import * as React from "react";
 import { Platform } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import {
   FormControl,
@@ -19,6 +19,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { NAV_API_BASE_URL, type NavEnvironment } from "@/lib/nav/environment";
 
 export default function CompanySettingsScreen() {
+  const { t } = useTranslation();
   const { company, loading, save, lookup } = useCompany();
   const [name, setName] = React.useState("");
   const [taxNumber, setTaxNumber] = React.useState("");
@@ -69,7 +70,7 @@ export default function CompanySettingsScreen() {
         if (data.zipCode) setZipCode(data.zipCode);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Lookup failed.");
+      setError(e instanceof Error ? e.message : t("settings.companySettings.lookupFailed"));
     } finally {
       setLookingUp(false);
     }
@@ -77,7 +78,7 @@ export default function CompanySettingsScreen() {
 
   async function handleSave() {
     if (!name.trim()) {
-      setError("Company name is required.");
+      setError(t("settings.companySettings.nameRequired"));
       return;
     }
     setSaving(true);
@@ -98,9 +99,9 @@ export default function CompanySettingsScreen() {
         navXmlSignKey: navXmlSignKey.trim() || undefined,
         navEnvironment,
       });
-      setSuccess("Company profile saved.");
+      setSuccess(t("settings.companySettings.saved"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save.");
+      setError(e instanceof Error ? e.message : t("settings.companySettings.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -110,24 +111,24 @@ export default function CompanySettingsScreen() {
 
   if (loading && !company) {
     return (
-      <FormScreen header={<Heading size="2xl">Company profile</Heading>}>
-        <Text>Loading…</Text>
+      <FormScreen header={<Heading size="2xl">{t("settings.companySettings.title")}</Heading>}>
+        <Text>{t("common.loading")}</Text>
       </FormScreen>
     );
   }
 
   return (
-    <FormScreen header={<Heading size="2xl">Company profile</Heading>}>
+    <FormScreen header={<Heading size="2xl">{t("settings.companySettings.title")}</Heading>}>
       <VStack space="lg">
         <Text size="sm" className="text-muted-foreground">
-          Company details, default invoice email recipients, and NAV API credentials.
+          {t("settings.companySettings.subtitle")}
         </Text>
 
         <VStack space="md">
-          <Text className="font-semibold text-foreground">Company details</Text>
+          <Text className="font-semibold text-foreground">{t("settings.companySettings.companyDetails")}</Text>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>Tax number</FormControlLabelText>
+              <FormControlLabelText>{t("company.taxNumber")}</FormControlLabelText>
             </FormControlLabel>
             <HStack space="sm">
               <Input className="flex-1">
@@ -138,13 +139,13 @@ export default function CompanySettingsScreen() {
                 />
               </Input>
               <Button variant="outline" onPress={handleLookup} disabled={lookingUp}>
-                <ButtonText>Lookup</ButtonText>
+                <ButtonText>{t("settings.companySettings.lookup")}</ButtonText>
               </Button>
             </HStack>
           </FormControl>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>Company name</FormControlLabelText>
+              <FormControlLabelText>{t("company.name")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField value={name} onChangeText={setName} />
@@ -152,7 +153,7 @@ export default function CompanySettingsScreen() {
           </FormControl>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>Address</FormControlLabelText>
+              <FormControlLabelText>{t("company.address")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField value={address} onChangeText={setAddress} />
@@ -161,7 +162,7 @@ export default function CompanySettingsScreen() {
           <HStack space="sm">
             <FormControl className="flex-1">
               <FormControlLabel>
-                <FormControlLabelText>City</FormControlLabelText>
+                <FormControlLabelText>{t("company.city")}</FormControlLabelText>
               </FormControlLabel>
               <Input>
                 <InputField value={city} onChangeText={setCity} />
@@ -169,7 +170,7 @@ export default function CompanySettingsScreen() {
             </FormControl>
             <FormControl className="w-28">
               <FormControlLabel>
-                <FormControlLabelText>ZIP</FormControlLabelText>
+                <FormControlLabelText>{t("company.zip")}</FormControlLabelText>
               </FormControlLabel>
               <Input>
                 <InputField value={zipCode} onChangeText={setZipCode} />
@@ -178,7 +179,7 @@ export default function CompanySettingsScreen() {
           </HStack>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>Bank account</FormControlLabelText>
+              <FormControlLabelText>{t("company.bankAccount")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField value={bankAccount} onChangeText={setBankAccount} />
@@ -187,14 +188,13 @@ export default function CompanySettingsScreen() {
         </VStack>
 
         <VStack space="md">
-          <Text className="font-semibold text-foreground">Invoice emails</Text>
+          <Text className="font-semibold text-foreground">{t("settings.companySettings.invoiceEmails")}</Text>
           <Text size="sm" className="text-muted-foreground">
-            Default recipient when sending invoices from the app or external API. Separate multiple CC
-            addresses with commas.
+            {t("settings.companySettings.invoiceEmailsDesc")}
           </Text>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>Send invoices to</FormControlLabelText>
+              <FormControlLabelText>{t("settings.companySettings.sendTo")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField
@@ -209,7 +209,7 @@ export default function CompanySettingsScreen() {
           </FormControl>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>CC (optional)</FormControlLabelText>
+              <FormControlLabelText>{t("settings.companySettings.cc")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField
@@ -224,24 +224,23 @@ export default function CompanySettingsScreen() {
 
         <VStack space="md">
           <HStack className="items-center justify-between">
-            <Text className="font-semibold text-foreground">NAV Online Számla</Text>
+            <Text className="font-semibold text-foreground">{t("settings.companySettings.navSection")}</Text>
             {Platform.OS !== "web" ? (
               <Button
                 size="sm"
                 variant="outline"
                 onPress={() => setShowNavSecrets((v) => !v)}
               >
-                <ButtonText>{showNavSecrets ? "Hide secrets" : "Show secrets"}</ButtonText>
+                <ButtonText>{showNavSecrets ? t("settings.companySettings.hideSecrets") : t("settings.companySettings.showSecrets")}</ButtonText>
               </Button>
             ) : null}
           </HStack>
           <Text size="sm" className="text-muted-foreground">
-            Technical user credentials for NAV API integration. Choose test or live environment
-            before saving credentials.
+            {t("settings.companySettings.navDesc")}
           </Text>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>NAV környezet</FormControlLabelText>
+              <FormControlLabelText>{t("company.navEnvironment")}</FormControlLabelText>
             </FormControlLabel>
             <NavEnvironmentPicker value={navEnvironment} onChange={setNavEnvironment} />
             <Text size="xs" className="mt-2 text-muted-foreground">
@@ -250,7 +249,7 @@ export default function CompanySettingsScreen() {
           </FormControl>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>NAV technical user</FormControlLabelText>
+              <FormControlLabelText>{t("company.navTechnicalUser")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField
@@ -264,7 +263,7 @@ export default function CompanySettingsScreen() {
           </FormControl>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>Technical user password</FormControlLabelText>
+              <FormControlLabelText>{t("company.navTechnicalPassword")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField
@@ -279,7 +278,7 @@ export default function CompanySettingsScreen() {
           </FormControl>
           <FormControl>
             <FormControlLabel>
-              <FormControlLabelText>XML sign key</FormControlLabelText>
+              <FormControlLabelText>{t("company.navXmlSignKey")}</FormControlLabelText>
             </FormControlLabel>
             <Input>
               <InputField
@@ -297,7 +296,7 @@ export default function CompanySettingsScreen() {
         {success ? <Text className="text-primary">{success}</Text> : null}
         {error ? <Text className="text-destructive">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
-          <ButtonText>{saving ? "Saving…" : "Save company"}</ButtonText>
+          <ButtonText>{saving ? t("common.saving") : t("settings.companySettings.save")}</ButtonText>
         </Button>
       </VStack>
     </FormScreen>

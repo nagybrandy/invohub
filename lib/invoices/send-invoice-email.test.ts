@@ -10,7 +10,7 @@ jest.mock("@/lib/invoices/service", () => ({
 
 jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn(),
-  resolveInvoiceEmailRecipient: jest.fn(),
+  resolveInvoiceEmailRecipients: jest.fn(),
 }));
 
 jest.mock("@/lib/email/templates/service", () => ({
@@ -25,7 +25,7 @@ jest.mock("@/lib/email/send", () => ({
   sendEmail: jest.fn(),
 }));
 
-import { getCompanyByUserId, resolveInvoiceEmailRecipient } from "@/lib/companies/service";
+import { getCompanyByUserId, resolveInvoiceEmailRecipients } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
@@ -34,8 +34,8 @@ import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockGetInvoice = getInvoiceById as jest.MockedFunction<typeof getInvoiceById>;
-const mockResolveRecipient = resolveInvoiceEmailRecipient as jest.MockedFunction<
-  typeof resolveInvoiceEmailRecipient
+const mockResolveRecipients = resolveInvoiceEmailRecipients as jest.MockedFunction<
+  typeof resolveInvoiceEmailRecipients
 >;
 const mockGetTemplate = getEmailTemplateByType as jest.MockedFunction<typeof getEmailTemplateByType>;
 const mockBuildPdf = buildInvoicePdfForUser as jest.MockedFunction<typeof buildInvoicePdfForUser>;
@@ -51,7 +51,7 @@ describe("sendInvoiceNotificationEmail", () => {
   it("returns error when recipient cannot be resolved", async () => {
     const invoice = makeInvoice();
     mockGetInvoice.mockResolvedValue(invoice);
-    mockResolveRecipient.mockResolvedValue(null);
+    mockResolveRecipients.mockResolvedValue([]);
 
     const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
 
@@ -62,7 +62,7 @@ describe("sendInvoiceNotificationEmail", () => {
   it("sends email with pdf attachment", async () => {
     const invoice = makeInvoice({ status: "draft" });
     mockGetInvoice.mockResolvedValue(invoice);
-    mockResolveRecipient.mockResolvedValue("bendeguznagy55@gmail.com");
+    mockResolveRecipients.mockResolvedValue(["bendeguznagy55@gmail.com"]);
     mockGetTemplate.mockResolvedValue({
       id: "tpl-1",
       userId: "user-1",
@@ -91,11 +91,47 @@ describe("sendInvoiceNotificationEmail", () => {
     const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
 
     expect(result.ok).toBe(true);
-    expect(result.to).toBe("bendeguznagy55@gmail.com");
+    expect(result.to).toEqual(["bendeguznagy55@gmail.com"]);
     expect(mockSendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: "bendeguznagy55@gmail.com",
+        to: ["bendeguznagy55@gmail.com"],
         cc: ["cc@example.com"],
+      })
+    );
+  });
+
+  it("sends to multiple recipients when provided", async () => {
+    const invoice = makeInvoice({ status: "sent" });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["a@x.com", "b@x.com"]);
+    mockGetTemplate.mockResolvedValue({
+      id: "tpl-1",
+      userId: "user-1",
+      type: "invoice_notification",
+      subject: "Invoice {{invoiceNumber}}",
+      bodyHtml: "<p>{{clientName}}</p>",
+      bodyText: "{{clientName}}",
+      createdAt: "",
+      updatedAt: "",
+    });
+    mockBuildPdf.mockResolvedValue({
+      pdf: Buffer.from("%PDF"),
+      invoiceNumber: invoice.invoiceNumber,
+    });
+    mockGetCompany.mockResolvedValue(null);
+    mockSendEmail.mockResolvedValue({ ok: true });
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id, {
+      to: ["a@x.com", "b@x.com"],
+      cc: ["cc@x.com"],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.to).toEqual(["a@x.com", "b@x.com"]);
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ["a@x.com", "b@x.com"],
+        cc: ["cc@x.com"],
       })
     );
   });

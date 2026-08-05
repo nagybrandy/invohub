@@ -85,7 +85,8 @@ Létrehoz egy számlát. Alapértelmezetten **e-mailt küld PDF csatolmánnyal**
 | `currency` | string | nem | `EUR` vagy `HUF` (default: `EUR`) |
 | `notes` | string | nem | Megjegyzés a számlán |
 | `sendEmail` | boolean | nem | E-mail küldés (default: `true`) |
-| `emailTo` | string | nem | Címzett felülírása |
+| `emailTo` | string \| string[] | nem | Címzett(ek) felülírása — egy e-mail, vesszővel elválasztott lista, vagy tömb |
+| `emailCc` | string \| string[] | nem | Másolat (Cc) címzettek — felülírja a cégprofil Cc mezőjét |
 | `submitToNav` | boolean | nem | NAV beküldés azonnal (default: `false`) |
 
 #### E-mail címzett feloldása
@@ -96,7 +97,12 @@ Ha `emailTo` nincs megadva, sorrend:
 2. Ügyfél e-mail (név alapján keresve)
 3. Ha egyik sincs → `email.sent: false`, hibaüzenet a válaszban
 
-CC: cégprofil **Invoice email (Cc)** mező.
+Ha `emailTo` meg van adva, az API **közvetlenül** ezeknek küldi (több címzett is megadható).
+
+Cc sorrend:
+
+1. `emailCc` a request body-ban (ha megadva — akár üres tömb is, ekkor nincs Cc)
+2. Egyébként cégprofil **Invoice email (Cc)** mező
 
 #### Példa — cURL
 
@@ -118,7 +124,8 @@ curl -X POST "https://invohub.vercel.app/api/v1/invoices" \
       }
     ],
     "sendEmail": true,
-    "emailTo": "billing@acme.hu"
+    "emailTo": ["billing@acme.hu", "accounting@acme.hu"],
+    "emailCc": "ceo@acme.hu"
   }'
 ```
 
@@ -175,8 +182,8 @@ console.log(data.invoice.invoiceNumber, data.email);
   "navSubmission": null,
   "email": {
     "sent": true,
-    "to": "billing@acme.hu",
-    "cc": [],
+    "to": ["billing@acme.hu", "accounting@acme.hu"],
+    "cc": ["ceo@acme.hu"],
     "pdfAttached": true
   }
 }

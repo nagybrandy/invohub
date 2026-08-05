@@ -1,0 +1,43 @@
+---
+description: Gluestack UI + NativeWind + React Native Web conventions for InvoHub
+globs: "**/*.{tsx,ts}"
+alwaysApply: false
+---
+
+# Gluestack / React Native / Web
+
+Read `AGENTS.md` for full context. Critical rules:
+
+## Web DOM — always strip RN props
+
+In `*.web.tsx`, never spread raw props onto `div`/`span`:
+
+```tsx
+// ✅
+<div {...webDomProps(props)} className={boxStyle({ class: className })} />
+
+// ❌
+<div {...props} />
+```
+
+Import from `@/components/ui/web-dom-props`.
+
+## No style arrays on web
+
+```tsx
+// ❌ crashes: CSSStyleDeclaration indexed property
+<View style={[a, b]} />
+
+// ✅
+<Box className="p-4" />
+```
+
+## FlatList empty states
+
+Render empty UI **outside** FlatList (early return), not via `ListEmptyComponent={<Center/>}`.
+
+## Styling
+
+- Use `className` + Gluestack `tva()` — not inline `style`
+- Use `Box`/`VStack`/`HStack`/`Center` from `@/components/ui/`
+- Theme tokens: `components/ui/gluestack-ui-provider/config.ts`

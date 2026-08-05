@@ -7,11 +7,13 @@ import {
   company,
   incomingInvoice,
   invoice,
+  navReceiptSubmission,
   navSubmission,
   notification,
   paymentReminderSchedule,
   product,
   receipt,
+  receiptLineItem,
 } from "@/db/schema";
 import { seedDefaultTemplates } from "@/lib/email/templates/service";
 import { createId } from "@/lib/id";
@@ -153,6 +155,8 @@ export type SeedResult = {
   invoices: number;
   receipts: number;
   incoming: number;
+  receiptLineItems: number;
+  navReceiptSubmissions: number;
 };
 
 export async function seedDemoData(userId: string): Promise<SeedResult> {
@@ -170,6 +174,7 @@ export async function seedDemoData(userId: string): Promise<SeedResult> {
   await db.delete(invoice).where(eq(invoice.userId, userId));
   await db.delete(client).where(eq(client.userId, userId));
   await db.delete(product).where(eq(product.userId, userId));
+  await db.delete(navReceiptSubmission).where(eq(navReceiptSubmission.userId, userId));
   await db.delete(receipt).where(eq(receipt.userId, userId));
   await db.delete(incomingInvoice).where(eq(incomingInvoice.userId, userId));
   await db.delete(paymentReminderSchedule).where(eq(paymentReminderSchedule.userId, userId));
@@ -188,6 +193,10 @@ export async function seedDemoData(userId: string): Promise<SeedResult> {
     zipCode: "1132",
     country: "HU",
     bankAccount: "11773322-12345678-00000000",
+    navTechnicalUser: "DEMO_TECH_USER",
+    navTechnicalPassword: "demo-password-placeholder",
+    navXmlSignKey: "demo-sign-key-placeholder",
+    navEnvironment: "test",
     createdAt: now,
     updatedAt: now,
   });
@@ -375,28 +384,205 @@ export async function seedDemoData(userId: string): Promise<SeedResult> {
     });
   }
 
-  const receiptRows = [
-    { receiptNumber: "NYG-2026-001", clientName: "Walk-in customer", totalAmount: "12500", currency: "HUF" },
-    { receiptNumber: "NYG-2026-002", clientName: "Tech Solutions Kft.", totalAmount: "8900", currency: "HUF" },
-    { receiptNumber: "NYG-2026-003", clientName: "Conference attendee", totalAmount: "45000", currency: "HUF" },
-    { receiptNumber: "NYG-2026-004", clientName: "Green Energy Zrt.", totalAmount: "3200", currency: "EUR" },
-    { receiptNumber: "NYG-2026-005", clientName: undefined, totalAmount: "5600", currency: "HUF" },
+  type ReceiptLineItemSeed = {
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    vatRate: number;
+    unit?: string;
+  };
+
+  const receiptRows: {
+    receiptNumber: string;
+    clientName: string | undefined;
+    totalAmount: string;
+    currency: string;
+    paymentMethod: string;
+    navSubmitted: boolean;
+    issuedDaysAgo: number;
+    lineItems: ReceiptLineItemSeed[];
+  }[] = [
+    {
+      receiptNumber: "NYG-2026-001",
+      clientName: "Walk-in customer",
+      totalAmount: "12500",
+      currency: "HUF",
+      paymentMethod: "cash",
+      navSubmitted: true,
+      issuedDaysAgo: 5,
+      lineItems: [
+        { description: "Kávé", quantity: 2, unitPrice: 890, vatRate: 27, unit: "db" },
+        { description: "Sütemény", quantity: 3, unitPrice: 1200, vatRate: 27, unit: "db" },
+        { description: "Szendvics", quantity: 2, unitPrice: 2950, vatRate: 27, unit: "db" },
+      ],
+    },
+    {
+      receiptNumber: "NYG-2026-002",
+      clientName: "Tech Solutions Kft.",
+      totalAmount: "8900",
+      currency: "HUF",
+      paymentMethod: "card",
+      navSubmitted: true,
+      issuedDaysAgo: 4,
+      lineItems: [
+        { description: "IT support (1 óra)", quantity: 1, unitPrice: 8900, vatRate: 27, unit: "óra" },
+      ],
+    },
+    {
+      receiptNumber: "NYG-2026-003",
+      clientName: "Conference attendee",
+      totalAmount: "45000",
+      currency: "HUF",
+      paymentMethod: "transfer",
+      navSubmitted: true,
+      issuedDaysAgo: 3,
+      lineItems: [
+        { description: "Konferencia részvételi díj", quantity: 1, unitPrice: 35433, vatRate: 27, unit: "db" },
+        { description: "Catering csomag", quantity: 1, unitPrice: 9567, vatRate: 27, unit: "db" },
+      ],
+    },
+    {
+      receiptNumber: "NYG-2026-004",
+      clientName: "Green Energy Zrt.",
+      totalAmount: "3200",
+      currency: "EUR",
+      paymentMethod: "card",
+      navSubmitted: false,
+      issuedDaysAgo: 1,
+      lineItems: [
+        { description: "Consulting session", quantity: 2, unitPrice: 1260, vatRate: 27, unit: "hour" },
+        { description: "Travel expenses", quantity: 1, unitPrice: 680, vatRate: 27, unit: "db" },
+      ],
+    },
+    {
+      receiptNumber: "NYG-2026-005",
+      clientName: undefined,
+      totalAmount: "5600",
+      currency: "HUF",
+      paymentMethod: "cash",
+      navSubmitted: false,
+      issuedDaysAgo: 0,
+      lineItems: [
+        { description: "Vegyes kiskereskedelmi tétel", quantity: 1, unitPrice: 4409, vatRate: 27, unit: "db" },
+        { description: "Műanyag tasak (5% ÁFA)", quantity: 2, unitPrice: 100, vatRate: 5, unit: "db" },
+      ],
+    },
+    {
+      receiptNumber: "NYG-2026-006",
+      clientName: "Budapest Bistro Kft.",
+      totalAmount: "28750",
+      currency: "HUF",
+      paymentMethod: "cash",
+      navSubmitted: true,
+      issuedDaysAgo: 7,
+      lineItems: [
+        { description: "Catering rendelés (50 fő)", quantity: 50, unitPrice: 453, vatRate: 27, unit: "adag" },
+        { description: "Szállítási díj", quantity: 1, unitPrice: 6100, vatRate: 27, unit: "db" },
+      ],
+    },
+    {
+      receiptNumber: "NYG-2026-007",
+      clientName: "Studio Pixel Kft.",
+      totalAmount: "15900",
+      currency: "HUF",
+      paymentMethod: "card",
+      navSubmitted: true,
+      issuedDaysAgo: 10,
+      lineItems: [
+        { description: "Fotónyomtatás A3", quantity: 10, unitPrice: 1250, vatRate: 27, unit: "db" },
+        { description: "Keretezés", quantity: 2, unitPrice: 1700, vatRate: 27, unit: "db" },
+      ],
+    },
+    {
+      receiptNumber: "NYG-2026-008",
+      clientName: "Walk-in customer",
+      totalAmount: "2100",
+      currency: "HUF",
+      paymentMethod: "cash",
+      navSubmitted: false,
+      issuedDaysAgo: 0,
+      lineItems: [
+        { description: "Espresso", quantity: 1, unitPrice: 690, vatRate: 27, unit: "db" },
+        { description: "Croissant", quantity: 1, unitPrice: 850, vatRate: 27, unit: "db" },
+        { description: "Ásványvíz 0.5l", quantity: 1, unitPrice: 560, vatRate: 27, unit: "db" },
+      ],
+    },
   ];
 
+  const receiptIds: string[] = [];
   for (const row of receiptRows) {
+    const receiptId = createId();
+    receiptIds.push(receiptId);
+    const issuedAt = new Date(now);
+    issuedAt.setDate(issuedAt.getDate() - row.issuedDaysAgo);
+
     await db.insert(receipt).values({
-      id: createId(),
+      id: receiptId,
       userId,
+      companyId,
       receiptNumber: row.receiptNumber,
       clientName: row.clientName ?? null,
       totalAmount: row.totalAmount,
       currency: row.currency,
+      paymentMethod: row.paymentMethod,
+      navSubmitted: row.navSubmitted,
       qrToken: createId(),
-      issuedAt: now,
+      issuedAt,
       createdAt: now,
       updatedAt: now,
     });
+
+    for (let i = 0; i < row.lineItems.length; i++) {
+      const li = row.lineItems[i];
+      await db.insert(receiptLineItem).values({
+        id: createId(),
+        receiptId,
+        description: li.description,
+        quantity: String(li.quantity),
+        unitPrice: String(li.unitPrice),
+        vatRate: li.vatRate,
+        unit: li.unit ?? "db",
+        sortOrder: i,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
   }
+
+  const todayStr = now.toISOString().slice(0, 10);
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+
+  await db.insert(navReceiptSubmission).values({
+    id: createId(),
+    userId,
+    companyId,
+    reportDate: yesterdayStr,
+    status: "accepted",
+    transactionId: "NAV-REC-DEMO-001",
+    receiptCount: 3,
+    cancelledCount: 0,
+    startReceiptNumber: "NYG-2026-001",
+    endReceiptNumber: "NYG-2026-003",
+    submittedAt: yesterdayDate,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await db.insert(navReceiptSubmission).values({
+    id: createId(),
+    userId,
+    companyId,
+    reportDate: todayStr,
+    status: "pending",
+    receiptCount: 2,
+    cancelledCount: 0,
+    startReceiptNumber: "NYG-2026-004",
+    endReceiptNumber: "NYG-2026-005",
+    createdAt: now,
+    updatedAt: now,
+  });
 
   await seedDefaultTemplates(userId);
   await seedDemoNotifications(userId);
@@ -408,5 +594,7 @@ export async function seedDemoData(userId: string): Promise<SeedResult> {
     invoices: invoiceDefs.length,
     receipts: receiptRows.length,
     incoming: incomingRows.length,
+    receiptLineItems: receiptRows.reduce((sum, r) => sum + r.lineItems.length, 0),
+    navReceiptSubmissions: 2,
   };
 }

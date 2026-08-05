@@ -13,7 +13,7 @@ jest.mock("@/lib/clients/service", () => ({
 
 import { db } from "@/db";
 import { findClientByName } from "@/lib/clients/service";
-import { resolveInvoiceEmailRecipient, upsertCompany } from "@/lib/companies/service";
+import { resolveInvoiceEmailRecipient, resolveInvoiceEmailRecipients, upsertCompany } from "@/lib/companies/service";
 
 const mockDb = db as unknown as {
   select: jest.Mock;
@@ -121,5 +121,34 @@ describe("resolveInvoiceEmailRecipient", () => {
 
     const email = await resolveInvoiceEmailRecipient("u1", "Acme");
     expect(email).toBeNull();
+  });
+});
+
+describe("resolveInvoiceEmailRecipients", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("returns override list without fallback lookup", async () => {
+    const emails = await resolveInvoiceEmailRecipients("u1", "Acme", [
+      "a@test.com",
+      "b@test.com",
+    ]);
+    expect(emails).toEqual(["a@test.com", "b@test.com"]);
+    expect(mockDb.select).not.toHaveBeenCalled();
+  });
+
+  it("falls back to single recipient resolution", async () => {
+    mockCompanySelect({
+      id: "c1",
+      userId: "u1",
+      name: "Demo",
+      invoiceEmailTo: "company@test.com",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const emails = await resolveInvoiceEmailRecipients("u1", "Acme");
+    expect(emails).toEqual(["company@test.com"]);
   });
 });

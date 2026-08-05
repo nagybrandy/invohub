@@ -23,20 +23,20 @@ export default function ClientsScreen() {
       loading={loading}
       refreshing={loading}
       onRefresh={refresh}
-      emptyTitle="No clients yet"
-      emptyDescription="Add clients you manage as an accountant."
+      emptyTitle={t("clients.empty")}
+      emptyDescription={t("clients.emptyDesc")}
       emptyAction={
         <Button onPress={() => router.push(routes.newClient)}>
-          <ButtonText>Add client</ButtonText>
+          <ButtonText>{t("clients.add")}</ButtonText>
         </Button>
       }
       header={
         <PageHeader
           title={t("nav.clients")}
-          subtitle="Client directory for accountant accounts."
+          subtitle={t("clients.subtitle")}
           actions={
             <Button size="sm" onPress={() => router.push(routes.newClient)}>
-              <ButtonText>Add</ButtonText>
+              <ButtonText>{t("clients.addShort")}</ButtonText>
             </Button>
           }
         />

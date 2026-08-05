@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { company } from "@/db/schema";
 import { findClientByName } from "@/lib/clients/service";
+import { normalizeEmailList, type EmailRecipientsInput } from "@/lib/email/recipients";
 import { createId } from "@/lib/id";
 import { isNavEnvironment, parseNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
 
@@ -148,4 +149,18 @@ export async function resolveInvoiceEmailRecipient(
   if (client?.email?.trim()) return client.email.trim();
 
   return null;
+}
+
+export async function resolveInvoiceEmailRecipients(
+  userId: string,
+  clientName: string,
+  override?: EmailRecipientsInput
+): Promise<string[]> {
+  const overrides = normalizeEmailList(override);
+  if (overrides.length > 0) {
+    return overrides;
+  }
+
+  const fallback = await resolveInvoiceEmailRecipient(userId, clientName);
+  return fallback ? [fallback] : [];
 }

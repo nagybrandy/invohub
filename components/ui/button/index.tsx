@@ -33,7 +33,7 @@ cssInterop(UIIcon, {
   },
 });
 const buttonStyle = tva({
-  base: 'rounded-md flex-row items-center justify-center data-[focus-visible=true]:web:outline-none data-[focus-visible=true]:web:ring-2 data-[disabled=true]:opacity-40 gap-2 h-fit',
+  base: 'rounded-lg flex-row items-center justify-center data-[focus-visible=true]:web:outline-none data-[focus-visible=true]:web:ring-2 data-[disabled=true]:opacity-40 gap-2 h-fit',
   variants: {
     variant: {
       default:
@@ -49,8 +49,8 @@ const buttonStyle = tva({
     },
     size: {
       default: 'px-4 py-2',
-      sm: 'min-h-8 rounded-md px-3 text-xs',
-      lg: 'min-h-10 rounded-md px-8',
+      sm: 'min-h-8 rounded-lg px-3 text-xs',
+      lg: 'min-h-10 rounded-lg px-8',
       icon: 'min-h-9 min-w-9',
     },
   },
