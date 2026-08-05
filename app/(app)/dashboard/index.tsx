@@ -1,3 +1,4 @@
+// app/(app)/dashboard/index.tsx
 import { useMemo } from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
@@ -18,10 +19,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { M2mDemoCard } from "@/components/dashboard/M2mDemoCard";
-import { FeatureLinkCard } from "@/components/layout/FeatureLinkCard";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
-import { getDashboardFeatures } from "@/lib/app-navigation";
 import { useSession } from "@/lib/auth-client";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import {
@@ -45,21 +43,29 @@ export default function DashboardScreen() {
   const { t } = useTranslation();
   const icons = useIconColors();
   const { data: session } = useSession();
-  const userRole = (session?.user as { role?: string } | undefined)?.role;
-  const features = getDashboardFeatures(userRole);
   const { invoices, loading } = useInvoices();
 
   const computed = useMemo(() => {
     const now = new Date();
     const paid = invoices.filter((i) => i.status === "paid");
     const overdue = invoices.filter((i) => i.status === "overdue");
-    const sent = invoices.filter((i) => i.status === "sent" || i.status === "overdue");
-    const issued = invoices.filter((i) => i.status === "draft" || i.status === "proforma");
+    const sent = invoices.filter(
+      (i) => i.status === "sent" || i.status === "overdue"
+    );
+    const issued = invoices.filter(
+      (i) => i.status === "draft" || i.status === "proforma"
+    );
 
     const revenue = paid.reduce((sum, inv) => sum + getInvoiceGross(inv), 0);
-    const outstanding = sent.reduce((sum, inv) => sum + getInvoiceGross(inv), 0);
-    const issuedTotal = issued.reduce((sum, inv) => sum + getInvoiceGross(inv), 0);
-    const estimatedVat = revenue * 0.27 / 1.27;
+    const outstanding = sent.reduce(
+      (sum, inv) => sum + getInvoiceGross(inv),
+      0
+    );
+    const issuedTotal = issued.reduce(
+      (sum, inv) => sum + getInvoiceGross(inv),
+      0
+    );
+    const estimatedVat = (revenue * 0.27) / 1.27;
 
     let oldestOverdueDays = 0;
     for (const inv of overdue) {
@@ -85,35 +91,47 @@ export default function DashboardScreen() {
 
   const currency: Invoice["currency"] = "HUF";
 
-  const headerActions = (
-    <>
-      <Button variant="outline" size="sm" onPress={() => router.push(routes.invoices)}>
-        <Inbox size={16} color={icons.foreground} />
-        <ButtonText>{t("dashboard.incomingInvoices")}</ButtonText>
-        <Badge variant="destructive" className="ml-1 rounded-full px-1.5 py-0">
-          <BadgeText className="text-[10px]">{computed.overdueCount}</BadgeText>
-        </Badge>
-      </Button>
-      <Button variant="outline" size="sm">
-        <Headphones size={16} color={icons.foreground} />
-        <ButtonText>{t("dashboard.customerService")}</ButtonText>
-      </Button>
-    </>
-  );
-
   return (
-    <ScreenLayout
-      header={
-        <PageHeader
-          title={t("nav.dashboard")}
-          subtitle={t("dashboard.subtitle")}
-          actions={headerActions}
-        />
-      }
-    >
+    <ScreenLayout>
       <VStack space="lg">
-        {/* --- Stat Cards Row --- */}
-        <HStack space="md" className="flex-wrap">
+        {/* Header row */}
+        <HStack className="items-start justify-between gap-4">
+          <VStack space="xs">
+            <Heading size="2xl" className="text-foreground">
+              {t("nav.dashboard")}
+            </Heading>
+            <Text size="sm" className="text-muted-foreground">
+              {t("dashboard.subtitle")}
+            </Text>
+          </VStack>
+          <HStack space="sm" className="items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={() => router.push(routes.invoices)}
+            >
+              <Inbox size={16} color={icons.foreground} />
+              <ButtonText>{t("dashboard.incomingInvoices")}</ButtonText>
+              {computed.overdueCount > 0 ? (
+                <Badge
+                  variant="destructive"
+                  className="ml-1 rounded-full px-1.5 py-0"
+                >
+                  <BadgeText className="text-[10px]">
+                    {computed.overdueCount}
+                  </BadgeText>
+                </Badge>
+              ) : null}
+            </Button>
+            <Button variant="outline" size="sm">
+              <Headphones size={16} color={icons.foreground} />
+              <ButtonText>{t("dashboard.customerService")}</ButtonText>
+            </Button>
+          </HStack>
+        </HStack>
+
+        {/* 3 equal stat cards */}
+        <Box className="flex-col gap-4 md:flex-row">
           <RevenueCard
             loading={loading}
             revenue={computed.revenue}
@@ -134,16 +152,16 @@ export default function DashboardScreen() {
             oldestDays={computed.oldestOverdueDays}
             currency={currency}
           />
-        </HStack>
+        </Box>
 
-        {/* --- Recent Invoices --- */}
+        {/* Recent Invoices */}
         <VStack space="sm">
           <HStack className="items-center justify-between">
             <Heading size="lg" className="text-foreground">
               {t("dashboard.recentInvoices")}
             </Heading>
             <Pressable onPress={() => router.push(routes.invoices)}>
-              <Text size="sm" className="text-primary font-medium">
+              <Text size="sm" className="font-medium text-primary">
                 {t("dashboard.allOutgoing")} →
               </Text>
             </Pressable>
@@ -164,27 +182,6 @@ export default function DashboardScreen() {
         </VStack>
 
         <M2mDemoCard />
-
-        {/* --- Feature Link Grid --- */}
-        <VStack space="sm">
-          <Text className="font-semibold text-foreground">{t("dashboard.allFeatures")}</Text>
-          <Text size="sm" className="text-muted-foreground">
-            {t("dashboard.allFeaturesHint")}
-          </Text>
-          <HStack space="sm" className="flex-wrap">
-            {features.map((feature) => (
-              <FeatureLinkCard
-                key={feature.labelKey}
-                icon={feature.icon}
-                title={t(feature.labelKey)}
-                description={
-                  feature.descriptionKey ? t(feature.descriptionKey) : undefined
-                }
-                onPress={() => router.push(feature.href)}
-              />
-            ))}
-          </HStack>
-        </VStack>
       </VStack>
     </ScreenLayout>
   );
@@ -209,9 +206,9 @@ function RevenueCard({
 }) {
   const { t } = useTranslation();
   return (
-    <Card className="min-w-[200px] flex-1 p-4">
+    <Card className="flex-1 p-5">
       <VStack space="sm">
-        <Text size="sm" className="text-muted-foreground">
+        <Text size="sm" className="font-light text-muted-foreground">
           {t("dashboard.revenueStats")}
         </Text>
         <Text className="text-2xl font-bold text-foreground">
@@ -220,20 +217,23 @@ function RevenueCard({
         <VStack space="xs">
           <HStack space="sm" className="items-center">
             <Box className="h-2.5 w-2.5 rounded-full bg-green-500" />
-            <Text size="xs" className="text-muted-foreground">
-              {t("dashboard.paid")}: {loading ? "…" : formatCurrency(paid, currency)}
+            <Text size="xs" className="font-light text-muted-foreground">
+              {t("dashboard.paid")}:{" "}
+              {loading ? "…" : formatCurrency(paid, currency)}
             </Text>
           </HStack>
           <HStack space="sm" className="items-center">
             <Box className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-            <Text size="xs" className="text-muted-foreground">
-              {t("dashboard.issued")}: {loading ? "…" : formatCurrency(issued, currency)}
+            <Text size="xs" className="font-light text-muted-foreground">
+              {t("dashboard.issued")}:{" "}
+              {loading ? "…" : formatCurrency(issued, currency)}
             </Text>
           </HStack>
           <HStack space="sm" className="items-center">
             <Box className="h-2.5 w-2.5 rounded-full bg-orange-500" />
-            <Text size="xs" className="text-muted-foreground">
-              {t("dashboard.outstanding")}: {loading ? "…" : formatCurrency(outstanding, currency)}
+            <Text size="xs" className="font-light text-muted-foreground">
+              {t("dashboard.outstanding")}:{" "}
+              {loading ? "…" : formatCurrency(outstanding, currency)}
             </Text>
           </HStack>
         </VStack>
@@ -255,15 +255,17 @@ function VatCard({
 }) {
   const { t } = useTranslation();
   return (
-    <Card className="min-w-[200px] flex-1 p-4">
+    <Card className="flex-1 p-5">
       <VStack space="sm">
-        <Text size="sm" className="text-muted-foreground">
+        <Text size="sm" className="font-light text-muted-foreground">
           {t("dashboard.estimatedVat")}
         </Text>
         <Text className="text-2xl font-bold text-foreground">
-          {loading ? "…" : formatCurrency(Math.round(estimatedVat), currency)}
+          {loading
+            ? "…"
+            : formatCurrency(Math.round(estimatedVat), currency)}
         </Text>
-        <Text size="xs" className="text-muted-foreground">
+        <Text size="xs" className="font-light text-muted-foreground">
           {t("dashboard.vatPeriodNote")}
         </Text>
       </VStack>
@@ -288,15 +290,15 @@ function OverdueCard({
 }) {
   const { t } = useTranslation();
   return (
-    <Card className="min-w-[200px] flex-1 p-4">
+    <Card className="flex-1 p-5">
       <VStack space="sm">
-        <Text size="sm" className="text-muted-foreground">
+        <Text size="sm" className="font-light text-muted-foreground">
           {t("dashboard.overdueDebt")}
         </Text>
         <Text className="text-2xl font-bold text-destructive">
           {loading ? "…" : formatCurrency(outstanding, currency)}
         </Text>
-        <Text size="xs" className="text-muted-foreground">
+        <Text size="xs" className="font-light text-muted-foreground">
           {loading
             ? "…"
             : t("dashboard.overdueDetail", {
@@ -332,36 +334,61 @@ function InvoiceTable({
   if (invoices.length === 0) {
     return (
       <Card className="p-6">
-        <Text className="text-muted-foreground">{t("dashboard.table.noInvoices")}</Text>
+        <Text className="text-muted-foreground">
+          {t("dashboard.table.noInvoices")}
+        </Text>
       </Card>
     );
   }
 
   return (
     <Card className="overflow-hidden p-0">
+      {/* Table header */}
       <HStack className="border-b border-border bg-muted/30 px-4 py-3">
-        <Text size="xs" className="w-[120px] font-medium text-muted-foreground">
+        <Box className="w-[40px]" />
+        <Text
+          size="xs"
+          className="w-[120px] font-medium text-muted-foreground"
+        >
           {t("dashboard.table.serialNumber")}
         </Text>
         <Text size="xs" className="flex-1 font-medium text-muted-foreground">
           {t("dashboard.table.partner")}
         </Text>
-        <Text size="xs" className="w-[110px] font-medium text-muted-foreground">
+        <Text
+          size="xs"
+          className="w-[110px] font-medium text-muted-foreground"
+        >
           {t("dashboard.table.paymentStatus")}
         </Text>
-        <Text size="xs" className="w-[50px] text-center font-medium text-muted-foreground">
+        <Text
+          size="xs"
+          className="w-[50px] text-center font-medium text-muted-foreground"
+        >
           NAV
         </Text>
-        <Text size="xs" className="w-[90px] font-medium text-muted-foreground">
+        <Text
+          size="xs"
+          className="w-[80px] font-medium text-muted-foreground"
+        >
+          {t("dashboard.table.sentDate")}
+        </Text>
+        <Text
+          size="xs"
+          className="w-[90px] font-medium text-muted-foreground"
+        >
           {t("dashboard.table.dateIssued")}
         </Text>
-        <Text size="xs" className="w-[120px] text-right font-medium text-muted-foreground">
+        <Text
+          size="xs"
+          className="w-[120px] text-right font-medium text-muted-foreground"
+        >
           {t("dashboard.table.grossAmount")}
         </Text>
         <Box className="w-[70px]" />
       </HStack>
 
-      {/* Table Rows */}
+      {/* Table rows */}
       {invoices.map((inv) => (
         <InvoiceRow key={inv.id} invoice={inv} icons={icons} />
       ))}
@@ -384,6 +411,10 @@ function InvoiceRow({
   return (
     <Pressable onPress={() => router.push(routes.invoiceDetail(invoice.id))}>
       <HStack className="items-center border-b border-border px-4 py-3 last:border-b-0">
+        {/* Checkbox placeholder */}
+        <Box className="w-[40px]">
+          <Box className="h-4 w-4 rounded border border-border" />
+        </Box>
         <Text size="sm" className="w-[120px] font-medium text-foreground">
           {invoice.invoiceNumber}
         </Text>
@@ -403,14 +434,24 @@ function InvoiceRow({
         <Box className="w-[50px] items-center">
           <Box
             className={`h-3 w-3 rounded-full ${
-              invoice.status === "paid" ? "bg-green-500" : "bg-muted-foreground/30"
+              invoice.status === "paid"
+                ? "bg-green-500"
+                : "bg-muted-foreground/30"
             }`}
           />
         </Box>
-        <Text size="sm" className="w-[90px] text-muted-foreground">
+        <Text size="xs" className="w-[80px] font-light text-muted-foreground">
+          {invoice.status === "sent" || invoice.status === "paid"
+            ? invoice.issueDate.slice(0, 10)
+            : "—"}
+        </Text>
+        <Text size="sm" className="w-[90px] font-light text-muted-foreground">
           {invoice.issueDate.slice(0, 10)}
         </Text>
-        <Text size="sm" className="w-[120px] text-right font-medium text-foreground">
+        <Text
+          size="sm"
+          className="w-[120px] text-right font-medium text-foreground"
+        >
           {formatCurrency(gross, invoice.currency)}
         </Text>
         <HStack space="xs" className="w-[70px] justify-end">
@@ -447,7 +488,9 @@ function InvoiceCards({
   if (invoices.length === 0) {
     return (
       <Card className="p-4">
-        <Text className="text-muted-foreground">{t("dashboard.table.noInvoices")}</Text>
+        <Text className="text-muted-foreground">
+          {t("dashboard.table.noInvoices")}
+        </Text>
       </Card>
     );
   }
@@ -470,7 +513,7 @@ function InvoiceCards({
                   <Text size="sm" className="font-medium text-foreground">
                     {inv.invoiceNumber}
                   </Text>
-                  <Text size="xs" className="text-muted-foreground">
+                  <Text size="xs" className="font-light text-muted-foreground">
                     {inv.clientName}
                   </Text>
                 </VStack>
@@ -482,7 +525,9 @@ function InvoiceCards({
                     variant="outline"
                     className={`rounded-full ${statusColor}`}
                   >
-                    <BadgeText className={`text-[10px] normal-case ${statusColor}`}>
+                    <BadgeText
+                      className={`text-[10px] normal-case ${statusColor}`}
+                    >
                       {statusLabel}
                     </BadgeText>
                   </Badge>

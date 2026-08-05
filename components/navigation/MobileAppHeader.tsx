@@ -1,5 +1,4 @@
 // components/navigation/MobileAppHeader.tsx
-// Mobile top bar: logged-in user name + notification bell.
 import { Bell } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -7,11 +6,11 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { roleLabel } from "@/lib/user-roles";
 
 type MobileAppHeaderProps = {
   userName?: string;
   userRole?: string;
+  companyName?: string;
   unreadCount: number;
   onOpenNotifications: () => void;
 };
@@ -27,29 +26,29 @@ function initials(name: string): string {
 
 export function MobileAppHeader({
   userName,
-  userRole,
+  companyName,
   unreadCount,
   onOpenNotifications,
 }: MobileAppHeaderProps) {
   const icons = useIconColors();
-  const displayName = userName?.trim() || "Signed in";
+  const displayName = companyName?.trim() || userName?.trim() || "InvoHub";
 
   return (
-    <Box className="border-b border-border bg-card px-4 py-3">
+    <Box className="bg-secondary px-4 py-3">
       <HStack className="items-center justify-between">
         <HStack space="sm" className="flex-1 items-center">
-          <Box className="h-10 w-10 items-center justify-center rounded-full bg-primary">
-            <Text className="text-sm font-bold text-primary-foreground">
+          <Box className="h-9 w-9 items-center justify-center rounded-full bg-[#1f305e]">
+            <Text className="text-xs font-bold text-white">
               {initials(displayName)}
             </Text>
           </Box>
           <VStack className="flex-1">
-            <Text className="font-semibold text-foreground" numberOfLines={1}>
+            <Text className="font-semibold text-white" numberOfLines={1}>
               {displayName}
             </Text>
-            {userRole ? (
-              <Text size="xs" className="text-muted-foreground">
-                {roleLabel(userRole)}
+            {userName && companyName ? (
+              <Text size="xs" className="text-[#c5c7ca]">
+                {userName}
               </Text>
             ) : null}
           </VStack>
@@ -57,13 +56,13 @@ export function MobileAppHeader({
 
         <Pressable
           onPress={onOpenNotifications}
-          className="relative rounded-full p-2.5 active:bg-muted"
+          className="relative rounded-full p-2.5"
           accessibilityLabel="Notifications"
         >
-          <Bell size={22} color={icons.primary} />
+          <Bell size={22} color="#f9f9f9" />
           {unreadCount > 0 ? (
             <Box className="absolute -right-0.5 -top-0.5 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 py-0.5">
-              <Text size="xs" className="font-bold text-destructive-foreground">
+              <Text size="xs" className="font-bold text-white">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </Text>
             </Box>

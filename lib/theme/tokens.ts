@@ -12,7 +12,7 @@ export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
     "--popover-foreground": "15 23 42",
     "--primary": "100 149 237",
     "--primary-foreground": "255 255 255",
-    "--secondary": "31 48 94",
+    "--secondary": "17 31 74",
     "--secondary-foreground": "228 230 232",
     "--muted": "241 245 249",
     "--muted-foreground": "100 116 139",
@@ -56,7 +56,7 @@ export const iconColors = {
     destructive: "#dc2626",
     accent: "#8db600",
     accentForeground: "#1f305e",
-    secondary: "#1f305e",
+    secondary: "#111f4a",
   },
   dark: {
     primary: "#78a5f0",

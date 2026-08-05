@@ -26,7 +26,7 @@ export function DocumentTypeTabs({ selected, onChange }: Props) {
         <Pressable
           key={dt.value}
           onPress={() => onChange(dt.value)}
-          className={`flex-1 items-center rounded-lg px-4 py-3 ${
+          className={`flex-1 items-center rounded-lg px-2 py-2.5 md:px-4 md:py-3 ${
             selected === dt.value ? "bg-primary" : "bg-transparent"
           }`}
         >

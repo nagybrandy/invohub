@@ -14,24 +14,35 @@ jest.mock("@/lib/useColorScheme", () => ({
     toggleTheme: jest.fn(),
   }),
 }));
+jest.mock("@/lib/theme/icon-colors", () => ({
+  useIconColors: () => ({
+    primary: "#6495ed",
+    muted: "#64748b",
+    foreground: "#0f172a",
+    destructive: "#dc2626",
+    accent: "#8db600",
+    accentForeground: "#1f305e",
+    secondary: "#1f305e",
+  }),
+}));
 
 describe("MobileAppHeader", () => {
-  it("shows user name and role", () => {
+  it("shows user name and company name", () => {
     let tree: TestRenderer.ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(
         <MobileAppHeader
           userName="Kovács Anna"
-          userRole="accountant"
+          companyName="TestCorp Kft."
           unreadCount={0}
           onOpenNotifications={jest.fn()}
         />
       );
     });
     const json = JSON.stringify(tree!.toJSON());
+    expect(json).toContain("TestCorp Kft.");
     expect(json).toContain("Kovács Anna");
-    expect(json).toContain("Accountant");
-    expect(json).toContain("KA");
+    expect(json).toContain("TK");
   });
 
   it("shows unread badge when count > 0", () => {

@@ -131,6 +131,8 @@ export default {
       navSubmitHint:
         "A számla automatikusan beküldésre kerül a NAV rendszerébe",
       postalMailing: "Bizonylat postázása",
+      sendEmail: "Bizonylat postázása e-mailben",
+      sendEmailHint: "A bizonylat automatikusan kiküldésre kerül a partner e-mail címére",
     },
     totals: {
       netTotal: "Nettó összesen",
@@ -140,6 +142,7 @@ export default {
       preview: "Előnézet",
       saveDraft: "Piszkozat mentése",
       createInvoice: "Számla elkészítése",
+      backToEdit: "Vissza a szerkesztéshez",
     },
     paymentMethods: {
       transfer: "Átutalás",
@@ -159,8 +162,11 @@ export default {
     },
     errors: {
       saveFailed: "Nem sikerült menteni.",
+      clientRequired: "Az ügyfél neve kötelező.",
+      lineItemRequired: "Legalább egy tételt adj meg.",
     },
     autoSaved: "Automatikusan mentve piszkozatként",
+    autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",
   },
   receipts: {
     title: "Nyugta",
@@ -234,6 +240,7 @@ export default {
       serialNumber: "Sorszám",
       partner: "Partner",
       paymentStatus: "Fizetési státusz",
+      sentDate: "Kiküldve",
       dateIssued: "Kelt",
       grossAmount: "Bruttó összeg",
       noInvoices: "Nincsenek számlák",

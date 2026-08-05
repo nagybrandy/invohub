@@ -130,6 +130,9 @@ export default {
       navSubmit: "NAV Online Számla submission",
       navSubmitHint: "The invoice will be automatically submitted to NAV.",
       postalMailing: "Postal mailing",
+      sendEmail: "Email document to partner",
+      sendEmailHint:
+        "The document will be automatically sent to the partner's email address",
     },
     totals: {
       netTotal: "Net total",
@@ -139,6 +142,7 @@ export default {
       preview: "Preview",
       saveDraft: "Save draft",
       createInvoice: "Create invoice",
+      backToEdit: "Back to editing",
     },
     paymentMethods: {
       transfer: "Bank transfer",
@@ -158,8 +162,11 @@ export default {
     },
     errors: {
       saveFailed: "Failed to save.",
+      clientRequired: "Client name is required.",
+      lineItemRequired: "Add at least one line item.",
     },
     autoSaved: "Auto-saved as draft",
+    autoSavedAt: "Auto-saved as draft at {{time}}",
   },
   receipts: {
     title: "Receipt",
@@ -233,6 +240,7 @@ export default {
       serialNumber: "Serial #",
       partner: "Partner",
       paymentStatus: "Payment status",
+      sentDate: "Sent",
       dateIssued: "Issued",
       grossAmount: "Gross amount",
       noInvoices: "No invoices",

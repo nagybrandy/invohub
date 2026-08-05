@@ -66,6 +66,13 @@ export const ADMIN_NAV: AppNavItem = {
   adminOnly: true,
 };
 
+/** Desktop top nav bar — 3 main links (Áttekintés, Számlák, Beállítások). */
+export const DESKTOP_TOP_NAV: AppNavItem[] = [
+  { href: routes.dashboard, labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: routes.invoices, labelKey: "nav.invoices", icon: FileText },
+  { href: routes.settings, labelKey: "nav.settings", icon: Settings },
+];
+
 /** Desktop sidebar — tabs + all dashboard features in one list. */
 export function getDesktopNavItems(role: string | undefined): AppNavItem[] {
   const showAccountant = canManageClients(role);

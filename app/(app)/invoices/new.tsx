@@ -1,8 +1,16 @@
+// app/(app)/invoices/new.tsx
 import * as React from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Settings,
+  ShoppingCart,
+  User,
+} from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,7 +31,6 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { DocumentTypeTabs, type DocumentType } from "@/components/invoices/DocumentTypeTabs";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
 import { LineItemEditor } from "@/components/invoices/LineItemEditor";
-import { ScreenModeTabs, type ScreenMode } from "@/components/invoices/ScreenModeTabs";
 import { useInvoices } from "@/hooks/useInvoices";
 import {
   buildDraftInvoice,
@@ -60,13 +67,39 @@ function addDaysIso(days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+function currentTime(): string {
+  return new Date().toLocaleTimeString("hu-HU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  iconColor,
+}: {
+  icon: typeof User;
+  title: string;
+  iconColor: string;
+}) {
+  return (
+    <HStack space="sm" className="items-center pb-1">
+      <Icon size={18} color={iconColor} />
+      <Text className="text-base font-semibold text-foreground">{title}</Text>
+    </HStack>
+  );
+}
+
 export default function NewInvoiceScreen() {
   const { t } = useTranslation();
   const { invoices, addOrUpdate } = useInvoices();
   const icons = useIconColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const [documentType, setDocumentType] = React.useState<DocumentType>("invoice");
-  const [screenMode, setScreenMode] = React.useState<ScreenMode>("edit");
+  const [showPreview, setShowPreview] = React.useState(false);
 
   const [clientName, setClientName] = React.useState("");
   const [clientTaxNumber, setClientTaxNumber] = React.useState("");
@@ -88,11 +121,13 @@ export default function NewInvoiceScreen() {
 
   const [notes, setNotes] = React.useState("");
   const [navEnabled, setNavEnabled] = React.useState(true);
+  const [emailOnSend, setEmailOnSend] = React.useState(false);
   const [showAdvanced, setShowAdvanced] = React.useState(false);
 
   const [lineItems, setLineItems] = React.useState([createEmptyLineItem()]);
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [savedAt, setSavedAt] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!invoiceNumber) {
@@ -103,6 +138,10 @@ export default function NewInvoiceScreen() {
   React.useEffect(() => {
     setDueDate(addDaysIso(deadlineDays));
   }, [deadlineDays]);
+
+  React.useEffect(() => {
+    setSavedAt(currentTime());
+  }, [clientName, lineItems, notes, paymentMethod, currency, deadlineDays]);
 
   function handleDocumentTypeChange(type: DocumentType) {
     if (type === "receipt") {
@@ -135,13 +174,13 @@ export default function NewInvoiceScreen() {
     setError(null);
 
     if (!clientName.trim()) {
-      setError("Az ügyfél neve kötelező.");
-      setScreenMode("edit");
+      setError(t("invoices.errors.clientRequired"));
+      setShowPreview(false);
       return;
     }
     if (!lineItems.some((item) => item.description.trim())) {
-      setError("Legalább egy tételt adj meg.");
-      setScreenMode("edit");
+      setError(t("invoices.errors.lineItemRequired"));
+      setShowPreview(false);
       return;
     }
 
@@ -175,354 +214,411 @@ export default function NewInvoiceScreen() {
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="gap-4 p-4 pb-36"
-      keyboardShouldPersistTaps="handled"
-    >
-      <VStack space="md">
+    <Box className="flex-1 bg-background">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="gap-6 p-4 pb-36 md:px-10 md:py-6"
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Breadcrumb */}
         <Breadcrumb
           items={[
             { label: t("invoices.breadcrumbs.home"), href: routes.dashboard },
             { label: t("invoices.breadcrumbs.invoices"), href: routes.invoices },
           ]}
         />
-        <Heading size="2xl">{t("invoices.newDocument")}</Heading>
-        <DocumentTypeTabs selected={documentType} onChange={handleDocumentTypeChange} />
-        <ScreenModeTabs mode={screenMode} onChange={setScreenMode} />
-      </VStack>
 
-      {screenMode === "preview" ? (
-        <VStack space="md">
-          <Text size="sm" className="text-muted-foreground">
-            Élő előnézet a bizonylat végleges kinézetéről.
-          </Text>
-          <InvoiceDocumentPreview invoice={draftInvoice} />
-          <Button variant="outline" onPress={() => setScreenMode("edit")}>
-            <ButtonText>Vissza a szerkesztéshez</ButtonText>
-          </Button>
-        </VStack>
-      ) : (
-        <>
-          <Box className="flex-col gap-4 md:flex-row">
-            <Card className="flex-1 p-4">
-              <VStack space="md">
-                <Heading size="md">{t("invoices.sections.recipient")}</Heading>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.partnerNameOrTax")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      placeholder={t("invoices.placeholders.searchPartner")}
-                      value={clientName}
-                      onChangeText={setClientName}
-                    />
-                  </Input>
-                </FormControl>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.country")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      value={clientCountry}
-                      onChangeText={setClientCountry}
-                    />
-                  </Input>
-                </FormControl>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.taxNumber")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      placeholder="12345678-1-23"
-                      value={clientTaxNumber}
-                      onChangeText={setClientTaxNumber}
-                    />
-                  </Input>
-                </FormControl>
-
-                <HStack space="sm">
-                  <FormControl className="w-[100px]">
-                    <FormControlLabel>
-                      <FormControlLabelText>{t("invoices.fields.zipCode")}</FormControlLabelText>
-                    </FormControlLabel>
-                    <Input>
-                      <InputField
-                        placeholder="1011"
-                        value={clientZip}
-                        onChangeText={setClientZip}
-                      />
-                    </Input>
-                  </FormControl>
-                  <FormControl className="flex-1">
-                    <FormControlLabel>
-                      <FormControlLabelText>{t("invoices.fields.city")}</FormControlLabelText>
-                    </FormControlLabel>
-                    <Input>
-                      <InputField
-                        placeholder={t("invoices.placeholders.city")}
-                        value={clientCity}
-                        onChangeText={setClientCity}
-                      />
-                    </Input>
-                  </FormControl>
-                </HStack>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.address")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      placeholder={t("invoices.placeholders.address")}
-                      value={clientAddress}
-                      onChangeText={setClientAddress}
-                    />
-                  </Input>
-                </FormControl>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.email")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      placeholder="partner@ceg.hu"
-                      value={clientEmail}
-                      onChangeText={setClientEmail}
-                      keyboardType="email-address"
-                    />
-                  </Input>
-                  <Text size="xs" className="mt-1 text-muted-foreground">
-                    Ide küldjük a bizonylatot
-                  </Text>
-                </FormControl>
-              </VStack>
-            </Card>
-
-            <Card className="flex-1 p-4">
-              <VStack space="md">
-                <Heading size="md">{t("invoices.sections.datesPayment")}</Heading>
-
-                <HStack space="sm">
-                  <FormControl className="flex-1">
-                    <FormControlLabel>
-                      <FormControlLabelText>{t("invoices.fields.fulfillmentDate")}</FormControlLabelText>
-                    </FormControlLabel>
-                    <Input>
-                      <InputField
-                        placeholder="ÉÉÉÉ-HH-NN"
-                        value={fulfillmentDate}
-                        onChangeText={setFulfillmentDate}
-                      />
-                    </Input>
-                  </FormControl>
-                  <FormControl className="flex-1">
-                    <FormControlLabel>
-                      <FormControlLabelText>Kiállítás dátuma</FormControlLabelText>
-                    </FormControlLabel>
-                    <Input>
-                      <InputField
-                        placeholder="ÉÉÉÉ-HH-NN"
-                        value={issueDate}
-                        onChangeText={setIssueDate}
-                      />
-                    </Input>
-                  </FormControl>
-                </HStack>
-
-                <HStack className="items-center justify-between">
-                  <Text size="sm">{t("invoices.fields.continuousPerformance")}</Text>
-                  <Switch
-                    value={continuousPerformance}
-                    onValueChange={setContinuousPerformance}
-                  />
-                </HStack>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.paymentMethod")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <HStack space="sm" className="flex-wrap">
-                    {PAYMENT_METHOD_I18N.map((pm) => (
-                      <Pressable
-                        key={pm.value}
-                        onPress={() => setPaymentMethod(pm.value)}
-                        className={`rounded-md border px-4 py-2 ${
-                          paymentMethod === pm.value
-                            ? "border-primary bg-primary/10"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <Text size="sm">{t(pm.i18nKey)}</Text>
-                      </Pressable>
-                    ))}
-                  </HStack>
-                </FormControl>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.currency")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <HStack space="sm">
-                    {(["HUF", "EUR"] as InvoiceCurrency[]).map((value) => (
-                      <Pressable
-                        key={value}
-                        onPress={() => setCurrency(value)}
-                        className={`rounded-md border px-4 py-2 ${
-                          currency === value
-                            ? "border-primary bg-primary/10"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <Text size="sm">{value}</Text>
-                      </Pressable>
-                    ))}
-                  </HStack>
-                </FormControl>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.paymentDeadline")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <HStack space="sm" className="items-center">
-                    <Input className="w-[70px]">
-                      <InputField
-                        keyboardType="number-pad"
-                        value={String(deadlineDays)}
-                        onChangeText={(v) => setDeadlineDays(Math.max(1, Number(v) || 1))}
-                      />
-                    </Input>
-                    <Text size="sm" className="text-muted-foreground">{t("invoices.fields.days")}</Text>
-                    {DEADLINE_QUICK_DAYS.map((d) => (
-                      <Pressable
-                        key={d}
-                        onPress={() => setDeadlineDays(d)}
-                        className={`rounded-md border px-3 py-1 ${
-                          deadlineDays === d
-                            ? "border-primary bg-primary/10"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <Text size="xs">{d}</Text>
-                      </Pressable>
-                    ))}
-                  </HStack>
-                </FormControl>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>Bankszámla</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      placeholder={t("invoices.placeholders.selectBankAccount")}
-                      value={bankAccount}
-                      onChangeText={setBankAccount}
-                    />
-                  </Input>
-                </FormControl>
-              </VStack>
-            </Card>
-          </Box>
-
-          <Card className="p-4">
-            <VStack space="md">
-              <Heading size="md">{t("invoices.sections.lineItems")}</Heading>
-              <LineItemEditor
-                lineItems={lineItems}
-                currency={currency}
-                onChange={setLineItems}
-              />
-            </VStack>
-          </Card>
-
-          <Pressable
-            onPress={() => setShowAdvanced(!showAdvanced)}
-            className="flex-row items-center gap-2 rounded-lg border border-border p-3"
-          >
-            <Text size="sm" className="flex-1 font-medium">{t("invoices.sections.additionalSettings")}</Text>
-            {showAdvanced ? (
-              <ChevronUp size={16} color={icons.muted} />
-            ) : (
-              <ChevronDown size={16} color={icons.muted} />
-            )}
-          </Pressable>
-
-          {showAdvanced && (
-            <Card className="p-4">
-              <VStack space="md">
-                <HStack className="items-center justify-between">
-                  <VStack>
-                    <Text size="sm" className="font-medium">{t("invoices.fields.navSubmit")}</Text>
-                    <Text size="xs" className="text-muted-foreground">
-                      Automatikus beküldés a NAV rendszerébe
-                    </Text>
-                  </VStack>
-                  <Switch value={navEnabled} onValueChange={setNavEnabled} />
-                </HStack>
-
-                <FormControl>
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.fields.notes")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Textarea>
-                    <TextareaInput
-                      placeholder={t("invoices.placeholders.notes")}
-                      value={notes}
-                      onChangeText={setNotes}
-                    />
-                  </Textarea>
-                </FormControl>
-              </VStack>
-            </Card>
-          )}
-
-          {error ? (
-            <Text size="sm" className="text-destructive">
-              {error}
+        {/* Title + auto-save indicator */}
+        <VStack space="xs">
+          <Heading size="2xl" className="text-foreground">
+            {t("invoices.newDocument")}
+          </Heading>
+          {savedAt ? (
+            <Text size="xs" className="text-muted-foreground">
+              {t("invoices.autoSavedAt", { time: savedAt })}
             </Text>
           ) : null}
+        </VStack>
 
-          <Card className="sticky bottom-0 p-4">
-            <HStack className="items-center justify-between">
-              <VStack>
-                <HStack space="md">
-                  <Text size="sm" className="text-muted-foreground">
-                    Nettó: {formatCurrency(totals.subtotal, currency)}
-                  </Text>
-                  <Text size="sm" className="font-semibold">
-                    {t("invoices.totals.grossTotal")}: {formatCurrency(totals.totalAmount, currency)}
-                  </Text>
-                </HStack>
+        {/* Document type tabs */}
+        <DocumentTypeTabs selected={documentType} onChange={handleDocumentTypeChange} />
+
+        {showPreview ? (
+          <VStack space="md">
+            <InvoiceDocumentPreview invoice={draftInvoice} />
+            <Button variant="outline" onPress={() => setShowPreview(false)}>
+              <ButtonText>{t("invoices.actions.backToEdit")}</ButtonText>
+            </Button>
+          </VStack>
+        ) : (
+          <>
+            {/* Two-column form sections */}
+            <Box className={isDesktop ? "flex-row gap-6" : "gap-6"}>
+              {/* Left: Recipient */}
+              <Card className="flex-1 p-5">
+                <VStack space="md">
+                  <SectionHeader
+                    icon={User}
+                    title={t("invoices.sections.recipient")}
+                    iconColor={icons.primary}
+                  />
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.partnerNameOrTax")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        placeholder={t("invoices.placeholders.searchPartner")}
+                        value={clientName}
+                        onChangeText={setClientName}
+                        className="font-light"
+                      />
+                    </Input>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.country")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        value={clientCountry}
+                        onChangeText={setClientCountry}
+                        className="font-light"
+                      />
+                    </Input>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.taxNumber")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        placeholder="12345678-1-23"
+                        value={clientTaxNumber}
+                        onChangeText={setClientTaxNumber}
+                        className="font-light"
+                      />
+                    </Input>
+                  </FormControl>
+
+                  <HStack space="sm">
+                    <FormControl className="w-[100px]">
+                      <FormControlLabel>
+                        <FormControlLabelText>{t("invoices.fields.zipCode")}</FormControlLabelText>
+                      </FormControlLabel>
+                      <Input>
+                        <InputField
+                          placeholder="1011"
+                          value={clientZip}
+                          onChangeText={setClientZip}
+                          className="font-light"
+                        />
+                      </Input>
+                    </FormControl>
+                    <FormControl className="flex-1">
+                      <FormControlLabel>
+                        <FormControlLabelText>{t("invoices.fields.city")}</FormControlLabelText>
+                      </FormControlLabel>
+                      <Input>
+                        <InputField
+                          placeholder={t("invoices.placeholders.city")}
+                          value={clientCity}
+                          onChangeText={setClientCity}
+                          className="font-light"
+                        />
+                      </Input>
+                    </FormControl>
+                  </HStack>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.address")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        placeholder={t("invoices.placeholders.address")}
+                        value={clientAddress}
+                        onChangeText={setClientAddress}
+                        className="font-light"
+                      />
+                    </Input>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.email")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        placeholder="partner@ceg.hu"
+                        value={clientEmail}
+                        onChangeText={setClientEmail}
+                        keyboardType="email-address"
+                        className="font-light"
+                      />
+                    </Input>
+                    <Text size="xs" className="mt-1 font-light text-muted-foreground">
+                      {t("invoices.fields.emailHint")}
+                    </Text>
+                  </FormControl>
+                </VStack>
+              </Card>
+
+              {/* Right: Dates & Payment */}
+              <Card className="flex-1 p-5">
+                <VStack space="md">
+                  <SectionHeader
+                    icon={Settings}
+                    title={t("invoices.sections.datesPayment")}
+                    iconColor={icons.primary}
+                  />
+
+                  <HStack space="sm">
+                    <FormControl className="flex-1">
+                      <FormControlLabel>
+                        <FormControlLabelText>{t("invoices.fields.fulfillmentDate")}</FormControlLabelText>
+                      </FormControlLabel>
+                      <Input>
+                        <InputField
+                          placeholder="ÉÉÉÉ-HH-NN"
+                          value={fulfillmentDate}
+                          onChangeText={setFulfillmentDate}
+                          className="font-light"
+                        />
+                      </Input>
+                    </FormControl>
+                    <FormControl className="flex-1">
+                      <FormControlLabel>
+                        <FormControlLabelText>{t("invoices.fields.issueDate")}</FormControlLabelText>
+                      </FormControlLabel>
+                      <Input>
+                        <InputField
+                          placeholder="ÉÉÉÉ-HH-NN"
+                          value={issueDate}
+                          onChangeText={setIssueDate}
+                          className="font-light"
+                        />
+                      </Input>
+                    </FormControl>
+                  </HStack>
+
+                  <HStack className="items-center justify-between">
+                    <Text size="sm" className="font-light">{t("invoices.fields.continuousPerformance")}</Text>
+                    <Switch
+                      value={continuousPerformance}
+                      onValueChange={setContinuousPerformance}
+                    />
+                  </HStack>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.paymentMethod")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <HStack space="sm" className="flex-wrap">
+                      {PAYMENT_METHOD_I18N.map((pm) => (
+                        <Pressable
+                          key={pm.value}
+                          onPress={() => setPaymentMethod(pm.value)}
+                          className={`rounded-lg border px-4 py-2 ${
+                            paymentMethod === pm.value
+                              ? "border-primary bg-primary/10"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          <Text size="sm" className="font-light">{t(pm.i18nKey)}</Text>
+                        </Pressable>
+                      ))}
+                    </HStack>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.currency")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <HStack space="sm">
+                      {(["HUF", "EUR"] as InvoiceCurrency[]).map((value) => (
+                        <Pressable
+                          key={value}
+                          onPress={() => setCurrency(value)}
+                          className={`rounded-lg border px-4 py-2 ${
+                            currency === value
+                              ? "border-primary bg-primary/10"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          <Text size="sm" className="font-light">{value}</Text>
+                        </Pressable>
+                      ))}
+                    </HStack>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.paymentDeadline")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <HStack space="sm" className="items-center">
+                      <Input className="w-[70px]">
+                        <InputField
+                          keyboardType="number-pad"
+                          value={String(deadlineDays)}
+                          onChangeText={(v) => setDeadlineDays(Math.max(1, Number(v) || 1))}
+                          className="font-light"
+                        />
+                      </Input>
+                      <Text size="sm" className="font-light text-muted-foreground">
+                        {t("invoices.fields.days")}
+                      </Text>
+                      {DEADLINE_QUICK_DAYS.map((d) => (
+                        <Pressable
+                          key={d}
+                          onPress={() => setDeadlineDays(d)}
+                          className={`rounded-lg border px-3 py-1 ${
+                            deadlineDays === d
+                              ? "border-primary bg-primary/10"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          <Text size="xs" className="font-light">{d}</Text>
+                        </Pressable>
+                      ))}
+                    </HStack>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.bankAccount")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        placeholder={t("invoices.placeholders.selectBankAccount")}
+                        value={bankAccount}
+                        onChangeText={setBankAccount}
+                        className="font-light"
+                      />
+                    </Input>
+                  </FormControl>
+                </VStack>
+              </Card>
+            </Box>
+
+            {/* Line items section */}
+            <Card className="p-5">
+              <VStack space="md">
+                <SectionHeader
+                  icon={ShoppingCart}
+                  title={t("invoices.sections.lineItems")}
+                  iconColor={icons.primary}
+                />
+                <LineItemEditor
+                  lineItems={lineItems}
+                  currency={currency}
+                  onChange={setLineItems}
+                />
               </VStack>
-              <HStack space="sm">
-                <Button
-                  variant="outline"
-                  onPress={() => handleSave("draft")}
-                  disabled={saving}
-                >
-                  <ButtonText>{t("invoices.actions.saveDraft")}</ButtonText>
-                </Button>
-                <Button
-                  onPress={() => handleSave(documentType === "proforma" ? "proforma" : "sent")}
-                  disabled={saving}
-                >
-                  <ButtonText>
-                    {t("invoices.actions.createInvoice")}
-                  </ButtonText>
-                </Button>
-              </HStack>
+            </Card>
+
+            {/* Additional settings (collapsible) */}
+            <Pressable
+              onPress={() => setShowAdvanced(!showAdvanced)}
+              className="flex-row items-center gap-2 rounded-lg border border-border bg-card p-4"
+            >
+              <Settings size={16} color={icons.muted} />
+              <Text size="sm" className="flex-1 font-medium">
+                {t("invoices.sections.additionalSettings")}
+              </Text>
+              {showAdvanced ? (
+                <ChevronUp size={16} color={icons.muted} />
+              ) : (
+                <ChevronDown size={16} color={icons.muted} />
+              )}
+            </Pressable>
+
+            {showAdvanced ? (
+              <Card className="p-5">
+                <VStack space="lg">
+                  <HStack className="items-center justify-between">
+                    <VStack>
+                      <Text size="sm" className="font-medium">{t("invoices.fields.navSubmit")}</Text>
+                      <Text size="xs" className="font-light text-muted-foreground">
+                        {t("invoices.fields.navSubmitHint")}
+                      </Text>
+                    </VStack>
+                    <Switch value={navEnabled} onValueChange={setNavEnabled} />
+                  </HStack>
+
+                  <HStack className="items-center justify-between">
+                    <VStack>
+                      <Text size="sm" className="font-medium">{t("invoices.fields.sendEmail")}</Text>
+                      <Text size="xs" className="font-light text-muted-foreground">
+                        {t("invoices.fields.sendEmailHint")}
+                      </Text>
+                    </VStack>
+                    <Switch value={emailOnSend} onValueChange={setEmailOnSend} />
+                  </HStack>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.fields.notes")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Textarea>
+                      <TextareaInput
+                        placeholder={t("invoices.placeholders.notes")}
+                        value={notes}
+                        onChangeText={setNotes}
+                        className="font-light"
+                      />
+                    </Textarea>
+                  </FormControl>
+                </VStack>
+              </Card>
+            ) : null}
+
+            {error ? (
+              <Text size="sm" className="text-destructive">{error}</Text>
+            ) : null}
+          </>
+        )}
+      </ScrollView>
+
+      {/* Sticky footer */}
+      {!showPreview ? (
+        <Box className="border-t border-border bg-card px-4 py-3 md:px-10">
+          <HStack className="items-center justify-between">
+            <VStack>
+              <Text size="xs" className="font-light text-muted-foreground">
+                {t("invoices.totals.netTotal")}: {formatCurrency(totals.subtotal, currency)}
+              </Text>
+              <Text size="sm" className="font-semibold text-foreground">
+                {t("invoices.totals.grossTotal")}: {formatCurrency(totals.totalAmount, currency)}
+              </Text>
+            </VStack>
+            <HStack space="sm">
+              <Button variant="outline" size="sm" onPress={() => setShowPreview(true)}>
+                <Eye size={16} color={icons.foreground} />
+                <ButtonText>{t("invoices.actions.preview")}</ButtonText>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => handleSave("draft")}
+                disabled={saving}
+              >
+                <ButtonText>{t("invoices.actions.saveDraft")}</ButtonText>
+              </Button>
+              <Button
+                size="sm"
+                onPress={() => handleSave(documentType === "proforma" ? "proforma" : "sent")}
+                disabled={saving}
+              >
+                <ButtonText>{t("invoices.actions.createInvoice")}</ButtonText>
+              </Button>
             </HStack>
-          </Card>
-        </>
-      )}
-    </ScrollView>
+          </HStack>
+        </Box>
+      ) : null}
+    </Box>
   );
 }

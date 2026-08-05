@@ -21,8 +21,8 @@ export function ScreenLayout({
 }: ScreenLayoutProps) {
   const content = (
     <VStack space="md" className="flex-1">
-      {header ? <Box className="px-4 pt-4">{header}</Box> : null}
-      <Box className="flex-1 px-4 pb-8">{children}</Box>
+      {header ? <Box className="px-4 pt-4 md:px-10 md:pt-6">{header}</Box> : null}
+      <Box className="flex-1 px-4 pb-8 md:px-10">{children}</Box>
     </VStack>
   );
 
