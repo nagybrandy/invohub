@@ -356,4 +356,85 @@ export default {
     saveFailed: "Mentés sikertelen.",
     save: "Ügyfél mentése",
   },
+  landing: {
+    getStarted: "Kezdés",
+    getStartedFree: "Ingyenes regisztráció",
+    goToDashboard: "Irány az áttekintés",
+    nav: {
+      features: "Funkciók",
+      pricing: "Árazás",
+      contact: "Kapcsolat",
+    },
+    hero: {
+      badge: "Magyar számlázás, egyszerűen",
+      title: "Számlázz könnyedén, maradj NAV-kompatibilis",
+      subtitle:
+        "Az InvoHub összeköti a vállalkozásodat a magyar adóhatósággal. Számla, nyugta, NAV beküldés — egy helyen, bármilyen eszközön.",
+      highlight1: "NAV Online Számla integráció",
+      highlight2: "Számla + nyugta + díjbekérő",
+      highlight3: "Web, iOS és Android alkalmazás",
+    },
+    features: {
+      sectionLabel: "Funkciók",
+      sectionTitle: "Minden, ami a magyar számlázáshoz kell",
+      sectionSubtitle:
+        "Egyetlen platformon kezelheted a számlákat, nyugtákat és a NAV-ot.",
+      invoicing: {
+        title: "Számlázás",
+        desc: "Számla, díjbekérő és előlegszámla kiállítása percek alatt. ÁFA-kalkuláció, tételsorok, megjegyzés.",
+      },
+      receipts: {
+        title: "Nyugtázás",
+        desc: "Elektronikus nyugták QR kóddal, NAV eNyugta API beküldéssel. 2026 szeptembertől kötelező.",
+      },
+      nav: {
+        title: "NAV integráció",
+        desc: "Automatikus számla- és nyugtabeküldés a NAV Online Számla és eNyugta rendszerébe.",
+      },
+      multiCurrency: {
+        title: "Többpénznemes",
+        desc: "HUF és EUR támogatás. Külföldi vállalkozóknak is ideális, magyar adószámmal.",
+      },
+      dashboard: {
+        title: "Áttekintés",
+        desc: "Bevétel, ÁFA-becslés, lejárt tartozások — valós idejű statisztikák egy helyen.",
+      },
+      crossPlatform: {
+        title: "Mindenhol elérhető",
+        desc: "Web, iOS és Android — ugyanaz az alkalmazás, bárhonnan elérhető.",
+      },
+    },
+    howItWorks: {
+      sectionLabel: "Hogyan működik",
+      sectionTitle: "3 lépésben kész a számlád",
+      step1: {
+        title: "Regisztrálj",
+        desc: "Hozd létre a fiókodat 30 másodperc alatt, add meg a céges adataidat.",
+      },
+      step2: {
+        title: "Állítsd ki a számlát",
+        desc: "Válaszd ki a partnert, add meg a tételeket, és a rendszer kiszámolja az ÁFA-t.",
+      },
+      step3: {
+        title: "Küld el és jelentsd",
+        desc: "A számla automatikusan beküldhető a NAV-nak és elküldhető a partnernek.",
+      },
+    },
+    stats: {
+      navCompliant: "NAV-kompatibilis",
+      platforms: "platform (web, iOS, Android)",
+      invoiceTime: "egy számla kiállítása",
+      startPrice: "induláskor",
+    },
+    cta: {
+      title: "Készen állsz a magyar számlázásra?",
+      subtitle:
+        "Regisztrálj ingyen, és perceken belül kiállíthatod az első számládat.",
+      secure: "Biztonságos adatkezelés",
+      support: "Magyar ügyfélszolgálat",
+    },
+    footer: {
+      copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
+    },
+  },
 };

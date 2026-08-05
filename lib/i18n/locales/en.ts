@@ -357,4 +357,85 @@ export default {
     saveFailed: "Failed to save.",
     save: "Save client",
   },
+  landing: {
+    getStarted: "Get started",
+    getStartedFree: "Start for free",
+    goToDashboard: "Go to dashboard",
+    nav: {
+      features: "Features",
+      pricing: "Pricing",
+      contact: "Contact",
+    },
+    hero: {
+      badge: "Hungarian invoicing, simplified",
+      title: "Invoice with ease, stay NAV-compliant",
+      subtitle:
+        "InvoHub connects your business with the Hungarian tax authority. Invoices, receipts, NAV submissions — all in one place, on any device.",
+      highlight1: "NAV Online Számla integration",
+      highlight2: "Invoices + receipts + proforma",
+      highlight3: "Web, iOS, and Android app",
+    },
+    features: {
+      sectionLabel: "Features",
+      sectionTitle: "Everything you need for Hungarian invoicing",
+      sectionSubtitle:
+        "Manage invoices, receipts, and NAV compliance on a single platform.",
+      invoicing: {
+        title: "Invoicing",
+        desc: "Create invoices, proformas, and advance invoices in minutes. VAT calculation, line items, and notes.",
+      },
+      receipts: {
+        title: "Receipts",
+        desc: "Electronic receipts with QR codes and NAV eReceipt API submission. Mandatory from September 2026.",
+      },
+      nav: {
+        title: "NAV integration",
+        desc: "Automatic invoice and receipt submission to NAV Online Számla and eReceipt systems.",
+      },
+      multiCurrency: {
+        title: "Multi-currency",
+        desc: "HUF and EUR support. Ideal for foreign entrepreneurs with a Hungarian tax number.",
+      },
+      dashboard: {
+        title: "Dashboard",
+        desc: "Revenue, VAT estimates, overdue debts — real-time statistics in one place.",
+      },
+      crossPlatform: {
+        title: "Available everywhere",
+        desc: "Web, iOS, and Android — the same app, accessible from anywhere.",
+      },
+    },
+    howItWorks: {
+      sectionLabel: "How it works",
+      sectionTitle: "Your invoice in 3 steps",
+      step1: {
+        title: "Sign up",
+        desc: "Create your account in 30 seconds and enter your company details.",
+      },
+      step2: {
+        title: "Create your invoice",
+        desc: "Pick your partner, add line items, and the system calculates VAT automatically.",
+      },
+      step3: {
+        title: "Send & report",
+        desc: "The invoice is automatically submitted to NAV and sent to your partner.",
+      },
+    },
+    stats: {
+      navCompliant: "NAV-compliant",
+      platforms: "platforms (web, iOS, Android)",
+      invoiceTime: "to create an invoice",
+      startPrice: "to get started",
+    },
+    cta: {
+      title: "Ready for Hungarian invoicing?",
+      subtitle:
+        "Sign up for free and create your first invoice in minutes.",
+      secure: "Secure data handling",
+      support: "Hungarian customer support",
+    },
+    footer: {
+      copyright: "© {{year}} InvoHub. All rights reserved.",
+    },
+  },
 };
