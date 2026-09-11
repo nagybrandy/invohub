@@ -18,9 +18,13 @@ import {
 
 type CookieConsentProps = {
   onOpenPolicy: () => void;
+  reopenRequest?: number;
 };
 
-export function CookieConsent({ onOpenPolicy }: CookieConsentProps) {
+export function CookieConsent({
+  onOpenPolicy,
+  reopenRequest = 0,
+}: CookieConsentProps) {
   const { t } = useTranslation();
   const [visible, setVisible] = React.useState(false);
   const [analytics, setAnalytics] = React.useState(false);
@@ -36,6 +40,12 @@ export function CookieConsent({ onOpenPolicy }: CookieConsentProps) {
       setMarketing(consent.marketing);
     });
   }, []);
+
+  React.useEffect(() => {
+    if (reopenRequest > 0) {
+      setVisible(true);
+    }
+  }, [reopenRequest]);
 
   async function persist(nextAnalytics: boolean, nextMarketing: boolean) {
     await saveCookieConsent(

@@ -384,147 +384,140 @@ export default {
     getStartedFree: "Start for free",
     goToDashboard: "Go to dashboard",
     nav: {
+      home: "InvoHub home",
       product: "Product",
+      capabilities: "Capabilities",
       workflow: "Workflow",
-      features: "Features",
-      pricing: "Pricing",
-      contact: "Contact",
+      roadmap: "Direction",
+      openMenu: "Open menu",
+      closeMenu: "Close menu",
     },
     hero: {
-      badge: "A clear invoicing workspace",
-      title: "Keep invoicing organized in one calm system",
+      eyebrow: "Built around Hungarian businesses",
+      title: "Make invoicing a reliable system. Not another task.",
       subtitle:
-        "Create and track invoices, manage partners, and see the figures that matter in a workspace designed for web and mobile.",
-      highlight1: "Invoice, receipt, and proforma workflows",
-      highlight2: "Clear revenue and outstanding balance overview",
-      highlight3: "Web, iOS, and Android app",
-      ctaNote: "Early access · no card required",
+        "InvoHub is an organized workspace that brings invoices, clients, products, and documents into one trackable system.",
+      productTour: "See the product",
+      reassurance:
+        "We show what is available today — work in development is clearly marked separately.",
     },
-    proof: {
-      title: "Business overview",
-      preview: "Product preview",
-      revenue: "Revenue",
-      outstanding: "Outstanding",
-      drafts: "Drafts",
+    product: {
+      workspace: "Business overview",
+      sampleData: "Product preview · sample data",
+      overview: "Overview",
+      invoices: "Invoices",
+      clients: "Clients",
+      currentPeriod: "Current period",
+      upToDate: "Tracked states",
       recent: "Recent invoices",
-      amount: "Gross amount",
+      allInvoices: "All invoices",
+      paid: "Paid",
+      sent: "Sent",
+      draft: "Draft",
+      deliveryTitle: "PDF and email delivery",
+      deliveryDetail: "Preview, download, and send in one workflow",
     },
-    benefits: {
-      eyebrow: "One system",
-      title: "The foundations for day-to-day invoicing",
+    transition: {
+      eyebrow: "Fewer scattered details",
+      title: "Your business is not an administration project.",
+      description:
+        "As a sole proprietor or small business, you rely on the same accurate information repeatedly. InvoHub organizes the elements of daily invoicing so you can see what is complete and what still needs attention.",
+      statement:
+        "We are not adding more features to manage. We are creating a more consistent workflow for the work you already need to do.",
+    },
+    capabilities: {
+      eyebrow: "Available now",
+      title: "One system for the work around every document",
       subtitle:
-        "Less searching, clearer states, and a consistent workflow on every screen.",
+        "The capabilities share one data set and a consistent interaction model.",
       invoice: {
-        title: "Documents in one place",
+        title: "Invoice creation, clear from end to end",
         description:
-          "Create, preview, and track invoices, proformas, and receipts in one consistent interface.",
+          "Clients, line items, dates, and payment details in an editable, reviewable workflow.",
+        preview: "Invoice · INV-2026-0142",
+      },
+      delivery: {
+        title: "PDF and email",
+        description:
+          "Preview finished documents, download PDFs, and send emails from one place.",
       },
       records: {
-        title: "Organized records",
+        title: "Clients and products",
         description:
-          "Reuse partner, product, and company details with less repetitive data entry.",
+          "Reusable records so every invoice does not start with empty fields.",
       },
-      devices: {
-        title: "Desktop and mobile",
+      reminder: {
+        title: "Payment reminders",
         description:
-          "Purpose-built responsive layouts rather than a compressed desktop page.",
+          "Configurable reminders and a trackable sending workflow for open items.",
+      },
+      receipt: {
+        title: "A focused receipt workflow",
+        description:
+          "Create, view, and send receipts in a purpose-built flow separate from invoices.",
       },
     },
     workflow: {
-      eyebrow: "Workflow",
-      title: "From details to a finished document",
+      eyebrow: "A direct path to the document",
+      title: "The next step is always clear",
       subtitle:
-        "Important decisions stay visible while detail opens only when you need it.",
+        "The workflow retains every necessary detail without allowing important decisions to disappear among them.",
       step1: {
-        title: "Partner and document type",
-        description: "Choose who the document is for and what you are creating.",
+        title: "Choose the source details",
+        description:
+          "Clients, document type, and saved products provide an organized starting point.",
       },
       step2: {
-        title: "Items and payment details",
+        title: "Review the document",
         description:
-          "Enter line items, dates, and payment terms in a reviewable form.",
+          "Line items, dates, payment terms, and the preview can be checked together.",
       },
       step3: {
-        title: "Review and save",
+        title: "Save, download, or send",
         description:
-          "Check the preview, then save a draft or finalize the document.",
+          "Save as a draft, finalize the document, download its PDF, or send it by email.",
       },
     },
-    pricing: {
-      eyebrow: "Early access",
-      title: "Try the current InvoHub foundation",
+    roadmap: {
+      label: "Product direction · not available yet",
+      title: "The next layer: less manual reconciliation",
       description:
-        "Introductory plan details will be finalized before public launch. Registration provides access to the invoicing workflows currently available.",
-      honestNote:
-        "Bank matching, tax calculation, and M2M submission remain planned work.",
-      cta: "Create account",
-    },
-    features: {
-      sectionLabel: "Features",
-      sectionTitle: "Everything you need for Hungarian invoicing",
-      sectionSubtitle:
-        "Manage invoices, receipts, and NAV compliance on a single platform.",
-      invoicing: {
-        title: "Invoicing",
-        desc: "Create invoices, proformas, and advance invoices in minutes. VAT calculation, line items, and notes.",
+        "These items describe the planned direction of the product. They are not currently part of the available service, and no launch date is promised.",
+      future: "Planned",
+      bank: {
+        title: "Bank matching",
+        description:
+          "Assisted matching of incoming transactions with open invoices.",
       },
-      receipts: {
-        title: "Receipts",
-        desc: "Electronic receipts with QR codes and NAV eReceipt API submission. Mandatory from September 2026.",
+      tax: {
+        title: "Sole proprietor tax calculator",
+        description:
+          "An informational tax-planning view designed for sole proprietors.",
       },
-      nav: {
-        title: "NAV integration",
-        desc: "Automatic invoice and receipt submission to NAV Online Számla and eReceipt systems.",
-      },
-      multiCurrency: {
-        title: "Multi-currency",
-        desc: "HUF and EUR support. Ideal for foreign entrepreneurs with a Hungarian tax number.",
-      },
-      dashboard: {
-        title: "Dashboard",
-        desc: "Revenue, VAT estimates, overdue debts — real-time statistics in one place.",
-      },
-      crossPlatform: {
-        title: "Available everywhere",
-        desc: "Web, iOS, and Android — the same app, accessible from anywhere.",
+      m2m: {
+        title: "M2M filing workflow",
+        description:
+          "Preparing supported data and submission steps in a later development phase.",
       },
     },
-    howItWorks: {
-      sectionLabel: "How it works",
-      sectionTitle: "Your invoice in 3 steps",
-      step1: {
-        title: "Sign up",
-        desc: "Create your account in 30 seconds and enter your company details.",
-      },
-      step2: {
-        title: "Create your invoice",
-        desc: "Pick your partner, add line items, and the system calculates VAT automatically.",
-      },
-      step3: {
-        title: "Send & report",
-        desc: "The invoice is automatically submitted to NAV and sent to your partner.",
-      },
-    },
-    stats: {
-      navCompliant: "NAV-compliant",
-      platforms: "platforms (web, iOS, Android)",
-      invoiceTime: "to create an invoice",
-      startPrice: "to get started",
-    },
-    cta: {
-      title: "Ready for Hungarian invoicing?",
-      subtitle:
-        "Sign up for free and create your first invoice in minutes.",
-      secure: "Secure data handling",
-      support: "Hungarian customer support",
+    finalCta: {
+      eyebrow: "An organized start",
+      title: "Move daily invoicing into a more dependable system.",
+      description:
+        "Create your account and explore the InvoHub workflows available today.",
     },
     footer: {
-      copyright: "© {{year}} InvoHub. All rights reserved.",
+      description:
+        "A clear invoicing workspace for Hungarian sole proprietors and small businesses.",
+      product: "InvoHub",
+      legal: "Legal information",
+      login: "Log in to the app",
+      cookiePreferences: "Cookie preferences",
       terms: "Terms",
       privacy: "Privacy",
-      cookies: "Cookies",
+      cookies: "Cookie notice",
       imprint: "Imprint",
-      draftNote: "Legal pages under review",
+      copyright: "© {{year}} InvoHub. All rights reserved.",
     },
   },
 };
