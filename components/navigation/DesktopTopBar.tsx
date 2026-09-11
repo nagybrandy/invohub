@@ -12,7 +12,7 @@ import type { AppRoute } from "@/lib/navigation";
 type DesktopTopBarProps = {
   companyName?: string;
   companyTaxId?: string;
-  navItems: { href: string; labelKey: string }[];
+  navItems: { href: AppRoute; labelKey: string }[];
   activeHref: string;
   unreadCount: number;
   userName?: string;
@@ -69,11 +69,13 @@ export function DesktopTopBar({
           {/* Nav links */}
           <HStack space="xl" className="items-center">
             {navItems.map((item) => {
-              const isActive = activeHref === item.href || activeHref.startsWith(`${item.href}/`);
+              const href = String(item.href);
+              const isActive =
+                activeHref === href || activeHref.startsWith(`${href}/`);
               return (
                 <Pressable
-                  key={item.href}
-                  onPress={() => onNavigate(item.href as AppRoute)}
+                  key={href}
+                  onPress={() => onNavigate(item.href)}
                 >
                   <Text
                     className={`text-sm ${isActive ? "font-semibold text-white" : "font-normal text-[#f9f9f9]"}`}

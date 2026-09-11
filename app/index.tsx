@@ -462,7 +462,7 @@ function Footer() {
             </Text>
           </HStack>
           <HStack space="md" className="flex-wrap">
-            {[
+            {([
               [routes.terms, "landing.footer.terms"],
               [routes.privacy, "landing.footer.privacy"],
               [routes.cookies, "landing.footer.cookies"],
