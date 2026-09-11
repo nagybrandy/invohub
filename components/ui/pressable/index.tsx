@@ -1,3 +1,5 @@
+// components/ui/pressable/index.tsx
+// Shared interactive primitive with accessible, reduced-motion-safe web feedback.
 'use client';
 import React from 'react';
 import { createPressable } from '@gluestack-ui/core/pressable/creator';
@@ -12,7 +14,7 @@ const UIPressable = createPressable({
 });
 
 const pressableStyle = tva({
-  base: 'data-[focus-visible=true]:outline-none data-[focus-visible=true]:ring-indicator-info data-[focus-visible=true]:ring-2 data-[disabled=true]:opacity-40',
+  base: 'web:transition-[color,background-color,border-color,opacity,box-shadow] web:duration-200 motion-reduce:web:transition-none data-[focus-visible=true]:outline-none data-[focus-visible=true]:ring-primary/50 data-[focus-visible=true]:ring-2 data-[disabled=true]:opacity-40',
 });
 
 type IPressableProps = Omit<

@@ -1,7 +1,7 @@
 // components/invoices/InvoiceDocumentPreview.tsx
 // Inline HTML/PDF invoice preview — tabs on mobile, side-by-side on desktop.
 import * as React from "react";
-import { ActivityIndicator, Linking } from "react-native";
+import { ActivityIndicator } from "react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { PdfPreviewEmbed } from "@/components/invoices/PdfPreviewEmbed";
 import { apiFetch, invoicePdfUrl } from "@/lib/api/client";
 import { getAuthBaseUrl } from "@/lib/auth-url";
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
+import { sharePdfBlob } from "@/lib/pdf-preview";
 import type { Invoice } from "@/lib/invoices/types";
 import { isWeb } from "@/lib/platform";
 import { useIsDesktop } from "@/lib/useIsDesktop";
@@ -129,12 +130,14 @@ export function InvoiceDocumentPreview({
   const [tab, setTab] = React.useState<PreviewTab>("html");
   const [html, setHtml] = React.useState<string | null>(null);
   const [draftPdfUrl, setDraftPdfUrl] = React.useState<string | null>(null);
+  const [nativePdfBlob, setNativePdfBlob] = React.useState<Blob | null>(null);
   const [loadingHtml, setLoadingHtml] = React.useState(false);
   const [loadingPdf, setLoadingPdf] = React.useState(false);
   const [errorHtml, setErrorHtml] = React.useState<string | null>(null);
   const [errorPdf, setErrorPdf] = React.useState<string | null>(null);
 
-  const savedPdfSrc = invoiceId ? invoicePdfUrl(invoiceId) : null;
+  const web = isWeb();
+  const savedPdfSrc = invoiceId && web ? invoicePdfUrl(invoiceId) : null;
   const pdfSrc = savedPdfSrc ?? draftPdfUrl;
 
   const invoiceKey = React.useMemo(() => {
@@ -157,6 +160,7 @@ export function InvoiceDocumentPreview({
     if (draftPdfUrl?.startsWith("blob:")) URL.revokeObjectURL(draftPdfUrl);
     setHtml(null);
     setDraftPdfUrl(null);
+    setNativePdfBlob(null);
     setErrorHtml(null);
     setErrorPdf(null);
   }, [invoiceKey]);
@@ -189,17 +193,33 @@ export function InvoiceDocumentPreview({
   }, [needsHtml, html, invoice, invoiceId, invoiceKey]);
 
   React.useEffect(() => {
-    if (!needsPdf || invoiceId || draftPdfUrl) return;
+    if (
+      !needsPdf ||
+      draftPdfUrl ||
+      nativePdfBlob ||
+      (web && invoiceId)
+    ) {
+      return;
+    }
 
     setLoadingPdf(true);
     setErrorPdf(null);
 
-    void fetch(`${getAuthBaseUrl()}/api/invoices/preview/pdf`, {
-      method: "POST",
+    const endpoint = invoiceId
+      ? `/api/invoices/${invoiceId}/pdf`
+      : "/api/invoices/preview/pdf";
+    const request: RequestInit = {
+      method: invoiceId ? "GET" : "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invoice }),
-    })
+      ...(invoiceId
+        ? {}
+        : {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ invoice }),
+          }),
+    };
+
+    void fetch(`${getAuthBaseUrl()}${endpoint}`, request)
       .then(async (response) => {
         if (!response.ok) {
           const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -207,26 +227,40 @@ export function InvoiceDocumentPreview({
         }
         return response.blob();
       })
-      .then((blob) => setDraftPdfUrl(URL.createObjectURL(blob)))
+      .then((blob) => {
+        if (web) {
+          setDraftPdfUrl(URL.createObjectURL(blob));
+        } else {
+          setNativePdfBlob(blob);
+        }
+      })
       .catch((e) =>
         setErrorPdf(e instanceof Error ? e.message : "Failed to load PDF preview.")
       )
       .finally(() => setLoadingPdf(false));
-  }, [needsPdf, draftPdfUrl, invoice, invoiceId, invoiceKey]);
+  }, [
+    needsPdf,
+    draftPdfUrl,
+    nativePdfBlob,
+    invoice,
+    invoiceId,
+    invoiceKey,
+    web,
+  ]);
 
   async function handleOpenPdf() {
     const url = savedPdfSrc ?? draftPdfUrl;
-    if (!url) return;
-
-    if (isWeb() && typeof window !== "undefined") {
+    if (web && url && typeof window !== "undefined") {
       window.open(url, "_blank", "noopener,noreferrer");
       return;
     }
 
-    await Linking.openURL(url);
+    if (nativePdfBlob) {
+      await sharePdfBlob(nativePdfBlob, `${invoice.invoiceNumber}.pdf`);
+    }
   }
 
-  const pdfLoading = invoiceId ? false : loadingPdf;
+  const pdfLoading = web && invoiceId ? false : loadingPdf;
 
   if (effectiveLayout === "split") {
     return (
@@ -261,7 +295,7 @@ export function InvoiceDocumentPreview({
               loading={pdfLoading}
               error={errorPdf}
               minHeight={minHeight}
-              onOpenPdf={pdfSrc || errorPdf ? handleOpenPdf : undefined}
+              onOpenPdf={pdfSrc || nativePdfBlob ? handleOpenPdf : undefined}
             />
           </Card>
         </HStack>
@@ -302,7 +336,7 @@ export function InvoiceDocumentPreview({
             loading={pdfLoading}
             error={errorPdf}
             minHeight={minHeight}
-            onOpenPdf={pdfSrc || errorPdf ? handleOpenPdf : undefined}
+            onOpenPdf={pdfSrc || nativePdfBlob ? handleOpenPdf : undefined}
           />
         )}
       </Card>

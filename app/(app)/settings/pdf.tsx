@@ -1,7 +1,7 @@
 // app/(app)/settings/pdf.tsx
 // Invoice PDF layout settings with live sample preview.
 import * as React from "react";
-import { ActivityIndicator, Linking } from "react-native";
+import { ActivityIndicator } from "react-native";
 import { FileText } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { PdfPreviewEmbed } from "@/components/invoices/PdfPreviewEmbed";
 import { usePdfTemplate } from "@/hooks/usePdfTemplate";
 import { DEFAULT_PDF_TEMPLATE, PDF_FONT_SCALES } from "@/lib/invoices/pdf-template/defaults";
 import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
+import { sharePdfBlob } from "@/lib/pdf-preview";
 import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
@@ -97,12 +98,7 @@ export default function PdfSettingsScreen() {
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
       } else {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const dataUrl = reader.result as string;
-          void Linking.openURL(dataUrl);
-        };
-        reader.readAsDataURL(blob);
+        await sharePdfBlob(blob, "invohub-sample-preview.pdf");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Preview failed.");

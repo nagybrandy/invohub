@@ -22,7 +22,7 @@ describe("themeTokens", () => {
   it("uses Figma design system colors", () => {
     expect(themeTokens.light["--primary"]).toBe("100 149 237");
     expect(themeTokens.light["--secondary"]).toBe("17 31 74");
-    expect(themeTokens.light["--accent"]).toBe("141 182 0");
+    expect(themeTokens.light["--accent"]).toBe("217 231 255");
     expect(themeTokens.dark["--muted-foreground"]).toBe("180 190 204");
   });
 });

@@ -96,7 +96,7 @@ export default function DashboardScreen() {
 
   return (
     <ScreenLayout>
-      <VStack space="lg" className="mx-auto w-full max-w-[1280px] pt-4 md:pt-6">
+      <VStack space="lg" className="mx-auto w-full max-w-[1280px]">
         <Breadcrumb items={[{ label: t("dashboard.breadcrumb") }]} />
         {/* Header row */}
         <Box className="gap-4 md:flex-row md:items-start md:justify-between">

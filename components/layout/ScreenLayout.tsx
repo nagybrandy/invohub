@@ -20,8 +20,8 @@ export function ScreenLayout({
   scrollProps,
 }: ScreenLayoutProps) {
   const content = (
-    <VStack space="md" className="flex-1">
-      {header ? <Box className="px-4 pt-4 md:px-10 md:pt-6">{header}</Box> : null}
+    <VStack space="md" className="flex-1 pt-5 md:pt-8">
+      {header ? <Box className="px-4 md:px-10">{header}</Box> : null}
       <Box className="flex-1 px-4 pb-8 md:px-10">{children}</Box>
     </VStack>
   );

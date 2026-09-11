@@ -33,6 +33,9 @@ test.describe("Production smoke", () => {
   test("get started navigates to login", async ({ page }) => {
     await page.goto("/");
     await page
+      .getByRole("button", { name: /^(Csak szükséges|Essential only)$/i })
+      .click();
+    await page
       .getByRole("button", { name: /^(Kezdés|Get started)$/i })
       .click();
     await expect(page).toHaveURL(/login/);

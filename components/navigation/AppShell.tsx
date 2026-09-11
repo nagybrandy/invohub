@@ -48,9 +48,9 @@ function MobileTabBar({
             <Box key={item.labelKey} className="flex-1 items-center">
               <Pressable
                 onPress={() => onNavigate(item.href)}
-                className={`rounded-lg px-2 py-2 ${active ? "bg-accent" : ""}`}
+                className={`rounded-lg px-2 py-2 ${active ? "bg-primary/15" : ""}`}
               >
-                <Icon size={22} color={active ? iconColors.accentForeground : iconColors.muted} />
+                <Icon size={22} color={active ? iconColors.primary : iconColors.muted} />
               </Pressable>
               <Text
                 size="xs"
