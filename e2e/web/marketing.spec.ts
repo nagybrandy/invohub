@@ -57,6 +57,25 @@ test.describe("Static marketing homepage", () => {
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   });
 
+  test("keeps marketing sections visible after a jump scroll", async ({ page }) => {
+    await seedDismissedConsent(page);
+    await page.goto("/");
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+    await expect(page.getByTestId("marketing-footer")).toBeVisible();
+
+    const hidden = await page.evaluate(() =>
+      Array.prototype.filter.call(
+        document.querySelectorAll("[data-reveal]"),
+        (node) => window.getComputedStyle(node).opacity === "0",
+      ).length,
+    );
+
+    expect(hidden).toBe(0);
+  });
+
   test("in-page navigation reaches the product and workflow sections", async ({
     page,
   }, testInfo) => {

@@ -36,6 +36,23 @@
   --shadow-float: 0 24px 64px -28px rgba(11, 21, 51, 0.55);
 
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --font-display: "Syne", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+@font-face {
+  font-family: "Syne";
+  src: url("/marketing/assets/fonts/syne-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Syne";
+  src: url("/marketing/assets/fonts/syne-800.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
 }
 
 /* ---------- Reset ---------- */
@@ -168,18 +185,20 @@ button {
 }
 
 .display {
+  font-family: var(--font-display);
   font-size: clamp(2.3rem, 5.4vw, 3.7rem);
   line-height: 1.06;
-  letter-spacing: -0.03em;
-  font-weight: 680;
+  letter-spacing: -0.04em;
+  font-weight: 800;
   text-wrap: balance;
 }
 
 .h2 {
+  font-family: var(--font-display);
   font-size: clamp(1.7rem, 3.4vw, 2.6rem);
   line-height: 1.12;
-  letter-spacing: -0.024em;
-  font-weight: 660;
+  letter-spacing: -0.03em;
+  font-weight: 800;
 }
 
 .h3 {
@@ -290,20 +309,24 @@ button {
 /* ---------- Brand ---------- */
 .brand {
   display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.brand__mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  align-items: baseline;
+  gap: 0;
 }
 
 .brand__word {
-  font-size: 1.12rem;
-  font-weight: 680;
-  letter-spacing: -0.022em;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.brand__hub {
+  color: var(--blue-400);
+}
+
+.footer .brand__hub {
+  color: var(--blue-500);
 }
 
 /* ---------- Header ---------- */
@@ -945,15 +968,17 @@ button {
 }
 
 /* ---------- Reveal ---------- */
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+@keyframes marketing-rise {
+  from {
+    transform: translateY(14px);
+  }
+  to {
+    transform: none;
+  }
 }
 
-[data-reveal].is-visible {
-  opacity: 1;
-  transform: none;
+[data-reveal] {
+  animation: marketing-rise 0.65s var(--ease) both;
 }
 
 /* ---------- Responsive ---------- */
@@ -1035,7 +1060,6 @@ button {
   }
 
   [data-reveal] {
-    opacity: 1;
-    transform: none;
+    animation: none;
   }
 }

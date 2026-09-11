@@ -137,35 +137,4 @@
       reopen.addEventListener("click", openConsent);
     }
   }
-
-  /* ---------- Scroll reveal ---------- */
-  var revealTargets = document.querySelectorAll("[data-reveal]");
-  var prefersReducedMotion =
-    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  function revealAll() {
-    Array.prototype.forEach.call(revealTargets, function (target) {
-      target.classList.add("is-visible");
-    });
-  }
-
-  if (prefersReducedMotion || !("IntersectionObserver" in window)) {
-    revealAll();
-  } else {
-    var observer = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { rootMargin: "0px 0px -12% 0px", threshold: 0.05 },
-    );
-
-    Array.prototype.forEach.call(revealTargets, function (target) {
-      observer.observe(target);
-    });
-  }
 })();

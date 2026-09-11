@@ -26,6 +26,8 @@ export interface Invoice {
   invoiceNumber: string;
   clientName: string;
   clientTaxNumber?: string;
+  /** Linked partner row when the invoice was created from the client picker. */
+  clientId?: string;
   issueDate: string;
   dueDate: string;
   status: InvoiceStatus;

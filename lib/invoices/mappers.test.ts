@@ -97,13 +97,14 @@ describe("mapLineItemToDb", () => {
 });
 
 describe("mapInvoiceToDb", () => {
-  it("maps domain invoice to DB shape", () => {
-    const inv = makeInvoice();
+  it("maps domain invoice to DB shape including clientId", () => {
+    const inv = makeInvoice({ clientId: "cli-9" });
     expect(mapInvoiceToDb(inv, "user-1")).toMatchObject({
       id: "inv-1",
       userId: "user-1",
       invoiceNumber: "INV-2026-001",
       clientName: "Acme Kft.",
+      clientId: "cli-9",
       status: "sent",
     });
   });
