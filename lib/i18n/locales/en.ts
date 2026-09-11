@@ -122,6 +122,7 @@ export default {
     },
     fields: {
       partnerNameOrTax: "Partner name or tax number",
+      savedPartners: "Saved partners",
       country: "Country",
       taxNumber: "Tax number",
       zipCode: "ZIP code",
@@ -185,6 +186,7 @@ export default {
       saveFailed: "Failed to save.",
       clientRequired: "Client name is required.",
       lineItemRequired: "Add at least one line item.",
+      clientEmailRequired: "Add the partner email address to send the document.",
     },
     autoSaved: "Auto-saved as draft",
     autoSavedAt: "Auto-saved as draft at {{time}}",

@@ -122,6 +122,7 @@ export default {
     },
     fields: {
       partnerNameOrTax: "Partner neve vagy adószáma",
+      savedPartners: "Mentett partnerek",
       country: "Ország",
       taxNumber: "Adószám",
       zipCode: "Irányítószám",
@@ -185,6 +186,7 @@ export default {
       saveFailed: "Nem sikerült menteni.",
       clientRequired: "Az ügyfél neve kötelező.",
       lineItemRequired: "Legalább egy tételt adj meg.",
+      clientEmailRequired: "Email küldéshez add meg a partner e-mail címét.",
     },
     autoSaved: "Automatikusan mentve piszkozatként",
     autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",

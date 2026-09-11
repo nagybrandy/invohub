@@ -30,6 +30,7 @@ export function mapInvoiceFromDb(
     invoiceNumber: row.invoiceNumber,
     clientName: row.clientName,
     clientTaxNumber: row.clientTaxNumber ?? undefined,
+    clientId: row.clientId ?? undefined,
     issueDate: row.issueDate,
     dueDate: row.dueDate,
     status: row.status as InvoiceStatus,
@@ -63,13 +64,12 @@ export function mapInvoiceToDb(
   inv: Invoice,
   userId: string,
   companyId?: string | null,
-  clientId?: string | null
 ) {
   return {
     id: inv.id,
     userId,
     companyId: companyId ?? null,
-    clientId: clientId ?? null,
+    clientId: inv.clientId ?? null,
     invoiceNumber: inv.invoiceNumber,
     clientName: inv.clientName,
     clientTaxNumber: inv.clientTaxNumber ?? null,
