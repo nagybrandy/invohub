@@ -112,6 +112,7 @@ const InputField = React.forwardRef<
     <UIInput.Input
       ref={ref}
       {...props}
+      aria-label={props.accessibilityLabel}
       className={inputFieldStyle({
         class: className,
       })}
