@@ -46,13 +46,13 @@ export function DesktopTopBar({
 
   return (
     <Box className="bg-secondary px-10 py-4">
-      <HStack className="items-center justify-between">
+      <HStack className="mx-auto w-full max-w-[1440px] items-center justify-between">
         {/* Left: logo + company dropdown + nav links */}
         <HStack space="lg" className="items-center">
           <FileText size={24} color="#f9f9f9" />
 
           {/* Company dropdown button */}
-          <Pressable className="flex-row items-center justify-between rounded-lg bg-[#1f305e] px-3 py-2" style={{ width: 240 }}>
+          <Pressable className="w-60 flex-row items-center justify-between rounded-lg bg-[#1f305e] px-3 py-2">
             <VStack>
               <Text className="text-sm font-medium text-white" numberOfLines={1}>
                 {companyName || "InvoHub"}

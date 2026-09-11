@@ -1,30 +1,31 @@
 /* global.css */
-/* Tailwind + InvoHub tokens — RGB space-separated (sync with lib/theme/tokens.ts). */
+/* Tailwind + customized Gluestack tokens — synchronized with lib/theme/tokens.ts. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 248 250 252;
-    --foreground: 15 23 42;
+    --background: 246 246 248;
+    --foreground: 33 35 37;
     --card: 255 255 255;
-    --card-foreground: 15 23 42;
-    --popover: 250 251 252;
-    --popover-foreground: 15 23 42;
+    --card-foreground: 33 35 37;
+    --popover: 255 255 255;
+    --popover-foreground: 33 35 37;
     --primary: 100 149 237;
     --primary-foreground: 255 255 255;
     --secondary: 17 31 74;
     --secondary-foreground: 228 230 232;
-    --muted: 241 245 249;
-    --muted-foreground: 100 116 139;
+    --muted: 249 249 249;
+    --muted-foreground: 91 93 97;
     --accent: 141 182 0;
-    --accent-foreground: 255 255 255;
+    --accent-foreground: 31 48 94;
     --destructive: 220 38 38;
     --destructive-foreground: 255 255 255;
-    --border: 226 232 240;
+    --border: 197 199 202;
     --input: 255 255 255;
     --ring: 100 149 237;
+    --hard-shadow: 33 35 37;
     --radius: 0.5rem;
   }
 

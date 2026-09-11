@@ -1,5 +1,7 @@
+// components/invoices/DocumentTypeTabs.tsx
+// Responsive segmented document picker using two rows on narrow screens.
 import { useTranslation } from "react-i18next";
-import { HStack } from "@/components/ui/hstack";
+import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 
@@ -21,12 +23,14 @@ export function DocumentTypeTabs({ selected, onChange }: Props) {
   const { t } = useTranslation();
 
   return (
-    <HStack className="rounded-lg border border-border bg-card">
+    <Box className="flex-row flex-wrap rounded-lg border border-border bg-card p-1 md:flex-nowrap">
       {DOCUMENT_TYPE_KEYS.map((dt) => (
         <Pressable
           key={dt.value}
           onPress={() => onChange(dt.value)}
-          className={`flex-1 items-center rounded-lg px-2 py-2.5 md:px-4 md:py-3 ${
+          accessibilityRole="tab"
+          accessibilityState={{ selected: selected === dt.value }}
+          className={`w-1/2 items-center rounded-lg px-2 py-2.5 md:flex-1 md:px-4 md:py-3 ${
             selected === dt.value ? "bg-primary" : "bg-transparent"
           }`}
         >
@@ -41,6 +45,6 @@ export function DocumentTypeTabs({ selected, onChange }: Props) {
           </Text>
         </Pressable>
       ))}
-    </HStack>
+    </Box>
   );
 }

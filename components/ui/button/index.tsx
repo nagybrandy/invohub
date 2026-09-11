@@ -1,4 +1,5 @@
-// @ts-nocheck — Gluestack CLI generated; cssInterop types lag behind NativeWind v4.
+// components/ui/button/index.tsx
+// @ts-nocheck — Customized Gluestack button; cssInterop types lag behind NativeWind v4.
 'use client';
 import React from 'react';
 import { createButton } from '@gluestack-ui/core/button/creator';

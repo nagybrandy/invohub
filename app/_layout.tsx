@@ -22,11 +22,11 @@ const InvohubLightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: "rgb(248, 250, 252)",
+    background: "rgb(246, 246, 248)",
     card: "rgb(255, 255, 255)",
-    border: "rgb(226, 232, 240)",
-    primary: "rgb(79, 70, 229)",
-    text: "rgb(15, 23, 42)",
+    border: "rgb(197, 199, 202)",
+    primary: "rgb(100, 149, 237)",
+    text: "rgb(33, 35, 37)",
   },
 };
 
@@ -53,6 +53,10 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
           <Stack.Screen name="receipts/view" />
+          <Stack.Screen name="aszf" />
+          <Stack.Screen name="adatkezeles" />
+          <Stack.Screen name="cookie-tajekoztato" />
+          <Stack.Screen name="impresszum" />
           <Stack.Screen name="(app)" />
         </Stack>
       </ThemeProvider>

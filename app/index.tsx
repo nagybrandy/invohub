@@ -27,6 +27,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { CookieConsent } from "@/components/marketing/CookieConsent";
 import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -52,17 +53,17 @@ function LandingNav({
 
         {isDesktop ? (
           <HStack space="xl" className="items-center">
-            <Pressable onPress={() => {}}>
+            <Pressable accessibilityRole="link">
               <Text className="text-sm text-[#f9f9f9]">
                 {t("landing.nav.features")}
               </Text>
             </Pressable>
-            <Pressable onPress={() => {}}>
+            <Pressable accessibilityRole="link">
               <Text className="text-sm text-[#f9f9f9]">
                 {t("landing.nav.pricing")}
               </Text>
             </Pressable>
-            <Pressable onPress={() => {}}>
+            <Pressable accessibilityRole="link">
               <Text className="text-sm text-[#f9f9f9]">
                 {t("landing.nav.contact")}
               </Text>
@@ -353,7 +354,7 @@ function StatsSection({ isDesktop }: { isDesktop: boolean }) {
   const { t } = useTranslation();
 
   const stats = [
-    { value: "100%", labelKey: "landing.stats.navCompliant" },
+    { value: "NAV", labelKey: "landing.stats.navCompliant" },
     { value: "3", labelKey: "landing.stats.platforms" },
     { value: "< 2 perc", labelKey: "landing.stats.invoiceTime" },
     { value: "0 Ft", labelKey: "landing.stats.startPrice" },
@@ -451,7 +452,7 @@ function Footer() {
   return (
     <Box className="border-t border-border bg-card px-4 py-8 md:px-10">
       <Box className="mx-auto max-w-5xl">
-        <HStack className="items-center justify-between">
+        <Box className="gap-5 md:flex-row md:items-center md:justify-between">
           <HStack space="sm" className="items-center">
             <Box className="h-7 w-7 items-center justify-center rounded-md bg-primary">
               <Text className="text-xs font-bold text-white">IH</Text>
@@ -460,12 +461,30 @@ function Footer() {
               InvoHub
             </Text>
           </HStack>
+          <HStack space="md" className="flex-wrap">
+            {[
+              [routes.terms, "landing.footer.terms"],
+              [routes.privacy, "landing.footer.privacy"],
+              [routes.cookies, "landing.footer.cookies"],
+              [routes.imprint, "landing.footer.imprint"],
+            ] as const).map(([href, labelKey]) => (
+              <Pressable
+                key={String(href)}
+                accessibilityRole="link"
+                onPress={() => router.push(href)}
+              >
+                <Text size="xs" className="font-medium text-primary">
+                  {t(String(labelKey))}
+                </Text>
+              </Pressable>
+            ))}
+          </HStack>
           <Text size="xs" className="font-light text-muted-foreground">
             {t("landing.footer.copyright", {
               year: new Date().getFullYear(),
             })}
           </Text>
-        </HStack>
+        </Box>
       </Box>
     </Box>
   );
@@ -488,6 +507,7 @@ export default function Landing() {
         <CtaSection />
         <Footer />
       </ScrollView>
+      <CookieConsent onOpenPolicy={() => router.push(routes.cookies)} />
     </SafeAreaView>
   );
 }

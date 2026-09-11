@@ -1,3 +1,4 @@
+// components/ui/card/styles.tsx
 import { tva } from '@gluestack-ui/utils/nativewind-utils';
 import { isWeb } from '@gluestack-ui/utils/nativewind-utils';
 const baseStyle = isWeb ? 'flex flex-col relative z-0' : '';

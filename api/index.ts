@@ -4,6 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { createRequestHandler } = require("expo-server/adapter/vercel");
+const { getDomainRedirect } = require("../lib/domain-routing");
 
 const CLIENT_DIR = path.join(__dirname, "../dist/client");
 const SERVER_DIR = path.join(__dirname, "../dist/server");
@@ -69,6 +70,22 @@ function serveClientFile(req, res, filePath) {
 }
 
 module.exports = async (req, res) => {
+  const canonicalRedirect = getDomainRedirect(
+    req.headers["x-forwarded-host"] ?? req.headers.host,
+    req.url ?? "/",
+    {
+      marketingHost: process.env.MARKETING_HOST ?? "invohub.hu",
+      appHost: process.env.APP_HOST ?? "app.invohub.hu",
+    },
+  );
+
+  if (canonicalRedirect) {
+    res.statusCode = 308;
+    res.setHeader("Location", canonicalRedirect);
+    res.end();
+    return;
+  }
+
   if (req.method === "GET" || req.method === "HEAD") {
     const filePath = resolveClientFile(req.url ?? "/");
     if (filePath) {

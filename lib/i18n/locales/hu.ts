@@ -52,6 +52,27 @@ export default {
     seedDemo: "Demo adatok betöltése",
     seedSuccess: "Demo adatok sikeresen betöltve.",
   },
+  cookies: {
+    title: "Cookie-beállítások",
+    description:
+      "A szükséges tárolás mindig aktív. Analitikai és marketing célú tárolást csak a hozzájárulásoddal engedélyezünk; jelenleg nem telepítünk ilyen követőket.",
+    policyLink: "Cookie tájékoztató megnyitása",
+    essential: "Szükséges",
+    essentialDescription: "Munkamenet, biztonság és a választás megőrzése.",
+    analytics: "Analitika",
+    analyticsDescription: "Névtelen használati statisztikák (jelenleg nincs bekötve).",
+    marketing: "Marketing",
+    marketingDescription: "Személyre szabott marketing (jelenleg nincs bekötve).",
+    rejectOptional: "Csak szükséges",
+    save: "Választás mentése",
+    acceptAll: "Mind elfogadása",
+    reopen: "Cookie-beállítások",
+  },
+  legal: {
+    back: "Vissza a főoldalra",
+    draftBadge:
+      "Jogi tervezet – közzététel előtt magyar ügyvéd és szükség szerint DPO felülvizsgálata kötelező.",
+  },
   auth: {
     signIn: "Bejelentkezés",
     signUp: "Regisztráció",
@@ -215,6 +236,7 @@ export default {
       "A nyugta automatikusan beküldésre kerül a NAV eNyugta rendszerébe.",
   },
   dashboard: {
+    breadcrumb: "Főoldal / Áttekintés",
     subtitle: "Számlázási és megfelelőségi tevékenység áttekintése.",
     quickActions: "Gyors műveletek",
     allFeatures: "Összes funkció",
@@ -435,6 +457,10 @@ export default {
     },
     footer: {
       copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
+      terms: "ÁSZF",
+      privacy: "Adatkezelés",
+      cookies: "Cookie-k",
+      imprint: "Impresszum",
     },
   },
 };

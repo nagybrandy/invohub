@@ -68,6 +68,27 @@ export default {
     seedDemo: "Load demo data",
     seedSuccess: "Demo data loaded successfully.",
   },
+  cookies: {
+    title: "Cookie preferences",
+    description:
+      "Essential storage is always active. Analytics and marketing storage require consent; no such trackers are installed in this release.",
+    policyLink: "Open cookie notice",
+    essential: "Essential",
+    essentialDescription: "Session, security, and preference storage.",
+    analytics: "Analytics",
+    analyticsDescription: "Anonymous usage statistics (not currently installed).",
+    marketing: "Marketing",
+    marketingDescription: "Personalized marketing (not currently installed).",
+    rejectOptional: "Essential only",
+    save: "Save choices",
+    acceptAll: "Accept all",
+    reopen: "Cookie preferences",
+  },
+  legal: {
+    back: "Back to home",
+    draftBadge:
+      "Legal draft – Hungarian lawyer and, where needed, DPO review is required before publication.",
+  },
   invoices: {
     title: "Invoices",
     empty: "No invoices yet",
@@ -215,6 +236,7 @@ export default {
       "The receipt will be automatically submitted to NAV eReceipt.",
   },
   dashboard: {
+    breadcrumb: "Home / Dashboard",
     subtitle: "Overview of your invoicing and compliance activity.",
     quickActions: "Quick actions",
     allFeatures: "All features",
@@ -436,6 +458,10 @@ export default {
     },
     footer: {
       copyright: "© {{year}} InvoHub. All rights reserved.",
+      terms: "Terms",
+      privacy: "Privacy",
+      cookies: "Cookies",
+      imprint: "Imprint",
     },
   },
 };
