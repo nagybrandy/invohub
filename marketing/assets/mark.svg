@@ -1,0 +1,12 @@
+<!-- marketing/assets/mark.svg -->
+<!-- InvoHub brand mark: navy tile, cut-corner document, ascending cornflower bars. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="InvoHub">
+  <rect width="40" height="40" rx="11" fill="#111f4a"/>
+  <path d="M13 9h10l6 6v14a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2Z" fill="#ffffff"/>
+  <path d="M23 9l6 6h-4a2 2 0 0 1-2-2V9Z" fill="#a8c4f4"/>
+  <g fill="#6495ed">
+    <rect x="14.5" y="21" width="3" height="5" rx="1.5"/>
+    <rect x="19" y="19" width="3" height="7" rx="1.5"/>
+    <rect x="23.5" y="17" width="3" height="9" rx="1.5"/>
+  </g>
+</svg>

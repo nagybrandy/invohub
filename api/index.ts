@@ -5,6 +5,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createRequestHandler } = require("expo-server/adapter/vercel");
 const { getDomainRedirect } = require("../lib/domain-routing");
+const {
+  MARKETING_STATIC_DIR,
+  resolveMarketingHtmlPath,
+} = require("../lib/marketing/static-site");
 
 const CLIENT_DIR = path.join(__dirname, "../dist/client");
 const SERVER_DIR = path.join(__dirname, "../dist/server");
@@ -58,7 +62,10 @@ function serveClientFile(req, res, filePath) {
   res.statusCode = 200;
   res.setHeader("Content-Type", contentType);
 
-  if (ext === ".js" || ext === ".css" || ext === ".woff2" || ext === ".woff") {
+  // Marketing files are not content-hashed, so they must stay revalidatable.
+  if (filePath.includes(`${path.sep}${MARKETING_STATIC_DIR}${path.sep}`)) {
+    res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
+  } else if (ext === ".js" || ext === ".css" || ext === ".woff2" || ext === ".woff") {
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   }
 
@@ -88,6 +95,16 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === "GET" || req.method === "HEAD") {
+    // Hand-authored marketing pages win over the app shell; fall through when absent.
+    const marketingPath = resolveMarketingHtmlPath(req.url ?? "/");
+    if (marketingPath) {
+      const marketingFile = resolveClientFile(`/${marketingPath}`);
+      if (marketingFile) {
+        serveClientFile(req, res, marketingFile);
+        return;
+      }
+    }
+
     const filePath = resolveClientFile(req.url ?? "/");
     if (filePath) {
       serveClientFile(req, res, filePath);

@@ -23,11 +23,25 @@
 
 ## Artwork
 
+The mark is a cut-corner document with ascending accent bars. It is authored as
+vector art; rasters are generated from it, never drawn by hand or by an image model.
+
 | Asset | Path | Use |
 |-------|------|-----|
-| Mark | `assets/brand/invohub-logo-mark.png` | Favicon, app icon, compact chrome |
-| Lockup | `assets/brand/invohub-logo-lockup.png` | Light marketing surfaces |
-| Workflow infographic | `assets/marketing/invohub-infographic-workflow.jpg` | Hero visual |
-| Bento infographic | `assets/marketing/invohub-infographic-bento.jpg` | Capabilities section |
+| Mark (light surfaces) | `marketing/assets/mark.svg` | Navy tile version |
+| Mark (dark surfaces) | `marketing/assets/mark-inverse.svg` | Tile-free glyph for navy chrome |
+| Favicon | `marketing/assets/favicon.svg` | Simplified glyph for 16–32px |
+| Open Graph cover | `marketing/assets/og-cover.png` | Social previews (1200×630) |
+| Square logo | `marketing/assets/logo-512.png` | JSON-LD logo, icon source art |
+| Workflow infographic | `assets/marketing/invohub-infographic-workflow.jpg` | App-side marketing visual |
+| Bento infographic | `assets/marketing/invohub-infographic-bento.jpg` | App-side marketing visual |
 
-Use `BrandLogo` / `BrandMark` from `components/marketing/BrandLogo.tsx` instead of ad-hoc icon markup.
+Rasters are regenerated from `marketing/brand-assets.html`:
+
+```bash
+node scripts/render-brand-assets.mjs
+```
+
+In the app, use `BrandLogo` / `BrandMark` from `components/marketing/BrandLogo.tsx`
+(vector, `react-native-svg`) instead of ad-hoc icon markup. Pass `tone="onDark"` on
+navy chrome so the mark drops its tile and keeps contrast.
