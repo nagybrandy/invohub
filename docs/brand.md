@@ -23,16 +23,13 @@
 
 ## Artwork
 
-The public wordmark is typography-first for now: self-hosted **Syne**
-(`marketing/assets/fonts/syne-*.woff2`) with `Invo` + accent `Hub`. A dedicated
-mark glyph is deferred until a stronger direction lands.
-
-Legacy vector mark files remain under `marketing/assets/` for favicon/OG
-regeneration only; do not put them back in the header.
+The public wordmark is typography-first for now: self-hosted **Ranade**
+(`marketing/assets/fonts/ranade-*.woff2`, Fontshare) with `Invo` + accent `Hub`.
+A dedicated mark glyph is deferred until a stronger direction lands.
 
 | Asset | Path | Use |
 |-------|------|-----|
-| Display font | `marketing/assets/fonts/syne-700.woff2`, `syne-800.woff2` | Header wordmark + display headings |
+| Display font | `marketing/assets/fonts/ranade-500.woff2`, `ranade-700.woff2` | Header wordmark + display headings |
 | Favicon | `marketing/assets/favicon.svg` | Browser tab (interim) |
 | Open Graph cover | `marketing/assets/og-cover.png` | Social previews (1200×630) |
 | Square logo | `marketing/assets/logo-512.png` | JSON-LD logo source |

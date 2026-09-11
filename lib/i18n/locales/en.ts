@@ -92,6 +92,7 @@ export default {
   invoices: {
     title: "Invoices",
     empty: "No invoices yet",
+    searchPlaceholder: "Search by partner, invoice number, or tax ID",
     preview: "Preview",
     pdf: "PDF",
     downloadPdf: "Download PDF",

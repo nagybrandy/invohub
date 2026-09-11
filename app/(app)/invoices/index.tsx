@@ -4,8 +4,8 @@ import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
+import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
@@ -31,17 +31,26 @@ const FILTERS: Array<InvoiceStatus | "all"> = [
 
 export default function InvoiceListScreen() {
   const { t } = useTranslation();
-  const { invoices, loading, stats, total, refresh, remove } = useInvoices();
-  const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(null);
   const [filter, setFilter] = React.useState<InvoiceStatus | "all">("all");
+  const [searchInput, setSearchInput] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const { invoices, loading, stats, total, refresh, remove } = useInvoices({
+    status: filter,
+    search,
+  });
+  const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(null);
 
-  const filtered =
-    filter === "all" ? invoices : invoices.filter((inv) => inv.status === filter);
+  React.useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   return (
     <>
       <ListScreen
-        data={filtered}
+        data={invoices}
         keyExtractor={(item) => item.id}
         loading={loading}
         refreshing={loading}
@@ -76,6 +85,17 @@ export default function InvoiceListScreen() {
                 value={formatCurrency(stats.monthlyTotal, "EUR")}
               />
             </HStack>
+            <Input>
+              <InputField
+                value={searchInput}
+                onChangeText={setSearchInput}
+                placeholder={t("invoices.searchPlaceholder", {
+                  defaultValue: "Keresés partner, számlaszám vagy adószám alapján",
+                })}
+                className="font-light"
+                testID="invoice-list-search"
+              />
+            </Input>
             {total > invoices.length ? (
               <Text size="xs" className="text-muted-foreground">
                 Showing {invoices.length} of {total} invoices (most recent first).

@@ -3,6 +3,7 @@
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { createId } from "@/lib/id";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
+import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
 import {
   getInvoiceStats,
   listInvoices,
@@ -32,9 +33,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const limit = parseLimit(url);
   const offset = parseOffset(url);
+  const filters = normalizeInvoiceListFilters({
+    status: url.searchParams.get("status"),
+    search: url.searchParams.get("search"),
+  });
 
   const [listResult, stats] = await Promise.all([
-    listInvoices(session.user.id, { limit, offset }),
+    listInvoices(session.user.id, { limit, offset, ...filters }),
     getInvoiceStats(session.user.id),
   ]);
 
