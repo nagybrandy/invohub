@@ -91,7 +91,9 @@ test.describe("Blog and technical SEO", () => {
 
     await page.getByTestId("blog-home-link").click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByTestId("landing-page")).toBeVisible();
+    await expect(
+      page.locator('[data-testid="landing-hero-brand"]:visible'),
+    ).toBeVisible();
   });
 
   test("sitemap.xml and robots.txt are available", async ({ request }) => {

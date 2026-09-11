@@ -41,7 +41,7 @@ export function BlogIndexScreen({ posts }: { posts: BlogPostSummary[] }) {
             <Pressable
               accessibilityRole="link"
               accessibilityLabel={t("blog.backHome")}
-              onPress={() => router.push(routes.home)}
+              onPress={() => router.replace(routes.home)}
               testID="blog-home-link"
             >
               <BrandLogo tone="onDark" height={32} />
@@ -120,7 +120,7 @@ export function BlogIndexScreen({ posts }: { posts: BlogPostSummary[] }) {
                 <Button
                   variant="outline"
                   className="border-white/30 bg-transparent"
-                  onPress={() => router.push(routes.home)}
+                  onPress={() => router.replace(routes.home)}
                 >
                   <ButtonText className="text-white">{t("blog.backHome")}</ButtonText>
                 </Button>
@@ -161,9 +161,9 @@ export function BlogArticleScreen({
                 <Text className="font-medium text-primary">{t("blog.allArticles")}</Text>
               </HStack>
             </Pressable>
-            <Pressable
+              <Pressable
               accessibilityRole="link"
-              onPress={() => router.push(routes.home)}
+              onPress={() => router.replace(routes.home)}
               testID="blog-article-home-link"
             >
               <BrandLogo tone="onLight" height={28} />
@@ -177,12 +177,11 @@ export function BlogArticleScreen({
               <Text className={`${landingDisplayType.kicker} text-primary`}>
                 {t("blog.eyebrow")}
               </Text>
-              <Heading
-                className="font-heading text-3xl font-bold leading-tight tracking-tight text-secondary md:text-4xl"
-                testID="blog-article-title"
-              >
-                {post.title}
-              </Heading>
+              <Box testID="blog-article-title">
+                <Heading className="font-heading text-3xl font-bold leading-tight tracking-tight text-secondary md:text-4xl">
+                  {post.title}
+                </Heading>
+              </Box>
               <HStack className="flex-wrap items-center gap-3">
                 <Text size="sm" className="text-muted-foreground">
                   {formatDate(post.publishedAt, i18n.language)}

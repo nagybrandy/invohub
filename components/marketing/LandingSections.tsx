@@ -73,12 +73,11 @@ export function LandingHero({
       >
         <VStack space="xl" className={`min-w-0 ${isDesktop ? "basis-[42%] flex-shrink" : ""}`}>
           <VStack space="sm">
-            <Text
-              className="font-heading text-3xl font-bold tracking-tight text-white md:text-4xl"
-              testID="landing-hero-brand"
-            >
-              {t("landing.hero.brand")}
-            </Text>
+            <Box testID="landing-hero-brand">
+              <Text className="font-heading text-3xl font-bold tracking-tight text-white md:text-4xl">
+                {t("landing.hero.brand")}
+              </Text>
+            </Box>
             <HStack space="sm" className="items-center">
               <Box className="h-px w-10 bg-primary" />
               <Text className={`${landingDisplayType.kicker} text-[#b9c9e8]`}>
