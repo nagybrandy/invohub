@@ -43,43 +43,43 @@ export default function Landing() {
     const html = document.documentElement;
     html.classList.add(LANDING_SCROLL_CLASS);
 
-    const elements = [
+    const unlockTargets: HTMLElement[] = [
       html,
       document.body,
       document.getElementById("root"),
-      document.getElementById("root")?.firstElementChild as HTMLElement | null | undefined,
     ].filter((element): element is HTMLElement => Boolean(element));
 
-    const previousStyles = elements.map((element) => ({
+    let current = document.getElementById("root")?.firstElementChild as
+      | HTMLElement
+      | null
+      | undefined;
+    for (let depth = 0; depth < 4 && current; depth += 1) {
+      unlockTargets.push(current);
+      current = current.firstElementChild as HTMLElement | null;
+    }
+
+    const previousStyles = unlockTargets.map((element) => ({
       element,
-      height: element.style.height,
-      maxHeight: element.style.maxHeight,
-      minHeight: element.style.minHeight,
-      overflow: element.style.overflow,
-      overflowX: element.style.overflowX,
-      overflowY: element.style.overflowY,
+      cssText: element.style.cssText,
     }));
 
-    elements.forEach((element) => {
+    unlockTargets.forEach((element) => {
+      element.style.setProperty("display", "block", "important");
       element.style.setProperty("height", "auto", "important");
       element.style.setProperty("max-height", "none", "important");
       element.style.setProperty("min-height", "100%", "important");
       element.style.setProperty("overflow-x", "hidden", "important");
-      element.style.setProperty("overflow-y", "visible", "important");
+      element.style.setProperty("overflow-y", element === html || element === document.body ? "auto" : "visible", "important");
+      element.style.setProperty("position", "static", "important");
+      element.style.setProperty("inset", "auto", "important");
+      element.style.setProperty("flex", "none", "important");
     });
 
     return () => {
       html.classList.remove(LANDING_SCROLL_CLASS);
-      previousStyles.forEach(
-        ({ element, height, maxHeight, minHeight, overflow, overflowX, overflowY }) => {
-          element.style.height = height;
-          element.style.maxHeight = maxHeight;
-          element.style.minHeight = minHeight;
-          element.style.overflow = overflow;
-          element.style.overflowX = overflowX;
-          element.style.overflowY = overflowY;
-        },
-      );
+      previousStyles.forEach(({ element, cssText }) => {
+        element.style.cssText = cssText;
+      });
     };
   }, []);
 
@@ -140,7 +140,7 @@ export default function Landing() {
 
   if (Platform.OS === "web") {
     return (
-      <Box className="min-h-screen w-full max-w-full bg-background" testID="landing-page">
+      <Box className="min-h-screen w-full max-w-full overflow-x-hidden bg-background" testID="landing-page">
         {sections}
         <CookieConsent
           reopenRequest={cookiePreferenceRequest}

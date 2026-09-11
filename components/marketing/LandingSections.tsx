@@ -56,15 +56,15 @@ export function LandingHero({
   const { t } = useTranslation();
 
   return (
-    <Box className="relative bg-secondary px-4 pb-16 pt-10 md:px-8 md:pb-28 md:pt-20">
-      <Box className="pointer-events-none absolute -right-16 top-8 h-64 w-64 rounded-full bg-primary/20 blur-3xl md:h-96 md:w-96" />
-      <Box className="pointer-events-none absolute -left-10 bottom-0 h-48 w-48 rounded-full bg-[#1f305e] blur-2xl" />
+    <Box className="relative overflow-hidden bg-secondary px-4 pb-16 pt-10 md:px-8 md:pb-28 md:pt-20">
+      <Box className="pointer-events-none absolute right-0 top-8 h-64 w-64 rounded-full bg-primary/20 blur-3xl md:h-96 md:w-96" />
+      <Box className="pointer-events-none absolute bottom-0 left-0 h-48 w-48 rounded-full bg-[#1f305e] blur-2xl" />
       <Box
         className={`relative z-[1] mx-auto w-full max-w-[1280px] gap-10 ${
           isDesktop ? "flex-row items-center" : ""
         }`}
       >
-        <VStack space="xl" className={isDesktop ? "w-[42%]" : ""}>
+        <VStack space="xl" className={`min-w-0 ${isDesktop ? "basis-[42%] flex-shrink" : ""}`}>
           <HStack space="sm" className="items-center">
             <Box className="h-px w-10 bg-primary" />
             <Text className={`${landingDisplayType.kicker} text-[#b9c9e8]`}>
@@ -120,7 +120,7 @@ export function LandingHero({
             </Text>
           </HStack>
         </VStack>
-        <VStack space="lg" className={isDesktop ? "min-w-0 flex-1" : "w-full"}>
+        <VStack space="lg" className={`min-w-0 ${isDesktop ? "flex-1" : "w-full"}`}>
           <MarketingInfographic
             source={workflowInfographic}
             alt={t("landing.hero.infographicAlt")}
@@ -203,9 +203,9 @@ export function CapabilityBento({
     <Box
       onLayout={(event) => onLayout("capabilities", event)}
       testID="landing-section-capabilities"
-      className="bg-[#edf2fa] px-4 py-16 md:px-8 md:py-24"
+      className="overflow-x-hidden bg-[#edf2fa] px-4 py-16 md:px-8 md:py-24"
     >
-      <Box className="mx-auto w-full max-w-[1120px]">
+      <Box className="mx-auto w-full max-w-[1120px] min-w-0">
         <VStack space="md" className="mb-10 max-w-[690px] md:mb-14">
           <Text className={`${landingDisplayType.kicker} text-primary`}>
             {t("landing.capabilities.eyebrow")}
@@ -225,12 +225,12 @@ export function CapabilityBento({
           className="mb-8 border-[#dce3ef] bg-white md:mb-12"
         />
 
-        <Box className={isDesktop ? "flex-row gap-4" : "gap-4"}>
+        <Box className={`min-w-0 ${isDesktop ? "flex-row gap-4" : "gap-4"}`}>
           <CapabilityCard
             icon={capabilityIcons.invoice}
             title={t("landing.capabilities.invoice.title")}
             description={t("landing.capabilities.invoice.description")}
-            className={isDesktop ? "w-[58%] min-h-[320px]" : ""}
+            className={isDesktop ? "min-h-[320px] min-w-0 flex-[1.4]" : ""}
             featured
           >
             <Box className="mt-5 overflow-hidden rounded-2xl border border-white/15 bg-white/10">
@@ -251,34 +251,34 @@ export function CapabilityBento({
             </Box>
           </CapabilityCard>
 
-          <VStack className={isDesktop ? "flex-1" : ""} space="md">
+          <VStack className={isDesktop ? "min-w-0 flex-1" : ""} space="md">
             <CapabilityCard
               icon={capabilityIcons.delivery}
               title={t("landing.capabilities.delivery.title")}
               description={t("landing.capabilities.delivery.description")}
-              className="flex-1"
+              className="min-w-0 flex-1"
             />
             <CapabilityCard
               icon={capabilityIcons.records}
               title={t("landing.capabilities.records.title")}
               description={t("landing.capabilities.records.description")}
-              className="flex-1"
+              className="min-w-0 flex-1"
             />
           </VStack>
         </Box>
 
-        <Box className={`mt-4 gap-4 ${isDesktop ? "flex-row" : ""}`}>
+        <Box className={`mt-4 min-w-0 gap-4 ${isDesktop ? "flex-row" : ""}`}>
           <CapabilityCard
             icon={capabilityIcons.reminder}
             title={t("landing.capabilities.reminder.title")}
             description={t("landing.capabilities.reminder.description")}
-            className="flex-1"
+            className="min-w-0 flex-1"
           />
           <CapabilityCard
             icon={capabilityIcons.receipt}
             title={t("landing.capabilities.receipt.title")}
             description={t("landing.capabilities.receipt.description")}
-            className={isDesktop ? "w-[58%]" : ""}
+            className={isDesktop ? "min-w-0 flex-[1.4]" : "min-w-0"}
           />
         </Box>
       </Box>
@@ -303,9 +303,9 @@ function CapabilityCard({
 }) {
   return (
     <Card
-      className={`${className ?? ""} rounded-2xl border-[#dce3ef] p-5 shadow-none web:transition-[transform,box-shadow,border-color] web:duration-200 motion-reduce:web:transition-none web:hover:-translate-y-0.5 web:hover:border-primary/40 web:hover:shadow-lg md:p-7 ${
+      className={`max-w-full overflow-hidden rounded-2xl border-[#dce3ef] p-5 shadow-none web:transition-[transform,box-shadow,border-color] web:duration-200 motion-reduce:web:transition-none web:hover:-translate-y-0.5 web:hover:border-primary/40 web:hover:shadow-lg md:p-7 ${
         featured ? "bg-secondary" : "bg-white"
-      }`}
+      } ${className ?? ""}`}
     >
       <VStack space="md">
         <Box

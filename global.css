@@ -65,19 +65,36 @@
 
   /* Landing pages use document scroll; app shell may keep bounded overflow. */
   html.landing-document-scroll,
-  html.landing-document-scroll body,
-  html.landing-document-scroll #root {
+  html.landing-document-scroll body {
     height: auto !important;
     min-height: 100% !important;
     max-height: none !important;
-    overflow-x: hidden !important;
-    overflow-y: visible !important;
+    overflow-x: clip !important;
+    overflow-y: auto !important;
+    position: static !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
-  html.landing-document-scroll #root > div {
+  html.landing-document-scroll #root,
+  html.landing-document-scroll #root > div,
+  html.landing-document-scroll #root > div > div {
+    display: block !important;
     height: auto !important;
     min-height: 100% !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow-x: clip !important;
+    overflow-y: visible !important;
+    position: static !important;
+    flex: none !important;
+    inset: auto !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  html.landing-document-scroll [data-testid="landing-page"] {
+    max-width: 100% !important;
+    overflow-x: clip !important;
   }
 }

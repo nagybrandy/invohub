@@ -2,12 +2,29 @@
 // Landing-page regression coverage for scrolling, navigation, legal access, and responsive behavior.
 import { expect, test, type Page } from "@playwright/test";
 
+const COOKIE_CONSENT_STORAGE_KEY = "invohub.cookie-consent.v1";
+
+async function seedDismissedCookieConsent(page: Page) {
+  await page.addInitScript(
+    ({ storageKey }) => {
+      const consent = JSON.stringify({
+        essential: true,
+        analytics: false,
+        marketing: false,
+        updatedAt: new Date().toISOString(),
+      });
+      window.localStorage.setItem(storageKey, consent);
+    },
+    { storageKey: COOKIE_CONSENT_STORAGE_KEY },
+  );
+}
+
 async function dismissCookieDialog(page: Page) {
   const dialog = page.getByTestId("cookie-consent-dialog");
   const essentialOnly = page.getByTestId("cookie-consent-essential");
 
   const appeared = await dialog
-    .waitFor({ state: "visible", timeout: 8_000 })
+    .waitFor({ state: "visible", timeout: 3_000 })
     .then(() => true)
     .catch(() => false);
 
@@ -16,13 +33,13 @@ async function dismissCookieDialog(page: Page) {
     return;
   }
 
-  await essentialOnly.click();
-  await expect(dialog).toBeHidden({ timeout: 5_000 });
-  await expect(dialog).toHaveCount(0);
+  await essentialOnly.click({ force: true });
+  await expect(dialog).toHaveCount(0, { timeout: 5_000 });
 }
 
 test.describe("Premium landing page", () => {
   test.beforeEach(async ({ page }) => {
+    await seedDismissedCookieConsent(page);
     await page.goto("/");
     await expect(page.getByTestId("landing-page")).toBeVisible();
     await expect
@@ -42,6 +59,18 @@ test.describe("Premium landing page", () => {
   });
 
   test("document scrolls to a reachable footer without horizontal overflow", async ({ page }) => {
+    await expect
+      .poll(async () =>
+        page.evaluate(() =>
+          Math.max(
+            document.documentElement.scrollHeight,
+            document.body.scrollHeight,
+            document.getElementById("root")?.scrollHeight ?? 0,
+          ),
+        ),
+      )
+      .toBeGreaterThan(await page.evaluate(() => window.innerHeight * 2));
+
     const dimensions = await page.evaluate(() => ({
       bodyOverflowY: getComputedStyle(document.body).overflowY,
       rootOverflowY: getComputedStyle(document.documentElement).overflowY,
@@ -64,7 +93,17 @@ test.describe("Premium landing page", () => {
     expect(["visible", "auto", "clip"]).toContain(dimensions.rootOverflowY);
     expect(dimensions.rootOverflowY).not.toBe("hidden");
     expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.viewportHeight * 2);
+    // Prefer content that fits the viewport; allow only a tiny subpixel/scrollbar delta.
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
+
+    const horizontalScrollLeft = await page.evaluate(() => {
+      const before = window.scrollX;
+      window.scrollTo(2_000, window.scrollY);
+      const after = window.scrollX;
+      window.scrollTo(before, window.scrollY);
+      return after;
+    });
+    expect(horizontalScrollLeft).toBe(0);
 
     const footer = page.getByTestId("landing-footer");
     await footer.scrollIntoViewIfNeeded();

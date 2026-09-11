@@ -24,13 +24,13 @@ export function MarketingInfographic({
       testID={testID}
       accessibilityRole="image"
       accessibilityLabel={alt}
-      className={`w-full overflow-hidden rounded-marketing border border-white/10 bg-white/5 shadow-lg ${
+      className={`min-w-0 w-full max-w-full overflow-hidden rounded-marketing border border-white/10 bg-white/5 shadow-lg ${
         className ?? ""
       }`}
     >
       <Image
         source={source}
-        style={{ width: "100%", aspectRatio }}
+        style={{ width: "100%", maxWidth: "100%", height: undefined, aspectRatio }}
         resizeMode="cover"
         accessibilityIgnoresInvertColors
       />

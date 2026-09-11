@@ -49,11 +49,11 @@ export function ProductShowcase({ compact }: ProductShowcaseProps) {
 
   return (
     <Box
-      className={`${compact ? "w-full" : "w-[58%]"} relative pb-5 pt-2 md:pb-8`}
+      className="relative w-full min-w-0 pb-5 pt-2 md:pb-8"
       testID="landing-product-showcase"
     >
-      <Box className="absolute bottom-0 left-5 right-0 top-8 rounded-[24px] bg-primary/20" />
-      <Box className="relative overflow-hidden rounded-[24px] border border-white/15 bg-[#f7f9fc] shadow-2xl">
+      <Box className="absolute bottom-0 left-2 right-2 top-8 rounded-[24px] bg-primary/20 md:left-5 md:right-0" />
+      <Box className="relative max-w-full overflow-hidden rounded-[24px] border border-white/15 bg-[#f7f9fc] shadow-2xl">
         <HStack className="items-center justify-between bg-[#1f305e] px-4 py-3 md:px-5">
           <HStack space="sm" className="items-center">
             <Box className="h-8 w-8 items-center justify-center rounded-lg bg-white/10">

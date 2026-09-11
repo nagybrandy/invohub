@@ -65,7 +65,7 @@ export function CookieConsent({
   }
 
   return (
-    <Box testID="cookie-consent-root">
+    <Box testID="cookie-consent-root" style={{ pointerEvents: "box-none" }}>
       <Pressable
         accessibilityRole="button"
         onPress={() => setVisible(true)}
