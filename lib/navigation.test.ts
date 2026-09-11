@@ -24,6 +24,13 @@ describe("routes", () => {
     expect(routes.imprint).toBe("/impresszum");
   });
 
+  it("exposes blog index and article routes", () => {
+    expect(routes.blog).toBe("/blog");
+    expect(routes.blogPost("magyar-szamlazas-alapok")).toBe(
+      "/blog/magyar-szamlazas-alapok",
+    );
+  });
+
   it("builds client and product edit paths", () => {
     expect(routes.clientEdit("c1")).toBe("/clients/c1/edit");
     expect(routes.productEdit("p1")).toBe("/products/p1/edit");

@@ -389,19 +389,29 @@ export default {
       capabilities: "Capabilities",
       workflow: "Workflow",
       roadmap: "Direction",
+      blog: "Blog",
       openMenu: "Open menu",
       closeMenu: "Close menu",
     },
     hero: {
+      brand: "InvoHub",
       eyebrow: "Built around Hungarian businesses",
       title: "Make invoicing a reliable system. Not another task.",
       subtitle:
         "InvoHub is an organized workspace that brings invoices, clients, products, and documents into one trackable system.",
       productTour: "See the product",
+      readBlog: "Read the blog",
       reassurance:
         "We show what is available today — work in development is clearly marked separately.",
       infographicAlt:
         "Infographic showing invoice creation, PDF email delivery, and payment tracking in InvoHub",
+    },
+    insights: {
+      eyebrow: "Guides",
+      title: "Practical guides for Hungarian invoicing",
+      subtitle:
+        "Short, precise articles on what works today — and what is labeled as planned only.",
+      viewAll: "All articles",
     },
     product: {
       workspace: "Business overview",
@@ -515,6 +525,8 @@ export default {
         "A clear invoicing workspace for Hungarian sole proprietors and small businesses.",
       product: "InvoHub",
       legal: "Legal information",
+      resources: "Resources",
+      blog: "Blog",
       login: "Log in to the app",
       cookiePreferences: "Cookie preferences",
       terms: "Terms",
@@ -523,5 +535,19 @@ export default {
       imprint: "Imprint",
       copyright: "© {{year}} InvoHub. All rights reserved.",
     },
+  },
+  blog: {
+    eyebrow: "InvoHub blog",
+    indexTitle: "Precise guides for Hungarian invoicing",
+    indexSubtitle:
+      "Basics, PDF/email delivery, reminders, master data — and a clear split between available and planned features.",
+    readingMinutes: "{{count}} min read",
+    readArticle: "Read article",
+    allArticles: "All articles",
+    related: "Related articles",
+    backHome: "Back to home",
+    ctaTitle: "Try organized invoicing",
+    ctaDescription:
+      "Create an account and explore the InvoHub workflows available today.",
   },
 };

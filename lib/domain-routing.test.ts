@@ -18,13 +18,19 @@ describe("domain routing", () => {
     expect(getDomainRedirect("invohub.hu", "/_expo/app.js", config)).toBeNull();
   });
 
-  it("sends the app root to login and legal pages to marketing", () => {
+  it("sends the app root to login and marketing pages to marketing host", () => {
     expect(getDomainRedirect("app.invohub.hu", "/", config)).toBe(
       "https://app.invohub.hu/login",
     );
     expect(
       getDomainRedirect("app.invohub.hu", "/adatkezeles", config),
     ).toBe("https://invohub.hu/adatkezeles");
+    expect(getDomainRedirect("app.invohub.hu", "/blog", config)).toBe(
+      "https://invohub.hu/blog",
+    );
+    expect(
+      getDomainRedirect("app.invohub.hu", "/blog/magyar-szamlazas-alapok", config),
+    ).toBe("https://invohub.hu/blog/magyar-szamlazas-alapok");
   });
 
   it("ignores preview and local hosts", () => {

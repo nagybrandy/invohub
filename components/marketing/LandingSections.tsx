@@ -36,6 +36,7 @@ import {
 } from "@/components/marketing/MarketingInfographic";
 import { ProductShowcase } from "@/components/marketing/ProductShowcase";
 import { landingColors, landingDisplayType } from "@/components/marketing/landing-theme";
+import { listBlogPosts } from "@/lib/blog";
 import { routes } from "@/lib/navigation";
 
 type SectionLayoutHandler = (section: LandingSectionId, event: LayoutChangeEvent) => void;
@@ -47,30 +48,44 @@ type LandingActionProps = {
   onProductTour: () => void;
 };
 
+type LandingHeroProps = LandingActionProps & {
+  onOpenBlog: () => void;
+};
+
 export function LandingHero({
   isDesktop,
   isSignedIn,
   onPrimaryAction,
   onProductTour,
-}: LandingActionProps) {
+  onOpenBlog,
+}: LandingHeroProps) {
   const { t } = useTranslation();
 
   return (
     <Box className="relative overflow-hidden bg-secondary px-4 pb-16 pt-10 md:px-8 md:pb-28 md:pt-20">
-      <Box className="pointer-events-none absolute right-0 top-8 h-64 w-64 rounded-full bg-primary/20 blur-3xl md:h-96 md:w-96" />
-      <Box className="pointer-events-none absolute bottom-0 left-0 h-48 w-48 rounded-full bg-[#1f305e] blur-2xl" />
+      <Box className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(100,149,237,0.28),transparent_42%),radial-gradient(circle_at_88%_12%,rgba(217,231,255,0.16),transparent_36%),linear-gradient(160deg,#111f4a_0%,#1f305e_58%,#111f4a_100%)]" />
+      <Box className="pointer-events-none absolute -right-10 top-4 h-72 w-72 rounded-full bg-primary/25 blur-3xl web:animate-pulse md:h-[28rem] md:w-[28rem]" />
+      <Box className="pointer-events-none absolute -left-8 bottom-0 h-56 w-56 rounded-full bg-[#6495ed]/15 blur-2xl" />
       <Box
         className={`relative z-[1] mx-auto w-full max-w-[1280px] gap-10 ${
           isDesktop ? "flex-row items-center" : ""
         }`}
       >
         <VStack space="xl" className={`min-w-0 ${isDesktop ? "basis-[42%] flex-shrink" : ""}`}>
-          <HStack space="sm" className="items-center">
-            <Box className="h-px w-10 bg-primary" />
-            <Text className={`${landingDisplayType.kicker} text-[#b9c9e8]`}>
-              {t("landing.hero.eyebrow")}
+          <VStack space="sm">
+            <Text
+              className="font-heading text-3xl font-bold tracking-tight text-white md:text-4xl"
+              testID="landing-hero-brand"
+            >
+              {t("landing.hero.brand")}
             </Text>
-          </HStack>
+            <HStack space="sm" className="items-center">
+              <Box className="h-px w-10 bg-primary" />
+              <Text className={`${landingDisplayType.kicker} text-[#b9c9e8]`}>
+                {t("landing.hero.eyebrow")}
+              </Text>
+            </HStack>
+          </VStack>
           <VStack space="lg">
             <Heading
               className={`font-heading font-bold leading-[1.02] tracking-[-1.5px] text-white ${
@@ -87,10 +102,10 @@ export function LandingHero({
               {t("landing.hero.subtitle")}
             </Text>
           </VStack>
-          <Box className="gap-3 md:flex-row">
+          <Box className="gap-3 md:flex-row md:flex-wrap">
             <Button
               size="lg"
-              className="w-full md:w-auto"
+              className="w-full web:transition-transform web:duration-200 web:hover:scale-[1.02] md:w-auto"
               accessibilityLabel={
                 isSignedIn ? t("landing.goToDashboard") : t("landing.getStartedFree")
               }
@@ -112,6 +127,16 @@ export function LandingHero({
               <ButtonText className="text-white">{t("landing.hero.productTour")}</ButtonText>
               <ChevronRight size={18} color={landingColors.white} />
             </Button>
+            <Button
+              size="lg"
+              variant="link"
+              className="w-full md:w-auto"
+              onPress={onOpenBlog}
+              testID="landing-hero-blog"
+            >
+              <ButtonText className="text-[#d9e7ff]">{t("landing.hero.readBlog")}</ButtonText>
+              <BookOpen size={16} color={landingColors.paleBlue} />
+            </Button>
           </Box>
           <HStack space="sm" className="items-start">
             <Check size={16} color={landingColors.cornflower} />
@@ -125,7 +150,7 @@ export function LandingHero({
             source={workflowInfographic}
             alt={t("landing.hero.infographicAlt")}
             testID="landing-hero-infographic"
-            className="border-white/15"
+            className="border-white/15 web:transition-transform web:duration-500 web:hover:scale-[1.01]"
           />
           {isDesktop ? <ProductShowcase compact={false} /> : null}
         </VStack>
@@ -459,6 +484,78 @@ export function RoadmapSection({
   );
 }
 
+export function BlogInsightsSection({
+  isDesktop,
+  onLayout,
+  onOpenBlog,
+  onOpenPost,
+}: {
+  isDesktop: boolean;
+  onLayout: SectionLayoutHandler;
+  onOpenBlog: () => void;
+  onOpenPost: (slug: string) => void;
+}) {
+  const { t } = useTranslation();
+  const posts = listBlogPosts().slice(0, 3);
+
+  return (
+    <Box
+      onLayout={(event) => onLayout("insights", event)}
+      testID="landing-section-insights"
+      className="bg-[#edf2fa] px-4 py-16 md:px-8 md:py-24"
+    >
+      <Box className="mx-auto w-full max-w-[1120px]">
+        <Box className={`mb-10 gap-6 ${isDesktop ? "flex-row items-end justify-between" : ""}`}>
+          <VStack className="max-w-[640px]" space="md">
+            <Text className={`${landingDisplayType.kicker} text-primary`}>
+              {t("landing.insights.eyebrow")}
+            </Text>
+            <Heading className={`${landingDisplayType.section} font-heading leading-tight tracking-tight text-secondary`}>
+              {t("landing.insights.title")}
+            </Heading>
+            <Text className="font-light leading-7 text-muted-foreground">
+              {t("landing.insights.subtitle")}
+            </Text>
+          </VStack>
+          <Button
+            variant="outline"
+            className="self-start border-secondary/20"
+            onPress={onOpenBlog}
+            testID="landing-insights-all"
+          >
+            <ButtonText className="text-secondary">{t("landing.insights.viewAll")}</ButtonText>
+            <ArrowRight size={16} color={landingColors.navy} />
+          </Button>
+        </Box>
+
+        <Box className={`gap-4 ${isDesktop ? "flex-row" : ""}`}>
+          {posts.map((post) => (
+            <Pressable
+              key={post.slug}
+              accessibilityRole="link"
+              onPress={() => onOpenPost(post.slug)}
+              className="min-w-0 flex-1 rounded-marketing border border-[#dce3ef] bg-white p-5 web:transition-[transform,box-shadow] web:duration-200 web:hover:-translate-y-0.5 web:hover:shadow-lg md:p-6"
+              testID={`landing-insight-${post.slug}`}
+            >
+              <VStack space="sm">
+                <Text size="xs" className="font-semibold uppercase tracking-wider text-primary">
+                  {post.tags[0]}
+                </Text>
+                <Heading size="md" className="text-secondary">
+                  {post.title}
+                </Heading>
+                <Text size="sm" className="font-light leading-6 text-muted-foreground">
+                  {post.description}
+                </Text>
+              </VStack>
+            </Pressable>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
 export function FinalCta({
   isSignedIn,
   onPrimaryAction,
@@ -470,8 +567,9 @@ export function FinalCta({
 
   return (
     <Box className="bg-background px-4 py-16 md:px-8 md:py-24">
-      <Box className="mx-auto w-full max-w-[1120px] overflow-hidden rounded-[24px] bg-secondary p-6 md:p-12">
-        <Box className="gap-8 md:flex-row md:items-end md:justify-between">
+      <Box className="relative mx-auto w-full max-w-[1120px] overflow-hidden rounded-[24px] bg-secondary p-6 md:p-12">
+        <Box className="pointer-events-none absolute -right-8 top-0 h-40 w-40 rounded-full bg-primary/25 blur-2xl" />
+        <Box className="relative gap-8 md:flex-row md:items-end md:justify-between">
           <VStack className="max-w-[680px]" space="md">
             <Text className="text-xs font-semibold uppercase tracking-[2px] text-primary">
               {t("landing.finalCta.eyebrow")}
@@ -485,7 +583,7 @@ export function FinalCta({
           </VStack>
           <Button
             size="lg"
-            className="w-full md:w-auto"
+            className="w-full web:transition-transform web:duration-200 web:hover:scale-[1.02] md:w-auto"
             onPress={onPrimaryAction}
             testID="landing-final-cta"
           >
@@ -503,10 +601,17 @@ export function FinalCta({
 export function LandingFooter({
   onNavigateRoute,
   onLogin,
+  onOpenBlog,
   onOpenCookiePreferences,
 }: {
-  onNavigateRoute: (route: (typeof routes)[keyof Pick<typeof routes, "terms" | "privacy" | "cookies" | "imprint">]) => void;
+  onNavigateRoute: (
+    route: (typeof routes)[keyof Pick<
+      typeof routes,
+      "terms" | "privacy" | "cookies" | "imprint" | "blog"
+    >],
+  ) => void;
   onLogin: () => void;
+  onOpenBlog: () => void;
   onOpenCookiePreferences: () => void;
 }) {
   const { t } = useTranslation();
@@ -540,6 +645,16 @@ export function LandingFooter({
                 label={t("landing.footer.cookiePreferences")}
                 onPress={onOpenCookiePreferences}
                 testID="footer-cookie-preferences"
+              />
+            </VStack>
+            <VStack space="sm">
+              <Text size="xs" className="font-semibold uppercase tracking-wider text-[#8899ba]">
+                {t("landing.footer.resources")}
+              </Text>
+              <FooterLink
+                label={t("landing.footer.blog")}
+                onPress={onOpenBlog}
+                testID="landing-footer-blog"
               />
             </VStack>
             <VStack space="sm">

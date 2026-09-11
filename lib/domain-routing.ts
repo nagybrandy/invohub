@@ -1,5 +1,5 @@
 // lib/domain-routing.ts
-// Keeps public marketing/legal and authenticated product URLs on their canonical hosts.
+// Keeps public marketing/legal/blog and authenticated product URLs on their canonical hosts.
 const LEGAL_PATHS = new Set([
   "/aszf",
   "/adatkezeles",
@@ -25,6 +25,16 @@ export type DomainRedirectConfig = {
   appHost: string;
 };
 
+export function isMarketingPublicPath(pathname: string): boolean {
+  if (pathname === "/" || pathname === "/blog" || pathname === "/sitemap.xml" || pathname === "/robots.txt") {
+    return true;
+  }
+  if (pathname.startsWith("/blog/")) {
+    return true;
+  }
+  return LEGAL_PATHS.has(pathname);
+}
+
 export function getDomainRedirect(
   hostHeader: string | undefined,
   requestUrl: string,
@@ -40,10 +50,7 @@ export function getDomainRedirect(
     return `https://${config.appHost}${pathname}${suffix}`;
   }
 
-  if (
-    host === config.appHost &&
-    (pathname === "/" || LEGAL_PATHS.has(pathname))
-  ) {
+  if (host === config.appHost && isMarketingPublicPath(pathname)) {
     const targetPath = pathname === "/" ? "/login" : pathname;
     const targetHost =
       pathname === "/" ? config.appHost : config.marketingHost;

@@ -388,19 +388,29 @@ export default {
       capabilities: "Lehetőségek",
       workflow: "Munkafolyamat",
       roadmap: "Irány",
+      blog: "Blog",
       openMenu: "Menü megnyitása",
       closeMenu: "Menü bezárása",
     },
     hero: {
+      brand: "InvoHub",
       eyebrow: "Magyar vállalkozásokra hangolva",
       title: "A számlázás legyen biztos pont. Ne külön feladat.",
       subtitle:
         "Az InvoHub egy rendezett munkatér, ahol a számlák, partnerek, termékek és bizonylatok követhető rendszerbe kerülnek.",
       productTour: "Mutasd a terméket",
+      readBlog: "Olvasd a blogot",
       reassurance:
         "A jelenleg elérhető funkciókat mutatjuk — a fejlesztés alatt álló terveket külön jelöljük.",
       infographicAlt:
         "Infografika a számlakészítésről, PDF e-mail küldésről és a fizetések követéséről az InvoHubban",
+    },
+    insights: {
+      eyebrow: "Tudásanyag",
+      title: "Gyakorlati útmutatók a magyar számlázáshoz",
+      subtitle:
+        "Rövid, pontos cikkek arról, mi működik ma — és mi van csak tervezett irányként megjelölve.",
+      viewAll: "Összes cikk",
     },
     product: {
       workspace: "Üzleti áttekintés",
@@ -514,6 +524,8 @@ export default {
         "Átlátható számlázási munkatér magyar egyéni vállalkozóknak és kisvállalkozásoknak.",
       product: "InvoHub",
       legal: "Jogi információk",
+      resources: "Tudásanyag",
+      blog: "Blog",
       login: "Belépés az alkalmazásba",
       cookiePreferences: "Cookie-beállítások",
       terms: "ÁSZF",
@@ -522,5 +534,19 @@ export default {
       imprint: "Impresszum",
       copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
     },
+  },
+  blog: {
+    eyebrow: "InvoHub blog",
+    indexTitle: "Pontos útmutatók a magyar számlázáshoz",
+    indexSubtitle:
+      "Alapok, PDF/e-mail küldés, emlékeztetők, törzsadatok — és egyértelmű különbség az elérhető és a tervezett funkciók között.",
+    readingMinutes: "{{count}} perc olvasás",
+    readArticle: "Cikk elolvasása",
+    allArticles: "Összes cikk",
+    related: "Kapcsolódó cikkek",
+    backHome: "Vissza a kezdőlapra",
+    ctaTitle: "Próbáld ki a rendezett számlázást",
+    ctaDescription:
+      "Hozz létre fiókot, és nézd meg az InvoHub jelenleg elérhető munkafolyamatait.",
   },
 };

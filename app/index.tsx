@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { CookieConsent } from "@/components/marketing/CookieConsent";
 import {
+  BlogInsightsSection,
   CapabilityBento,
   FinalCta,
   LandingFooter,
@@ -20,8 +21,14 @@ import {
   LandingHeader,
   type LandingSectionId,
 } from "@/components/marketing/LandingHeader";
+import { SeoHead } from "@/components/marketing/SeoHead";
 import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
+import {
+  buildOrganizationJsonLd,
+  buildPageSeo,
+  buildSoftwareApplicationJsonLd,
+} from "@/lib/seo";
 
 const LANDING_HEADER_OFFSET = 76;
 const LANDING_SCROLL_CLASS = "landing-document-scroll";
@@ -34,6 +41,13 @@ export default function Landing() {
   const [cookiePreferenceRequest, setCookiePreferenceRequest] = React.useState(0);
   const isDesktop = width >= 768;
   const isSignedIn = Boolean(session);
+
+  const seo = buildPageSeo({
+    title: "InvoHub",
+    description:
+      "Rendezett számlázási munkatér magyar vállalkozásoknak: számlák, PDF/e-mail küldés, partnerek, termékek és fizetési emlékeztetők egy rendszerben.",
+    path: "/",
+  });
 
   React.useEffect(() => {
     if (Platform.OS !== "web") {
@@ -108,6 +122,10 @@ export default function Landing() {
     router.push(isSignedIn ? routes.dashboard : routes.login);
   }
 
+  function openBlog() {
+    router.push(routes.blog);
+  }
+
   const sections = (
     <>
       <LandingHeader
@@ -116,21 +134,30 @@ export default function Landing() {
         onNavigate={navigateToSection}
         onLogin={() => router.push(routes.login)}
         onPrimaryAction={primaryAction}
+        onOpenBlog={openBlog}
       />
       <LandingHero
         isDesktop={isDesktop}
         isSignedIn={isSignedIn}
         onPrimaryAction={primaryAction}
         onProductTour={() => navigateToSection("product")}
+        onOpenBlog={openBlog}
       />
       <ProductTransition isDesktop={isDesktop} onLayout={onSectionLayout} />
       <CapabilityBento isDesktop={isDesktop} onLayout={onSectionLayout} />
       <WorkflowSection isDesktop={isDesktop} onLayout={onSectionLayout} />
       <RoadmapSection isDesktop={isDesktop} onLayout={onSectionLayout} />
+      <BlogInsightsSection
+        isDesktop={isDesktop}
+        onLayout={onSectionLayout}
+        onOpenBlog={openBlog}
+        onOpenPost={(slug) => router.push(routes.blogPost(slug))}
+      />
       <FinalCta isSignedIn={isSignedIn} onPrimaryAction={primaryAction} />
       <LandingFooter
         onNavigateRoute={(route) => router.push(route)}
         onLogin={() => router.push(routes.login)}
+        onOpenBlog={openBlog}
         onOpenCookiePreferences={() =>
           setCookiePreferenceRequest((request) => request + 1)
         }
@@ -140,18 +167,28 @@ export default function Landing() {
 
   if (Platform.OS === "web") {
     return (
-      <Box className="min-h-screen w-full max-w-full overflow-x-hidden bg-background" testID="landing-page">
-        {sections}
-        <CookieConsent
-          reopenRequest={cookiePreferenceRequest}
-          onOpenPolicy={() => router.push(routes.cookies)}
+      <>
+        <SeoHead
+          seo={seo}
+          jsonLd={[buildOrganizationJsonLd(), buildSoftwareApplicationJsonLd()]}
         />
-      </Box>
+        <Box className="min-h-screen w-full max-w-full overflow-x-hidden bg-background" testID="landing-page">
+          {sections}
+          <CookieConsent
+            reopenRequest={cookiePreferenceRequest}
+            onOpenPolicy={() => router.push(routes.cookies)}
+          />
+        </Box>
+      </>
     );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      <SeoHead
+        seo={seo}
+        jsonLd={[buildOrganizationJsonLd(), buildSoftwareApplicationJsonLd()]}
+      />
       <ScrollView
         ref={scrollRef}
         className="flex-1"
