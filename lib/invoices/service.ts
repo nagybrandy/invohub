@@ -1,6 +1,6 @@
 // lib/invoices/service.ts
 // Server-side invoice CRUD against Neon via Drizzle.
-import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { createId } from "@/lib/id";
@@ -15,12 +15,13 @@ import {
   mapInvoiceToDb,
   mapLineItemToDb,
 } from "@/lib/invoices/mappers";
+import type { InvoiceListFilters } from "@/lib/invoices/list-query";
 import type { Invoice, InvoiceLineItem } from "@/lib/invoices/types";
 
 export type InvoiceListOptions = {
   limit?: number;
   offset?: number;
-};
+} & InvoiceListFilters;
 
 export type InvoiceListResult = {
   invoices: Invoice[];
@@ -38,6 +39,28 @@ export type InvoiceStats = {
 function clampLimit(limit: number | undefined): number {
   const value = limit ?? INVOICE_LIST_LIMIT;
   return Math.min(Math.max(1, value), INVOICE_LIST_MAX_LIMIT);
+}
+
+function buildListWhere(userId: string, options: InvoiceListOptions) {
+  const clauses = [eq(invoice.userId, userId)];
+
+  if (options.status) {
+    clauses.push(eq(invoice.status, options.status));
+  }
+
+  const search = options.search?.trim();
+  if (search) {
+    const pattern = `%${search}%`;
+    clauses.push(
+      or(
+        ilike(invoice.clientName, pattern),
+        ilike(invoice.invoiceNumber, pattern),
+        ilike(invoice.clientTaxNumber, pattern),
+      )!,
+    );
+  }
+
+  return and(...clauses);
 }
 
 async function loadLineItemsForInvoices(invoiceIds: string[]) {
@@ -104,13 +127,14 @@ export async function listInvoices(
 ): Promise<InvoiceListResult> {
   const limit = clampLimit(options.limit);
   const offset = Math.max(0, options.offset ?? 0);
+  const where = buildListWhere(userId, options);
 
   const [totalRow, rows] = await Promise.all([
-    db.select({ value: count() }).from(invoice).where(eq(invoice.userId, userId)),
+    db.select({ value: count() }).from(invoice).where(where),
     db
       .select()
       .from(invoice)
-      .where(eq(invoice.userId, userId))
+      .where(where)
       .orderBy(desc(invoice.issueDate))
       .limit(limit)
       .offset(offset),

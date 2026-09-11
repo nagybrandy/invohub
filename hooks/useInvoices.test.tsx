@@ -11,11 +11,13 @@ jest.mock("@/lib/api/client", () => ({
 
 const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>;
 
-async function renderUseInvoices() {
+async function renderUseInvoices(
+  options?: Parameters<typeof useInvoices>[0],
+) {
   const ref: { current: ReturnType<typeof useInvoices> | null } = { current: null };
 
   function HookHost() {
-    ref.current = useInvoices();
+    ref.current = useInvoices(options);
     return null;
   }
 
@@ -47,6 +49,16 @@ describe("useInvoices", () => {
     expect(ref.current?.invoices).toHaveLength(1);
     expect(ref.current?.stats.count).toBe(1);
     expect(mockApiFetch).toHaveBeenCalledWith("/api/invoices?limit=30");
+  });
+
+  it("forwards status and search filters to the API", async () => {
+    await renderUseInvoices({ status: "draft", search: "Acme" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/invoices?limit=30&status=draft&search=Acme",
+    );
   });
 
   it("surfaces API errors", async () => {

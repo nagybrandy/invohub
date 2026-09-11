@@ -15,7 +15,9 @@ Base branch: `main`. Complete items in order unless a later tick explicitly re-p
   - [x] Dashboard overdue vs outstanding + VAT from line items
   - [x] Saved invoice PDF preview via credentialed blob URL
   - [x] New invoice: client picker, company bank prefill, email/NAV on send, notes meta
-  - [ ] Invoice list filters + create→preview→PDF E2E happy path
+  - [x] Invoice list filters + create→preview→PDF E2E happy path
+    - [x] Server-side status + search filters
+    - [ ] Authenticated create→preview→PDF E2E (needs test user)
 - [ ] 5. Bank matching (planned only until Phase B)
 - [ ] 6. EV tax calculator (planned only until Phase C)
 - [ ] 7. M2M submission hardening (roadmap Phase 4)

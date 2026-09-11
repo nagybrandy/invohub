@@ -3,8 +3,9 @@
 import * as React from "react";
 import { apiFetch } from "@/lib/api/client";
 import { INVOICE_LIST_LIMIT } from "@/lib/invoices/constants";
+import { buildInvoiceListQueryString } from "@/lib/invoices/list-query";
 import type { InvoiceStats } from "@/lib/invoices/service";
-import type { Invoice } from "@/lib/invoices/types";
+import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 
 type InvoicesResponse = {
   invoices: Invoice[];
@@ -16,13 +17,20 @@ type InvoicesResponse = {
 
 type InvoiceResponse = { invoice: Invoice };
 
+export type UseInvoicesOptions = {
+  status?: InvoiceStatus | "all";
+  search?: string;
+};
+
 const EMPTY_STATS: InvoiceStats = {
   count: 0,
   thisMonthCount: 0,
   monthlyTotal: 0,
 };
 
-export function useInvoices() {
+export function useInvoices(options: UseInvoicesOptions = {}) {
+  const status = options.status ?? "all";
+  const search = options.search ?? "";
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [total, setTotal] = React.useState(0);
   const [stats, setStats] = React.useState<InvoiceStats>(EMPTY_STATS);
@@ -33,9 +41,12 @@ export function useInvoices() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<InvoicesResponse>(
-        `/api/invoices?limit=${INVOICE_LIST_LIMIT}`
-      );
+      const query = buildInvoiceListQueryString({
+        limit: INVOICE_LIST_LIMIT,
+        status,
+        search,
+      });
+      const data = await apiFetch<InvoicesResponse>(`/api/invoices?${query}`);
       setInvoices(data.invoices);
       setTotal(data.total);
       setStats(data.stats);
@@ -44,7 +55,7 @@ export function useInvoices() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [status, search]);
 
   React.useEffect(() => {
     void refresh();

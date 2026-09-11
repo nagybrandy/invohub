@@ -92,6 +92,7 @@ export default {
   invoices: {
     title: "Számlák",
     empty: "Még nincsenek számlák",
+    searchPlaceholder: "Keresés partner, számlaszám vagy adószám alapján",
     preview: "Előnézet",
     pdf: "PDF",
     downloadPdf: "PDF letöltése",
