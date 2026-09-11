@@ -58,13 +58,13 @@ export function BrandLogo({
     <HStack className="items-baseline" testID={testID} accessibilityLabel="InvoHub">
       <Text
         className={`font-heading font-bold tracking-tight ${ink}`}
-        style={{ fontSize, lineHeight: fontSize * 1.05, letterSpacing: -0.6 }}
+        style={{ fontSize, lineHeight: fontSize * 1.08, letterSpacing: -0.35 }}
       >
         Invo
       </Text>
       <Text
         className={`font-heading font-bold tracking-tight ${accent}`}
-        style={{ fontSize, lineHeight: fontSize * 1.05, letterSpacing: -0.6 }}
+        style={{ fontSize, lineHeight: fontSize * 1.08, letterSpacing: -0.35 }}
       >
         Hub
       </Text>
