@@ -68,6 +68,27 @@ export default {
     seedDemo: "Load demo data",
     seedSuccess: "Demo data loaded successfully.",
   },
+  cookies: {
+    title: "Cookie preferences",
+    description:
+      "Essential storage is always active. Analytics and marketing storage require consent; no such trackers are installed in this release.",
+    policyLink: "Open cookie notice",
+    essential: "Essential",
+    essentialDescription: "Session, security, and preference storage.",
+    analytics: "Analytics",
+    analyticsDescription: "Anonymous usage statistics (not currently installed).",
+    marketing: "Marketing",
+    marketingDescription: "Personalized marketing (not currently installed).",
+    rejectOptional: "Essential only",
+    save: "Save choices",
+    acceptAll: "Accept all",
+    reopen: "Cookie preferences",
+  },
+  legal: {
+    back: "Back to home",
+    draftBadge:
+      "Legal draft – Hungarian lawyer and, where needed, DPO review is required before publication.",
+  },
   invoices: {
     title: "Invoices",
     empty: "No invoices yet",
@@ -215,6 +236,7 @@ export default {
       "The receipt will be automatically submitted to NAV eReceipt.",
   },
   dashboard: {
+    breadcrumb: "Home / Dashboard",
     subtitle: "Overview of your invoicing and compliance activity.",
     quickActions: "Quick actions",
     allFeatures: "All features",
@@ -362,18 +384,80 @@ export default {
     getStartedFree: "Start for free",
     goToDashboard: "Go to dashboard",
     nav: {
+      product: "Product",
+      workflow: "Workflow",
       features: "Features",
       pricing: "Pricing",
       contact: "Contact",
     },
     hero: {
-      badge: "Hungarian invoicing, simplified",
-      title: "Invoice with ease, stay NAV-compliant",
+      badge: "A clear invoicing workspace",
+      title: "Keep invoicing organized in one calm system",
       subtitle:
-        "InvoHub connects your business with the Hungarian tax authority. Invoices, receipts, NAV submissions — all in one place, on any device.",
-      highlight1: "NAV Online Számla integration",
-      highlight2: "Invoices + receipts + proforma",
+        "Create and track invoices, manage partners, and see the figures that matter in a workspace designed for web and mobile.",
+      highlight1: "Invoice, receipt, and proforma workflows",
+      highlight2: "Clear revenue and outstanding balance overview",
       highlight3: "Web, iOS, and Android app",
+      ctaNote: "Early access · no card required",
+    },
+    proof: {
+      title: "Business overview",
+      preview: "Product preview",
+      revenue: "Revenue",
+      outstanding: "Outstanding",
+      drafts: "Drafts",
+      recent: "Recent invoices",
+      amount: "Gross amount",
+    },
+    benefits: {
+      eyebrow: "One system",
+      title: "The foundations for day-to-day invoicing",
+      subtitle:
+        "Less searching, clearer states, and a consistent workflow on every screen.",
+      invoice: {
+        title: "Documents in one place",
+        description:
+          "Create, preview, and track invoices, proformas, and receipts in one consistent interface.",
+      },
+      records: {
+        title: "Organized records",
+        description:
+          "Reuse partner, product, and company details with less repetitive data entry.",
+      },
+      devices: {
+        title: "Desktop and mobile",
+        description:
+          "Purpose-built responsive layouts rather than a compressed desktop page.",
+      },
+    },
+    workflow: {
+      eyebrow: "Workflow",
+      title: "From details to a finished document",
+      subtitle:
+        "Important decisions stay visible while detail opens only when you need it.",
+      step1: {
+        title: "Partner and document type",
+        description: "Choose who the document is for and what you are creating.",
+      },
+      step2: {
+        title: "Items and payment details",
+        description:
+          "Enter line items, dates, and payment terms in a reviewable form.",
+      },
+      step3: {
+        title: "Review and save",
+        description:
+          "Check the preview, then save a draft or finalize the document.",
+      },
+    },
+    pricing: {
+      eyebrow: "Early access",
+      title: "Try the current InvoHub foundation",
+      description:
+        "Introductory plan details will be finalized before public launch. Registration provides access to the invoicing workflows currently available.",
+      honestNote:
+        "Bank matching, tax calculation, and M2M submission remain planned work.",
+      cta: "Create account",
     },
     features: {
       sectionLabel: "Features",
@@ -436,6 +520,11 @@ export default {
     },
     footer: {
       copyright: "© {{year}} InvoHub. All rights reserved.",
+      terms: "Terms",
+      privacy: "Privacy",
+      cookies: "Cookies",
+      imprint: "Imprint",
+      draftNote: "Legal pages under review",
     },
   },
 };

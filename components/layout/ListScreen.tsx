@@ -42,7 +42,7 @@ export function ListScreen<T>({
   if (!loading && data.length === 0) {
     return (
       <ScreenLayout scroll={false}>
-        {header ? <Box className="px-4 pt-4">{header}</Box> : null}
+        {header ? <Box className="mb-4">{header}</Box> : null}
         <EmptyState
           title={emptyTitle}
           description={emptyDescription}
@@ -58,7 +58,7 @@ export function ListScreen<T>({
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       className="flex-1 bg-background"
-      contentContainerClassName="gap-3 p-4 pb-10"
+      contentContainerClassName="gap-3 px-4 pb-10 pt-5 md:px-10 md:pt-8"
       refreshControl={
         onRefresh ? (
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

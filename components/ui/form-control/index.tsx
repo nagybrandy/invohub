@@ -1,3 +1,4 @@
+// components/ui/form-control/index.tsx
 // @ts-nocheck — Gluestack CLI generated; cssInterop types lag behind NativeWind v4.
 'use client';
 import { Text, View } from 'react-native';
@@ -12,7 +13,7 @@ import { UIIcon } from '@gluestack-ui/core/icon/creator';
 const SCOPE = 'FORM_CONTROL';
 
 const formControlStyle = tva({
-  base: 'flex flex-col',
+  base: 'flex flex-col gap-0.5',
 });
 
 const formControlErrorIconStyle = tva({
@@ -82,11 +83,11 @@ const formControlHelperTextStyle = tva({
 });
 
 const formControlLabelStyle = tva({
-  base: 'flex flex-row justify-start items-center mb-1',
+  base: 'flex flex-row justify-start items-center',
 });
 
 const formControlLabelTextStyle = tva({
-  base: 'font-medium text-foreground text-base font-body',
+  base: 'font-medium text-foreground text-sm font-body',
   variants: {
     isTruncated: {
       true: 'web:truncate',

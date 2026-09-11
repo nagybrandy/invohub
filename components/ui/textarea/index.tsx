@@ -1,3 +1,5 @@
+// components/ui/textarea/index.tsx
+// Customized Gluestack textarea with light copy, 8px radius, and border200.
 'use client';
 import React from 'react';
 import { createTextarea } from '@gluestack-ui/core/textarea/creator';
@@ -16,7 +18,7 @@ const UITextarea = createTextarea({
 });
 
 const textareaStyle = tva({
-  base: 'w-full h-[100px] border border-border  dark:bg-input/30 rounded-lg data-[hover=true]:border-border/80 data-[focus=true]:border-primary/80 data-[focus=true]:data-[hover=true]:border-primary/80 data-[disabled=true]:opacity-40 data-[disabled=true]:bg-background/90 data-[disabled=true]:data-[hover=true]:border-border/80',
+  base: 'w-full h-[100px] border border-border bg-card dark:bg-input/30 rounded-lg data-[hover=true]:border-border/80 data-[focus=true]:border-primary/80 data-[focus=true]:data-[hover=true]:border-primary/80 data-[disabled=true]:opacity-40 data-[disabled=true]:bg-background/90 data-[disabled=true]:data-[hover=true]:border-border/80',
 
   variants: {
     variant: {

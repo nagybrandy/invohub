@@ -217,7 +217,7 @@ export default function NewInvoiceScreen() {
     <Box className="flex-1 bg-background">
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-6 p-4 pb-36 md:px-10 md:py-6"
+        contentContainerClassName="mx-auto w-full max-w-[1280px] gap-5 p-4 pb-52 md:gap-6 md:px-10 md:py-6 md:pb-36"
         keyboardShouldPersistTaps="handled"
       >
         {/* Breadcrumb */}
@@ -229,7 +229,7 @@ export default function NewInvoiceScreen() {
         />
 
         {/* Title + auto-save indicator */}
-        <VStack space="xs">
+        <Box className="gap-2 md:flex-row md:items-center md:justify-between">
           <Heading size="2xl" className="text-foreground">
             {t("invoices.newDocument")}
           </Heading>
@@ -238,7 +238,7 @@ export default function NewInvoiceScreen() {
               {t("invoices.autoSavedAt", { time: savedAt })}
             </Text>
           ) : null}
-        </VStack>
+        </Box>
 
         {/* Document type tabs */}
         <DocumentTypeTabs selected={documentType} onChange={handleDocumentTypeChange} />
@@ -255,7 +255,7 @@ export default function NewInvoiceScreen() {
             {/* Two-column form sections */}
             <Box className={isDesktop ? "flex-row gap-6" : "gap-6"}>
               {/* Left: Recipient */}
-              <Card className="flex-1 p-5">
+              <Card className="flex-1 p-4 md:p-5">
                 <VStack space="md">
                   <SectionHeader
                     icon={User}
@@ -304,7 +304,7 @@ export default function NewInvoiceScreen() {
                     </Input>
                   </FormControl>
 
-                  <HStack space="sm">
+                  <Box className="gap-3 md:flex-row">
                     <FormControl className="w-[100px]">
                       <FormControlLabel>
                         <FormControlLabelText>{t("invoices.fields.zipCode")}</FormControlLabelText>
@@ -331,7 +331,7 @@ export default function NewInvoiceScreen() {
                         />
                       </Input>
                     </FormControl>
-                  </HStack>
+                  </Box>
 
                   <FormControl>
                     <FormControlLabel>
@@ -368,7 +368,7 @@ export default function NewInvoiceScreen() {
               </Card>
 
               {/* Right: Dates & Payment */}
-              <Card className="flex-1 p-5">
+              <Card className="flex-1 p-4 md:p-5">
                 <VStack space="md">
                   <SectionHeader
                     icon={Settings}
@@ -376,7 +376,7 @@ export default function NewInvoiceScreen() {
                     iconColor={icons.primary}
                   />
 
-                  <HStack space="sm">
+                  <Box className="gap-3 md:flex-row">
                     <FormControl className="flex-1">
                       <FormControlLabel>
                         <FormControlLabelText>{t("invoices.fields.fulfillmentDate")}</FormControlLabelText>
@@ -403,7 +403,7 @@ export default function NewInvoiceScreen() {
                         />
                       </Input>
                     </FormControl>
-                  </HStack>
+                  </Box>
 
                   <HStack className="items-center justify-between">
                     <Text size="sm" className="font-light">{t("invoices.fields.continuousPerformance")}</Text>
@@ -459,7 +459,7 @@ export default function NewInvoiceScreen() {
                     <FormControlLabel>
                       <FormControlLabelText>{t("invoices.fields.paymentDeadline")}</FormControlLabelText>
                     </FormControlLabel>
-                    <HStack space="sm" className="items-center">
+                    <HStack space="sm" className="flex-wrap items-center">
                       <Input className="w-[70px]">
                         <InputField
                           keyboardType="number-pad"
@@ -505,7 +505,7 @@ export default function NewInvoiceScreen() {
             </Box>
 
             {/* Line items section */}
-            <Card className="p-5">
+            <Card className="p-4 md:p-5">
               <VStack space="md">
                 <SectionHeader
                   icon={ShoppingCart}
@@ -585,8 +585,8 @@ export default function NewInvoiceScreen() {
 
       {/* Sticky footer */}
       {!showPreview ? (
-        <Box className="border-t border-border bg-card px-4 py-3 md:px-10">
-          <HStack className="items-center justify-between">
+        <Box className="border-t border-border bg-card px-4 py-3 shadow-lg md:px-10">
+          <Box className="mx-auto w-full max-w-[1200px] gap-3 md:flex-row md:items-center md:justify-between">
             <VStack>
               <Text size="xs" className="font-light text-muted-foreground">
                 {t("invoices.totals.netTotal")}: {formatCurrency(totals.subtotal, currency)}
@@ -595,7 +595,7 @@ export default function NewInvoiceScreen() {
                 {t("invoices.totals.grossTotal")}: {formatCurrency(totals.totalAmount, currency)}
               </Text>
             </VStack>
-            <HStack space="sm">
+            <Box className="gap-2 md:flex-row">
               <Button variant="outline" size="sm" onPress={() => setShowPreview(true)}>
                 <Eye size={16} color={icons.foreground} />
                 <ButtonText>{t("invoices.actions.preview")}</ButtonText>
@@ -615,8 +615,8 @@ export default function NewInvoiceScreen() {
               >
                 <ButtonText>{t("invoices.actions.createInvoice")}</ButtonText>
               </Button>
-            </HStack>
-          </HStack>
+            </Box>
+          </Box>
         </Box>
       ) : null}
     </Box>

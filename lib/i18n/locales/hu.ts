@@ -52,6 +52,27 @@ export default {
     seedDemo: "Demo adatok betöltése",
     seedSuccess: "Demo adatok sikeresen betöltve.",
   },
+  cookies: {
+    title: "Cookie-beállítások",
+    description:
+      "A szükséges tárolás mindig aktív. Analitikai és marketing célú tárolást csak a hozzájárulásoddal engedélyezünk; jelenleg nem telepítünk ilyen követőket.",
+    policyLink: "Cookie tájékoztató megnyitása",
+    essential: "Szükséges",
+    essentialDescription: "Munkamenet, biztonság és a választás megőrzése.",
+    analytics: "Analitika",
+    analyticsDescription: "Névtelen használati statisztikák (jelenleg nincs bekötve).",
+    marketing: "Marketing",
+    marketingDescription: "Személyre szabott marketing (jelenleg nincs bekötve).",
+    rejectOptional: "Csak szükséges",
+    save: "Választás mentése",
+    acceptAll: "Mind elfogadása",
+    reopen: "Cookie-beállítások",
+  },
+  legal: {
+    back: "Vissza a főoldalra",
+    draftBadge:
+      "Jogi tervezet – közzététel előtt magyar ügyvéd és szükség szerint DPO felülvizsgálata kötelező.",
+  },
   auth: {
     signIn: "Bejelentkezés",
     signUp: "Regisztráció",
@@ -215,6 +236,7 @@ export default {
       "A nyugta automatikusan beküldésre kerül a NAV eNyugta rendszerébe.",
   },
   dashboard: {
+    breadcrumb: "Főoldal / Áttekintés",
     subtitle: "Számlázási és megfelelőségi tevékenység áttekintése.",
     quickActions: "Gyors műveletek",
     allFeatures: "Összes funkció",
@@ -361,18 +383,81 @@ export default {
     getStartedFree: "Ingyenes regisztráció",
     goToDashboard: "Irány az áttekintés",
     nav: {
+      product: "Termék",
+      workflow: "Munkafolyamat",
       features: "Funkciók",
       pricing: "Árazás",
       contact: "Kapcsolat",
     },
     hero: {
-      badge: "Magyar számlázás, egyszerűen",
-      title: "Számlázz könnyedén, maradj NAV-kompatibilis",
+      badge: "Átlátható számlázási munkatér",
+      title: "A számlázásod egy rendezett, nyugodt rendszerben",
       subtitle:
-        "Az InvoHub összeköti a vállalkozásodat a magyar adóhatósággal. Számla, nyugta, NAV beküldés — egy helyen, bármilyen eszközön.",
-      highlight1: "NAV Online Számla integráció",
-      highlight2: "Számla + nyugta + díjbekérő",
+        "Készíts és kövess számlákat, kezeld partnereidet és lásd a fontos összegeket egy weben és mobilon is használható munkatérben.",
+      highlight1: "Számla, nyugta és díjbekérő munkafolyamatok",
+      highlight2: "Áttekinthető bevétel- és kintlévőségkép",
       highlight3: "Web, iOS és Android alkalmazás",
+      ctaNote: "Korai hozzáférés · bankkártya nélkül",
+    },
+    proof: {
+      title: "Üzleti áttekintés",
+      preview: "Termékelőnézet",
+      revenue: "Bevétel",
+      outstanding: "Kintlévőség",
+      drafts: "Piszkozat",
+      recent: "Legutóbbi számlák",
+      amount: "Bruttó összeg",
+    },
+    benefits: {
+      eyebrow: "Egy rendszer",
+      title: "A napi számlázáshoz szükséges alapok",
+      subtitle:
+        "Kevesebb keresgélés, világosabb állapotok és következetes munkafolyamat minden képernyőn.",
+      invoice: {
+        title: "Bizonylatok egy helyen",
+        description:
+          "Számlák, díjbekérők és nyugták létrehozása, előnézete és követése egységes felületen.",
+      },
+      records: {
+        title: "Rendezett törzsadatok",
+        description:
+          "Partnerek, termékek és céges beállítások újrafelhasználhatóan, kevesebb ismételt adatbevitellel.",
+      },
+      devices: {
+        title: "Asztalon és mobilon",
+        description:
+          "Szándékosan megtervezett reszponzív felületek, nem egy összenyomott asztali oldal.",
+      },
+    },
+    workflow: {
+      eyebrow: "Munkafolyamat",
+      title: "Az adattól a kész bizonylatig",
+      subtitle:
+        "A fontos döntések mindig láthatók, a részletek pedig akkor nyílnak meg, amikor szükséged van rájuk.",
+      step1: {
+        title: "Partner és bizonylattípus",
+        description:
+          "Válaszd ki, kinek és milyen dokumentumot készítesz.",
+      },
+      step2: {
+        title: "Tételek és fizetési adatok",
+        description:
+          "Add meg a tételeket, dátumokat és fizetési feltételeket ellenőrizhető formában.",
+      },
+      step3: {
+        title: "Ellenőrzés és mentés",
+        description:
+          "Nézd át az előnézetet, majd mentsd piszkozatként vagy véglegesítsd a bizonylatot.",
+      },
+    },
+    pricing: {
+      eyebrow: "Korai hozzáférés",
+      title: "Próbáld ki az InvoHub jelenlegi alapjait",
+      description:
+        "A bevezető csomag részleteit a nyilvános indulás előtt véglegesítjük. A regisztrációval a jelenleg elérhető számlázási munkafolyamatokat próbálhatod ki.",
+      honestNote:
+        "Banki párosítás, adókalkuláció és M2M beküldés még fejlesztési terv.",
+      cta: "Fiók létrehozása",
     },
     features: {
       sectionLabel: "Funkciók",
@@ -435,6 +520,11 @@ export default {
     },
     footer: {
       copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
+      terms: "ÁSZF",
+      privacy: "Adatkezelés",
+      cookies: "Cookie-k",
+      imprint: "Impresszum",
+      draftNote: "Jogi oldalak felülvizsgálat alatt",
     },
   },
 };

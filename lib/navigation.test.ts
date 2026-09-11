@@ -17,6 +17,13 @@ describe("routes", () => {
     expect(routes.admin).toBe("/admin");
   });
 
+  it("exposes every required public legal route", () => {
+    expect(routes.terms).toBe("/aszf");
+    expect(routes.privacy).toBe("/adatkezeles");
+    expect(routes.cookies).toBe("/cookie-tajekoztato");
+    expect(routes.imprint).toBe("/impresszum");
+  });
+
   it("builds client and product edit paths", () => {
     expect(routes.clientEdit("c1")).toBe("/clients/c1/edit");
     expect(routes.productEdit("p1")).toBe("/products/p1/edit");

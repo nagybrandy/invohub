@@ -1,4 +1,5 @@
-// @ts-nocheck — Gluestack CLI generated; cssInterop types lag behind NativeWind v4.
+// components/ui/input/index.tsx
+// @ts-nocheck — Customized Gluestack input; cssInterop types lag behind NativeWind v4.
 'use client';
 import React from 'react';
 import { createInput } from '@gluestack-ui/core/input/creator';
@@ -32,7 +33,7 @@ cssInterop(UIIcon, {
 });
 
 const inputStyle = tva({
-  base: 'h-9 w-full flex-row items-center rounded-lg border border-border  dark:bg-input/30 bg-transparent shadow-xs transition-[color,box-shadow] overflow-hidden data-[focus=true]:outline-none data-[focus=true]:border-ring dark:data-[focus=true]:border-ring data-[focus=true]:web:ring-[3px] data-[focus=true]:web:ring-ring/50 data-[invalid=true]:border-destructive/40 dark:data-[invalid=true]:border-destructive/40 data-[invalid=true]:web:ring-destructive/20 dark:data-[invalid=true]:web:ring-destructive/40 data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50 px-3 gap-2',
+  base: 'h-9 w-full flex-row items-center rounded-lg border border-border dark:bg-input/30 bg-card shadow-xs transition-[color,box-shadow] overflow-hidden data-[focus=true]:outline-none data-[focus=true]:border-ring dark:data-[focus=true]:border-ring data-[focus=true]:web:ring-[3px] data-[focus=true]:web:ring-ring/30 data-[invalid=true]:border-destructive/40 dark:data-[invalid=true]:border-destructive/40 data-[invalid=true]:web:ring-destructive/20 dark:data-[invalid=true]:web:ring-destructive/40 data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50 px-3 gap-2',
 });
 
 const inputIconStyle = tva({
@@ -111,6 +112,7 @@ const InputField = React.forwardRef<
     <UIInput.Input
       ref={ref}
       {...props}
+      aria-label={props.accessibilityLabel}
       className={inputFieldStyle({
         class: className,
       })}

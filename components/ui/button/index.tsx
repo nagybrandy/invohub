@@ -1,4 +1,5 @@
-// @ts-nocheck — Gluestack CLI generated; cssInterop types lag behind NativeWind v4.
+// components/ui/button/index.tsx
+// @ts-nocheck — Customized Gluestack button; cssInterop types lag behind NativeWind v4.
 'use client';
 import React from 'react';
 import { createButton } from '@gluestack-ui/core/button/creator';
@@ -33,7 +34,7 @@ cssInterop(UIIcon, {
   },
 });
 const buttonStyle = tva({
-  base: 'rounded-lg flex-row items-center justify-center data-[focus-visible=true]:web:outline-none data-[focus-visible=true]:web:ring-2 data-[disabled=true]:opacity-40 gap-2 h-fit',
+  base: 'rounded-lg flex-row items-center justify-center gap-2 h-fit web:transition-[color,background-color,border-color,opacity,box-shadow] web:duration-200 motion-reduce:web:transition-none data-[focus-visible=true]:web:outline-none data-[focus-visible=true]:web:ring-2 data-[focus-visible=true]:web:ring-primary/50 data-[disabled=true]:opacity-40',
   variants: {
     variant: {
       default:

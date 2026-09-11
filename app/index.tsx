@@ -1,24 +1,23 @@
 // app/index.tsx
+// Responsive public marketing page for the production-ready InvoHub foundation.
 import * as React from "react";
 import { ScrollView, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
-  BarChart3,
-  CheckCircle2,
-  CreditCard,
+  Check,
+  ChevronRight,
+  FileCheck2,
   FileText,
-  Globe,
-  Headphones,
-  Lock,
-  Receipt,
-  Send,
-  Shield,
-  Smartphone,
-  Zap,
+  LayoutDashboard,
+  LockKeyhole,
+  MonitorSmartphone,
+  ReceiptText,
+  Users,
 } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CookieConsent } from "@/components/marketing/CookieConsent";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,7 +30,25 @@ import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
-function LandingNav({
+const CORNFLOWER = "#6495ed";
+const LIGHT_BLUE = "#d9e7ff";
+
+function BrandMark({ compact = false }: { compact?: boolean }) {
+  return (
+    <HStack space="sm" className="items-center">
+      <Box
+        className={`${compact ? "h-8 w-8" : "h-10 w-10"} items-center justify-center rounded-lg bg-primary`}
+      >
+        <FileText size={compact ? 17 : 20} color="#ffffff" />
+      </Box>
+      <Text className={`${compact ? "text-base" : "text-lg"} font-bold text-white`}>
+        InvoHub
+      </Text>
+    </HStack>
+  );
+}
+
+function LandingHeader({
   isDesktop,
   isSignedIn,
 }: {
@@ -42,107 +59,86 @@ function LandingNav({
 
   return (
     <Box className="bg-secondary px-4 py-4 md:px-10">
-      <HStack className="items-center justify-between">
-        <HStack space="sm" className="items-center">
-          <Box className="h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Text className="text-sm font-bold text-white">IH</Text>
-          </Box>
-          <Text className="text-lg font-bold text-white">InvoHub</Text>
-        </HStack>
-
+      <HStack className="mx-auto w-full max-w-[1200px] items-center justify-between">
+        <BrandMark />
         {isDesktop ? (
           <HStack space="xl" className="items-center">
-            <Pressable onPress={() => {}}>
-              <Text className="text-sm text-[#f9f9f9]">
-                {t("landing.nav.features")}
-              </Text>
-            </Pressable>
-            <Pressable onPress={() => {}}>
-              <Text className="text-sm text-[#f9f9f9]">
-                {t("landing.nav.pricing")}
-              </Text>
-            </Pressable>
-            <Pressable onPress={() => {}}>
-              <Text className="text-sm text-[#f9f9f9]">
-                {t("landing.nav.contact")}
-              </Text>
-            </Pressable>
+            <Text size="sm" className="text-[#e4e6e8]">
+              {t("landing.nav.product")}
+            </Text>
+            <Text size="sm" className="text-[#e4e6e8]">
+              {t("landing.nav.workflow")}
+            </Text>
+            <Text size="sm" className="text-[#e4e6e8]">
+              {t("landing.nav.pricing")}
+            </Text>
           </HStack>
         ) : null}
-
-        <HStack space="sm">
-          {isSignedIn ? (
+        <HStack space="sm" className="items-center">
+          {isDesktop && !isSignedIn ? (
             <Button
+              variant="ghost"
               size="sm"
-              onPress={() => router.push(routes.dashboard)}
+              onPress={() => router.push(routes.login)}
             >
-              <ButtonText>{t("landing.goToDashboard")}</ButtonText>
+              <ButtonText className="text-white">{t("auth.signIn")}</ButtonText>
             </Button>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onPress={() => router.push(routes.login)}
-                className="border-[#f9f9f9]/30"
-              >
-                <ButtonText className="text-white">
-                  {t("auth.signIn")}
-                </ButtonText>
-              </Button>
-              <Button
-                size="sm"
-                onPress={() => router.push(routes.login)}
-              >
-                <ButtonText>{t("landing.getStarted")}</ButtonText>
-              </Button>
-            </>
-          )}
+          ) : null}
+          <Button
+            size="sm"
+            accessibilityLabel={t("landing.getStarted")}
+            testID="landing-header-cta"
+            onPress={() =>
+              router.push(isSignedIn ? routes.dashboard : routes.login)
+            }
+          >
+            <ButtonText>
+              {isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
+            </ButtonText>
+          </Button>
         </HStack>
       </HStack>
     </Box>
   );
 }
 
-function HeroSection({ isDesktop }: { isDesktop: boolean }) {
+function Hero({ isDesktop, isSignedIn }: { isDesktop: boolean; isSignedIn: boolean }) {
   const { t } = useTranslation();
-  const icons = useIconColors();
-  const { data: session } = useSession();
-  const isSignedIn = Boolean(session);
-
-  const highlights = [
-    t("landing.hero.highlight1"),
-    t("landing.hero.highlight2"),
-    t("landing.hero.highlight3"),
-  ];
 
   return (
-    <Box className="bg-secondary px-4 pb-16 pt-12 md:px-10 md:pb-24 md:pt-20">
-      <Box className="mx-auto max-w-4xl items-center">
-        <VStack space="lg" className="items-center">
-          <Box className="rounded-full bg-primary/20 px-4 py-1.5">
-            <Text className="text-xs font-medium text-primary">
+    <Box className="bg-secondary px-4 pb-14 pt-8 md:px-10 md:pb-24 md:pt-16">
+      <Box
+        className={`mx-auto w-full max-w-[1200px] gap-10 ${
+          isDesktop ? "flex-row items-center" : ""
+        }`}
+      >
+        <VStack space="xl" className={isDesktop ? "w-[46%]" : ""}>
+          <Box className="self-start rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5">
+            <Text size="xs" className="font-medium text-[#d9e7ff]">
               {t("landing.hero.badge")}
             </Text>
           </Box>
 
-          <Heading
-            size={isDesktop ? "3xl" : "2xl"}
-            className="max-w-2xl text-center text-white"
-          >
-            {t("landing.hero.title")}
-          </Heading>
+          <VStack space="md">
+            <Heading
+              size={isDesktop ? "4xl" : "3xl"}
+              className="max-w-[620px] leading-tight text-white"
+            >
+              {t("landing.hero.title")}
+            </Heading>
+            <Text
+              size={isDesktop ? "lg" : "md"}
+              className="max-w-[560px] font-light leading-7 text-[#c5c7ca]"
+            >
+              {t("landing.hero.subtitle")}
+            </Text>
+          </VStack>
 
-          <Text
-            size="md"
-            className="max-w-lg text-center font-light text-[#c5c7ca]"
-          >
-            {t("landing.hero.subtitle")}
-          </Text>
-
-          <HStack space="sm" className="pt-2">
+          <Box className="gap-3 md:flex-row md:items-center">
             <Button
               size="lg"
+              accessibilityLabel={t("landing.getStartedFree")}
+              testID="landing-hero-cta"
               onPress={() =>
                 router.push(isSignedIn ? routes.dashboard : routes.login)
               }
@@ -154,317 +150,287 @@ function HeroSection({ isDesktop }: { isDesktop: boolean }) {
               </ButtonText>
               <ArrowRight size={18} color="#ffffff" />
             </Button>
+            <Text size="xs" className="font-light text-[#c5c7ca]">
+              {t("landing.hero.ctaNote")}
+            </Text>
+          </Box>
+
+          <HStack space="lg" className="flex-wrap">
+            {[t("landing.hero.highlight1"), t("landing.hero.highlight2")].map(
+              (item) => (
+                <HStack key={item} space="xs" className="items-center">
+                  <Check size={15} color={CORNFLOWER} />
+                  <Text size="sm" className="text-[#e4e6e8]">
+                    {item}
+                  </Text>
+                </HStack>
+              ),
+            )}
           </HStack>
-
-          <VStack space="sm" className="items-center pt-4">
-            {highlights.map((text) => (
-              <HStack key={text} space="sm" className="items-center">
-                <CheckCircle2 size={16} color="#8db600" />
-                <Text size="sm" className="font-light text-[#c5c7ca]">
-                  {text}
-                </Text>
-              </HStack>
-            ))}
-          </VStack>
         </VStack>
+
+        <ProductProof compact={!isDesktop} />
       </Box>
     </Box>
   );
 }
 
-type FeatureItem = {
-  icon: typeof FileText;
-  titleKey: string;
-  descKey: string;
-};
-
-const FEATURES: FeatureItem[] = [
-  {
-    icon: FileText,
-    titleKey: "landing.features.invoicing.title",
-    descKey: "landing.features.invoicing.desc",
-  },
-  {
-    icon: Receipt,
-    titleKey: "landing.features.receipts.title",
-    descKey: "landing.features.receipts.desc",
-  },
-  {
-    icon: Shield,
-    titleKey: "landing.features.nav.title",
-    descKey: "landing.features.nav.desc",
-  },
-  {
-    icon: Globe,
-    titleKey: "landing.features.multiCurrency.title",
-    descKey: "landing.features.multiCurrency.desc",
-  },
-  {
-    icon: BarChart3,
-    titleKey: "landing.features.dashboard.title",
-    descKey: "landing.features.dashboard.desc",
-  },
-  {
-    icon: Smartphone,
-    titleKey: "landing.features.crossPlatform.title",
-    descKey: "landing.features.crossPlatform.desc",
-  },
-];
-
-function FeaturesSection({ isDesktop }: { isDesktop: boolean }) {
+function ProductProof({ compact }: { compact: boolean }) {
   const { t } = useTranslation();
-  const icons = useIconColors();
-
-  return (
-    <Box className="px-4 py-16 md:px-10 md:py-24">
-      <Box className="mx-auto max-w-5xl">
-        <VStack space="lg" className="items-center pb-12">
-          <Text className="text-sm font-medium uppercase tracking-wider text-primary">
-            {t("landing.features.sectionLabel")}
-          </Text>
-          <Heading size="2xl" className="max-w-lg text-center text-foreground">
-            {t("landing.features.sectionTitle")}
-          </Heading>
-          <Text
-            size="md"
-            className="max-w-md text-center font-light text-muted-foreground"
-          >
-            {t("landing.features.sectionSubtitle")}
-          </Text>
-        </VStack>
-
-        <Box
-          className={
-            isDesktop
-              ? "flex-row flex-wrap justify-center gap-6"
-              : "gap-4"
-          }
-        >
-          {FEATURES.map((feature) => {
-            const Icon = feature.icon;
-            return (
-              <Card
-                key={feature.titleKey}
-                className={`p-6 ${isDesktop ? "w-[calc(33.333%-16px)]" : ""}`}
-              >
-                <VStack space="md">
-                  <Box className="h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
-                    <Icon size={22} color={icons.primary} />
-                  </Box>
-                  <Text className="text-base font-semibold text-foreground">
-                    {t(feature.titleKey)}
-                  </Text>
-                  <Text size="sm" className="font-light text-muted-foreground">
-                    {t(feature.descKey)}
-                  </Text>
-                </VStack>
-              </Card>
-            );
-          })}
-        </Box>
-      </Box>
-    </Box>
-  );
-}
-
-type StepItem = {
-  step: string;
-  icon: typeof Zap;
-  titleKey: string;
-  descKey: string;
-};
-
-const STEPS: StepItem[] = [
-  {
-    step: "1",
-    icon: Zap,
-    titleKey: "landing.howItWorks.step1.title",
-    descKey: "landing.howItWorks.step1.desc",
-  },
-  {
-    step: "2",
-    icon: CreditCard,
-    titleKey: "landing.howItWorks.step2.title",
-    descKey: "landing.howItWorks.step2.desc",
-  },
-  {
-    step: "3",
-    icon: Send,
-    titleKey: "landing.howItWorks.step3.title",
-    descKey: "landing.howItWorks.step3.desc",
-  },
-];
-
-function HowItWorksSection({ isDesktop }: { isDesktop: boolean }) {
-  const { t } = useTranslation();
-  const icons = useIconColors();
-
-  return (
-    <Box className="bg-muted px-4 py-16 md:px-10 md:py-24">
-      <Box className="mx-auto max-w-5xl">
-        <VStack space="lg" className="items-center pb-12">
-          <Text className="text-sm font-medium uppercase tracking-wider text-primary">
-            {t("landing.howItWorks.sectionLabel")}
-          </Text>
-          <Heading size="2xl" className="text-center text-foreground">
-            {t("landing.howItWorks.sectionTitle")}
-          </Heading>
-        </VStack>
-
-        <Box
-          className={
-            isDesktop ? "flex-row justify-center gap-8" : "gap-6"
-          }
-        >
-          {STEPS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Card
-                key={item.step}
-                className={`items-center p-8 ${isDesktop ? "flex-1" : ""}`}
-              >
-                <VStack space="md" className="items-center">
-                  <Box className="h-12 w-12 items-center justify-center rounded-full bg-primary">
-                    <Text className="text-lg font-bold text-white">
-                      {item.step}
-                    </Text>
-                  </Box>
-                  <Icon size={28} color={icons.primary} />
-                  <Text className="text-center text-base font-semibold text-foreground">
-                    {t(item.titleKey)}
-                  </Text>
-                  <Text
-                    size="sm"
-                    className="text-center font-light text-muted-foreground"
-                  >
-                    {t(item.descKey)}
-                  </Text>
-                </VStack>
-              </Card>
-            );
-          })}
-        </Box>
-      </Box>
-    </Box>
-  );
-}
-
-function StatsSection({ isDesktop }: { isDesktop: boolean }) {
-  const { t } = useTranslation();
-
-  const stats = [
-    { value: "100%", labelKey: "landing.stats.navCompliant" },
-    { value: "3", labelKey: "landing.stats.platforms" },
-    { value: "< 2 perc", labelKey: "landing.stats.invoiceTime" },
-    { value: "0 Ft", labelKey: "landing.stats.startPrice" },
+  const rows = [
+    { name: "INV-2026-0142", partner: "Minta Stúdió Kft.", amount: "248 920 Ft" },
+    { name: "INV-2026-0141", partner: "Kék Duna Bt.", amount: "86 400 Ft" },
+    { name: "INV-2026-0140", partner: "Northwind Kft.", amount: "174 600 Ft" },
   ];
 
   return (
-    <Box className="px-4 py-16 md:px-10 md:py-20">
-      <Box className="mx-auto max-w-4xl">
-        <Box
-          className={
-            isDesktop
-              ? "flex-row justify-between gap-8"
-              : "flex-row flex-wrap justify-center gap-6"
-          }
-        >
-          {stats.map((stat) => (
-            <VStack
-              key={stat.labelKey}
-              space="xs"
-              className="items-center px-4 py-2"
+    <Card
+      className={`${compact ? "w-full" : "w-[54%]"} overflow-hidden border-[#4675ca]/40 bg-[#f6f6f8] p-0 shadow-xl`}
+    >
+      <HStack className="items-center justify-between bg-[#1f305e] px-4 py-3">
+        <HStack space="sm" className="items-center">
+          <LayoutDashboard size={17} color={LIGHT_BLUE} />
+          <Text size="sm" className="font-semibold text-white">
+            {t("landing.proof.title")}
+          </Text>
+        </HStack>
+        <Box className="rounded-full bg-primary/20 px-2 py-1">
+          <Text className="text-[10px] font-medium text-[#d9e7ff]">
+            {t("landing.proof.preview")}
+          </Text>
+        </Box>
+      </HStack>
+
+      <VStack space="md" className="p-4 md:p-5">
+        <Box className={compact ? "gap-2" : "flex-row gap-3"}>
+          {[
+            [t("landing.proof.revenue"), "1 284 500 Ft"],
+            [t("landing.proof.outstanding"), "335 320 Ft"],
+            [t("landing.proof.drafts"), "4"],
+          ].map(([label, value]) => (
+            <Box
+              key={label}
+              className="flex-1 rounded-lg border border-[#e4e6e8] bg-white p-3"
             >
-              <Text className="text-3xl font-bold text-primary">
-                {stat.value}
+              <Text className="text-[10px] text-[#696a6e]">{label}</Text>
+              <Text size="sm" className="mt-1 font-bold text-[#212325]">
+                {value}
               </Text>
-              <Text
-                size="sm"
-                className="text-center font-light text-muted-foreground"
-              >
-                {t(stat.labelKey)}
-              </Text>
-            </VStack>
+            </Box>
           ))}
+        </Box>
+
+        <Box className="overflow-hidden rounded-lg border border-[#e4e6e8] bg-white">
+          <HStack className="border-b border-[#e4e6e8] px-3 py-2">
+            <Text size="xs" className="flex-1 font-semibold text-[#323336]">
+              {t("landing.proof.recent")}
+            </Text>
+            <Text size="xs" className="text-[#696a6e]">
+              {t("landing.proof.amount")}
+            </Text>
+          </HStack>
+          {rows.slice(0, compact ? 2 : 3).map((row) => (
+            <HStack
+              key={row.name}
+              className="items-center border-b border-[#e4e6e8] px-3 py-3 last:border-b-0"
+            >
+              <VStack className="flex-1">
+                <Text size="xs" className="font-semibold text-[#212325]">
+                  {row.name}
+                </Text>
+                <Text className="text-[10px] text-[#696a6e]">{row.partner}</Text>
+              </VStack>
+              <Text size="xs" className="font-medium text-[#212325]">
+                {row.amount}
+              </Text>
+            </HStack>
+          ))}
+        </Box>
+      </VStack>
+    </Card>
+  );
+}
+
+const BENEFIT_ICONS = [ReceiptText, Users, MonitorSmartphone] as const;
+
+function Benefits({ isDesktop }: { isDesktop: boolean }) {
+  const { t } = useTranslation();
+  const icons = useIconColors();
+  const benefits = [
+    ["landing.benefits.invoice.title", "landing.benefits.invoice.description"],
+    ["landing.benefits.records.title", "landing.benefits.records.description"],
+    ["landing.benefits.devices.title", "landing.benefits.devices.description"],
+  ] as const;
+
+  return (
+    <Box className="bg-background px-4 py-16 md:px-10 md:py-24">
+      <Box className="mx-auto w-full max-w-[1120px]">
+        <VStack space="md" className="mb-10 max-w-[620px] md:mb-14">
+          <Text size="sm" className="font-semibold uppercase tracking-wider text-primary">
+            {t("landing.benefits.eyebrow")}
+          </Text>
+          <Heading size="3xl">{t("landing.benefits.title")}</Heading>
+          <Text className="font-light leading-7 text-muted-foreground">
+            {t("landing.benefits.subtitle")}
+          </Text>
+        </VStack>
+
+        <Box className={isDesktop ? "flex-row gap-5" : "gap-4"}>
+          {benefits.map(([titleKey, descriptionKey], index) => {
+            const Icon = BENEFIT_ICONS[index];
+            return (
+              <Card key={titleKey} className="flex-1 border-border/70 p-5 shadow-none md:p-6">
+                <VStack space="md">
+                  <Box className="h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Icon size={20} color={icons.primary} />
+                  </Box>
+                  <Text className="text-base font-semibold">{t(titleKey)}</Text>
+                  <Text size="sm" className="font-light leading-6 text-muted-foreground">
+                    {t(descriptionKey)}
+                  </Text>
+                </VStack>
+              </Card>
+            );
+          })}
         </Box>
       </Box>
     </Box>
   );
 }
 
-function CtaSection() {
+function Workflow({ isDesktop }: { isDesktop: boolean }) {
   const { t } = useTranslation();
-  const { data: session } = useSession();
-  const isSignedIn = Boolean(session);
+  const icons = useIconColors();
+  const steps = [
+    ["01", "landing.workflow.step1.title", "landing.workflow.step1.description"],
+    ["02", "landing.workflow.step2.title", "landing.workflow.step2.description"],
+    ["03", "landing.workflow.step3.title", "landing.workflow.step3.description"],
+  ] as const;
 
   return (
-    <Box className="bg-secondary px-4 py-16 md:px-10 md:py-24">
-      <Box className="mx-auto max-w-2xl items-center">
-        <VStack space="lg" className="items-center">
-          <Heading size="2xl" className="text-center text-white">
-            {t("landing.cta.title")}
-          </Heading>
-          <Text
-            size="md"
-            className="max-w-md text-center font-light text-[#c5c7ca]"
-          >
-            {t("landing.cta.subtitle")}
+    <Box className="border-y border-border/70 bg-card px-4 py-16 md:px-10 md:py-24">
+      <Box
+        className={`mx-auto w-full max-w-[1120px] gap-10 ${
+          isDesktop ? "flex-row items-start" : ""
+        }`}
+      >
+        <VStack space="md" className={isDesktop ? "w-[34%]" : ""}>
+          <Text size="sm" className="font-semibold uppercase tracking-wider text-primary">
+            {t("landing.workflow.eyebrow")}
           </Text>
-          <HStack space="sm" className="pt-2">
-            <Button
-              size="lg"
-              onPress={() =>
-                router.push(isSignedIn ? routes.dashboard : routes.login)
-              }
+          <Heading size="3xl">{t("landing.workflow.title")}</Heading>
+          <Text className="font-light leading-7 text-muted-foreground">
+            {t("landing.workflow.subtitle")}
+          </Text>
+        </VStack>
+        <VStack space="sm" className={isDesktop ? "flex-1" : ""}>
+          {steps.map(([number, titleKey, descriptionKey]) => (
+            <HStack
+              key={number}
+              className="items-start gap-4 rounded-xl border border-border/70 bg-background p-4 md:p-5"
             >
-              <ButtonText>
-                {isSignedIn
-                  ? t("landing.goToDashboard")
-                  : t("landing.getStartedFree")}
-              </ButtonText>
-              <ArrowRight size={18} color="#ffffff" />
-            </Button>
-          </HStack>
-          <HStack space="lg" className="pt-4">
-            <HStack space="xs" className="items-center">
-              <Lock size={14} color="#8db600" />
-              <Text size="xs" className="font-light text-[#c5c7ca]">
-                {t("landing.cta.secure")}
-              </Text>
+              <Box className="h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+                <Text size="xs" className="font-bold text-white">{number}</Text>
+              </Box>
+              <VStack space="xs" className="flex-1">
+                <Text className="font-semibold">{t(titleKey)}</Text>
+                <Text size="sm" className="font-light leading-6 text-muted-foreground">
+                  {t(descriptionKey)}
+                </Text>
+              </VStack>
+              {isDesktop ? <ChevronRight size={18} color={icons.primary} /> : null}
             </HStack>
-            <HStack space="xs" className="items-center">
-              <Headphones size={14} color="#8db600" />
-              <Text size="xs" className="font-light text-[#c5c7ca]">
-                {t("landing.cta.support")}
-              </Text>
-            </HStack>
-          </HStack>
+          ))}
         </VStack>
       </Box>
+    </Box>
+  );
+}
+
+function PricingCta({ isSignedIn }: { isSignedIn: boolean }) {
+  const { t } = useTranslation();
+
+  return (
+    <Box className="bg-background px-4 py-16 md:px-10 md:py-24">
+      <Card className="mx-auto w-full max-w-[920px] overflow-hidden border-primary/30 bg-secondary p-0 shadow-lg">
+        <Box className="gap-8 p-6 md:flex-row md:items-center md:justify-between md:p-10">
+          <VStack space="md" className="max-w-[570px]">
+            <Box className="self-start rounded-full bg-primary/15 px-3 py-1">
+              <Text size="xs" className="font-semibold text-[#d9e7ff]">
+                {t("landing.pricing.eyebrow")}
+              </Text>
+            </Box>
+            <Heading size="2xl" className="text-white">
+              {t("landing.pricing.title")}
+            </Heading>
+            <Text className="font-light leading-7 text-[#c5c7ca]">
+              {t("landing.pricing.description")}
+            </Text>
+            <HStack space="sm" className="items-center">
+              <LockKeyhole size={16} color={CORNFLOWER} />
+              <Text size="xs" className="text-[#e4e6e8]">
+                {t("landing.pricing.honestNote")}
+              </Text>
+            </HStack>
+          </VStack>
+          <Button
+            size="lg"
+            accessibilityLabel={t("landing.pricing.cta")}
+            onPress={() =>
+              router.push(isSignedIn ? routes.dashboard : routes.login)
+            }
+          >
+            <ButtonText>
+              {isSignedIn ? t("landing.goToDashboard") : t("landing.pricing.cta")}
+            </ButtonText>
+            <ArrowRight size={18} color="#ffffff" />
+          </Button>
+        </Box>
+      </Card>
     </Box>
   );
 }
 
 function Footer() {
   const { t } = useTranslation();
+  const links = [
+    [routes.terms, "landing.footer.terms"],
+    [routes.privacy, "landing.footer.privacy"],
+    [routes.cookies, "landing.footer.cookies"],
+    [routes.imprint, "landing.footer.imprint"],
+  ] as const;
 
   return (
-    <Box className="border-t border-border bg-card px-4 py-8 md:px-10">
-      <Box className="mx-auto max-w-5xl">
+    <Box className="border-t border-[#1f305e] bg-secondary px-4 py-10 md:px-10">
+      <Box className="mx-auto w-full max-w-[1120px] gap-7">
+        <Box className="gap-5 md:flex-row md:items-center md:justify-between">
+          <BrandMark compact />
+          <HStack space="lg" className="flex-wrap">
+            {links.map(([href, labelKey]) => (
+              <Pressable
+                key={String(href)}
+                accessibilityRole="link"
+                onPress={() => router.push(href)}
+                className="rounded-md"
+              >
+                <Text size="xs" className="font-medium text-[#e4e6e8]">
+                  {t(labelKey)}
+                </Text>
+              </Pressable>
+            ))}
+          </HStack>
+        </Box>
+        <Box className="h-px bg-[#1f305e]" />
         <HStack className="items-center justify-between">
-          <HStack space="sm" className="items-center">
-            <Box className="h-7 w-7 items-center justify-center rounded-md bg-primary">
-              <Text className="text-xs font-bold text-white">IH</Text>
-            </Box>
-            <Text size="sm" className="font-medium text-foreground">
-              InvoHub
+          <Text size="xs" className="font-light text-[#a6a8ab]">
+            {t("landing.footer.copyright", { year: new Date().getFullYear() })}
+          </Text>
+          <HStack space="xs" className="items-center">
+            <FileCheck2 size={14} color={CORNFLOWER} />
+            <Text size="xs" className="font-light text-[#a6a8ab]">
+              {t("landing.footer.draftNote")}
             </Text>
           </HStack>
-          <Text size="xs" className="font-light text-muted-foreground">
-            {t("landing.footer.copyright", {
-              year: new Date().getFullYear(),
-            })}
-          </Text>
         </HStack>
       </Box>
     </Box>
@@ -473,21 +439,21 @@ function Footer() {
 
 export default function Landing() {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { data: session } = useSession();
+  const isDesktop = width >= 768;
   const isSignedIn = Boolean(session);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <ScrollView className="flex-1" bounces={false}>
-        <LandingNav isDesktop={isDesktop} isSignedIn={isSignedIn} />
-        <HeroSection isDesktop={isDesktop} />
-        <FeaturesSection isDesktop={isDesktop} />
-        <StatsSection isDesktop={isDesktop} />
-        <HowItWorksSection isDesktop={isDesktop} />
-        <CtaSection />
+        <LandingHeader isDesktop={isDesktop} isSignedIn={isSignedIn} />
+        <Hero isDesktop={isDesktop} isSignedIn={isSignedIn} />
+        <Benefits isDesktop={isDesktop} />
+        <Workflow isDesktop={isDesktop} />
+        <PricingCta isSignedIn={isSignedIn} />
         <Footer />
       </ScrollView>
+      <CookieConsent onOpenPolicy={() => router.push(routes.cookies)} />
     </SafeAreaView>
   );
 }

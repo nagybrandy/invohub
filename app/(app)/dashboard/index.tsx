@@ -1,6 +1,6 @@
 // app/(app)/dashboard/index.tsx
 import { useMemo } from "react";
-import { Platform } from "react-native";
+import { useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,6 +8,7 @@ import {
   Headphones,
   Inbox,
   MoreHorizontal,
+  Plus,
 } from "lucide-react-native";
 import { Badge, BadgeText } from "@/components/ui/badge";
 import { Box } from "@/components/ui/box";
@@ -18,7 +19,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { M2mDemoCard } from "@/components/dashboard/M2mDemoCard";
+import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { useSession } from "@/lib/auth-client";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -44,6 +45,8 @@ export default function DashboardScreen() {
   const icons = useIconColors();
   const { data: session } = useSession();
   const { invoices, loading } = useInvoices();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const computed = useMemo(() => {
     const now = new Date();
@@ -93,9 +96,10 @@ export default function DashboardScreen() {
 
   return (
     <ScreenLayout>
-      <VStack space="lg">
+      <VStack space="lg" className="mx-auto w-full max-w-[1280px]">
+        <Breadcrumb items={[{ label: t("dashboard.breadcrumb") }]} />
         {/* Header row */}
-        <HStack className="items-start justify-between gap-4">
+        <Box className="gap-4 md:flex-row md:items-start md:justify-between">
           <VStack space="xs">
             <Heading size="2xl" className="text-foreground">
               {t("nav.dashboard")}
@@ -104,6 +108,7 @@ export default function DashboardScreen() {
               {t("dashboard.subtitle")}
             </Text>
           </VStack>
+          {isDesktop ? (
           <HStack space="sm" className="items-center">
             <Button
               variant="outline"
@@ -128,7 +133,13 @@ export default function DashboardScreen() {
               <ButtonText>{t("dashboard.customerService")}</ButtonText>
             </Button>
           </HStack>
-        </HStack>
+          ) : (
+            <Button onPress={() => router.push(routes.newInvoice)}>
+              <Plus size={16} color="#ffffff" />
+              <ButtonText>{t("dashboard.newInvoice")}</ButtonText>
+            </Button>
+          )}
+        </Box>
 
         {/* 3 equal stat cards */}
         <Box className="flex-col gap-4 md:flex-row">
@@ -167,7 +178,7 @@ export default function DashboardScreen() {
             </Pressable>
           </HStack>
 
-          {Platform.OS === "web" ? (
+          {isDesktop ? (
             <InvoiceTable
               invoices={computed.recentInvoices}
               loading={loading}
@@ -181,7 +192,6 @@ export default function DashboardScreen() {
           )}
         </VStack>
 
-        <M2mDemoCard />
       </VStack>
     </ScreenLayout>
   );

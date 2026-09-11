@@ -4,9 +4,14 @@ import TestRenderer, { act } from "react-test-renderer";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
 import { apiFetch, invoicePdfUrl } from "@/lib/api/client";
+import { isWeb } from "@/lib/platform";
 
 jest.mock("@/lib/platform", () => ({
-  isWeb: () => true,
+  isWeb: jest.fn(() => true),
+}));
+
+jest.mock("@/lib/pdf-preview", () => ({
+  sharePdfBlob: jest.fn(),
 }));
 
 jest.mock("@/lib/useIsDesktop", () => ({
@@ -42,10 +47,12 @@ jest.mock("@/components/ui/button", () => {
 
 const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>;
 const mockInvoicePdfUrl = invoicePdfUrl as jest.MockedFunction<typeof invoicePdfUrl>;
+const mockIsWeb = isWeb as jest.MockedFunction<typeof isWeb>;
 
 describe("InvoiceDocumentPreview", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsWeb.mockReturnValue(true);
     mockApiFetch.mockResolvedValue({ html: "<html>preview</html>" });
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -104,5 +111,28 @@ describe("InvoiceDocumentPreview", () => {
     });
 
     expect(mockApiFetch).toHaveBeenCalledWith("/api/invoices/inv-99/preview");
+  });
+
+  it("fetches saved PDF bytes on native without using browser object URLs", async () => {
+    mockIsWeb.mockReturnValue(false);
+    const invoice = makeInvoice({ id: "inv-native" });
+
+    await act(async () => {
+      TestRenderer.create(
+        <InvoiceDocumentPreview
+          invoice={invoice}
+          invoiceId="inv-native"
+          layout="split"
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/invoices/inv-native/pdf"),
+      expect.objectContaining({ method: "GET", credentials: "include" }),
+    );
+    expect(global.URL.createObjectURL).not.toHaveBeenCalled();
   });
 });

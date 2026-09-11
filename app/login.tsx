@@ -80,6 +80,7 @@ export default function Login() {
                     </FormControlLabel>
                     <Input>
                       <InputField
+                        accessibilityLabel={t("auth.name")}
                         placeholder="Kovács Anna"
                         autoCapitalize="words"
                         value={name}
@@ -125,6 +126,7 @@ export default function Login() {
                 </FormControlLabel>
                 <Input>
                   <InputField
+                    accessibilityLabel={t("auth.email")}
                     placeholder="te@pelda.hu"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -144,6 +146,7 @@ export default function Login() {
                 </FormControlLabel>
                 <Input>
                   <InputField
+                    accessibilityLabel={t("auth.password")}
                     placeholder="••••••••"
                     secureTextEntry
                     value={password}
