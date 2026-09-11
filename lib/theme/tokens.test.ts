@@ -14,9 +14,21 @@ describe("themeTokens", () => {
 
   it("exposes the approved radius, spacing, and hard shadow scales", () => {
     expect(invoHubDesignTokens.radius.lg).toBe(8);
+    expect(invoHubDesignTokens.radius.marketing).toBe(28);
     expect(invoHubDesignTokens.spacing).toContain(18);
     expect(invoHubDesignTokens.shadow.hard1).toContain("2px 2px");
     expect(invoHubDesignTokens.color.border200).toBe("#c5c7ca");
+    expect(invoHubDesignTokens.color.navy).toBe("#111f4a");
+    expect(invoHubDesignTokens.color.cornflower).toBe("#6495ed");
+    expect(invoHubDesignTokens.color.success).toBe("#15803d");
+    expect(invoHubDesignTokens.marketing.surfaceHero).toBe("#111f4a");
+    expect(invoHubDesignTokens.typography.display.hero.desktop).toBe(48);
+  });
+
+  it("keeps green out of brand primary tokens", () => {
+    expect(themeTokens.light["--primary"]).toBe("100 149 237");
+    expect(themeTokens.light["--secondary"]).toBe("17 31 74");
+    expect(invoHubDesignTokens.color.primary500).not.toMatch(/15803d|16a34a|22c55e/i);
   });
 
   it("uses Figma design system colors", () => {

@@ -17,6 +17,7 @@ module.exports = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
     "^test-renderer$": "react-test-renderer",
+    "\\.(png|jpg|jpeg|gif|webp|svg)$": "<rootDir>/__tests__/mocks/fileMock.js",
   },
   collectCoverageFrom: [
     "lib/**/*.{ts,tsx}",

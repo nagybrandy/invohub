@@ -18,24 +18,42 @@ import {
 
 type CookieConsentProps = {
   onOpenPolicy: () => void;
+  reopenRequest?: number;
 };
 
-export function CookieConsent({ onOpenPolicy }: CookieConsentProps) {
+export function CookieConsent({
+  onOpenPolicy,
+  reopenRequest = 0,
+}: CookieConsentProps) {
   const { t } = useTranslation();
   const [visible, setVisible] = React.useState(false);
   const [analytics, setAnalytics] = React.useState(false);
   const [marketing, setMarketing] = React.useState(false);
 
   React.useEffect(() => {
+    let cancelled = false;
     void loadCookieConsent().then((consent) => {
-      if (!consent) {
-        setVisible(true);
+      if (cancelled) {
         return;
       }
-      setAnalytics(consent.analytics);
-      setMarketing(consent.marketing);
+      if (!consent) {
+        setVisible(true);
+      } else {
+        setAnalytics(consent.analytics);
+        setMarketing(consent.marketing);
+        setVisible(false);
+      }
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  React.useEffect(() => {
+    if (reopenRequest > 0) {
+      setVisible(true);
+    }
+  }, [reopenRequest]);
 
   async function persist(nextAnalytics: boolean, nextMarketing: boolean) {
     await saveCookieConsent(
@@ -47,11 +65,12 @@ export function CookieConsent({ onOpenPolicy }: CookieConsentProps) {
   }
 
   return (
-    <>
+    <Box testID="cookie-consent-root" style={{ pointerEvents: "box-none" }}>
       <Pressable
         accessibilityRole="button"
         onPress={() => setVisible(true)}
         className="fixed bottom-3 left-3 z-40 rounded-lg border border-border bg-card px-3 py-2 shadow-lg"
+        testID="cookie-consent-reopen"
       >
         <Text size="xs" className="font-medium text-primary">
           {t("cookies.reopen")}
@@ -59,7 +78,11 @@ export function CookieConsent({ onOpenPolicy }: CookieConsentProps) {
       </Pressable>
 
       {visible ? (
-        <Box className="absolute inset-0 z-50 justify-end bg-secondary/40 p-3 md:items-center md:justify-center">
+        <Box
+          testID="cookie-consent-dialog"
+          pointerEvents="auto"
+          className="fixed inset-0 z-50 justify-end bg-secondary/40 p-3 md:items-center md:justify-center"
+        >
           <Box
             accessibilityRole="alert"
             className="w-full max-w-[560px] rounded-2xl border border-border bg-card p-5 shadow-lg md:p-6"
@@ -100,16 +123,21 @@ export function CookieConsent({ onOpenPolicy }: CookieConsentProps) {
                 <Button
                   variant="outline"
                   onPress={() => void persist(false, false)}
+                  testID="cookie-consent-essential"
                 >
                   <ButtonText>{t("cookies.rejectOptional")}</ButtonText>
                 </Button>
                 <Button
                   variant="outline"
                   onPress={() => void persist(analytics, marketing)}
+                  testID="cookie-consent-save"
                 >
                   <ButtonText>{t("cookies.save")}</ButtonText>
                 </Button>
-                <Button onPress={() => void persist(true, true)}>
+                <Button
+                  onPress={() => void persist(true, true)}
+                  testID="cookie-consent-accept-all"
+                >
                   <ButtonText>{t("cookies.acceptAll")}</ButtonText>
                 </Button>
               </Box>
@@ -117,7 +145,7 @@ export function CookieConsent({ onOpenPolicy }: CookieConsentProps) {
           </Box>
         </Box>
       ) : null}
-    </>
+    </Box>
   );
 }
 

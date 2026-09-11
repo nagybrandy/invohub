@@ -297,8 +297,12 @@ const SCREENS: Array<{ label: string; loader: () => { default: React.ComponentTy
 ];
 
 function renderScreen(Screen: React.ComponentType) {
+  let tree: TestRenderer.ReactTestRenderer;
   act(() => {
-    TestRenderer.create(<Screen />);
+    tree = TestRenderer.create(<Screen />);
+  });
+  act(() => {
+    tree!.unmount();
   });
 }
 

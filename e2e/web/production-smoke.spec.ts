@@ -35,7 +35,11 @@ test.describe("Production smoke", () => {
     const essentialOnly = page.getByRole("button", {
       name: /^(Csak szükséges|Essential only)$/i,
     });
-    if (await essentialOnly.isVisible({ timeout: 2_000 })) {
+    const dialogAppeared = await essentialOnly
+      .waitFor({ state: "visible", timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (dialogAppeared) {
       await essentialOnly.click();
     }
     await page

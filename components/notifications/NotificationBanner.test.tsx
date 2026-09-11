@@ -6,6 +6,13 @@ jest.mock("@/components/ui/box", () => require("@/__tests__/mocks/gluestack-ui")
 jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/lib/useColorScheme", () => ({
+  useColorScheme: () => ({
+    colorScheme: "light",
+    isDarkColorScheme: false,
+    toggleTheme: jest.fn(),
+  }),
+}));
 
 const notification = {
   id: "n1",

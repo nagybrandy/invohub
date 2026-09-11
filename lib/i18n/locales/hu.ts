@@ -383,148 +383,144 @@ export default {
     getStartedFree: "Ingyenes regisztráció",
     goToDashboard: "Irány az áttekintés",
     nav: {
+      home: "InvoHub kezdőlap",
       product: "Termék",
+      capabilities: "Lehetőségek",
       workflow: "Munkafolyamat",
-      features: "Funkciók",
-      pricing: "Árazás",
-      contact: "Kapcsolat",
+      roadmap: "Irány",
+      openMenu: "Menü megnyitása",
+      closeMenu: "Menü bezárása",
     },
     hero: {
-      badge: "Átlátható számlázási munkatér",
-      title: "A számlázásod egy rendezett, nyugodt rendszerben",
+      eyebrow: "Magyar vállalkozásokra hangolva",
+      title: "A számlázás legyen biztos pont. Ne külön feladat.",
       subtitle:
-        "Készíts és kövess számlákat, kezeld partnereidet és lásd a fontos összegeket egy weben és mobilon is használható munkatérben.",
-      highlight1: "Számla, nyugta és díjbekérő munkafolyamatok",
-      highlight2: "Áttekinthető bevétel- és kintlévőségkép",
-      highlight3: "Web, iOS és Android alkalmazás",
-      ctaNote: "Korai hozzáférés · bankkártya nélkül",
+        "Az InvoHub egy rendezett munkatér, ahol a számlák, partnerek, termékek és bizonylatok követhető rendszerbe kerülnek.",
+      productTour: "Mutasd a terméket",
+      reassurance:
+        "A jelenleg elérhető funkciókat mutatjuk — a fejlesztés alatt álló terveket külön jelöljük.",
+      infographicAlt:
+        "Infografika a számlakészítésről, PDF e-mail küldésről és a fizetések követéséről az InvoHubban",
     },
-    proof: {
-      title: "Üzleti áttekintés",
-      preview: "Termékelőnézet",
-      revenue: "Bevétel",
-      outstanding: "Kintlévőség",
-      drafts: "Piszkozat",
+    product: {
+      workspace: "Üzleti áttekintés",
+      sampleData: "Termékelőnézet · mintaadatok",
+      overview: "Áttekintés",
+      invoices: "Számlák",
+      clients: "Partnerek",
+      currentPeriod: "Aktuális időszak",
+      upToDate: "Követett állapotok",
       recent: "Legutóbbi számlák",
-      amount: "Bruttó összeg",
+      allInvoices: "Összes számla",
+      paid: "Fizetve",
+      sent: "Elküldve",
+      draft: "Piszkozat",
+      deliveryTitle: "PDF és e-mail küldés",
+      deliveryDetail: "Előnézet, letöltés és küldés egy folyamatban",
     },
-    benefits: {
-      eyebrow: "Egy rendszer",
-      title: "A napi számlázáshoz szükséges alapok",
+    transition: {
+      eyebrow: "Kevesebb szétszórt részlet",
+      title: "A vállalkozásod nem adminisztrációs projekt.",
+      description:
+        "Egyéni vállalkozóként vagy kisvállalkozásként ugyanazokra a pontos adatokra támaszkodsz újra és újra. Az InvoHub összerendezi a napi számlázás elemeit, hogy lásd, mi készült el és mi vár még rád.",
+      statement:
+        "Nem több funkciót akarunk rád tenni. Egy következetesebb munkafolyamatot adunk a már elvégzendő feladatokhoz.",
+    },
+    capabilities: {
+      eyebrow: "Ami már most működik",
+      title: "Egy rendszer a bizonylat körüli teljes munkához",
       subtitle:
-        "Kevesebb keresgélés, világosabb állapotok és következetes munkafolyamat minden képernyőn.",
+        "A funkciók ugyanarra az adatkészletre és egységes kezelési logikára épülnek.",
+      infographicAlt:
+        "Infografika a papíralapú számlától a digitális irányítópultig és a banki egyeztetés lépéseiig",
       invoice: {
-        title: "Bizonylatok egy helyen",
+        title: "Számlakészítés, végig átláthatóan",
         description:
-          "Számlák, díjbekérők és nyugták létrehozása, előnézete és követése egységes felületen.",
+          "Partner, tételsorok, dátumok és fizetési adatok szerkeszthető, ellenőrizhető folyamatban.",
+        preview: "Számla · INV-2026-0142",
+      },
+      delivery: {
+        title: "PDF és e-mail",
+        description:
+          "A kész dokumentum előnézete, PDF-letöltése és e-mailes elküldése egy helyen.",
       },
       records: {
-        title: "Rendezett törzsadatok",
+        title: "Partnerek és termékek",
         description:
-          "Partnerek, termékek és céges beállítások újrafelhasználhatóan, kevesebb ismételt adatbevitellel.",
+          "Újrahasználható törzsadatok, hogy ne minden számlát üres mezőkkel kezdj.",
       },
-      devices: {
-        title: "Asztalon és mobilon",
+      reminder: {
+        title: "Fizetési emlékeztetők",
         description:
-          "Szándékosan megtervezett reszponzív felületek, nem egy összenyomott asztali oldal.",
+          "Beállítható emlékeztetők és követhető küldési folyamat a nyitott tételekhez.",
+      },
+      receipt: {
+        title: "Nyugták külön munkafolyamatban",
+        description:
+          "Nyugták létrehozása, megtekintése és küldése a számláktól elkülönülő, célzott felületen.",
       },
     },
     workflow: {
-      eyebrow: "Munkafolyamat",
-      title: "Az adattól a kész bizonylatig",
+      eyebrow: "Egyenes út a dokumentumig",
+      title: "A következő lépés mindig egyértelmű",
       subtitle:
-        "A fontos döntések mindig láthatók, a részletek pedig akkor nyílnak meg, amikor szükséged van rájuk.",
+        "A folyamat megtartja a szükséges részleteket, de nem engedi, hogy eltűnjenek közöttük a fontos döntések.",
       step1: {
-        title: "Partner és bizonylattípus",
+        title: "Válaszd ki az alapadatokat",
         description:
-          "Válaszd ki, kinek és milyen dokumentumot készítesz.",
+          "Partner, bizonylattípus és korábban rögzített termékek adják a rendezett kiindulópontot.",
       },
       step2: {
-        title: "Tételek és fizetési adatok",
+        title: "Ellenőrizd a dokumentumot",
         description:
-          "Add meg a tételeket, dátumokat és fizetési feltételeket ellenőrizhető formában.",
+          "A tételsorok, dátumok, fizetési feltételek és az előnézet együtt ellenőrizhetők.",
       },
       step3: {
-        title: "Ellenőrzés és mentés",
+        title: "Mentsd, töltsd le vagy küldd el",
         description:
-          "Nézd át az előnézetet, majd mentsd piszkozatként vagy véglegesítsd a bizonylatot.",
+          "A dokumentum piszkozatként menthető, véglegesíthető, PDF-ként letölthető vagy e-mailben elküldhető.",
       },
     },
-    pricing: {
-      eyebrow: "Korai hozzáférés",
-      title: "Próbáld ki az InvoHub jelenlegi alapjait",
+    roadmap: {
+      label: "Fejlesztési irány · még nem elérhető",
+      title: "A következő réteg: kevesebb kézi egyeztetés",
       description:
-        "A bevezető csomag részleteit a nyilvános indulás előtt véglegesítjük. A regisztrációval a jelenleg elérhető számlázási munkafolyamatokat próbálhatod ki.",
-      honestNote:
-        "Banki párosítás, adókalkuláció és M2M beküldés még fejlesztési terv.",
-      cta: "Fiók létrehozása",
-    },
-    features: {
-      sectionLabel: "Funkciók",
-      sectionTitle: "Minden, ami a magyar számlázáshoz kell",
-      sectionSubtitle:
-        "Egyetlen platformon kezelheted a számlákat, nyugtákat és a NAV-ot.",
-      invoicing: {
-        title: "Számlázás",
-        desc: "Számla, díjbekérő és előlegszámla kiállítása percek alatt. ÁFA-kalkuláció, tételsorok, megjegyzés.",
+        "Ezek az elemek a termék tervezett irányát mutatják. Jelenleg nem részei az elérhető szolgáltatásnak, és nem ígérünk hozzájuk indulási dátumot.",
+      future: "Tervezett",
+      bank: {
+        title: "Banki párosítás",
+        description:
+          "A beérkező tranzakciók és a nyitott számlák támogatott összerendelése.",
       },
-      receipts: {
-        title: "Nyugtázás",
-        desc: "Elektronikus nyugták QR kóddal, NAV eNyugta API beküldéssel. 2026 szeptembertől kötelező.",
+      tax: {
+        title: "EV adókalkulátor",
+        description:
+          "Egyéni vállalkozóknak szánt, tájékoztató jellegű adótervezési nézet.",
       },
-      nav: {
-        title: "NAV integráció",
-        desc: "Automatikus számla- és nyugtabeküldés a NAV Online Számla és eNyugta rendszerébe.",
-      },
-      multiCurrency: {
-        title: "Többpénznemes",
-        desc: "HUF és EUR támogatás. Külföldi vállalkozóknak is ideális, magyar adószámmal.",
-      },
-      dashboard: {
-        title: "Áttekintés",
-        desc: "Bevétel, ÁFA-becslés, lejárt tartozások — valós idejű statisztikák egy helyen.",
-      },
-      crossPlatform: {
-        title: "Mindenhol elérhető",
-        desc: "Web, iOS és Android — ugyanaz az alkalmazás, bárhonnan elérhető.",
+      m2m: {
+        title: "M2M bevallási folyamat",
+        description:
+          "A támogatott adatok előkészítése és beküldési lépések egy későbbi fejlesztési fázisban.",
       },
     },
-    howItWorks: {
-      sectionLabel: "Hogyan működik",
-      sectionTitle: "3 lépésben kész a számlád",
-      step1: {
-        title: "Regisztrálj",
-        desc: "Hozd létre a fiókodat 30 másodperc alatt, add meg a céges adataidat.",
-      },
-      step2: {
-        title: "Állítsd ki a számlát",
-        desc: "Válaszd ki a partnert, add meg a tételeket, és a rendszer kiszámolja az ÁFA-t.",
-      },
-      step3: {
-        title: "Küld el és jelentsd",
-        desc: "A számla automatikusan beküldhető a NAV-nak és elküldhető a partnernek.",
-      },
-    },
-    stats: {
-      navCompliant: "NAV-kompatibilis",
-      platforms: "platform (web, iOS, Android)",
-      invoiceTime: "egy számla kiállítása",
-      startPrice: "induláskor",
-    },
-    cta: {
-      title: "Készen állsz a magyar számlázásra?",
-      subtitle:
-        "Regisztrálj ingyen, és perceken belül kiállíthatod az első számládat.",
-      secure: "Biztonságos adatkezelés",
-      support: "Magyar ügyfélszolgálat",
+    finalCta: {
+      eyebrow: "Rendezett kezdet",
+      title: "Vidd egy biztosabb rendszerbe a napi számlázást.",
+      description:
+        "Hozd létre a fiókodat, és nézd meg az InvoHub jelenleg elérhető munkafolyamatait.",
     },
     footer: {
-      copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
+      description:
+        "Átlátható számlázási munkatér magyar egyéni vállalkozóknak és kisvállalkozásoknak.",
+      product: "InvoHub",
+      legal: "Jogi információk",
+      login: "Belépés az alkalmazásba",
+      cookiePreferences: "Cookie-beállítások",
       terms: "ÁSZF",
       privacy: "Adatkezelés",
-      cookies: "Cookie-k",
+      cookies: "Cookie-tájékoztató",
       imprint: "Impresszum",
-      draftNote: "Jogi oldalak felülvizsgálat alatt",
+      copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
     },
   },
 };
