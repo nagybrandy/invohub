@@ -134,7 +134,7 @@ export function ProductShowcase({ compact }: ProductShowcaseProps) {
                 >
                   <VStack className="min-w-0 flex-1">
                     <Text className="text-[11px] font-semibold text-[#27334c]">{invoice.id}</Text>
-                    <Text numberOfLines={1} className="text-[10px] text-[#697386]">
+                    <Text className="text-[10px] text-[#697386]">
                       {invoice.client}
                     </Text>
                   </VStack>
@@ -165,7 +165,7 @@ export function ProductShowcase({ compact }: ProductShowcaseProps) {
               <Text className="text-[11px] font-semibold text-secondary">
                 {t("landing.product.deliveryTitle")}
               </Text>
-              <Text numberOfLines={1} className="text-[10px] text-[#697386]">
+              <Text className="text-[10px] text-[#697386]">
                 {t("landing.product.deliveryDetail")}
               </Text>
             </VStack>

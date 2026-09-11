@@ -39,23 +39,30 @@ export default function Landing() {
       return;
     }
 
-    const elements = [document.documentElement, document.body, document.getElementById("root")]
-      .filter((element): element is HTMLElement => Boolean(element));
+    const root = document.getElementById("root");
+    const elements = [document.documentElement, document.body, root].filter(
+      (element): element is HTMLElement => Boolean(element),
+    );
+    const properties = ["overflow-x", "overflow-y"] as const;
     const previousStyles = elements.map((element) => ({
       element,
-      overflowX: element.style.overflowX,
-      overflowY: element.style.overflowY,
+      properties: properties.map((property) => ({
+        property,
+        value: element.style.getPropertyValue(property),
+        priority: element.style.getPropertyPriority(property),
+      })),
     }));
 
     elements.forEach((element) => {
-      element.style.overflowX = "hidden";
-      element.style.overflowY = "auto";
+      element.style.setProperty("overflow-x", "hidden", "important");
+      element.style.setProperty("overflow-y", "auto", "important");
     });
 
     return () => {
-      previousStyles.forEach(({ element, overflowX, overflowY }) => {
-        element.style.overflowX = overflowX;
-        element.style.overflowY = overflowY;
+      previousStyles.forEach(({ element, properties: savedProperties }) => {
+        savedProperties.forEach(({ property, value, priority }) => {
+          element.style.setProperty(property, value, priority);
+        });
       });
     };
   }, []);

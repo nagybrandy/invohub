@@ -69,7 +69,7 @@ export function CookieConsent({
       </Pressable>
 
       {visible ? (
-        <Box className="absolute inset-0 z-50 justify-end bg-secondary/40 p-3 md:items-center md:justify-center">
+        <Box className="fixed inset-0 z-50 justify-end bg-secondary/40 p-3 md:items-center md:justify-center">
           <Box
             accessibilityRole="alert"
             className="w-full max-w-[560px] rounded-2xl border border-border bg-card p-5 shadow-lg md:p-6"
