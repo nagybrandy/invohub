@@ -131,7 +131,7 @@ export default function NewInvoiceScreen() {
   const [bankAccount, setBankAccount] = React.useState("");
 
   const [notes, setNotes] = React.useState("");
-  const [navEnabled, setNavEnabled] = React.useState(true);
+  const [navEnabled, setNavEnabled] = React.useState(false);
   const [emailOnSend, setEmailOnSend] = React.useState(false);
   const [showAdvanced, setShowAdvanced] = React.useState(false);
 
