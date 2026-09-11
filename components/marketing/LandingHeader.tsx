@@ -2,14 +2,15 @@
 // Responsive landing header with sticky navigation and an accessible mobile menu.
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Menu, X } from "lucide-react-native";
+import { Menu, X } from "lucide-react-native";
+import { BrandLogo } from "@/components/marketing/BrandLogo";
+import { landingColors } from "@/components/marketing/landing-theme";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { landingColors } from "@/components/marketing/landing-theme";
 
 export type LandingSectionId = "product" | "capabilities" | "workflow" | "roadmap";
 
@@ -21,17 +22,9 @@ type LandingHeaderProps = {
   onPrimaryAction: () => void;
 };
 
+/** @deprecated Prefer BrandLogo — alias kept for existing section imports. */
 export function BrandMark({ dark = false }: { dark?: boolean }) {
-  return (
-    <HStack space="sm" className="items-center">
-      <Box className="h-9 w-9 items-center justify-center rounded-lg bg-primary">
-        <FileText size={18} color={landingColors.white} />
-      </Box>
-      <Text className={`text-lg font-bold tracking-tight ${dark ? "text-secondary" : "text-white"}`}>
-        InvoHub
-      </Text>
-    </HStack>
-  );
+  return <BrandLogo tone={dark ? "onLight" : "onDark"} height={36} />;
 }
 
 export function LandingHeader({
@@ -66,8 +59,9 @@ export function LandingHeader({
           accessibilityLabel={t("landing.nav.home")}
           onPress={() => navigate("product")}
           className="rounded-lg web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+          testID="landing-brand-logo"
         >
-          <BrandMark />
+          <BrandLogo tone="onDark" height={36} />
         </Pressable>
 
         {isDesktop ? (
@@ -109,7 +103,7 @@ export function LandingHeader({
               accessibilityLabel={menuOpen ? t("landing.nav.closeMenu") : t("landing.nav.openMenu")}
               accessibilityState={{ expanded: menuOpen }}
               onPress={() => setMenuOpen((current) => !current)}
-              className="h-10 w-10 items-center justify-center rounded-lg border border-white/20 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+              className="h-11 w-11 items-center justify-center rounded-lg border border-white/20 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
               testID="landing-menu-toggle"
             >
               {menuOpen ? (
@@ -123,31 +117,32 @@ export function LandingHeader({
       </HStack>
 
       {!isDesktop && menuOpen ? (
-        <VStack
-          space="xs"
-          className="mx-auto mt-3 w-full max-w-[1280px] border-t border-white/10 pt-3"
+        <Box
           testID="landing-mobile-menu"
+          className="mx-auto mt-3 w-full max-w-[1280px] border-t border-white/10 pt-3"
         >
-          {navItems.map(([section, label]) => (
-            <Pressable
-              key={section}
-              accessibilityRole="link"
-              onPress={() => navigate(section)}
-              className="min-h-11 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
-            >
-              <Text className="font-medium text-white">{label}</Text>
-            </Pressable>
-          ))}
-          {!isSignedIn ? (
-            <Pressable
-              accessibilityRole="link"
-              onPress={onLogin}
-              className="min-h-11 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
-            >
-              <Text className="font-medium text-white">{t("auth.signIn")}</Text>
-            </Pressable>
-          ) : null}
-        </VStack>
+          <VStack space="xs">
+            {navItems.map(([section, label]) => (
+              <Pressable
+                key={section}
+                accessibilityRole="link"
+                onPress={() => navigate(section)}
+                className="min-h-11 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+              >
+                <Text className="font-medium text-white">{label}</Text>
+              </Pressable>
+            ))}
+            {!isSignedIn ? (
+              <Pressable
+                accessibilityRole="link"
+                onPress={onLogin}
+                className="min-h-11 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+              >
+                <Text className="font-medium text-white">{t("auth.signIn")}</Text>
+              </Pressable>
+            ) : null}
+          </VStack>
+        </Box>
       ) : null}
     </Box>
   );

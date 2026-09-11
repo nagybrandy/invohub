@@ -24,6 +24,7 @@ import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
 
 const LANDING_HEADER_OFFSET = 76;
+const LANDING_SCROLL_CLASS = "landing-document-scroll";
 
 export default function Landing() {
   const { width } = useWindowDimensions();
@@ -39,31 +40,46 @@ export default function Landing() {
       return;
     }
 
-    const root = document.getElementById("root");
-    const elements = [document.documentElement, document.body, root].filter(
-      (element): element is HTMLElement => Boolean(element),
-    );
-    const properties = ["overflow-x", "overflow-y"] as const;
+    const html = document.documentElement;
+    html.classList.add(LANDING_SCROLL_CLASS);
+
+    const elements = [
+      html,
+      document.body,
+      document.getElementById("root"),
+      document.getElementById("root")?.firstElementChild as HTMLElement | null | undefined,
+    ].filter((element): element is HTMLElement => Boolean(element));
+
     const previousStyles = elements.map((element) => ({
       element,
-      properties: properties.map((property) => ({
-        property,
-        value: element.style.getPropertyValue(property),
-        priority: element.style.getPropertyPriority(property),
-      })),
+      height: element.style.height,
+      maxHeight: element.style.maxHeight,
+      minHeight: element.style.minHeight,
+      overflow: element.style.overflow,
+      overflowX: element.style.overflowX,
+      overflowY: element.style.overflowY,
     }));
 
     elements.forEach((element) => {
+      element.style.setProperty("height", "auto", "important");
+      element.style.setProperty("max-height", "none", "important");
+      element.style.setProperty("min-height", "100%", "important");
       element.style.setProperty("overflow-x", "hidden", "important");
-      element.style.setProperty("overflow-y", "auto", "important");
+      element.style.setProperty("overflow-y", "visible", "important");
     });
 
     return () => {
-      previousStyles.forEach(({ element, properties: savedProperties }) => {
-        savedProperties.forEach(({ property, value, priority }) => {
-          element.style.setProperty(property, value, priority);
-        });
-      });
+      html.classList.remove(LANDING_SCROLL_CLASS);
+      previousStyles.forEach(
+        ({ element, height, maxHeight, minHeight, overflow, overflowX, overflowY }) => {
+          element.style.height = height;
+          element.style.maxHeight = maxHeight;
+          element.style.minHeight = minHeight;
+          element.style.overflow = overflow;
+          element.style.overflowX = overflowX;
+          element.style.overflowY = overflowY;
+        },
+      );
     };
   }, []);
 
@@ -124,7 +140,7 @@ export default function Landing() {
 
   if (Platform.OS === "web") {
     return (
-      <Box className="min-h-screen bg-background" testID="landing-page">
+      <Box className="min-h-screen w-full max-w-full bg-background" testID="landing-page">
         {sections}
         <CookieConsent
           reopenRequest={cookiePreferenceRequest}

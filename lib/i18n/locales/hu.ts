@@ -399,6 +399,8 @@ export default {
       productTour: "Mutasd a terméket",
       reassurance:
         "A jelenleg elérhető funkciókat mutatjuk — a fejlesztés alatt álló terveket külön jelöljük.",
+      infographicAlt:
+        "Infografika a számlakészítésről, PDF e-mail küldésről és a fizetések követéséről az InvoHubban",
     },
     product: {
       workspace: "Üzleti áttekintés",
@@ -429,6 +431,8 @@ export default {
       title: "Egy rendszer a bizonylat körüli teljes munkához",
       subtitle:
         "A funkciók ugyanarra az adatkészletre és egységes kezelési logikára épülnek.",
+      infographicAlt:
+        "Infografika a papíralapú számlától a digitális irányítópultig és a banki egyeztetés lépéseiig",
       invoice: {
         title: "Számlakészítés, végig átláthatóan",
         description:

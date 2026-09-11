@@ -400,6 +400,8 @@ export default {
       productTour: "See the product",
       reassurance:
         "We show what is available today — work in development is clearly marked separately.",
+      infographicAlt:
+        "Infographic showing invoice creation, PDF email delivery, and payment tracking in InvoHub",
     },
     product: {
       workspace: "Business overview",
@@ -430,6 +432,8 @@ export default {
       title: "One system for the work around every document",
       subtitle:
         "The capabilities share one data set and a consistent interaction model.",
+      infographicAlt:
+        "Infographic of the InvoHub workflow from paper invoice to digital dashboard and bank matching steps",
       invoice: {
         title: "Invoice creation, clear from end to end",
         description:

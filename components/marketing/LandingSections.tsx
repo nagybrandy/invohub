@@ -27,9 +27,15 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { BrandMark, type LandingSectionId } from "@/components/marketing/LandingHeader";
+import { BrandLogo } from "@/components/marketing/BrandLogo";
+import { type LandingSectionId } from "@/components/marketing/LandingHeader";
+import {
+  MarketingInfographic,
+  bentoInfographic,
+  workflowInfographic,
+} from "@/components/marketing/MarketingInfographic";
 import { ProductShowcase } from "@/components/marketing/ProductShowcase";
-import { landingColors } from "@/components/marketing/landing-theme";
+import { landingColors, landingDisplayType } from "@/components/marketing/landing-theme";
 import { routes } from "@/lib/navigation";
 
 type SectionLayoutHandler = (section: LandingSectionId, event: LayoutChangeEvent) => void;
@@ -50,23 +56,25 @@ export function LandingHero({
   const { t } = useTranslation();
 
   return (
-    <Box className="overflow-hidden bg-secondary px-4 pb-16 pt-10 md:px-8 md:pb-28 md:pt-20">
+    <Box className="relative bg-secondary px-4 pb-16 pt-10 md:px-8 md:pb-28 md:pt-20">
+      <Box className="pointer-events-none absolute -right-16 top-8 h-64 w-64 rounded-full bg-primary/20 blur-3xl md:h-96 md:w-96" />
+      <Box className="pointer-events-none absolute -left-10 bottom-0 h-48 w-48 rounded-full bg-[#1f305e] blur-2xl" />
       <Box
-        className={`mx-auto w-full max-w-[1280px] gap-10 ${
+        className={`relative z-[1] mx-auto w-full max-w-[1280px] gap-10 ${
           isDesktop ? "flex-row items-center" : ""
         }`}
       >
         <VStack space="xl" className={isDesktop ? "w-[42%]" : ""}>
           <HStack space="sm" className="items-center">
             <Box className="h-px w-10 bg-primary" />
-            <Text className="text-xs font-semibold uppercase tracking-[2px] text-[#b9c9e8]">
+            <Text className={`${landingDisplayType.kicker} text-[#b9c9e8]`}>
               {t("landing.hero.eyebrow")}
             </Text>
           </HStack>
           <VStack space="lg">
             <Heading
-              className={`font-bold leading-[1.02] tracking-[-1.5px] text-white ${
-                isDesktop ? "text-5xl" : "text-[38px]"
+              className={`font-heading font-bold leading-[1.02] tracking-[-1.5px] text-white ${
+                isDesktop ? landingDisplayType.heroDesktop : landingDisplayType.heroMobile
               }`}
             >
               {t("landing.hero.title")}
@@ -112,8 +120,21 @@ export function LandingHero({
             </Text>
           </HStack>
         </VStack>
-        <ProductShowcase compact={!isDesktop} />
+        <VStack space="lg" className={isDesktop ? "min-w-0 flex-1" : "w-full"}>
+          <MarketingInfographic
+            source={workflowInfographic}
+            alt={t("landing.hero.infographicAlt")}
+            testID="landing-hero-infographic"
+            className="border-white/15"
+          />
+          {isDesktop ? <ProductShowcase compact={false} /> : null}
+        </VStack>
       </Box>
+      {!isDesktop ? (
+        <Box className="relative z-[1] mx-auto mt-10 w-full max-w-[1280px]">
+          <ProductShowcase compact />
+        </Box>
+      ) : null}
     </Box>
   );
 }
@@ -186,16 +207,23 @@ export function CapabilityBento({
     >
       <Box className="mx-auto w-full max-w-[1120px]">
         <VStack space="md" className="mb-10 max-w-[690px] md:mb-14">
-          <Text className="text-xs font-semibold uppercase tracking-[2px] text-primary">
+          <Text className={`${landingDisplayType.kicker} text-primary`}>
             {t("landing.capabilities.eyebrow")}
           </Text>
-          <Heading className="text-3xl leading-tight tracking-tight text-secondary md:text-4xl">
+          <Heading className={`${landingDisplayType.section} font-heading leading-tight tracking-tight text-secondary`}>
             {t("landing.capabilities.title")}
           </Heading>
           <Text className="font-light leading-7 text-muted-foreground">
             {t("landing.capabilities.subtitle")}
           </Text>
         </VStack>
+
+        <MarketingInfographic
+          source={bentoInfographic}
+          alt={t("landing.capabilities.infographicAlt")}
+          testID="landing-bento-infographic"
+          className="mb-8 border-[#dce3ef] bg-white md:mb-12"
+        />
 
         <Box className={isDesktop ? "flex-row gap-4" : "gap-4"}>
           <CapabilityCard
@@ -497,7 +525,7 @@ export function LandingFooter({
       <Box className="mx-auto w-full max-w-[1120px]">
         <Box className="gap-8 md:flex-row md:justify-between">
           <VStack className="max-w-[330px]" space="md">
-            <BrandMark />
+            <BrandLogo tone="onDark" height={36} testID="landing-footer-logo" />
             <Text size="sm" className="font-light leading-6 text-[#aebbd3]">
               {t("landing.footer.description")}
             </Text>

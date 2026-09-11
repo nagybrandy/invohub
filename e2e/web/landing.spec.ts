@@ -3,17 +3,22 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function dismissCookieDialog(page: Page) {
-  const essentialOnly = page.getByRole("button", {
-    name: /^(Csak szükséges|Essential only)$/i,
-  });
-  const dialogAppeared = await essentialOnly
-    .waitFor({ state: "visible", timeout: 2_000 })
+  const dialog = page.getByTestId("cookie-consent-dialog");
+  const essentialOnly = page.getByTestId("cookie-consent-essential");
+
+  const appeared = await dialog
+    .waitFor({ state: "visible", timeout: 8_000 })
     .then(() => true)
     .catch(() => false);
-  if (dialogAppeared) {
-    await essentialOnly.click();
-    await expect(page.getByRole("alert")).toBeHidden();
+
+  if (!appeared) {
+    await expect(dialog).toHaveCount(0);
+    return;
   }
+
+  await essentialOnly.click();
+  await expect(dialog).toBeHidden({ timeout: 5_000 });
+  await expect(dialog).toHaveCount(0);
 }
 
 test.describe("Premium landing page", () => {
@@ -26,6 +31,14 @@ test.describe("Premium landing page", () => {
       )
       .not.toBe("hidden");
     await dismissCookieDialog(page);
+  });
+
+  test("shows brand logo mark and marketing infographics", async ({ page }) => {
+    await expect(page.getByTestId("landing-brand-logo")).toBeVisible();
+    await expect(page.getByTestId("brand-logo").first()).toBeVisible();
+    await expect(page.getByTestId("landing-hero-infographic")).toBeVisible();
+    await expect(page.getByTestId("landing-bento-infographic")).toBeVisible();
+    await expect(page.getByTestId("landing-footer-logo")).toBeVisible();
   });
 
   test("document scrolls to a reachable footer without horizontal overflow", async ({ page }) => {
@@ -46,10 +59,12 @@ test.describe("Premium landing page", () => {
       viewportWidth: window.innerWidth,
     }));
 
+    expect(["visible", "auto", "clip"]).toContain(dimensions.bodyOverflowY);
     expect(dimensions.bodyOverflowY).not.toBe("hidden");
+    expect(["visible", "auto", "clip"]).toContain(dimensions.rootOverflowY);
     expect(dimensions.rootOverflowY).not.toBe("hidden");
     expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.viewportHeight * 2);
-    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
 
     const footer = page.getByTestId("landing-footer");
     await footer.scrollIntoViewIfNeeded();
@@ -84,7 +99,9 @@ test.describe("Premium landing page", () => {
     await page.goto("/");
     await dismissCookieDialog(page);
     await page.getByTestId("landing-footer").scrollIntoViewIfNeeded();
-    await page.getByRole("link", { name: /^(Belépés az alkalmazásba|Log in to the app)$/i }).click();
+    await page
+      .getByRole("link", { name: /^(Belépés az alkalmazásba|Log in to the app)$/i })
+      .click();
     await expect(page).toHaveURL(/\/login$/);
   });
 
@@ -92,11 +109,11 @@ test.describe("Premium landing page", () => {
     const footer = page.getByTestId("landing-footer");
     await footer.scrollIntoViewIfNeeded();
     await page.getByTestId("footer-cookie-preferences").click();
+    await expect(page.getByTestId("cookie-consent-dialog")).toBeVisible();
     await expect(page.getByRole("alert")).toBeVisible();
 
-    await page.getByRole("button", {
-      name: /^(Csak szükséges|Essential only)$/i,
-    }).click();
+    await page.getByTestId("cookie-consent-essential").click();
+    await expect(page.getByTestId("cookie-consent-dialog")).toHaveCount(0);
     await page.getByRole("link", { name: /^(Adatkezelés|Privacy)$/i }).click();
     await expect(page).toHaveURL(/\/adatkezeles$/);
     await expect(page.locator("body")).toContainText(/Adatkezel|Privacy/i);

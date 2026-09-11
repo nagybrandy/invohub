@@ -64,6 +64,7 @@ module.exports = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        marketing: "1.75rem",
       },
       boxShadow: {
         hard1: "2px 2px 0 rgb(var(--hard-shadow) / 0.16)",

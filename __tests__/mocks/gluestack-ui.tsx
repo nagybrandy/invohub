@@ -32,8 +32,33 @@ export function Text(props: TextProps) {
   return <RNText {...props} />;
 }
 
+export function Heading(props: TextProps) {
+  return <RNText {...props} />;
+}
+
 export function Pressable(props: PressableProps) {
   return <RNPressable {...props} />;
+}
+
+export function Button({
+  children,
+  onPress,
+  testID,
+  ...props
+}: PressableProps & { children?: React.ReactNode; testID?: string }) {
+  return (
+    <RNPressable onPress={onPress} testID={testID} {...props}>
+      {children}
+    </RNPressable>
+  );
+}
+
+export function ButtonText(props: TextProps) {
+  return <RNText {...props} />;
+}
+
+export function Switch(props: ViewProps & { value?: boolean }) {
+  return <View {...props} />;
 }
 
 export function Badge(props: ViewProps) {

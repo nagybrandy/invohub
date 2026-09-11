@@ -62,4 +62,22 @@
   #root {
     @apply bg-background text-foreground;
   }
+
+  /* Landing pages use document scroll; app shell may keep bounded overflow. */
+  html.landing-document-scroll,
+  html.landing-document-scroll body,
+  html.landing-document-scroll #root {
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+
+  html.landing-document-scroll #root > div {
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
 }

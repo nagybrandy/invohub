@@ -21,3 +21,5 @@ Model supported Hungarian sole-proprietor tax regimes with versioned rules, effe
 Provide scoped API credentials, idempotent submission endpoints, signed webhooks, rate limits, replay protection, audit logs, retry/dead-letter handling, and tenant isolation. Gate launch on threat modeling, external API documentation, load testing, and NAV failure/recovery verification.
 
 These phases intentionally exclude speculative UI from the first slice. Each starts only after the preceding launch gates and foundational telemetry (with valid consent where required) are in place.
+
+For engineering sequencing after the premium landing/brand ship, follow the TDD phases in `docs/tdd-phases.md` (dashboard/invoice polish → bank matching → EV tax).

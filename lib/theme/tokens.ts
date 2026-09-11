@@ -4,6 +4,16 @@ export type ThemeTokenSet = Record<string, string>;
 
 export const invoHubDesignTokens = {
   color: {
+    /** Brand navy — headers, footers, secondary surfaces */
+    navy: "#111f4a",
+    /** Elevated navy depth panels */
+    depth: "#1f305e",
+    /** Interactive cornflower primary */
+    cornflower: "#6495ed",
+    paleBlue: "#d9e7ff",
+    mist: "#edf2fa",
+    /** Success / paid only — never brand primary */
+    success: "#15803d",
     primary50: "#d9e7ff",
     primary500: "#6495ed",
     primary600: "#4675ca",
@@ -26,14 +36,30 @@ export const invoHubDesignTokens = {
     border100: "#e4e6e8",
     border400: "#8e9094",
   },
-  radius: { lg: 8, xl: 12, "2xl": 16, "3xl": 24 },
+  radius: {
+    lg: 8,
+    xl: 12,
+    "2xl": 16,
+    "3xl": 24,
+    /** Marketing panels / infographic frames */
+    marketing: 28,
+  },
   spacing: [2, 4, 8, 10, 12, 16, 18, 24, 32, 36, 40],
   typography: {
     body: '"Stack Sans Text", Inter, system-ui, sans-serif',
     heading: '"Stack Sans Notch", "Stack Sans Text", Inter, system-ui, sans-serif',
+    display: {
+      hero: { mobile: 40, desktop: 48 },
+      section: { mobile: 30, desktop: 36 },
+    },
   },
   shadow: {
     hard1: "2px 2px 0 rgba(33, 35, 37, 0.16)",
+  },
+  marketing: {
+    surfaceHero: "#111f4a",
+    surfaceSoft: "#edf2fa",
+    surfacePanel: "#1f305e",
   },
 } as const;
 
