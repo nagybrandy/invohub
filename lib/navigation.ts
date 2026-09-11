@@ -5,6 +5,8 @@ import type { Href } from "expo-router";
 export const routes = {
   home: "/" as Href,
   login: "/login" as Href,
+  blog: "/blog" as Href,
+  blogPost: (slug: string) => `/blog/${slug}` as Href,
   terms: "/aszf" as Href,
   privacy: "/adatkezeles" as Href,
   cookies: "/cookie-tajekoztato" as Href,

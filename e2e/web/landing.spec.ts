@@ -53,9 +53,11 @@ test.describe("Premium landing page", () => {
   test("shows brand logo mark and marketing infographics", async ({ page }) => {
     await expect(page.getByTestId("landing-brand-logo")).toBeVisible();
     await expect(page.getByTestId("brand-logo").first()).toBeVisible();
+    await expect(page.getByTestId("landing-hero-brand")).toBeVisible();
     await expect(page.getByTestId("landing-hero-infographic")).toBeVisible();
     await expect(page.getByTestId("landing-bento-infographic")).toBeVisible();
     await expect(page.getByTestId("landing-footer-logo")).toBeVisible();
+    await expect(page.getByTestId("landing-section-insights")).toBeVisible();
   });
 
   test("document scrolls to a reachable footer without horizontal overflow", async ({ page }) => {

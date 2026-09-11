@@ -22,4 +22,4 @@ Provide scoped API credentials, idempotent submission endpoints, signed webhooks
 
 These phases intentionally exclude speculative UI from the first slice. Each starts only after the preceding launch gates and foundational telemetry (with valid consent where required) are in place.
 
-For engineering sequencing after the premium landing/brand ship, follow the TDD phases in `docs/tdd-phases.md` (dashboard/invoice polish → bank matching → EV tax).
+For engineering sequencing after the premium landing/brand ship and Tick 1 (blog + SEO), follow the TDD phases in `docs/tdd-phases.md` (dashboard/invoice polish → bank matching → EV tax). See also `docs/loop-queue.md`.

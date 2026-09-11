@@ -12,7 +12,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 
-export type LandingSectionId = "product" | "capabilities" | "workflow" | "roadmap";
+export type LandingSectionId = "product" | "capabilities" | "workflow" | "roadmap" | "insights";
 
 type LandingHeaderProps = {
   isDesktop: boolean;
@@ -20,6 +20,7 @@ type LandingHeaderProps = {
   onNavigate: (section: LandingSectionId) => void;
   onLogin: () => void;
   onPrimaryAction: () => void;
+  onOpenBlog: () => void;
 };
 
 /** @deprecated Prefer BrandLogo — alias kept for existing section imports. */
@@ -33,6 +34,7 @@ export function LandingHeader({
   onNavigate,
   onLogin,
   onPrimaryAction,
+  onOpenBlog,
 }: LandingHeaderProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -51,7 +53,7 @@ export function LandingHeader({
   return (
     <Box
       testID="landing-header"
-      className="z-40 border-b border-white/10 bg-secondary px-4 py-3 web:sticky web:top-0 md:px-8"
+      className="z-40 border-b border-white/10 bg-secondary/95 px-4 py-3 web:sticky web:top-0 web:backdrop-blur-md md:px-8"
     >
       <HStack className="mx-auto w-full max-w-[1280px] items-center justify-between">
         <Pressable
@@ -78,6 +80,16 @@ export function LandingHeader({
                 </Text>
               </Pressable>
             ))}
+            <Pressable
+              accessibilityRole="link"
+              onPress={onOpenBlog}
+              className="rounded-md px-1 py-2 web:transition-colors web:hover:opacity-80 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+              testID="landing-nav-blog"
+            >
+              <Text size="sm" className="font-medium text-[#e4e9f4]">
+                {t("landing.nav.blog")}
+              </Text>
+            </Pressable>
           </HStack>
         ) : null}
 
@@ -132,6 +144,17 @@ export function LandingHeader({
                 <Text className="font-medium text-white">{label}</Text>
               </Pressable>
             ))}
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => {
+                setMenuOpen(false);
+                onOpenBlog();
+              }}
+              className="min-h-11 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+              testID="landing-mobile-blog"
+            >
+              <Text className="font-medium text-white">{t("landing.nav.blog")}</Text>
+            </Pressable>
             {!isSignedIn ? (
               <Pressable
                 accessibilityRole="link"

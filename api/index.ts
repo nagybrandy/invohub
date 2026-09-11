@@ -25,6 +25,7 @@ const MIME_BY_EXT = {
   ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
   ".webp": "image/webp",
+  ".xml": "application/xml; charset=utf-8",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
 };

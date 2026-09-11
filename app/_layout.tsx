@@ -51,6 +51,8 @@ export default function RootLayout() {
         <StatusBar style={isDarkColorScheme ? "light" : "dark"} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
+          <Stack.Screen name="blog/index" />
+          <Stack.Screen name="blog/[slug]" />
           <Stack.Screen name="login" />
           <Stack.Screen name="receipts/view" />
           <Stack.Screen name="aszf" />
