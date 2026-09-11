@@ -79,7 +79,7 @@
     "test:unit:coverage": "jest --coverage",
     "test:e2e:web": "playwright test",
     "test:e2e:web:ui": "playwright test --ui",
-    "test:smoke:production": "E2E_SKIP_SERVER=true playwright test e2e/web/production-smoke.spec.ts",
+    "test:smoke:production": "E2E_SKIP_SERVER=true PRODUCTION_BASE_URL=${PRODUCTION_BASE_URL:-https://invohub.vercel.app} playwright test e2e/web/production-smoke.spec.ts",
     "test:smoke:production:curl": "bash scripts/smoke-production.sh",
     "test:e2e:ios": "bash scripts/test-maestro.sh ios",
     "test:e2e:android": "bash scripts/test-maestro.sh android",

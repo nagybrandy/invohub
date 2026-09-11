@@ -10,6 +10,25 @@ const marketingBaseURL =
   process.env.E2E_MARKETING_BASE_URL ?? `http://localhost:${MARKETING_PORT}`;
 
 const MARKETING_TESTS = /marketing\.spec\.ts/;
+const PRODUCTION_TESTS = /production-smoke\.spec\.ts/;
+
+// Production smoke tests assert the deployed site, so they only exist as projects
+// when a production base URL is provided. Otherwise a pull request would have to
+// fail until its own deploy is live.
+const productionProjects = process.env.PRODUCTION_BASE_URL
+  ? [
+      {
+        name: "production-desktop",
+        use: { ...devices["Desktop Chrome"] },
+        testMatch: PRODUCTION_TESTS,
+      },
+      {
+        name: "production-mobile",
+        use: { ...devices["Pixel 7"] },
+        testMatch: PRODUCTION_TESTS,
+      },
+    ]
+  : [];
 
 export default defineConfig({
   testDir: "./e2e/web",
@@ -27,12 +46,12 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: MARKETING_TESTS,
+      testIgnore: [MARKETING_TESTS, PRODUCTION_TESTS],
     },
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
-      testIgnore: MARKETING_TESTS,
+      testIgnore: [MARKETING_TESTS, PRODUCTION_TESTS],
     },
     {
       name: "marketing-desktop",
@@ -44,6 +63,7 @@ export default defineConfig({
       use: { ...devices["Pixel 7"], baseURL: marketingBaseURL },
       testMatch: MARKETING_TESTS,
     },
+    ...productionProjects,
   ],
   webServer: process.env.E2E_SKIP_SERVER
     ? undefined
