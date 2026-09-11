@@ -1,4 +1,5 @@
 // app/(app)/dashboard/index.tsx
+// Dashboard: revenue / VAT estimate / overdue cards + recent invoices.
 import { useMemo } from "react";
 import { useWindowDimensions } from "react-native";
 import { router } from "expo-router";
@@ -21,12 +22,16 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
-import { useSession } from "@/lib/auth-client";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import { computeDashboardSummary } from "@/lib/dashboard/summary";
 import {
   formatCurrency,
   calculateInvoiceTotals,
 } from "@/lib/invoices/calculations";
+import {
+  invoiceStatusColorClass,
+  invoiceStatusI18nKey,
+} from "@/lib/invoices/status-label";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
 import type { Invoice } from "@/lib/invoices/types";
@@ -35,62 +40,17 @@ function getInvoiceGross(invoice: Invoice): number {
   return calculateInvoiceTotals(invoice.lineItems).totalAmount;
 }
 
-function daysBetween(a: string, b: Date): number {
-  const ms = b.getTime() - new Date(a).getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
-}
-
 export default function DashboardScreen() {
   const { t } = useTranslation();
   const icons = useIconColors();
-  const { data: session } = useSession();
   const { invoices, loading } = useInvoices();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  const computed = useMemo(() => {
-    const now = new Date();
-    const paid = invoices.filter((i) => i.status === "paid");
-    const overdue = invoices.filter((i) => i.status === "overdue");
-    const sent = invoices.filter(
-      (i) => i.status === "sent" || i.status === "overdue"
-    );
-    const issued = invoices.filter(
-      (i) => i.status === "draft" || i.status === "proforma"
-    );
-
-    const revenue = paid.reduce((sum, inv) => sum + getInvoiceGross(inv), 0);
-    const outstanding = sent.reduce(
-      (sum, inv) => sum + getInvoiceGross(inv),
-      0
-    );
-    const issuedTotal = issued.reduce(
-      (sum, inv) => sum + getInvoiceGross(inv),
-      0
-    );
-    const estimatedVat = (revenue * 0.27) / 1.27;
-
-    let oldestOverdueDays = 0;
-    for (const inv of overdue) {
-      const days = daysBetween(inv.dueDate, now);
-      if (days > oldestOverdueDays) oldestOverdueDays = days;
-    }
-
-    const recentInvoices = [...invoices]
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 5);
-
-    return {
-      revenue,
-      outstanding,
-      issuedTotal,
-      estimatedVat,
-      overdueCount: overdue.length,
-      oldestOverdueDays,
-      paidTotal: revenue,
-      recentInvoices,
-    };
-  }, [invoices]);
+  const computed = useMemo(
+    () => computeDashboardSummary(invoices),
+    [invoices]
+  );
 
   const currency: Invoice["currency"] = "HUF";
 
@@ -98,7 +58,6 @@ export default function DashboardScreen() {
     <ScreenLayout>
       <VStack space="lg" className="mx-auto w-full max-w-[1280px]">
         <Breadcrumb items={[{ label: t("dashboard.breadcrumb") }]} />
-        {/* Header row */}
         <Box className="gap-4 md:flex-row md:items-start md:justify-between">
           <VStack space="xs">
             <Heading size="2xl" className="text-foreground">
@@ -109,30 +68,30 @@ export default function DashboardScreen() {
             </Text>
           </VStack>
           {isDesktop ? (
-          <HStack space="sm" className="items-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onPress={() => router.push(routes.invoices)}
-            >
-              <Inbox size={16} color={icons.foreground} />
-              <ButtonText>{t("dashboard.incomingInvoices")}</ButtonText>
-              {computed.overdueCount > 0 ? (
-                <Badge
-                  variant="destructive"
-                  className="ml-1 rounded-full px-1.5 py-0"
-                >
-                  <BadgeText className="text-[10px]">
-                    {computed.overdueCount}
-                  </BadgeText>
-                </Badge>
-              ) : null}
-            </Button>
-            <Button variant="outline" size="sm">
-              <Headphones size={16} color={icons.foreground} />
-              <ButtonText>{t("dashboard.customerService")}</ButtonText>
-            </Button>
-          </HStack>
+            <HStack space="sm" className="items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => router.push(routes.invoices)}
+              >
+                <Inbox size={16} color={icons.foreground} />
+                <ButtonText>{t("dashboard.incomingInvoices")}</ButtonText>
+                {computed.overdueCount > 0 ? (
+                  <Badge
+                    variant="destructive"
+                    className="ml-1 rounded-full px-1.5 py-0"
+                  >
+                    <BadgeText className="text-[10px]">
+                      {computed.overdueCount}
+                    </BadgeText>
+                  </Badge>
+                ) : null}
+              </Button>
+              <Button variant="outline" size="sm">
+                <Headphones size={16} color={icons.foreground} />
+                <ButtonText>{t("dashboard.customerService")}</ButtonText>
+              </Button>
+            </HStack>
           ) : (
             <Button onPress={() => router.push(routes.newInvoice)}>
               <Plus size={16} color="#ffffff" />
@@ -141,13 +100,12 @@ export default function DashboardScreen() {
           )}
         </Box>
 
-        {/* 3 equal stat cards */}
         <Box className="flex-col gap-4 md:flex-row">
           <RevenueCard
             loading={loading}
-            revenue={computed.revenue}
-            paid={computed.paidTotal}
-            issued={computed.issuedTotal}
+            revenue={computed.paid}
+            paid={computed.paid}
+            issued={computed.issued}
             outstanding={computed.outstanding}
             currency={currency}
           />
@@ -158,14 +116,13 @@ export default function DashboardScreen() {
           />
           <OverdueCard
             loading={loading}
-            outstanding={computed.outstanding}
+            overdueAmount={computed.overdue}
             overdueCount={computed.overdueCount}
             oldestDays={computed.oldestOverdueDays}
             currency={currency}
           />
         </Box>
 
-        {/* Recent Invoices */}
         <VStack space="sm">
           <HStack className="items-center justify-between">
             <Heading size="lg" className="text-foreground">
@@ -191,13 +148,10 @@ export default function DashboardScreen() {
             />
           )}
         </VStack>
-
       </VStack>
     </ScreenLayout>
   );
 }
-
-/* ─── Revenue Stat Card ───────────────────────────────────── */
 
 function RevenueCard({
   loading,
@@ -233,7 +187,7 @@ function RevenueCard({
             </Text>
           </HStack>
           <HStack space="sm" className="items-center">
-            <Box className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+            <Box className="h-2.5 w-2.5 rounded-full bg-primary" />
             <Text size="xs" className="font-light text-muted-foreground">
               {t("dashboard.issued")}:{" "}
               {loading ? "…" : formatCurrency(issued, currency)}
@@ -251,8 +205,6 @@ function RevenueCard({
     </Card>
   );
 }
-
-/* ─── Estimated VAT Card ──────────────────────────────────── */
 
 function VatCard({
   loading,
@@ -283,17 +235,15 @@ function VatCard({
   );
 }
 
-/* ─── Overdue Debt Card ───────────────────────────────────── */
-
 function OverdueCard({
   loading,
-  outstanding,
+  overdueAmount,
   overdueCount,
   oldestDays,
   currency,
 }: {
   loading: boolean;
-  outstanding: number;
+  overdueAmount: number;
   overdueCount: number;
   oldestDays: number;
   currency: Invoice["currency"];
@@ -306,7 +256,7 @@ function OverdueCard({
           {t("dashboard.overdueDebt")}
         </Text>
         <Text className="text-2xl font-bold text-destructive">
-          {loading ? "…" : formatCurrency(outstanding, currency)}
+          {loading ? "…" : formatCurrency(overdueAmount, currency)}
         </Text>
         <Text size="xs" className="font-light text-muted-foreground">
           {loading
@@ -320,8 +270,6 @@ function OverdueCard({
     </Card>
   );
 }
-
-/* ─── Invoice Table (Desktop) ─────────────────────────────── */
 
 function InvoiceTable({
   invoices,
@@ -353,7 +301,6 @@ function InvoiceTable({
 
   return (
     <Card className="overflow-hidden p-0">
-      {/* Table header */}
       <HStack className="border-b border-border bg-muted/30 px-4 py-3">
         <Box className="w-[40px]" />
         <Text
@@ -373,9 +320,9 @@ function InvoiceTable({
         </Text>
         <Text
           size="xs"
-          className="w-[50px] text-center font-medium text-muted-foreground"
+          className="w-[90px] font-medium text-muted-foreground"
         >
-          NAV
+          {t("dashboard.table.navStatus")}
         </Text>
         <Text
           size="xs"
@@ -398,7 +345,6 @@ function InvoiceTable({
         <Box className="w-[70px]" />
       </HStack>
 
-      {/* Table rows */}
       {invoices.map((inv) => (
         <InvoiceRow key={inv.id} invoice={inv} icons={icons} />
       ))}
@@ -415,13 +361,12 @@ function InvoiceRow({
 }) {
   const { t } = useTranslation();
   const gross = getInvoiceGross(invoice);
-  const statusLabel = t(getStatusI18nKey(invoice.status));
-  const statusColor = getStatusColor(invoice.status);
+  const statusLabel = t(invoiceStatusI18nKey(invoice.status));
+  const statusColor = invoiceStatusColorClass(invoice.status);
 
   return (
     <Pressable onPress={() => router.push(routes.invoiceDetail(invoice.id))}>
       <HStack className="items-center border-b border-border px-4 py-3 last:border-b-0">
-        {/* Checkbox placeholder */}
         <Box className="w-[40px]">
           <Box className="h-4 w-4 rounded border border-border" />
         </Box>
@@ -441,14 +386,10 @@ function InvoiceRow({
             </BadgeText>
           </Badge>
         </Box>
-        <Box className="w-[50px] items-center">
-          <Box
-            className={`h-3 w-3 rounded-full ${
-              invoice.status === "paid"
-                ? "bg-green-500"
-                : "bg-muted-foreground/30"
-            }`}
-          />
+        <Box className="w-[90px]">
+          <Text size="xs" className="font-light text-muted-foreground">
+            {t("dashboard.table.navNotSynced")}
+          </Text>
         </Box>
         <Text size="xs" className="w-[80px] font-light text-muted-foreground">
           {invoice.status === "sent" || invoice.status === "paid"
@@ -476,8 +417,6 @@ function InvoiceRow({
     </Pressable>
   );
 }
-
-/* ─── Invoice Cards (Mobile) ──────────────────────────────── */
 
 function InvoiceCards({
   invoices,
@@ -509,8 +448,8 @@ function InvoiceCards({
     <VStack space="sm">
       {invoices.map((inv) => {
         const gross = getInvoiceGross(inv);
-        const statusLabel = t(getStatusI18nKey(inv.status));
-        const statusColor = getStatusColor(inv.status);
+        const statusLabel = t(invoiceStatusI18nKey(inv.status));
+        const statusColor = invoiceStatusColorClass(inv.status);
 
         return (
           <Pressable
@@ -549,48 +488,4 @@ function InvoiceCards({
       })}
     </VStack>
   );
-}
-
-/* ─── Helpers ─────────────────────────────────────────────── */
-
-function getStatusI18nKey(status: Invoice["status"]): string {
-  switch (status) {
-    case "paid":
-      return "dashboard.table.statusPaid";
-    case "overdue":
-      return "dashboard.table.statusOverdue";
-    case "sent":
-      return "invoices.status.sent";
-    case "draft":
-      return "invoices.status.draft";
-    case "proforma":
-      return "invoices.proforma";
-    case "cancelled":
-      return "invoices.status.cancelled";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
-}
-
-function getStatusColor(status: Invoice["status"]): string {
-  switch (status) {
-    case "paid":
-      return "border-green-500 text-green-700";
-    case "overdue":
-      return "border-red-500 text-red-600";
-    case "sent":
-      return "border-blue-500 text-blue-600";
-    case "draft":
-      return "border-muted-foreground text-muted-foreground";
-    case "proforma":
-      return "border-orange-500 text-orange-600";
-    case "cancelled":
-      return "border-muted-foreground/50 text-muted-foreground/50";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
 }
