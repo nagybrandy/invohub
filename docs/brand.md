@@ -23,25 +23,19 @@
 
 ## Artwork
 
-The mark is a cut-corner document with ascending accent bars. It is authored as
-vector art; rasters are generated from it, never drawn by hand or by an image model.
+The public wordmark is typography-first for now: self-hosted **Syne**
+(`marketing/assets/fonts/syne-*.woff2`) with `Invo` + accent `Hub`. A dedicated
+mark glyph is deferred until a stronger direction lands.
+
+Legacy vector mark files remain under `marketing/assets/` for favicon/OG
+regeneration only; do not put them back in the header.
 
 | Asset | Path | Use |
 |-------|------|-----|
-| Mark (light surfaces) | `marketing/assets/mark.svg` | Navy tile version |
-| Mark (dark surfaces) | `marketing/assets/mark-inverse.svg` | Tile-free glyph for navy chrome |
-| Favicon | `marketing/assets/favicon.svg` | Simplified glyph for 16–32px |
+| Display font | `marketing/assets/fonts/syne-700.woff2`, `syne-800.woff2` | Header wordmark + display headings |
+| Favicon | `marketing/assets/favicon.svg` | Browser tab (interim) |
 | Open Graph cover | `marketing/assets/og-cover.png` | Social previews (1200×630) |
-| Square logo | `marketing/assets/logo-512.png` | JSON-LD logo, icon source art |
-| Workflow infographic | `assets/marketing/invohub-infographic-workflow.jpg` | App-side marketing visual |
-| Bento infographic | `assets/marketing/invohub-infographic-bento.jpg` | App-side marketing visual |
+| Square logo | `marketing/assets/logo-512.png` | JSON-LD logo source |
 
-Rasters are regenerated from `marketing/brand-assets.html`:
-
-```bash
-node scripts/render-brand-assets.mjs
-```
-
-In the app, use `BrandLogo` / `BrandMark` from `components/marketing/BrandLogo.tsx`
-(vector, `react-native-svg`) instead of ad-hoc icon markup. Pass `tone="onDark"` on
-navy chrome so the mark drops its tile and keeps contrast.
+In the app, `BrandLogo` / `BrandMark` from `components/marketing/BrandLogo.tsx`
+are typography stand-ins (`InvoHub` / `IH`). Pass `tone="onDark"` on navy chrome.

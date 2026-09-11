@@ -137,8 +137,6 @@ export function InvoiceDocumentPreview({
   const [errorPdf, setErrorPdf] = React.useState<string | null>(null);
 
   const web = isWeb();
-  const savedPdfSrc = invoiceId && web ? invoicePdfUrl(invoiceId) : null;
-  const pdfSrc = savedPdfSrc ?? draftPdfUrl;
 
   const invoiceKey = React.useMemo(() => {
     const lines = invoice.lineItems
@@ -193,12 +191,7 @@ export function InvoiceDocumentPreview({
   }, [needsHtml, html, invoice, invoiceId, invoiceKey]);
 
   React.useEffect(() => {
-    if (
-      !needsPdf ||
-      draftPdfUrl ||
-      nativePdfBlob ||
-      (web && invoiceId)
-    ) {
+    if (!needsPdf || draftPdfUrl || nativePdfBlob) {
       return;
     }
 
@@ -249,7 +242,7 @@ export function InvoiceDocumentPreview({
   ]);
 
   async function handleOpenPdf() {
-    const url = savedPdfSrc ?? draftPdfUrl;
+    const url = draftPdfUrl ?? (invoiceId && web ? invoicePdfUrl(invoiceId) : null);
     if (web && url && typeof window !== "undefined") {
       window.open(url, "_blank", "noopener,noreferrer");
       return;
@@ -260,7 +253,8 @@ export function InvoiceDocumentPreview({
     }
   }
 
-  const pdfLoading = web && invoiceId ? false : loadingPdf;
+  const pdfLoading = loadingPdf;
+  const pdfSrc = draftPdfUrl;
 
   if (effectiveLayout === "split") {
     return (

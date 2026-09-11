@@ -3,7 +3,7 @@ import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
-import { apiFetch, invoicePdfUrl } from "@/lib/api/client";
+import { apiFetch } from "@/lib/api/client";
 import { isWeb } from "@/lib/platform";
 
 jest.mock("@/lib/platform", () => ({
@@ -16,6 +16,10 @@ jest.mock("@/lib/pdf-preview", () => ({
 
 jest.mock("@/lib/useIsDesktop", () => ({
   useIsDesktop: () => true,
+}));
+
+jest.mock("@/lib/auth-url", () => ({
+  getAuthBaseUrl: () => "https://app.test",
 }));
 
 jest.mock("@/lib/api/client", () => ({
@@ -46,7 +50,6 @@ jest.mock("@/components/ui/button", () => {
 });
 
 const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>;
-const mockInvoicePdfUrl = invoicePdfUrl as jest.MockedFunction<typeof invoicePdfUrl>;
 const mockIsWeb = isWeb as jest.MockedFunction<typeof isWeb>;
 
 describe("InvoiceDocumentPreview", () => {
@@ -62,9 +65,8 @@ describe("InvoiceDocumentPreview", () => {
     global.URL.revokeObjectURL = jest.fn();
   });
 
-  it("embeds saved invoice PDF via direct API URL in split layout", async () => {
+  it("fetches saved invoice PDF with credentials and embeds a blob URL", async () => {
     const invoice = makeInvoice({ id: "inv-42" });
-    mockInvoicePdfUrl.mockReturnValue("https://app.test/api/invoices/inv-42/pdf");
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
@@ -72,12 +74,15 @@ describe("InvoiceDocumentPreview", () => {
         <InvoiceDocumentPreview invoice={invoice} invoiceId="inv-42" layout="split" />
       );
       await Promise.resolve();
+      await Promise.resolve();
     });
 
-    expect(mockInvoicePdfUrl).toHaveBeenCalledWith("inv-42");
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/invoices/inv-42/pdf"),
+      expect.objectContaining({ method: "GET", credentials: "include" }),
+    );
     const embed = tree!.root.findByProps({ testID: "pdf-embed" });
-    expect(embed.props.children).toContain("https://app.test/api/invoices/inv-42/pdf");
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(embed.props.children).toContain("blob:preview-pdf");
   });
 
   it("loads draft PDF preview from preview API", async () => {

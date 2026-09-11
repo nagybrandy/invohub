@@ -23,21 +23,14 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { useSession } from "@/lib/auth-client";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import {
-  formatCurrency,
-  calculateInvoiceTotals,
-} from "@/lib/invoices/calculations";
+import { formatCurrency, calculateInvoiceTotals } from "@/lib/invoices/calculations";
+import { computeDashboardSummary } from "@/lib/dashboard/summary";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
 import type { Invoice } from "@/lib/invoices/types";
 
 function getInvoiceGross(invoice: Invoice): number {
   return calculateInvoiceTotals(invoice.lineItems).totalAmount;
-}
-
-function daysBetween(a: string, b: Date): number {
-  const ms = b.getTime() - new Date(a).getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
 
 export default function DashboardScreen() {
@@ -48,49 +41,7 @@ export default function DashboardScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  const computed = useMemo(() => {
-    const now = new Date();
-    const paid = invoices.filter((i) => i.status === "paid");
-    const overdue = invoices.filter((i) => i.status === "overdue");
-    const sent = invoices.filter(
-      (i) => i.status === "sent" || i.status === "overdue"
-    );
-    const issued = invoices.filter(
-      (i) => i.status === "draft" || i.status === "proforma"
-    );
-
-    const revenue = paid.reduce((sum, inv) => sum + getInvoiceGross(inv), 0);
-    const outstanding = sent.reduce(
-      (sum, inv) => sum + getInvoiceGross(inv),
-      0
-    );
-    const issuedTotal = issued.reduce(
-      (sum, inv) => sum + getInvoiceGross(inv),
-      0
-    );
-    const estimatedVat = (revenue * 0.27) / 1.27;
-
-    let oldestOverdueDays = 0;
-    for (const inv of overdue) {
-      const days = daysBetween(inv.dueDate, now);
-      if (days > oldestOverdueDays) oldestOverdueDays = days;
-    }
-
-    const recentInvoices = [...invoices]
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 5);
-
-    return {
-      revenue,
-      outstanding,
-      issuedTotal,
-      estimatedVat,
-      overdueCount: overdue.length,
-      oldestOverdueDays,
-      paidTotal: revenue,
-      recentInvoices,
-    };
-  }, [invoices]);
+  const computed = useMemo(() => computeDashboardSummary(invoices), [invoices]);
 
   const currency: Invoice["currency"] = "HUF";
 
@@ -146,7 +97,7 @@ export default function DashboardScreen() {
           <RevenueCard
             loading={loading}
             revenue={computed.revenue}
-            paid={computed.paidTotal}
+            paid={computed.revenue}
             issued={computed.issuedTotal}
             outstanding={computed.outstanding}
             currency={currency}
@@ -158,7 +109,7 @@ export default function DashboardScreen() {
           />
           <OverdueCard
             loading={loading}
-            outstanding={computed.outstanding}
+            outstanding={computed.overdueTotal}
             overdueCount={computed.overdueCount}
             oldestDays={computed.oldestOverdueDays}
             currency={currency}
