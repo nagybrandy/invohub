@@ -20,10 +20,10 @@ describe("BrandLogo", () => {
     tree.unmount();
   });
 
-  it("renders the lockup artwork variant", async () => {
+  it("renders an accessible vector mark on light surfaces", async () => {
     let tree!: TestRenderer.ReactTestRenderer;
     await act(() => {
-      tree = TestRenderer.create(<BrandLogo variant="lockup" height={40} />);
+      tree = TestRenderer.create(<BrandLogo tone="onLight" height={40} />);
     });
     expect(tree.root.findByProps({ testID: "brand-logo" })).toBeTruthy();
     expect(

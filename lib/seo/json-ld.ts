@@ -55,7 +55,7 @@ export function buildOrganizationJsonLd(): OrganizationJsonLd {
     "@type": "Organization",
     name: SITE_NAME,
     url: absoluteUrl("/"),
-    logo: absoluteUrl("/assets/brand/invohub-logo-mark.png"),
+    logo: absoluteUrl("/marketing/assets/logo-512.png"),
     sameAs: [],
   };
 }
@@ -107,7 +107,7 @@ export function buildBlogPostingJsonLd(input: {
       name: SITE_NAME,
       logo: {
         "@type": "ImageObject",
-        url: absoluteUrl("/assets/brand/invohub-logo-mark.png"),
+        url: absoluteUrl("/marketing/assets/logo-512.png"),
       },
     },
   };

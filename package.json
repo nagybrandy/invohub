@@ -79,7 +79,7 @@
     "test:unit:coverage": "jest --coverage",
     "test:e2e:web": "playwright test",
     "test:e2e:web:ui": "playwright test --ui",
-    "test:smoke:production": "E2E_SKIP_SERVER=true playwright test e2e/web/production-smoke.spec.ts",
+    "test:smoke:production": "E2E_SKIP_SERVER=true PRODUCTION_BASE_URL=${PRODUCTION_BASE_URL:-https://invohub.vercel.app} playwright test e2e/web/production-smoke.spec.ts",
     "test:smoke:production:curl": "bash scripts/smoke-production.sh",
     "test:e2e:ios": "bash scripts/test-maestro.sh ios",
     "test:e2e:android": "bash scripts/test-maestro.sh android",
@@ -89,7 +89,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "auth:generate": "npx @better-auth/cli generate",
-    "vercel-build": "expo export -p web && node scripts/prepare-server-pdf-deps.mjs && node scripts/verify-pdf-vendor.mjs",
+    "marketing": "node scripts/serve-marketing.mjs",
+    "vercel-build": "expo export -p web && node scripts/copy-marketing-site.mjs && node scripts/prepare-server-pdf-deps.mjs && node scripts/verify-pdf-vendor.mjs",
     "assets:pdfkit-fonts": "mkdir -p assets/pdfkit-data && cp node_modules/pdfkit/js/data/*.afm assets/pdfkit-data/"
   },
   "private": true,

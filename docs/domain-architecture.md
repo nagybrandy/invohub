@@ -9,6 +9,33 @@ Use one Expo codebase and one Vercel project with two production domains:
 
 The server entry applies permanent host redirects before Expo Router handles the request. Preview deployments and localhost are unaffected. Keeping one deployment avoids duplicating API routes, auth configuration, build output, and release coordination while still giving users and search engines clean domain boundaries.
 
+## Static marketing layer
+
+The public homepage is hand-authored static HTML/CSS in `marketing/`, not an Expo
+Router screen. It is deliberately decoupled from the app stack so marketing layout
+is not constrained by React Native Web.
+
+| Concern | Where |
+|---------|-------|
+| Source | `marketing/index.html`, `marketing/assets/*` |
+| Route table | `lib/marketing/static-site.ts` (`/` today) |
+| Serving | `api/index.ts` checks the marketing route before the app shell |
+| Build step | `scripts/copy-marketing-site.mjs` copies into `dist/client/marketing` |
+| Local preview | `npm run marketing` (http://localhost:4321) |
+| Tests | `e2e/web/marketing.spec.ts` (`marketing-desktop`, `marketing-mobile`) |
+
+Marketing files are not content-hashed, so they are served with a short
+revalidating cache instead of the immutable policy used for Expo bundles.
+
+Because the Expo dev server does not serve the static site at `/`, the app's
+`app/index.tsx` screen still renders on `localhost:8081` and on native. In
+production `/` always comes from the static site, with the app screen as fallback
+if the marketing build output is missing.
+
+Follow-ups: move `/blog` and the legal pages onto the same static layer for one
+consistent marketing design, then reduce `app/index.tsx` to a slim native welcome
+screen.
+
 ## Vercel and DNS launch checklist
 
 No DNS or production settings are changed by this repository update.
@@ -24,6 +51,9 @@ No DNS or production settings are changed by this repository update.
 5. Redirect `www.invohub.hu` to `https://invohub.hu` in Vercel Domains.
 6. Verify TLS, OAuth callback URLs, CORS/trusted origins, e-mail links, cron URLs, sitemap/canonical metadata, and each host redirect on a preview-compatible test domain before production cutover.
 7. Add legal publisher details and obtain Hungarian lawyer/DPO approval before indexing the legal pages.
+8. Switch the static homepage's `og:image` / `twitter:image` in `marketing/index.html` to absolute
+   `https://invohub.hu/...` URLs, and add `og:url` plus a canonical link. They stay relative until the
+   marketing host is live, because a hard-coded absolute URL to an unrouted domain breaks social previews.
 
 ## Canonical paths
 

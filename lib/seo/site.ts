@@ -29,4 +29,4 @@ export function absoluteUrl(
 
 export const SITE_NAME = "InvoHub";
 export const SITE_LOCALE = "hu_HU";
-export const DEFAULT_OG_IMAGE_PATH = "/assets/brand/invohub-logo-lockup.png";
+export const DEFAULT_OG_IMAGE_PATH = "/marketing/assets/og-cover.png";
