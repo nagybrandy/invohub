@@ -4,7 +4,6 @@ import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -15,28 +14,25 @@ import { ListScreen } from "@/components/layout/ListScreen";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/layout/StatCard";
 import { formatCurrency } from "@/lib/invoices/calculations";
-import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
+import {
+  filterInvoicesByStatus,
+  invoiceStatusFilterI18nKey,
+  INVOICE_STATUS_FILTERS,
+  type InvoiceStatusFilter,
+} from "@/lib/invoices/filter-invoices";
+import type { Invoice } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
-
-const FILTERS: Array<InvoiceStatus | "all"> = [
-  "all",
-  "draft",
-  "proforma",
-  "sent",
-  "paid",
-  "overdue",
-  "cancelled",
-];
 
 export default function InvoiceListScreen() {
   const { t } = useTranslation();
   const { invoices, loading, stats, total, refresh, remove } = useInvoices();
-  const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(null);
-  const [filter, setFilter] = React.useState<InvoiceStatus | "all">("all");
+  const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(
+    null
+  );
+  const [filter, setFilter] = React.useState<InvoiceStatusFilter>("all");
 
-  const filtered =
-    filter === "all" ? invoices : invoices.filter((inv) => inv.status === filter);
+  const filtered = filterInvoicesByStatus(invoices, filter);
 
   return (
     <>
@@ -47,14 +43,17 @@ export default function InvoiceListScreen() {
         refreshing={loading}
         onRefresh={refresh}
         emptyTitle={t("invoices.empty")}
-        emptyDescription="Create your first NAV-ready invoice or load demo data from Settings."
+        emptyDescription={t("invoices.emptyHint")}
         emptyAction={
           <VStack space="sm" className="items-center">
             <Button onPress={() => router.push(routes.newInvoice)}>
               <ButtonText>{t("nav.newInvoice")}</ButtonText>
             </Button>
-            <Button variant="outline" onPress={() => router.push(routes.settings)}>
-              <ButtonText>Load demo data</ButtonText>
+            <Button
+              variant="outline"
+              onPress={() => router.push(routes.settings)}
+            >
+              <ButtonText>{t("invoices.loadDemo")}</ButtonText>
             </Button>
           </VStack>
         }
@@ -64,25 +63,31 @@ export default function InvoiceListScreen() {
               title={t("invoices.title")}
               actions={
                 <Button size="sm" onPress={() => router.push(routes.newInvoice)}>
-                  <ButtonText>New</ButtonText>
+                  <ButtonText>{t("common.new")}</ButtonText>
                 </Button>
               }
             />
             <HStack space="md" className="flex-wrap">
-              <StatCard label="Total" value={stats.count} />
-              <StatCard label="This month" value={stats.thisMonthCount} />
+              <StatCard label={t("invoices.stats.total")} value={stats.count} />
               <StatCard
-                label="Monthly total"
+                label={t("invoices.stats.thisMonth")}
+                value={stats.thisMonthCount}
+              />
+              <StatCard
+                label={t("invoices.stats.monthlyTotal")}
                 value={formatCurrency(stats.monthlyTotal, "EUR")}
               />
             </HStack>
             {total > invoices.length ? (
               <Text size="xs" className="text-muted-foreground">
-                Showing {invoices.length} of {total} invoices (most recent first).
+                {t("invoices.showingPartial", {
+                  shown: invoices.length,
+                  total,
+                })}
               </Text>
             ) : null}
             <HStack space="xs" className="flex-wrap">
-              {FILTERS.map((f) => (
+              {INVOICE_STATUS_FILTERS.map((f) => (
                 <Pressable
                   key={f}
                   onPress={() => setFilter(f)}
@@ -94,9 +99,13 @@ export default function InvoiceListScreen() {
                 >
                   <Text
                     size="xs"
-                    className={filter === f ? "text-primary-foreground" : "text-muted-foreground"}
+                    className={
+                      filter === f
+                        ? "text-primary-foreground"
+                        : "text-muted-foreground"
+                    }
                   >
-                    {f === "all" ? "All" : f}
+                    {t(invoiceStatusFilterI18nKey(f))}
                   </Text>
                 </Pressable>
               ))}

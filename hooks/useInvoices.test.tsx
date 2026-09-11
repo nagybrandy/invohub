@@ -4,6 +4,7 @@ import TestRenderer, { act } from "react-test-renderer";
 import { useInvoices } from "@/hooks/useInvoices";
 import { apiFetch } from "@/lib/api/client";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
+import { filterInvoicesByStatus } from "@/lib/invoices/filter-invoices";
 
 jest.mock("@/lib/api/client", () => ({
   apiFetch: jest.fn(),
@@ -30,11 +31,15 @@ async function renderUseInvoices() {
 describe("useInvoices", () => {
   beforeEach(() => {
     mockApiFetch.mockResolvedValue({
-      invoices: [makeInvoice()],
-      total: 1,
+      invoices: [
+        makeInvoice({ id: "1", status: "paid" }),
+        makeInvoice({ id: "2", status: "overdue" }),
+        makeInvoice({ id: "3", status: "sent" }),
+      ],
+      total: 3,
       limit: 30,
       offset: 0,
-      stats: { count: 1, thisMonthCount: 1, monthlyTotal: 1000 },
+      stats: { count: 3, thisMonthCount: 2, monthlyTotal: 1000 },
     });
   });
 
@@ -44,9 +49,20 @@ describe("useInvoices", () => {
       await Promise.resolve();
     });
     expect(ref.current?.loading).toBe(false);
-    expect(ref.current?.invoices).toHaveLength(1);
-    expect(ref.current?.stats.count).toBe(1);
+    expect(ref.current?.invoices).toHaveLength(3);
+    expect(ref.current?.stats.count).toBe(3);
     expect(mockApiFetch).toHaveBeenCalledWith("/api/invoices?limit=30");
+  });
+
+  it("supports list status filters on loaded invoices", async () => {
+    const ref = await renderUseInvoices();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const invoices = ref.current?.invoices ?? [];
+    expect(filterInvoicesByStatus(invoices, "paid")).toHaveLength(1);
+    expect(filterInvoicesByStatus(invoices, "overdue")[0]?.id).toBe("2");
+    expect(filterInvoicesByStatus(invoices, "all")).toHaveLength(3);
   });
 
   it("surfaces API errors", async () => {

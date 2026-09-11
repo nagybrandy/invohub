@@ -4,6 +4,28 @@ import { Alert } from "react-native";
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: { number?: string; date?: string }) => {
+      const map: Record<string, string> = {
+        "invoices.status.draft": "Draft",
+        "invoices.status.proforma": "Proforma",
+        "invoices.status.sent": "Sent",
+        "invoices.status.paid": "Paid",
+        "invoices.status.overdue": "Overdue",
+        "invoices.status.cancelled": "Cancelled",
+        "invoices.deleteTitle": "Delete invoice",
+        "invoices.deleteConfirm": `Remove ${opts?.number ?? ""}?`,
+        "invoices.issuedOn": `Issued ${opts?.date ?? ""}`,
+        "invoices.quickPreviewHint": "Quick preview · long-press to delete",
+        "common.cancel": "Cancel",
+        "common.delete": "Delete",
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 jest.mock("@/components/ui/badge", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/box", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/card", () => require("@/__tests__/mocks/gluestack-ui"));
@@ -60,6 +82,20 @@ describe("InvoiceCard", () => {
     });
     expect(alertSpy).toHaveBeenCalled();
     alertSpy.mockRestore();
+  });
+
+  it("renders i18n status labels for paid and overdue", () => {
+    const paid = renderCard({
+      invoice: makeInvoice({ status: "paid" }),
+      onDelete: jest.fn(),
+    });
+    expect(JSON.stringify(paid.toJSON())).toContain("Paid");
+
+    const overdue = renderCard({
+      invoice: makeInvoice({ status: "overdue" }),
+      onDelete: jest.fn(),
+    });
+    expect(JSON.stringify(overdue.toJSON())).toContain("Overdue");
   });
 
   it("renders proforma status label", () => {
