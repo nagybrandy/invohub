@@ -11,11 +11,12 @@ describe("permissions", () => {
     expect(getSessionRole({ user: { id: "1" } })).toBe("entrepreneur");
   });
 
-  it("requireAccountantAccess blocks entrepreneurs", async () => {
-    const res = requireAccountantAccess({
-      user: { id: "1", role: "entrepreneur" },
-    });
-    expect(res?.status).toBe(403);
+  it("requireAccountantAccess allows entrepreneurs to manage their partners", () => {
+    expect(
+      requireAccountantAccess({
+        user: { id: "1", role: "entrepreneur" },
+      }),
+    ).toBeNull();
   });
 
   it("requireAccountantAccess allows admin", () => {

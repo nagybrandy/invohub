@@ -27,10 +27,10 @@ describe("user-roles", () => {
     expect(isAccountant(undefined)).toBe(false);
   });
 
-  it("canManageClients allows admin and accountant", () => {
+  it("canManageClients allows admin, accountant, and entrepreneur", () => {
     expect(canManageClients("admin")).toBe(true);
     expect(canManageClients("accountant")).toBe(true);
-    expect(canManageClients("entrepreneur")).toBe(false);
+    expect(canManageClients("entrepreneur")).toBe(true);
   });
 
   it("canAccessAdminPanel allows admin only", () => {

@@ -9,12 +9,14 @@ import {
   Database,
   FileSpreadsheet,
   FileText,
+  Languages,
   LogOut,
   Mail,
   Moon,
   KeyRound,
   Shield,
 } from "lucide-react-native";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
@@ -142,6 +144,23 @@ export default function SettingsScreen() {
       }
     >
       <VStack space="lg">
+        <Card className="p-4">
+          <HStack className="items-center justify-between gap-4">
+            <HStack space="sm" className="flex-1 items-center">
+              <Languages size={20} color={icons.accent} />
+              <VStack className="flex-1">
+                <Text className="font-semibold text-foreground">
+                  {t("language.title")}
+                </Text>
+                <Text size="xs" className="text-muted-foreground">
+                  {t("language.hint")}
+                </Text>
+              </VStack>
+            </HStack>
+            <LanguageSwitcher />
+          </HStack>
+        </Card>
+
         <VStack space="sm">
           <Text className="font-semibold text-foreground">{t("settings.account")}</Text>
           <HStack space="sm" className="flex-wrap">

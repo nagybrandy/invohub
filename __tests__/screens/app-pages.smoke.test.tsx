@@ -11,7 +11,10 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: "hu", changeLanguage: jest.fn() },
+  }),
 }));
 
 jest.mock("react-native-safe-area-context", () => {

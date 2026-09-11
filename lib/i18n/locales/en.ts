@@ -49,6 +49,10 @@ export default {
     alreadyHaveAccount: "Already have an account? Sign in",
     noAccount: "No account? Create one",
     backToHome: "Back to home",
+    heroTitle: "Make invoicing the sure point of your day.",
+    heroSubtitle:
+      "Documents, partners, PDF and email — a workflow built for Hungarian sole proprietors.",
+    evPriorityNote: "Invoicing first, everything else after.",
   },
   roles: {
     accountant: "Accountant",
@@ -56,7 +60,14 @@ export default {
     admin: "Admin",
     accountantHint: "Manage multiple clients and full bookkeeping workflows.",
     entrepreneurHint:
-      "Issue invoices for your own business — no client directory needed.",
+      "Invoice your own business with partners, products, and an overview.",
+  },
+  language: {
+    switcherLabel: "Language",
+    hungarian: "Magyar",
+    english: "English",
+    title: "Language",
+    hint: "Switch between Hungarian and English. Your choice is saved on this device.",
   },
   common: {
     save: "Save",
@@ -275,7 +286,7 @@ export default {
     features: {
       import: "Bulk import invoices from Excel or CSV.",
       receipts: "View and issue electronic receipts.",
-      clients: "Manage client directory (accountants).",
+      clients: "Manage partners and billing addresses.",
       products: "Product and service catalog.",
     },
   },

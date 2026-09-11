@@ -16,7 +16,7 @@ export function forbiddenResponse(message = "Forbidden") {
 
 export function requireAccountantAccess(session: AuthSession): Response | null {
   if (!canManageClients(getSessionRole(session))) {
-    return forbiddenResponse("Accountant or admin access required.");
+    return forbiddenResponse("Business account access required.");
   }
   return null;
 }

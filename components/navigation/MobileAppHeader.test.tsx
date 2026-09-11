@@ -7,6 +7,9 @@ jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-u
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/i18n/LanguageSwitcher", () => ({
+  LanguageSwitcher: () => null,
+}));
 jest.mock("@/lib/useColorScheme", () => ({
   useColorScheme: () => ({
     colorScheme: "light",
