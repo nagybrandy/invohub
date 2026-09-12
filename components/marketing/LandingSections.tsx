@@ -62,7 +62,7 @@ export function LandingHero({
   const { t } = useTranslation();
 
   return (
-    <Box className="relative overflow-hidden bg-secondary px-4 pb-16 pt-10 md:px-8 md:pb-28 md:pt-20">
+    <Box className="relative overflow-hidden bg-secondary px-4 pb-16 pt-28 md:px-8 md:pb-28 md:pt-36">
       <Box className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(100,149,237,0.28),transparent_42%),radial-gradient(circle_at_88%_12%,rgba(217,231,255,0.16),transparent_36%),linear-gradient(160deg,#111f4a_0%,#1f305e_58%,#111f4a_100%)]" />
       <Box className="pointer-events-none absolute -right-10 top-4 h-72 w-72 rounded-full bg-primary/25 blur-3xl web:animate-pulse md:h-[28rem] md:w-[28rem]" />
       <Box className="pointer-events-none absolute -left-8 bottom-0 h-56 w-56 rounded-full bg-[#6495ed]/15 blur-2xl" />

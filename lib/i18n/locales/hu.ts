@@ -90,6 +90,8 @@ export default {
       "InvoHub a magyar számlázáshoz, NAV megfelelőséghez és könyveléshez.",
     name: "Név",
     email: "E-mail cím",
+    emailPlaceholder: "te@pelda.hu",
+    namePlaceholder: "Kovács Anna",
     password: "Jelszó",
     accountType: "Fiók típusa",
     alreadyHaveAccount: "Már van fiókod? Jelentkezz be",

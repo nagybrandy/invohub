@@ -329,29 +329,52 @@ button {
   color: var(--blue-500);
 }
 
-/* ---------- Header ---------- */
+/* ---------- Header (floating, transparent over hero) ---------- */
 .header {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  top: 12px;
+  left: 50%;
   z-index: 50;
-  background: rgba(11, 21, 51, 0.82);
-  backdrop-filter: saturate(150%) blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  width: min(1180px, calc(100% - 24px));
+  transform: translateX(-50%);
   color: var(--white);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  transition:
+    background 0.22s var(--ease),
+    border-color 0.22s var(--ease),
+    box-shadow 0.22s var(--ease),
+    backdrop-filter 0.22s var(--ease);
+}
+
+.header.is-solid,
+.header.is-menu-open {
+  background: rgba(11, 21, 51, 0.88);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(7, 14, 36, 0.28);
+  backdrop-filter: saturate(150%) blur(16px);
+}
+
+.header__inner {
+  padding-inline: clamp(14px, 2.4vw, 22px);
 }
 
 .header__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  min-height: 72px;
+  gap: 12px;
+  min-height: 64px;
 }
 
 .header__nav {
   display: none;
   align-items: center;
-  gap: 30px;
+  justify-content: center;
+  flex: 1;
+  gap: 26px;
+  min-width: 0;
 }
 
 .header__nav a {
@@ -367,7 +390,42 @@ button {
 .header__actions {
   display: none;
   align-items: center;
-  gap: 12px;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lang-switch__btn {
+  min-width: 36px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.lang-switch__btn.is-active {
+  background: var(--white);
+  color: var(--navy-800);
+}
+
+.lang-switch__btn:hover:not(.is-active) {
+  color: var(--white);
 }
 
 .header__login {
@@ -417,8 +475,12 @@ button {
 .mobile-menu {
   display: grid;
   gap: 4px;
-  padding: 8px 0 20px;
+  padding: 8px 0 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mobile-menu__lang {
+  padding: 8px 0 4px;
 }
 
 .mobile-menu[hidden] {
@@ -443,7 +505,8 @@ button {
   overflow: clip;
   background: var(--navy-900);
   color: var(--white);
-  padding-block: clamp(56px, 8vw, 104px) clamp(72px, 10vw, 132px);
+  /* Extra top space so content clears the floating header */
+  padding-block: clamp(108px, 14vw, 148px) clamp(72px, 10vw, 132px);
 }
 
 .hero::before {

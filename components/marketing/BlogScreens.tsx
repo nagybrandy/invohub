@@ -6,6 +6,7 @@ import { ScrollView } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BrandLogo } from "@/components/marketing/BrandLogo";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { landingColors, landingDisplayType } from "@/components/marketing/landing-theme";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export function BlogIndexScreen({ posts }: { posts: BlogPostSummary[] }) {
         testID="blog-index-page"
       >
         <Box className="border-b border-white/10 bg-secondary px-4 py-4 md:px-8">
-          <HStack className="mx-auto w-full max-w-[960px] items-center justify-between">
+          <HStack className="mx-auto w-full max-w-[960px] items-center justify-between gap-3">
             <Pressable
               accessibilityRole="link"
               accessibilityLabel={t("blog.backHome")}
@@ -46,9 +47,12 @@ export function BlogIndexScreen({ posts }: { posts: BlogPostSummary[] }) {
             >
               <BrandLogo tone="onDark" height={32} />
             </Pressable>
-            <Button size="sm" onPress={() => router.push(routes.login)}>
-              <ButtonText>{t("landing.getStarted")}</ButtonText>
-            </Button>
+            <HStack space="sm" className="items-center">
+              <LanguageSwitcher tone="onDark" testID="blog-language-switcher" />
+              <Button size="sm" onPress={() => router.push(routes.login)}>
+                <ButtonText>{t("landing.getStarted")}</ButtonText>
+              </Button>
+            </HStack>
           </HStack>
         </Box>
 

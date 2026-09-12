@@ -1,9 +1,11 @@
 // components/marketing/LandingHeader.tsx
-// Responsive landing header with sticky navigation and an accessible mobile menu.
+// Floating landing header: transparent over the hero, solid after scroll / menu open.
 import * as React from "react";
+import { Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Menu, X } from "lucide-react-native";
 import { BrandLogo } from "@/components/marketing/BrandLogo";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { landingColors } from "@/components/marketing/landing-theme";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
@@ -38,6 +40,7 @@ export function LandingHeader({
 }: LandingHeaderProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [solid, setSolid] = React.useState(false);
   const navItems: Array<[LandingSectionId, string]> = [
     ["product", t("landing.nav.product")],
     ["capabilities", t("landing.nav.capabilities")],
@@ -45,15 +48,33 @@ export function LandingHeader({
     ["roadmap", t("landing.nav.roadmap")],
   ];
 
+  React.useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
+    const onScroll = () => {
+      setSolid(window.scrollY > 18);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   function navigate(section: LandingSectionId) {
     setMenuOpen(false);
     onNavigate(section);
   }
 
+  const chromeSolid = solid || menuOpen;
+
   return (
     <Box
       testID="landing-header"
-      className="z-40 border-b border-white/10 bg-secondary/95 px-4 py-3 web:sticky web:top-0 web:backdrop-blur-md md:px-8"
+      className={`z-50 px-3 py-2 web:fixed web:left-1/2 web:top-3 web:w-[min(1180px,calc(100%-24px))] web:-translate-x-1/2 web:rounded-2xl web:border web:transition-[background-color,border-color,box-shadow,backdrop-filter] web:duration-200 md:px-5 ${
+        chromeSolid
+          ? "border-white/12 bg-secondary/90 web:shadow-lg web:backdrop-blur-md"
+          : "border-transparent bg-transparent"
+      }`}
     >
       <HStack className="mx-auto w-full max-w-[1280px] items-center justify-between">
         <Pressable
@@ -94,6 +115,7 @@ export function LandingHeader({
         ) : null}
 
         <HStack space="sm" className="items-center">
+          <LanguageSwitcher tone="onDark" testID="landing-language-switcher" />
           {isDesktop && !isSignedIn ? (
             <Button variant="ghost" size="sm" onPress={onLogin} testID="landing-login">
               <ButtonText className="text-white">{t("auth.signIn")}</ButtonText>

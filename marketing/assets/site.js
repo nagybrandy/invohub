@@ -1,12 +1,88 @@
 // marketing/assets/site.js
-// Progressive enhancement for the static site: navigation, consent, scroll reveal.
+// Progressive enhancement: floating nav, HU/EN i18n, consent, scroll reveal.
 (function () {
   "use strict";
 
   var CONSENT_KEY = "invohub.cookie-consent.v1";
+  var i18n = window.InvoHubMarketingI18n || {
+    storageKey: "invohub.language",
+    dictionaries: { hu: {}, en: {} },
+  };
 
   function byTestId(id) {
     return document.querySelector('[data-testid="' + id + '"]');
+  }
+
+  function readLanguage() {
+    try {
+      var stored = window.localStorage.getItem(i18n.storageKey);
+      if (stored === "en" || stored === "hu") {
+        return stored;
+      }
+    } catch (error) {
+      /* ignore */
+    }
+    return "hu";
+  }
+
+  function writeLanguage(code) {
+    try {
+      window.localStorage.setItem(i18n.storageKey, code);
+    } catch (error) {
+      /* ignore */
+    }
+  }
+
+  function t(code, key) {
+    var dict = i18n.dictionaries[code] || i18n.dictionaries.hu || {};
+    return dict[key] || (i18n.dictionaries.hu && i18n.dictionaries.hu[key]) || key;
+  }
+
+  function applyI18n(code) {
+    document.documentElement.lang = code;
+
+    var title = t(code, "meta.title");
+    if (title) {
+      document.title = title;
+    }
+
+    var description = document.querySelector('meta[name="description"]');
+    if (description) {
+      description.setAttribute("content", t(code, "meta.description"));
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n]"), function (node) {
+      var key = node.getAttribute("data-i18n");
+      if (!key) {
+        return;
+      }
+      node.textContent = t(code, key);
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n-attr]"), function (node) {
+      var pairs = node.getAttribute("data-i18n-attr").split(";");
+      pairs.forEach(function (pair) {
+        var parts = pair.split(":");
+        if (parts.length !== 2) {
+          return;
+        }
+        node.setAttribute(parts[0].trim(), t(code, parts[1].trim()));
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll("[data-lang-btn]"), function (btn) {
+      var btnLang = btn.getAttribute("data-lang-btn");
+      btn.classList.toggle("is-active", btnLang === code);
+      btn.setAttribute("aria-pressed", btnLang === code ? "true" : "false");
+    });
+
+    if (toggle) {
+      var open = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute(
+        "aria-label",
+        open ? t(code, "nav.closeMenu") : t(code, "nav.openMenu"),
+      );
+    }
   }
 
   /* ---------- Current year ---------- */
@@ -15,9 +91,26 @@
     yearSlot.textContent = String(new Date().getFullYear());
   }
 
+  /* ---------- Floating header ---------- */
+  var header = byTestId("marketing-header");
+
+  function syncHeaderSolid() {
+    if (!header) {
+      return;
+    }
+    var solid = window.scrollY > 18;
+    header.classList.toggle("is-solid", solid);
+  }
+
+  if (header) {
+    syncHeaderSolid();
+    window.addEventListener("scroll", syncHeaderSolid, { passive: true });
+  }
+
   /* ---------- Mobile navigation ---------- */
   var toggle = byTestId("marketing-menu-toggle");
   var menu = byTestId("marketing-mobile-menu");
+  var language = readLanguage();
 
   function setMenuOpen(open) {
     if (!toggle || !menu) {
@@ -25,7 +118,13 @@
     }
     menu.hidden = !open;
     toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    toggle.setAttribute("aria-label", open ? "Menü bezárása" : "Menü megnyitása");
+    toggle.setAttribute(
+      "aria-label",
+      open ? t(language, "nav.closeMenu") : t(language, "nav.openMenu"),
+    );
+    if (header) {
+      header.classList.toggle("is-menu-open", open);
+    }
   }
 
   if (toggle && menu) {
@@ -45,6 +144,24 @@
       }
     });
   }
+
+  /* ---------- Language switcher ---------- */
+  function setLanguage(code) {
+    if (code !== "hu" && code !== "en") {
+      return;
+    }
+    language = code;
+    writeLanguage(code);
+    applyI18n(code);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-lang-btn]"), function (btn) {
+    btn.addEventListener("click", function () {
+      setLanguage(btn.getAttribute("data-lang-btn"));
+    });
+  });
+
+  applyI18n(language);
 
   /* ---------- Cookie consent ---------- */
   var dialog = byTestId("cookie-consent-dialog");
@@ -137,4 +254,5 @@
       reopen.addEventListener("click", openConsent);
     }
   }
+
 })();

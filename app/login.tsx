@@ -85,7 +85,7 @@ export default function Login() {
               <Input>
                 <InputField
                   accessibilityLabel={t("auth.name")}
-                  placeholder="Kovács Anna"
+                  placeholder={t("auth.namePlaceholder")}
                   autoCapitalize="words"
                   value={name}
                   onChangeText={setName}
@@ -127,7 +127,7 @@ export default function Login() {
           <Input>
             <InputField
               accessibilityLabel={t("auth.email")}
-              placeholder="te@pelda.hu"
+              placeholder={t("auth.emailPlaceholder")}
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
@@ -186,7 +186,7 @@ export default function Login() {
   return (
     <SafeAreaView className="flex-1 bg-[#0b1533]" edges={["top", "bottom"]}>
       <Box className="absolute right-4 top-4 z-10 md:right-8 md:top-6">
-        <LanguageSwitcher tone="onDark" />
+        <LanguageSwitcher tone={isDesktop ? "onLight" : "onDark"} />
       </Box>
 
       {isDesktop ? (

@@ -44,6 +44,8 @@ export default {
       "InvoHub for Hungarian invoicing, NAV compliance, and bookkeeping.",
     name: "Name",
     email: "Email",
+    emailPlaceholder: "you@example.com",
+    namePlaceholder: "Jane Doe",
     password: "Password",
     accountType: "Account type",
     alreadyHaveAccount: "Already have an account? Sign in",
