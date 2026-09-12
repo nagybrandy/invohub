@@ -18,6 +18,8 @@ Base branch: `main`. Complete items in order unless a later tick explicitly re-p
   - [x] Server-side status + search filters
   - [x] Login polish + HU/EN language switcher + EV-first nav order
   - [ ] Authenticated create→preview→PDF E2E (needs test user)
-- [ ] 5. Bank matching (planned only until Phase B)
+- [ ] 5. Bank matching (Phase B)
+  - [x] Pure match candidate scoring (amount / remittance / name / date; no auto-finalize unless exact)
+  - [ ] Transaction ingestion + consent + review UI
 - [ ] 6. EV tax calculator (planned only until Phase C)
 - [ ] 7. M2M submission hardening (roadmap Phase 4)
