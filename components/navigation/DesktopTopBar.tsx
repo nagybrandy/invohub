@@ -1,6 +1,7 @@
 // components/navigation/DesktopTopBar.tsx
 import { Bell, ChevronDown, FileText, Plus } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -91,8 +92,10 @@ export function DesktopTopBar({
           </HStack>
         </HStack>
 
-        {/* Right: new invoice + bell + avatar */}
+        {/* Right: language + new invoice + bell + avatar */}
         <HStack space="md" className="items-center">
+          <LanguageSwitcher tone="onDark" />
+
           <Pressable
             onPress={onNewInvoice}
             className="flex-row items-center gap-2 rounded-lg bg-primary px-4 py-2"

@@ -1,5 +1,6 @@
 // components/navigation/MobileAppHeader.tsx
 import { Bell } from "lucide-react-native";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -54,20 +55,23 @@ export function MobileAppHeader({
           </VStack>
         </HStack>
 
-        <Pressable
-          onPress={onOpenNotifications}
-          className="relative rounded-full p-2.5"
-          accessibilityLabel="Notifications"
-        >
-          <Bell size={22} color="#f9f9f9" />
-          {unreadCount > 0 ? (
-            <Box className="absolute -right-0.5 -top-0.5 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 py-0.5">
-              <Text size="xs" className="font-bold text-white">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </Text>
-            </Box>
-          ) : null}
-        </Pressable>
+        <HStack space="sm" className="items-center">
+          <LanguageSwitcher tone="onDark" />
+          <Pressable
+            onPress={onOpenNotifications}
+            className="relative rounded-full p-2.5"
+            accessibilityLabel="Notifications"
+          >
+            <Bell size={22} color="#f9f9f9" />
+            {unreadCount > 0 ? (
+              <Box className="absolute -right-0.5 -top-0.5 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 py-0.5">
+                <Text size="xs" className="font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </Box>
+            ) : null}
+          </Pressable>
+        </HStack>
       </HStack>
     </Box>
   );

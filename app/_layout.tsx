@@ -4,6 +4,7 @@ import "react-native-gesture-handler";
 import "../global.css";
 import "@/lib/i18n";
 
+import * as React from "react";
 import {
   DarkTheme,
   DefaultTheme,
@@ -12,6 +13,7 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
+import { hydrateAppLanguage } from "@/lib/i18n/language";
 import { useColorScheme } from "@/lib/useColorScheme";
 
 export {
@@ -44,6 +46,10 @@ const InvohubDarkTheme = {
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
+
+  React.useEffect(() => {
+    void hydrateAppLanguage();
+  }, []);
 
   return (
     <GluestackUIProvider mode={colorScheme}>

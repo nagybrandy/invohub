@@ -14,9 +14,9 @@ export function isAccountant(role: string | undefined | null): boolean {
   return role === "accountant";
 }
 
-/** Admin and accountants can manage client/product directories. */
+/** Entrepreneurs, accountants, and admins manage partner/product directories. */
 export function canManageClients(role: string | undefined | null): boolean {
-  return isAdmin(role) || isAccountant(role);
+  return isAdmin(role) || isAccountant(role) || role === "entrepreneur";
 }
 
 /** Admin sees every feature and the admin panel. */

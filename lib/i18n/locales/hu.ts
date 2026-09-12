@@ -40,7 +40,14 @@ export default {
     accountantHint:
       "Több ügyfél kezelése és teljes könyvelési munkafolyamatok.",
     entrepreneurHint:
-      "Saját vállalkozás számlázása — ügyfélnyilvántartás nélkül.",
+      "Saját vállalkozás számlázása partnerekkel, termékekkel és áttekintéssel.",
+  },
+  language: {
+    switcherLabel: "Nyelv",
+    hungarian: "Magyar",
+    english: "English",
+    title: "Nyelv",
+    hint: "Válts magyar és angol között. A választás ezen az eszközön megmarad.",
   },
   common: {
     save: "Mentés",
@@ -88,6 +95,10 @@ export default {
     alreadyHaveAccount: "Már van fiókod? Jelentkezz be",
     noAccount: "Nincs fiókod? Regisztrálj",
     backToHome: "Vissza a főoldalra",
+    heroTitle: "A számlázás legyen a nap biztos pontja.",
+    heroSubtitle:
+      "Bizonylatkiállítás, partnerek, PDF és e-mail — egyéni vállalkozóknak készített munkafolyamat.",
+    evPriorityNote: "Először a számlázás, utána a többi.",
   },
   invoices: {
     title: "Számlák",
@@ -275,7 +286,7 @@ export default {
     features: {
       import: "Számlák tömeges importálása Excelből vagy CSV-ből.",
       receipts: "Elektronikus nyugták megtekintése és kiállítása.",
-      clients: "Ügyfélnyilvántartás kezelése (könyvelők).",
+      clients: "Partnerek és számlázási címek kezelése.",
       products: "Termék- és szolgáltatáskatalógus.",
     },
   },

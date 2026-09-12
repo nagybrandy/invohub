@@ -1,6 +1,7 @@
 // lib/app-navigation.test.ts
 import {
   DASHBOARD_FEATURE_NAV,
+  DESKTOP_TOP_NAV,
   getDashboardFeatures,
   getDesktopNavItems,
   isNavActive,
@@ -9,56 +10,64 @@ import {
 import { routes } from "@/lib/navigation";
 
 describe("MOBILE_TAB_NAV", () => {
-  it("exposes five primary tabs including receipts and settings", () => {
-    expect(MOBILE_TAB_NAV).toHaveLength(5);
+  it("puts EV daily work first with new invoice in the center", () => {
     expect(MOBILE_TAB_NAV.map((item) => item.href)).toEqual([
-      routes.dashboard,
       routes.invoices,
-      routes.receipts,
+      routes.clients,
       routes.newInvoice,
+      routes.dashboard,
+      routes.settings,
+    ]);
+  });
+});
+
+describe("DESKTOP_TOP_NAV", () => {
+  it("leads with invoices for EV billing", () => {
+    expect(DESKTOP_TOP_NAV.map((item) => item.href)).toEqual([
+      routes.invoices,
+      routes.dashboard,
       routes.settings,
     ]);
   });
 });
 
 describe("getDashboardFeatures", () => {
-  it("hides accountant-only items for entrepreneurs", () => {
+  it("exposes products, receipts, and import to entrepreneurs", () => {
     const features = getDashboardFeatures("entrepreneur");
-    const hrefs = features.map((f) => f.href);
-    expect(hrefs).toContain(routes.import);
-    expect(hrefs).not.toContain(routes.receipts);
-    expect(hrefs).not.toContain(routes.clients);
-    expect(hrefs).not.toContain(routes.products);
+    expect(features.map((f) => f.href)).toEqual([
+      routes.products,
+      routes.receipts,
+      routes.import,
+    ]);
   });
 
-  it("includes clients and products for accountants", () => {
-    const features = getDashboardFeatures("accountant");
-    const hrefs = features.map((f) => f.href);
-    expect(hrefs).toContain(routes.clients);
-    expect(hrefs).toContain(routes.products);
-  });
-
-  it("includes admin panel and all features for admin", () => {
+  it("includes admin panel for admin", () => {
     const features = getDashboardFeatures("admin");
-    const hrefs = features.map((f) => f.href);
-    expect(hrefs).toContain(routes.clients);
-    expect(hrefs).toContain(routes.products);
-    expect(hrefs).toContain(routes.admin);
+    expect(features.map((f) => f.href)).toContain(routes.admin);
   });
 });
 
 describe("getDesktopNavItems", () => {
-  it("merges tabs, dashboard features, and settings once for accountant", () => {
-    const items = getDesktopNavItems("accountant");
+  it("keeps settings once and includes EV secondary features", () => {
+    const items = getDesktopNavItems("entrepreneur");
     const settingsCount = items.filter((i) => i.href === routes.settings).length;
     expect(settingsCount).toBe(1);
-    expect(items.length).toBe(8);
+    expect(items.map((i) => i.href)).toEqual([
+      routes.invoices,
+      routes.clients,
+      routes.newInvoice,
+      routes.dashboard,
+      routes.products,
+      routes.receipts,
+      routes.import,
+      routes.settings,
+    ]);
   });
 
   it("includes admin link for admin users", () => {
     const items = getDesktopNavItems("admin");
     expect(items.some((i) => i.href === routes.admin)).toBe(true);
-    expect(items.length).toBe(9);
+    expect(items).toHaveLength(9);
   });
 });
 
@@ -79,5 +88,13 @@ describe("isNavActive", () => {
 
   it("matches receipt detail under receipts", () => {
     expect(isNavActive("/receipts/abc-123", routes.receipts)).toBe(true);
+  });
+});
+
+describe("DASHBOARD_FEATURE_NAV", () => {
+  it("does not gate secondary features on accountant role", () => {
+    expect(DASHBOARD_FEATURE_NAV.every((item) => !("accountantOnly" in item))).toBe(
+      true,
+    );
   });
 });

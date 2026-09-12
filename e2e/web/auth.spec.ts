@@ -60,8 +60,9 @@ test.describe("Authentication flow", () => {
 
     test("shows account type selection", async ({ page }) => {
       await expect(page.getByText("Fiók típusa")).toBeVisible();
-      await expect(page.getByText("Vállalkozó")).toBeVisible();
-      await expect(page.getByText("Könyvelő")).toBeVisible();
+      // exact: hero subtitle also contains "vállalkozóknak"
+      await expect(page.getByText("Vállalkozó", { exact: true })).toBeVisible();
+      await expect(page.getByText("Könyvelő", { exact: true })).toBeVisible();
     });
 
     test("shows email and password fields", async ({ page }) => {
