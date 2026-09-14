@@ -94,11 +94,11 @@ export function BrandTexture({
           opacity={alpha}
           viewBox={`-10 -10 ${BRAND_MARK_VIEWBOX + 20} ${BRAND_MARK_VIEWBOX + 20}`}
         >
-          <G
-            rotation={rotate}
-            originX={BRAND_MARK_VIEWBOX / 2}
-            originY={BRAND_MARK_VIEWBOX / 2}
-          >
+          {/* Explicit SVG transform instead of rotation+originX/originY: on web
+              react-native-svg turns the origin props into a `transform-origin`
+              DOM attribute, which React DOM rejects ("Invalid DOM property") and
+              Expo's dev overlay then covers the bottom of the screen. */}
+          <G transform={`rotate(${rotate} ${BRAND_MARK_VIEWBOX / 2} ${BRAND_MARK_VIEWBOX / 2})`}>
             <BrandShapeGroup
               shapes={[...markGeometry.frame, ...markGeometry.flow]}
               color={ink}

@@ -89,7 +89,10 @@ test.describe("Blog and technical SEO", () => {
     await expect(page).toHaveURL(/\/blog$/);
     await expect(page.getByTestId("blog-index-page")).toBeVisible();
 
-    await page.getByTestId("landing-brand-logo").click();
+    // Expo Router keeps the previous (landing) screen mounted underneath on
+    // web, so two brand logos exist in the DOM — click the visible one (the
+    // blog's own header).
+    await page.locator('[data-testid="landing-brand-logo"]:visible').last().click();
     await expect(page).toHaveURL(/\/$/);
     await expect(
       page.locator('[data-testid="landing-hero-brand"]:visible'),

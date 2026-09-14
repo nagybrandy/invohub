@@ -90,8 +90,14 @@ describe("BrandTexture", () => {
   it("supports a single rotated watermark mark", () => {
     const tree = render(<BrandTexture variant="mark" rotate={-16} size={280} />);
     expect(tree.root.findAllByType(Pattern)).toHaveLength(0);
-    const rotated = tree.root.findAll((node) => node.props.rotation === -16);
+    // Rotation is expressed as an explicit SVG transform (never rotation +
+    // originX/originY, which react-native-svg renders as an invalid
+    // `transform-origin` DOM attribute on web).
+    const rotated = tree.root.findAll(
+      (node) => typeof node.props.transform === "string" && node.props.transform.startsWith("rotate(-16 "),
+    );
     expect(rotated.length).toBeGreaterThan(0);
+    expect(tree.root.findAll((node) => node.props.originX !== undefined)).toHaveLength(0);
     unmount(tree);
   });
 });

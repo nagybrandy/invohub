@@ -189,11 +189,11 @@ log('Plan for "' + plan.item + '" → ' + plan.planPath + ' (risk: ' + plan.risk
 phase('Build')
 const build = await agent(
   RULES +
-    '\n\nImplement exactly this plan: ' + plan.planPath + ' (read it first). Branch: ' + plan.branch + ' off main — run `ln -s ' + REPO + '/node_modules node_modules` if node_modules is missing in your worktree, then `git checkout -b ' + plan.branch + '`. ' +
+    '\n\nYour role definition is .claude/agents/implementer.md — read it first and follow its hard constraints. Implement exactly this plan: ' + plan.planPath + ' (read it too). Branch: ' + plan.branch + ' off main — run `ln -s ' + REPO + '/node_modules node_modules` if node_modules is missing in your worktree, then `git checkout -b ' + plan.branch + '`. ' +
     'TDD: write the failing tests from the plan first, then the smallest implementation. Add hu+en i18n keys for every new string. If the plan lists db/schema.ts changes, make them in db/schema.ts and run `npx drizzle-kit generate --name <slug>` (no db:push here). ' +
     'Run npm run typecheck, npx jest <touched paths>, npm run test:unit. Acceptance criteria to satisfy: ' + JSON.stringify(plan.acceptanceCriteria) + '. ' +
     'Flip the item to "[x]" in docs/loop-queue.md only if every criterion is met; otherwise leave "[~]" and explain. Commit on the branch. Do not merge or push.',
-  { agentType: 'implementer', isolation: 'worktree', schema: BUILD_SCHEMA, phase: 'Build', model: 'sonnet', label: 'build' },
+  { isolation: 'worktree', schema: BUILD_SCHEMA, phase: 'Build', model: 'sonnet', label: 'build' },
 )
 if (!build) throw new Error('Implementer returned nothing.')
 log('Built on ' + build.branch + ': typecheck ' + (build.typecheckPassed ? 'ok' : 'FAIL') + ', tests ' + (build.testsPassed ? 'ok' : 'FAIL'))
@@ -206,13 +206,13 @@ const REVIEW_BASE =
 
 const REVIEWS = [
   { key: 'acceptance', prompt: 'Functional review: does the diff actually satisfy every acceptance criterion? Run npm run typecheck and npm run test:unit in the worktree yourself; check edge cases, error states, i18n parity (hu/en), AGENTS.md web rules, and that the failing-test-first claim is credible from the diff.' },
-  { key: 'ux', agentType: 'ux-reviewer', prompt: 'UX review of the changed screens at 375x812 AND 1440x900. Follow .claude/skills/ux-audit/SKILL.md to run the app from the worktree and take Playwright screenshots into docs/audits/loop/' + DATE + '-' + triage.slug + '/. Check overflow, tap targets ≥44px, above-fold CTA, loading/empty/error states, Hungarian text length.' },
-  { key: 'security', agentType: 'security-reviewer', prompt: 'Security/compliance pass on the diff only: auth + ownership scoping on any new API route, secrets never logged or returned, NAV/M2M never pointed at production, no tax figures or compliance claims added without a sign-off tag.' },
+  { key: 'ux', role: '.claude/agents/ux-reviewer.md', prompt: 'UX review of the changed screens at 375x812 AND 1440x900. Follow .claude/skills/ux-audit/SKILL.md to run the app from the worktree and take Playwright screenshots into docs/audits/loop/' + DATE + '-' + triage.slug + '/. Check overflow, tap targets ≥44px, above-fold CTA, loading/empty/error states, Hungarian text length.' },
+  { key: 'security', role: '.claude/agents/security-reviewer.md', prompt: 'Security/compliance pass on the diff only: auth + ownership scoping on any new API route, secrets never logged or returned, NAV/M2M never pointed at production, no tax figures or compliance claims added without a sign-off tag.' },
 ]
 
 const reviewed = await pipeline(
   REVIEWS,
-  (r) => agent(REVIEW_BASE + '\n\nDIMENSION: ' + r.prompt, Object.assign({ schema: FINDINGS_SCHEMA, phase: 'Test', model: 'sonnet', label: 'review:' + r.key }, r.agentType ? { agentType: r.agentType } : {})),
+  (r) => agent(REVIEW_BASE + (r.role ? '\n\nYour role definition is ' + r.role + ' — read it first and follow it (read-only).' : '') + '\n\nDIMENSION: ' + r.prompt, { schema: FINDINGS_SCHEMA, phase: 'Test', model: 'sonnet', label: 'review:' + r.key }),
   (res, r) => {
     const findings = res && Array.isArray(res.findings) ? res.findings : []
     if (findings.length === 0) return { key: r.key, findings: [], acceptanceMet: res ? res.acceptanceMet : undefined }

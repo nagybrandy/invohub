@@ -50,12 +50,14 @@ test.describe("Premium landing page", () => {
     await dismissCookieDialog(page);
   });
 
-  test("shows brand logo mark and marketing infographics", async ({ page }) => {
+  test("shows brand logo mark, hero, product showcase and footer", async ({ page }) => {
     await expect(page.getByTestId("landing-brand-logo")).toBeVisible();
     await expect(page.getByTestId("brand-logo").first()).toBeVisible();
     await expect(page.getByTestId("landing-hero-brand")).toBeVisible();
-    await expect(page.getByTestId("landing-hero-infographic")).toBeVisible();
-    await expect(page.getByTestId("landing-bento-infographic")).toBeVisible();
+    // The stock-style "infographic" images were removed on purpose (owner
+    // feedback, 2026-09-14); the hero's real product visual is ProductShowcase.
+    await expect(page.getByTestId("landing-hero-infographic")).toHaveCount(0);
+    await expect(page.getByTestId("landing-bento-infographic")).toHaveCount(0);
     await expect(page.getByTestId("landing-footer-logo")).toBeVisible();
     await expect(page.getByTestId("landing-section-insights")).toBeVisible();
   });
@@ -133,8 +135,15 @@ test.describe("Premium landing page", () => {
     await expect(page.getByTestId("landing-section-workflow")).toBeInViewport();
   });
 
-  test("primary actions and login navigate to authentication", async ({ page }) => {
-    await page.getByTestId("landing-header-cta").click();
+  test("primary actions and login navigate to authentication", async ({ page }, testInfo) => {
+    if (testInfo.project.name.includes("mobile")) {
+      // On mobile the top bar is just brand + hamburger; the CTA lives in the
+      // fullscreen menu.
+      await page.getByTestId("landing-menu-toggle").click();
+      await page.getByTestId("landing-mobile-cta").click();
+    } else {
+      await page.getByTestId("landing-header-cta").click();
+    }
     await expect(page).toHaveURL(/\/login$/);
 
     await page.goto("/");
