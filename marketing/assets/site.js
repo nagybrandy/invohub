@@ -38,6 +38,8 @@
     return dict[key] || (i18n.dictionaries.hu && i18n.dictionaries.hu[key]) || key;
   }
 
+  var language = readLanguage();
+
   function applyI18n(code) {
     document.documentElement.lang = code;
 
@@ -110,7 +112,6 @@
   /* ---------- Mobile navigation ---------- */
   var toggle = byTestId("marketing-menu-toggle");
   var menu = byTestId("marketing-mobile-menu");
-  var language = readLanguage();
 
   function setMenuOpen(open) {
     if (!toggle || !menu) {
@@ -163,8 +164,10 @@
 
   applyI18n(language);
 
-  /* ---------- Cookie consent ---------- */
+  /* ---------- Cookie consent (compact bottom bar) ---------- */
   var dialog = byTestId("cookie-consent-dialog");
+  var settingsPanel = document.getElementById("consent-settings");
+  var settingsToggle = byTestId("cookie-consent-settings");
 
   function readConsent() {
     try {
@@ -186,12 +189,21 @@
     try {
       window.localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
     } catch (error) {
-      /* Storage may be unavailable; the banner still closes for this session. */
+      /* Storage may be unavailable; the bar still closes for this session. */
     }
   }
 
   function consentBoxes() {
-    return dialog ? dialog.querySelectorAll("[data-consent]") : [];
+    return settingsPanel ? settingsPanel.querySelectorAll("[data-consent]") : [];
+  }
+
+  function closeSettings() {
+    if (settingsPanel) {
+      settingsPanel.hidden = true;
+    }
+    if (settingsToggle) {
+      settingsToggle.setAttribute("aria-expanded", "false");
+    }
   }
 
   function openConsent() {
@@ -205,12 +217,14 @@
     });
 
     dialog.hidden = false;
+    closeSettings();
   }
 
   function closeConsent() {
     if (dialog) {
       dialog.hidden = true;
     }
+    closeSettings();
   }
 
   function decide(analytics, marketing) {
@@ -240,6 +254,14 @@
       });
     }
 
+    if (settingsToggle && settingsPanel) {
+      settingsToggle.addEventListener("click", function () {
+        var open = settingsPanel.hidden;
+        settingsPanel.hidden = !open;
+        settingsToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+
     if (saveChoice) {
       saveChoice.addEventListener("click", function () {
         var selection = { analytics: false, marketing: false };
@@ -254,5 +276,4 @@
       reopen.addEventListener("click", openConsent);
     }
   }
-
 })();

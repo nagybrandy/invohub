@@ -8,7 +8,10 @@ jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestac
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/i18n/LanguageSwitcher", () => ({
-  LanguageSwitcher: () => null,
+  LanguageSwitcher: () => {
+    const { Text } = require("react-native");
+    return <Text testID="mobile-language-switcher">LANG</Text>;
+  },
 }));
 jest.mock("@/lib/useColorScheme", () => ({
   useColorScheme: () => ({
@@ -61,6 +64,25 @@ describe("MobileAppHeader", () => {
     });
     const json = JSON.stringify(tree!.toJSON());
     expect(json).toContain("5");
+  });
+
+  it("places the language switch after the notifications bell (right-most)", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader
+          userName="Test User"
+          unreadCount={0}
+          onOpenNotifications={jest.fn()}
+        />
+      );
+    });
+    const json = JSON.stringify(tree!.toJSON());
+    const bellIndex = json.indexOf("Notifications");
+    const switcherIndex = json.indexOf('"mobile-language-switcher"');
+    expect(bellIndex).toBeGreaterThan(-1);
+    expect(switcherIndex).toBeGreaterThan(-1);
+    expect(switcherIndex).toBeGreaterThan(bellIndex);
   });
 
   it("opens notifications on bell press", () => {

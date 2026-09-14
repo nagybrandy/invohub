@@ -115,7 +115,6 @@ export function LandingHeader({
         ) : null}
 
         <HStack space="sm" className="items-center">
-          <LanguageSwitcher tone="onDark" testID="landing-language-switcher" />
           {isDesktop && !isSignedIn ? (
             <Button variant="ghost" size="sm" onPress={onLogin} testID="landing-login">
               <ButtonText className="text-white">{t("auth.signIn")}</ButtonText>
@@ -131,6 +130,7 @@ export function LandingHeader({
               {isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
             </ButtonText>
           </Button>
+          <LanguageSwitcher tone="onDark" testID="landing-language-switcher" />
           {!isDesktop ? (
             <Pressable
               accessibilityRole="button"
