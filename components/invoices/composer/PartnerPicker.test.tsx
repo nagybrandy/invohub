@@ -1,0 +1,133 @@
+// components/invoices/composer/PartnerPicker.test.tsx
+import * as React from "react";
+import TestRenderer, { act } from "react-test-renderer";
+import { PartnerPicker } from "@/components/invoices/composer/PartnerPicker";
+import type { Client } from "@/lib/clients/service";
+
+jest.mock("@/lib/theme/icon-colors", () => ({
+  useIconColors: () => ({ foreground: "#000", muted: "#666", primary: "#4f46e5" }),
+}));
+jest.mock("lucide-react-native", () => {
+  const { View } = require("react-native");
+  return new Proxy({}, { get: () => View });
+});
+jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/ui/input", () => {
+  const ReactLib = require("react");
+  const { TextInput } = require("react-native");
+  return {
+    Input: ({ children }: { children?: ReactLib.ReactNode }) => children ?? null,
+    InputField: ReactLib.forwardRef((props: Record<string, unknown>, ref: unknown) =>
+      ReactLib.createElement(TextInput, { ref, ...props })
+    ),
+  };
+});
+
+const t = (key: string) => key;
+
+function makeClients(count: number): Client[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `client-${i + 1}`,
+    userId: "u1",
+    name: `Partner ${i + 1} Kft.`,
+    taxNumber: `1000000${i}-1-23`,
+    createdAt: "",
+    updatedAt: "",
+  }));
+}
+
+function render(props: Partial<React.ComponentProps<typeof PartnerPicker>> = {}) {
+  const onChangeText = props.onChangeText ?? jest.fn();
+  const onSelect = props.onSelect ?? jest.fn();
+  const onCreateNew = props.onCreateNew ?? jest.fn();
+  let tree: TestRenderer.ReactTestRenderer;
+  act(() => {
+    tree = TestRenderer.create(
+      <PartnerPicker
+        clients={props.clients ?? []}
+        recentClients={props.recentClients ?? []}
+        value={props.value ?? ""}
+        onChangeText={onChangeText}
+        onSelect={onSelect}
+        onCreateNew={onCreateNew}
+        error={props.error}
+        t={t}
+      />
+    );
+  });
+  return { tree: tree!, onChangeText, onSelect, onCreateNew };
+}
+
+function findByTestId(root: TestRenderer.ReactTestInstance, testID: string) {
+  return root.findAll((node) => node.props?.testID === testID)[0];
+}
+
+describe("PartnerPicker (INV-18)", () => {
+  it("finds a partner beyond the old 8-result cap by typing", () => {
+    const clients = makeClients(12);
+    const { tree } = render({ clients, value: "Partner 12" });
+
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Partner 12 Kft.");
+  });
+
+  it("filters over the full client list, not just the first 8", () => {
+    const clients = makeClients(12);
+    const { tree, onSelect } = render({ clients, value: "100000011" }); // client-12's tax number
+
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const pressable = tree.root
+      .findAll((node) => typeof node.props?.onPress === "function")
+      .find((node) => node.findAll((c) => c.props?.children === "Partner 12 Kft.").length > 0);
+    expect(pressable).toBeTruthy();
+
+    act(() => {
+      pressable?.props.onPress?.();
+    });
+    expect(onSelect).toHaveBeenCalledWith(clients[11]);
+  });
+
+  it("shows an inline add-partner row instead of navigating away", () => {
+    const { tree } = render({ clients: makeClients(2), value: "new co" });
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const addTrigger = tree.root
+      .findAll((node) => typeof node.props?.onPress === "function")
+      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartner").length > 0);
+    expect(addTrigger).toBeTruthy();
+
+    act(() => {
+      addTrigger?.props.onPress?.();
+    });
+
+    expect(
+      tree.root.findAll((node) => node.props?.placeholder === "invoices.composer.newPartnerName").length
+    ).toBeGreaterThan(0);
+  });
+
+  it("shows recent partners as chips when the field is empty and focused", () => {
+    const clients = makeClients(4);
+    const { tree } = render({ clients, recentClients: clients, value: "" });
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.composer.recentPartners");
+  });
+});

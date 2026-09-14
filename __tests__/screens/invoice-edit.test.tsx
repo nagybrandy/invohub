@@ -1,22 +1,24 @@
 // __tests__/screens/invoice-edit.test.tsx
-// Focused coverage for the invoice edit screen's draft-vs-finalized branching
-// (the smoke test only exercises whatever status its shared fixture has).
+// The edit route's only job is: read `id`, fetch the invoice, and hand it to
+// <InvoiceComposer mode="edit">, which is otherwise IDENTICAL to the one
+// app/(app)/invoices/new.tsx renders (spec §2.7, E1) — the shared
+// component's own behaviour (steps, validation, save branches, the
+// finalized-invoice read-only branch) is covered by
+// components/invoices/composer/useInvoiceComposer.test.tsx and
+// composer-logic.test.ts, and its full render is exercised by the
+// app-pages.smoke.test.tsx screen-render suite. Mocking InvoiceComposer
+// here keeps this file about the route wrapper, not a second copy of the
+// composer's own test surface.
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
-const mockReplace = jest.fn();
-jest.mock("expo-router", () => ({
-  router: { replace: (...args: unknown[]) => mockReplace(...args), push: jest.fn() },
-}));
-
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
-jest.mock("lucide-react-native", () => {
+jest.mock("react-native-safe-area-context", () => {
   const { View } = require("react-native");
-  return new Proxy({}, { get: () => View });
+  return {
+    SafeAreaView: View,
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
 });
 
 jest.mock("@/lib/routing/route-param", () => ({
@@ -28,57 +30,13 @@ jest.mock("@/lib/api/client", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-const mockAddOrUpdate = jest.fn();
-jest.mock("@/hooks/useInvoices", () => ({
-  useInvoices: () => ({ addOrUpdate: mockAddOrUpdate }),
-}));
-
-jest.mock("@/hooks/useCompany", () => ({
-  useCompany: () => ({ company: { vatExempt: false } }),
-}));
-
-jest.mock("@/components/layout/FormScreen", () => ({
-  FormScreen: ({ children }: { children?: React.ReactNode }) => children ?? null,
-}));
-
-jest.mock("@/components/invoices/InvoiceDocumentPreview", () => ({
-  InvoiceDocumentPreview: () => null,
-}));
-
-jest.mock("@/components/invoices/LineItemEditor", () => ({
-  LineItemEditor: () => null,
-}));
-
-const mockUi = require("@/__tests__/mocks/gluestack-ui");
-jest.mock("@/components/ui/box", () => mockUi);
-jest.mock("@/components/ui/vstack", () => mockUi);
-jest.mock("@/components/ui/hstack", () => mockUi);
-jest.mock("@/components/ui/card", () => mockUi);
-jest.mock("@/components/ui/text", () => mockUi);
-jest.mock("@/components/ui/pressable", () => mockUi);
-jest.mock("@/components/ui/button", () => ({
-  Button: mockUi.Pressable,
-  ButtonText: mockUi.Text,
-}));
-jest.mock("@/components/ui/heading", () => ({ Heading: mockUi.Text }));
-jest.mock("@/components/ui/input", () => {
-  const { TextInput } = require("react-native");
-  return {
-    Input: ({ children }: { children?: React.ReactNode }) => children ?? null,
-    InputField: (props: Record<string, unknown>) => <TextInput {...props} />,
-  };
-});
-jest.mock("@/components/ui/textarea", () => {
-  const { TextInput } = require("react-native");
-  return {
-    Textarea: ({ children }: { children?: React.ReactNode }) => children ?? null,
-    TextareaInput: (props: Record<string, unknown>) => <TextInput {...props} />,
-  };
-});
-jest.mock("@/components/ui/form-control", () => ({
-  FormControl: mockUi.View,
-  FormControlLabel: mockUi.View,
-  FormControlLabelText: mockUi.Text,
+const mockComposerCalls: Array<{ mode: string; invoice: unknown }> = [];
+jest.mock("@/components/invoices/composer/InvoiceComposer", () => ({
+  InvoiceComposer: (props: { mode: string; invoice?: unknown }) => {
+    mockComposerCalls.push({ mode: props.mode, invoice: props.invoice });
+    const { Text } = require("react-native");
+    return <Text testID="composer-stub">{`mode:${props.mode}`}</Text>;
+  },
 }));
 
 async function renderScreen() {
@@ -87,6 +45,7 @@ async function renderScreen() {
   await act(async () => {
     tree = TestRenderer.create(<EditInvoiceScreen />);
     await Promise.resolve();
+    await Promise.resolve();
   });
   return tree!;
 }
@@ -94,54 +53,44 @@ async function renderScreen() {
 describe("EditInvoiceScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockComposerCalls.length = 0;
   });
 
-  it("shows a read-only hint for a finalized (non-draft) invoice", async () => {
-    mockApiFetch.mockResolvedValue({ invoice: makeInvoice({ status: "sent" }) });
-    const tree = await renderScreen();
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("invoices.edit.readOnlyHint");
-    expect(json).not.toContain("invoices.edit.saveChanges");
-  });
+  it("shows a loading state before the invoice has loaded", async () => {
+    let resolveFetch: (value: unknown) => void = () => {};
+    mockApiFetch.mockReturnValue(new Promise((resolve) => (resolveFetch = resolve)));
 
-  it("renders the editable form for a draft invoice", async () => {
-    mockApiFetch.mockResolvedValue({ invoice: makeInvoice({ status: "draft" }) });
-    const tree = await renderScreen();
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("invoices.edit.saveChanges");
-    expect(json).not.toContain("invoices.edit.readOnlyHint");
-  });
-
-  it("saving a draft filters blank line items and forwards currency/exchangeRate", async () => {
-    mockApiFetch.mockResolvedValue({
-      invoice: makeInvoice({
-        status: "draft",
-        currency: "EUR",
-        lineItems: [
-          { id: "l1", description: "Real item", quantity: 1, unitPrice: 10, vatRate: 27, vatCategory: "normal" },
-        ],
-      }),
+    const EditInvoiceScreen = require("@/app/(app)/invoices/[id]/edit").default;
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(<EditInvoiceScreen />);
     });
-    mockAddOrUpdate.mockResolvedValue(makeInvoice({ id: "inv-1" }));
-
-    const tree = await renderScreen();
-    const saveButton = tree.root
-      .findAll((node) => typeof node.props?.onPress === "function")
-      .find(
-        (node) =>
-          node.findAll((child) => child.props?.children === "invoices.edit.saveChanges")
-            .length > 0
-      );
+    expect(JSON.stringify(tree!.toJSON())).not.toContain("composer-stub");
 
     await act(async () => {
-      saveButton?.props.onPress?.();
+      resolveFetch({ invoice: makeInvoice({ id: "inv-1" }) });
       await Promise.resolve();
     });
+  });
 
-    expect(mockAddOrUpdate).toHaveBeenCalledTimes(1);
-    const saved = mockAddOrUpdate.mock.calls[0][0];
-    expect(saved.lineItems).toHaveLength(1);
-    expect(saved.currency).toBe("EUR");
-    expect(mockReplace).toHaveBeenCalledWith("/invoices/inv-1");
+  it("fetches the invoice by route id and renders the composer in edit mode", async () => {
+    const invoice = makeInvoice({ id: "inv-1", clientName: "Acme Kft.", status: "draft" });
+    mockApiFetch.mockResolvedValue({ invoice });
+
+    await renderScreen();
+
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/invoices/inv-1");
+    expect(mockComposerCalls).toHaveLength(1);
+    expect(mockComposerCalls[0].mode).toBe("edit");
+    expect(mockComposerCalls[0].invoice).toEqual(invoice);
+  });
+
+  it("passes a finalized invoice through unchanged — read-only is the composer's own concern", async () => {
+    const invoice = makeInvoice({ id: "inv-1", status: "sent" });
+    mockApiFetch.mockResolvedValue({ invoice });
+
+    await renderScreen();
+
+    expect(mockComposerCalls[0].invoice).toMatchObject({ status: "sent" });
   });
 });
