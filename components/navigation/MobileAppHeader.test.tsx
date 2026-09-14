@@ -2,6 +2,9 @@
 import TestRenderer, { act } from "react-test-renderer";
 import { MobileAppHeader } from "@/components/navigation/MobileAppHeader";
 
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
 jest.mock("@/components/ui/box", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
@@ -33,7 +36,7 @@ jest.mock("@/lib/theme/icon-colors", () => ({
 }));
 
 describe("MobileAppHeader", () => {
-  it("shows user name and company name", () => {
+  it("shows user name and company name, with the monogram from the USER's name (M3)", () => {
     let tree: TestRenderer.ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(
@@ -48,7 +51,25 @@ describe("MobileAppHeader", () => {
     const json = JSON.stringify(tree!.toJSON());
     expect(json).toContain("TestCorp Kft.");
     expect(json).toContain("Kovács Anna");
-    expect(json).toContain("TK");
+    // Monogram is the USER's initials ("KA"), never the company's ("TK") — M3.
+    expect(json).toContain("KA");
+    expect(json).not.toContain('"TK"');
+  });
+
+  it("derives the monogram from the user even with a different company name", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader
+          userName="Teszt Elek"
+          companyName="InvoHub Demo"
+          unreadCount={0}
+          onOpenNotifications={jest.fn()}
+        />
+      );
+    });
+    const json = JSON.stringify(tree!.toJSON());
+    expect(json).toContain('"TE"');
   });
 
   it("shows unread badge when count > 0", () => {
@@ -78,7 +99,7 @@ describe("MobileAppHeader", () => {
       );
     });
     const json = JSON.stringify(tree!.toJSON());
-    const bellIndex = json.indexOf("Notifications");
+    const bellIndex = json.indexOf("nav.notifications");
     const switcherIndex = json.indexOf('"mobile-language-switcher"');
     expect(bellIndex).toBeGreaterThan(-1);
     expect(switcherIndex).toBeGreaterThan(-1);
@@ -100,7 +121,7 @@ describe("MobileAppHeader", () => {
     const pressables = tree!.root.findAll(
       (node) => typeof node.props?.onPress === "function"
     );
-    const bell = pressables.find((node) => node.props.accessibilityLabel === "Notifications");
+    const bell = pressables.find((node) => node.props.accessibilityLabel === "nav.notifications");
     act(() => {
       bell?.props.onPress();
     });

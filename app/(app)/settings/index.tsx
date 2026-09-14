@@ -204,11 +204,21 @@ export default function SettingsScreen() {
           </VStack>
         ) : null}
 
+        <Button variant="outline" onPress={() => void handleSignOut()}>
+          <HStack space="sm" className="items-center">
+            <LogOut size={18} color={icons.muted} />
+            <ButtonText>{t("nav.signOut")}</ButtonText>
+          </HStack>
+        </Button>
+
         {seedEnabled ? (
+          // Demoted to an outline button at the bottom (S1) — this is a
+          // dev/demo-only tool, not the primary action of the settings hub,
+          // and previously outranked every other button on the page.
           <Card className="p-4">
             <VStack space="md">
               <HStack space="sm" className="items-center">
-                <Database size={20} color={icons.accent} />
+                <Database size={20} color={icons.muted} />
                 <VStack className="flex-1">
                   <Text className="font-medium">{t("settings.demoData")}</Text>
                   <Text size="sm" className="text-muted-foreground">
@@ -216,20 +226,18 @@ export default function SettingsScreen() {
                   </Text>
                 </VStack>
               </HStack>
-              <Button onPress={() => void handleSeed()} disabled={seeding}>
+              <Button
+                testID="settings-seed-demo-button"
+                variant="outline"
+                onPress={() => void handleSeed()}
+                disabled={seeding}
+              >
                 {seeding ? <ButtonSpinner /> : <ButtonText>{t("common.seedDemo")}</ButtonText>}
               </Button>
               {seedMessage ? <Text size="sm">{seedMessage}</Text> : null}
             </VStack>
           </Card>
         ) : null}
-
-        <Button variant="outline" onPress={() => void handleSignOut()}>
-          <HStack space="sm" className="items-center">
-            <LogOut size={18} color={icons.muted} />
-            <ButtonText>{t("nav.signOut")}</ButtonText>
-          </HStack>
-        </Button>
       </VStack>
     </ScreenLayout>
   );

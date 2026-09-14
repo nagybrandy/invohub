@@ -1,10 +1,11 @@
 // lib/i18n/locales/hu.ts
 export default {
   nav: {
-    dashboard: "Áttekintés",
+    dashboard: "Vezérlőpult",
     invoices: "Számlák",
     newInvoice: "Új számla",
     clients: "Ügyfelek",
+    partners: "Partnerek",
     products: "Termékek",
     settings: "Beállítások",
     import: "Importálás",
@@ -16,6 +17,8 @@ export default {
     admin: "Admin panel",
     companySettings: "Cégbeállítások",
     accountSettings: "Fiókbeállítások",
+    collapseSidebar: "Oldalsáv összecsukása",
+    expandSidebar: "Oldalsáv kinyitása",
   },
   admin: {
     title: "Admin panel",
@@ -474,6 +477,8 @@ export default {
   settings: {
     title: "Beállítások",
     subtitle: "Fiók, sablonok és alkalmazás beállítások.",
+    navTitle: "Beállítások",
+    backToHub: "Vissza a Beállításokhoz",
     account: "Fiók és számlázás",
     tools: "Eszközök és beállítások",
     company: "Céges profil",
@@ -854,5 +859,16 @@ export default {
     ctaTitle: "Próbáld ki a rendezett számlázást",
     ctaDescription:
       "Hozz létre fiókot, és nézd meg az InvoHub jelenleg elérhető munkafolyamatait.",
+  },
+  notifications: {
+    banner: {
+      more: "+{{count}} további értesítés",
+      dismiss: "Bezárás",
+    },
+  },
+  userMenu: {
+    accountSettings: "Fiókbeállítások",
+    companyProfile: "Céges profil",
+    signOut: "Kijelentkezés",
   },
 };

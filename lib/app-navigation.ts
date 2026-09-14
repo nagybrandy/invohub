@@ -1,9 +1,10 @@
 // lib/app-navigation.ts
-// Shared nav structure: EV-first mobile tabs, desktop chrome, and feature hubs.
+// Shared nav structure: desktop sidebar, mobile tabs + "Továbbiak" sheet, and feature hubs.
 import type { LucideIcon } from "lucide-react-native";
 import {
   FileText,
   LayoutDashboard,
+  MoreHorizontal,
   Package,
   Plus,
   Receipt,
@@ -23,19 +24,72 @@ export type AppNavItem = {
   adminOnly?: boolean;
 };
 
+/** Admin-only panel link (mobile "Továbbiak" sheet + desktop sidebar). */
+export const ADMIN_NAV: AppNavItem = {
+  href: routes.admin,
+  labelKey: "nav.admin",
+  icon: Shield,
+  descriptionKey: "admin.subtitle",
+  adminOnly: true,
+};
+
 /**
- * Primary mobile tabs ordered for egyéni vállalkozó daily work:
- * invoices → clients → new invoice (center) → overview → settings.
+ * Desktop sidebar — primary sections above the divider, in the owner's
+ * daily-work order (brief 2026-09-14): Vezérlőpult, Számlák, Nyugták,
+ * Partnerek, Termékek, Beállítások.
  */
-export const MOBILE_TAB_NAV: AppNavItem[] = [
-  { href: routes.invoices, labelKey: "nav.invoices", icon: FileText },
-  { href: routes.clients, labelKey: "nav.clients", icon: Users },
-  { href: routes.newInvoice, labelKey: "nav.newInvoice", icon: Plus },
+export const SIDEBAR_PRIMARY_NAV: AppNavItem[] = [
   { href: routes.dashboard, labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: routes.invoices, labelKey: "nav.invoices", icon: FileText },
+  { href: routes.receipts, labelKey: "nav.receipts", icon: Receipt },
+  { href: routes.clients, labelKey: "nav.partners", icon: Users },
+  { href: routes.products, labelKey: "nav.products", icon: Package },
   { href: routes.settings, labelKey: "nav.settings", icon: Settings },
 ];
 
-/** Secondary features for EV/accountant hubs (not in the bottom tabs). */
+/** Desktop sidebar — secondary items below the divider (Importálás, Admin). */
+export const SIDEBAR_SECONDARY_NAV: AppNavItem[] = [
+  { href: routes.import, labelKey: "nav.import", icon: Upload },
+];
+
+export function getSidebarSecondaryNav(role: string | undefined): AppNavItem[] {
+  return isAdmin(role) ? [...SIDEBAR_SECONDARY_NAV, ADMIN_NAV] : SIDEBAR_SECONDARY_NAV;
+}
+
+/**
+ * Mobile bottom tab bar. The last entry carries no `href` — it opens the
+ * "Továbbiak" sheet instead of navigating directly, which is how
+ * Nyugták/Termékek/Importálás/Beállítások stay one tap away on mobile
+ * without crowding the 5-tab bar (N1 mobile fix).
+ */
+export type MobileTabItem = {
+  labelKey: string;
+  icon: LucideIcon;
+  href?: AppRoute;
+};
+
+export const MOBILE_TAB_NAV: MobileTabItem[] = [
+  { href: routes.invoices, labelKey: "nav.invoices", icon: FileText },
+  { href: routes.clients, labelKey: "nav.partners", icon: Users },
+  { href: routes.newInvoice, labelKey: "nav.newInvoice", icon: Plus },
+  { href: routes.dashboard, labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { labelKey: "nav.more", icon: MoreHorizontal },
+];
+
+/** Items inside the mobile "Továbbiak" sheet (sign-out is rendered by the
+ * sheet itself as a separate action, not a nav route). */
+export const MOBILE_MORE_NAV: AppNavItem[] = [
+  { href: routes.receipts, labelKey: "nav.receipts", icon: Receipt },
+  { href: routes.products, labelKey: "nav.products", icon: Package },
+  { href: routes.import, labelKey: "nav.import", icon: Upload },
+  { href: routes.settings, labelKey: "nav.settings", icon: Settings },
+];
+
+export function getMobileMoreNav(role: string | undefined): AppNavItem[] {
+  return isAdmin(role) ? [...MOBILE_MORE_NAV, ADMIN_NAV] : MOBILE_MORE_NAV;
+}
+
+/** Secondary features for the dashboard's "gyors ugrás" quick-jump cards. */
 export const DASHBOARD_FEATURE_NAV: AppNavItem[] = [
   {
     href: routes.products,
@@ -57,36 +111,29 @@ export const DASHBOARD_FEATURE_NAV: AppNavItem[] = [
   },
 ];
 
-/** Admin-only panel link (settings hub + desktop sidebar). */
-export const ADMIN_NAV: AppNavItem = {
-  href: routes.admin,
-  labelKey: "nav.admin",
-  icon: Shield,
-  descriptionKey: "admin.subtitle",
-  adminOnly: true,
-};
-
-/** Desktop top nav — invoices first for EV billing workflows. */
-export const DESKTOP_TOP_NAV: AppNavItem[] = [
-  { href: routes.invoices, labelKey: "nav.invoices", icon: FileText },
-  { href: routes.dashboard, labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { href: routes.settings, labelKey: "nav.settings", icon: Settings },
-];
-
-/** Desktop sidebar — tabs + secondary features in one list. */
-export function getDesktopNavItems(role: string | undefined): AppNavItem[] {
-  const showAdmin = isAdmin(role);
-  return [
-    ...MOBILE_TAB_NAV.filter((item) => item.href !== routes.settings),
-    ...DASHBOARD_FEATURE_NAV,
-    ...(showAdmin ? [ADMIN_NAV] : []),
-    MOBILE_TAB_NAV.find((item) => item.href === routes.settings)!,
-  ];
-}
-
 export function getDashboardFeatures(role: string | undefined): AppNavItem[] {
   const showAdmin = isAdmin(role);
   return showAdmin ? [...DASHBOARD_FEATURE_NAV, ADMIN_NAV] : [...DASHBOARD_FEATURE_NAV];
+}
+
+/**
+ * Settings sub-pages get a topstrip breadcrumb back to the hub (N9) — the
+ * hub itself (`/settings`) does not, per the "no breadcrumb on top-level
+ * screens" rule (spec §1.3).
+ */
+const SETTINGS_SUBPAGES: { path: AppRoute; labelKey: string }[] = [
+  { path: routes.settingsCompany, labelKey: "settings.company" },
+  { path: routes.settingsTemplates, labelKey: "settings.templates" },
+  { path: routes.settingsPdf, labelKey: "settings.pdf" },
+  { path: routes.settingsReminders, labelKey: "settings.reminders" },
+  { path: routes.settingsApiKeys, labelKey: "settings.apiKeys" },
+];
+
+export function getSettingsBreadcrumbLabelKey(pathname: string): string | undefined {
+  const match = SETTINGS_SUBPAGES.find(
+    (s) => pathname === (s.path as string) || pathname.startsWith(`${s.path as string}/`),
+  );
+  return match?.labelKey;
 }
 
 export function isNavActive(pathname: string, href: string): boolean {

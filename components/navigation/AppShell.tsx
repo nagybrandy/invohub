@@ -1,81 +1,54 @@
 // components/navigation/AppShell.tsx
+// The signed-in app's chrome: a persistent desktop sidebar + top strip
+// (≥1024px), or a mobile header + bottom tab bar + "Továbbiak" sheet
+// (<1024px). Fixes N1 ("the menu isn't clear") — every primary section is
+// now one click away on both breakpoints (spec §1).
 import * as React from "react";
 import { useWindowDimensions } from "react-native";
 import { Slot, usePathname, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
-import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { DesktopTopBar } from "@/components/navigation/DesktopTopBar";
+import { VStack } from "@/components/ui/vstack";
+import type { BreadcrumbItem } from "@/components/layout/Breadcrumb";
+import { AppSidebar } from "@/components/navigation/AppSidebar";
+import { AppTopStrip } from "@/components/navigation/AppTopStrip";
 import { MobileAppHeader } from "@/components/navigation/MobileAppHeader";
+import { MobileTabBar } from "@/components/navigation/MobileTabBar";
+import { MoreSheet } from "@/components/navigation/MoreSheet";
 import { NotificationBanner } from "@/components/notifications/NotificationBanner";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { signOut, useSession } from "@/lib/auth-client";
-import { isNavActive, MOBILE_TAB_NAV, DESKTOP_TOP_NAV } from "@/lib/app-navigation";
+import { getSettingsBreadcrumbLabelKey } from "@/lib/app-navigation";
 import { routes, type AppRoute } from "@/lib/navigation";
-import { useIconColors } from "@/lib/theme/icon-colors";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useCompany } from "@/hooks/useCompany";
 
-const DESKTOP_BREAKPOINT = 768;
+// Shell breakpoint — moved from 768 to 1024 (spec §1.2): 768-1023px (tablet)
+// now gets the thumb-friendly mobile bars instead of a half-collapsed
+// desktop sidebar that doesn't fit.
+const DESKTOP_BREAKPOINT = 1024;
 
+export type AppShellProps = {
+  /** Test-only override for the measured window width, so the desktop/
+   * mobile breakpoint is testable without mocking react-native's Dimensions
+   * module (matches the pattern used by AppSidebar). */
+  viewportWidthForTest?: number;
+};
 
-function MobileTabBar({
-  pathname,
-  onNavigate,
-  t,
-  iconColors,
-}: {
-  pathname: string;
-  onNavigate: (href: AppRoute) => void;
-  t: (key: string) => string;
-  iconColors: ReturnType<typeof useIconColors>;
-}) {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <Box
-      className="border-t border-border bg-card"
-      style={{ paddingBottom: Math.max(insets.bottom, 8) }}
-    >
-      <HStack className="items-stretch justify-around px-1 py-2">
-        {MOBILE_TAB_NAV.map((item) => {
-          const active = isNavActive(pathname, item.href as string);
-          const Icon = item.icon;
-          return (
-            <Box key={item.labelKey} className="flex-1 items-center">
-              <Pressable
-                onPress={() => onNavigate(item.href)}
-                className={`rounded-lg px-2 py-2 ${active ? "bg-primary/15" : ""}`}
-              >
-                <Icon size={22} color={active ? iconColors.primary : iconColors.muted} />
-              </Pressable>
-              <Text
-                size="xs"
-                className={`mt-0.5 text-center ${active ? "font-medium text-primary" : "text-muted-foreground"}`}
-              >
-                {t(item.labelKey)}
-              </Text>
-            </Box>
-          );
-        })}
-      </HStack>
-    </Box>
-  );
-}
-
-export function AppShell() {
-  const { width } = useWindowDimensions();
+export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
+  const { width: measuredWidth } = useWindowDimensions();
+  const width = viewportWidthForTest ?? measuredWidth;
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
   const { t } = useTranslation();
   const [panelOpen, setPanelOpen] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
   const isDesktop = width >= DESKTOP_BREAKPOINT;
-  const iconColors = useIconColors();
   const { company } = useCompany();
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
 
   const {
     notifications,
@@ -90,6 +63,16 @@ export function AppShell() {
   function navigate(href: AppRoute) {
     router.push(href);
   }
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace(routes.login);
+  }
+
+  const settingsLabelKey = getSettingsBreadcrumbLabelKey(pathname);
+  const breadcrumb: BreadcrumbItem[] | undefined = settingsLabelKey
+    ? [{ label: t("nav.settings"), href: routes.settings }, { label: t(settingsLabelKey) }]
+    : undefined;
 
   const notificationPanel = (
     <NotificationPanel
@@ -107,29 +90,40 @@ export function AppShell() {
   if (isDesktop) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <DesktopTopBar
-          companyName={company?.name}
-          companyTaxId={company?.taxNumber ?? undefined}
-          navItems={DESKTOP_TOP_NAV}
-          activeHref={pathname}
-          unreadCount={unreadCount}
-          userName={session?.user?.name}
-          onNavigate={navigate}
-          onNewInvoice={() => router.push(routes.newInvoice)}
-          onOpenNotifications={() => setPanelOpen(true)}
-          onOpenCompanySettings={() => router.push(routes.settingsCompany)}
-          onOpenAccountSettings={() => router.push(routes.settings)}
-        />
-        {latestUnread ? (
-          <NotificationBanner
-            notification={latestUnread}
-            unreadCount={unreadCount}
-            onPress={() => setPanelOpen(true)}
+        <HStack className="flex-1">
+          <AppSidebar
+            activePathname={pathname}
+            role={userRole}
+            companyName={company?.name}
+            companyTaxId={company?.taxNumber ?? undefined}
+            onNavigate={navigate}
+            onNewInvoice={() => router.push(routes.newInvoice)}
+            onOpenCompanySettings={() => router.push(routes.settingsCompany)}
+            onSignOut={() => void handleSignOut()}
           />
-        ) : null}
-        <Box className="flex-1">
-          <Slot />
-        </Box>
+          <VStack className="flex-1">
+            <AppTopStrip
+              breadcrumb={breadcrumb}
+              unreadCount={unreadCount}
+              onOpenNotifications={() => setPanelOpen(true)}
+              userName={session?.user?.name}
+              companyName={company?.name}
+              onOpenAccount={() => router.push(routes.settings)}
+              onOpenCompany={() => router.push(routes.settingsCompany)}
+              onSignOut={() => void handleSignOut()}
+            />
+            {latestUnread ? (
+              <NotificationBanner
+                notification={latestUnread}
+                unreadCount={unreadCount}
+                onPress={() => setPanelOpen(true)}
+              />
+            ) : null}
+            <Box className="flex-1">
+              <Slot />
+            </Box>
+          </VStack>
+        </HStack>
         {notificationPanel}
       </SafeAreaView>
     );
@@ -139,7 +133,7 @@ export function AppShell() {
     <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
       <MobileAppHeader
         userName={session?.user?.name}
-        userRole={(session?.user as { role?: string } | undefined)?.role}
+        userRole={userRole}
         companyName={company?.name}
         unreadCount={unreadCount}
         onOpenNotifications={() => setPanelOpen(true)}
@@ -154,7 +148,14 @@ export function AppShell() {
       <Box className="flex-1">
         <Slot />
       </Box>
-      <MobileTabBar pathname={pathname} onNavigate={navigate} t={t} iconColors={iconColors} />
+      <MobileTabBar pathname={pathname} onNavigate={navigate} onOpenMore={() => setMoreOpen(true)} />
+      <MoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        role={userRole}
+        onNavigate={navigate}
+        onSignOut={() => void handleSignOut()}
+      />
       {notificationPanel}
     </SafeAreaView>
   );
