@@ -54,6 +54,31 @@ before or alongside Phase 1 items that depend on it.
       button — wire it to a support contact flow (mailto, chat widget,
       help page) or remove it until one exists (2026-09-14 audit,
       ux-desktop)
+- [ ] NAV receipt-report cron has no retry and no backfill —
+      `app/api/cron/nav-receipt-report+api.ts` only ever builds yesterday's
+      `reportDate`, and a row left in `nav_receipt_submission` with a failed
+      status is never re-sent, so one bad night silently loses that day's
+      nyugta adatszolgáltatás. The obligation allows reporting until the end
+      of the 3rd calendar day, so walk a bounded backfill window (missing or
+      failed dates in the last 3 days) and make submission idempotent per
+      (companyId, reportDate). Distinct from the reminders-cron item above.
+- [ ] No error tracking or cron-failure alerting exists —
+      `@opentelemetry/api` is a dependency but is imported nowhere, and
+      `app/api/health+api.ts` is a bare liveness probe. Both Vercel crons in
+      `vercel.json` swallow per-company failures into a JSON body nobody
+      reads. Add a minimal error reporter plus an owner-facing failure
+      summary (notification or email) for `/api/reminders/run` and
+      `/api/cron/nav-receipt-report`; the Phase 1 launch gate explicitly
+      lists monitoring.
+- [ ] Self-serve data export and account deletion are missing — there is no
+      route under `app/api/` and no control in `app/(app)/settings/`, yet
+      `lib/legal-content.ts` already promises adattörlés/adatexportálás in
+      the ÁSZF and adatkezelési drafts. Ship a per-user export (invoices,
+      clients, receipts, company data) and a deletion request flow that
+      keeps legally retained documents while removing/anonymizing the rest.
+      (needs tax/legal sign-off — the document retention period and what may
+      be deleted vs. anonymized must come from the lawyer review, not from a
+      guessed number)
 
 ## Phase 1 — Core invoicing, NAV-compliant
 
@@ -144,6 +169,46 @@ Remaining for the launch gate:
       Introduce a combined status or an additional overdue flag the UI can
       badge; add a test for paidAmount between 0 and total with a past due
       date. (2026-09-14 audit, feature)
+- [ ] e-nyugta (nyugtaadat-szolgáltatás) client targets an endpoint and
+      schema that do not exist — `lib/nav-receipt/environment.ts` posts to
+      `https://api-test.onlineszamla.nav.gov.hu/receipt-if/v1` with
+      `schemas.nav.gov.hu/receipt/1.0/*` namespaces invented in
+      `xml-builder.ts`. NAV published the real machine interface on
+      2026-08-27 (`nav-gov-hu/eRECEIPT`: spec
+      `docs/specification/NAV_Nyugta_adatszolgaltatas_IF_specifikacio_v1.2.pdf`,
+      schema `xsd/1.1/receipt_datareport/receipt-if-schema-v1.1.xsd`, test
+      base `https://bv-receipt-if.enyugta.nav.gov.hu/v1/`). Rebuild token
+      exchange, request signature and the report XML against that XSD, test
+      environment only. Electronic receipt data reporting has been mandatory
+      since 2026-09-01 and NAV only waives penalties through the end of
+      2026, so this is a real launch blocker for any EV issuing nyugta.
+      (needs tax/legal sign-off)
+- [ ] Non-HUF invoices report a false HUF VAT base to NAV —
+      `lib/nav/invoice-xml.ts:361` hardcodes `<exchangeRate>1</exchangeRate>`
+      even though `invoice.exchangeRate` exists in `db/schema.ts` and
+      `app/(app)/invoices/new.tsx` already collects it. Pass the stored rate
+      into the XML, refuse to submit a non-HUF invoice that has no rate, and
+      show the HUF VAT amount on the PDF/preview
+      (`lib/invoices/build-pdf-context.ts` ignores `exchangeRate` entirely
+      today). (needs tax/legal sign-off — which rate and which date govern
+      the HUF VAT amount is an Áfa tv. question, not a code choice)
+- [ ] Payment method and payment date never reach the NAV XML —
+      `lib/nav/invoice-xml.ts` defers them as "schema placement not
+      verified", but `invoiceDetail` in the published `invoiceData.xsd`
+      carries `paymentMethod`/`paymentDate` and the columns already exist
+      (`invoice.paymentMethod`, `invoice.paidAt`). Map transfer/cash/card to
+      the XSD's own enum, verified by fetching the schema rather than
+      guessing, with a fixture test like the `invoiceReference` work.
+      (needs tax/legal sign-off)
+- [ ] Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
+      DBK-/ELO- numbers and `lib/i18n/locales/hu.ts` labels them, but there
+      is no way to turn a paid díjbekérő into the actual számla: nothing in
+      `app/(app)/invoices/[id]/index.tsx`, `lib/invoices/service.ts` or
+      `app/api/invoices/[id]/duplicate+api.ts` converts one document type
+      into the next. Add a "convert to invoice" action that copies lines and
+      client data into a new INV document and links the two, which is the
+      standard collect-then-invoice flow every Hungarian competitor ships
+      and the reason an EV issues a díjbekérő at all.
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
