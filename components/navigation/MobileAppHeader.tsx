@@ -1,12 +1,17 @@
 // components/navigation/MobileAppHeader.tsx
 import { Bell } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
+
+// Fixed on-navy ink for icons on this always-navy header, matching AppSidebar.
+const ON_DARK_ICON = "#ffffff";
 
 type MobileAppHeaderProps = {
   userName?: string;
@@ -31,24 +36,33 @@ export function MobileAppHeader({
   unreadCount,
   onOpenNotifications,
 }: MobileAppHeaderProps) {
+  const { t } = useTranslation();
   const icons = useIconColors();
   const displayName = companyName?.trim() || userName?.trim() || "InvoHub";
+  // The avatar monogram is always derived from the signed-in USER's name,
+  // never the company's — two entrepreneurs at the same company must see
+  // their own initials, not "InvoHub Demo"'s (M3 fix).
+  const monogramSource = userName?.trim() || displayName;
 
   return (
     <Box className="bg-secondary px-4 py-3">
       <HStack className="items-center justify-between">
         <HStack space="sm" className="flex-1 items-center">
-          <Box className="h-9 w-9 items-center justify-center rounded-full bg-[#1f305e]">
+          <Box className="h-9 w-9 items-center justify-center rounded-full bg-secondary-foreground/15">
             <Text className="text-xs font-bold text-white">
-              {initials(displayName)}
+              {initials(monogramSource)}
             </Text>
           </Box>
           <VStack className="flex-1">
-            <Text className="font-semibold text-white" numberOfLines={1}>
+            <Text
+              className="font-semibold text-white"
+              isTruncated
+              {...(isWeb() ? {} : { numberOfLines: 1 })}
+            >
               {displayName}
             </Text>
             {userName && companyName ? (
-              <Text size="xs" className="text-[#c5c7ca]">
+              <Text size="xs" className="text-secondary-foreground/70">
                 {userName}
               </Text>
             ) : null}
@@ -59,9 +73,9 @@ export function MobileAppHeader({
           <Pressable
             onPress={onOpenNotifications}
             className="relative rounded-full p-2.5"
-            accessibilityLabel="Notifications"
+            accessibilityLabel={t("nav.notifications")}
           >
-            <Bell size={22} color="#f9f9f9" />
+            <Bell size={22} color={ON_DARK_ICON} />
             {unreadCount > 0 ? (
               <Box className="absolute -right-0.5 -top-0.5 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 py-0.5">
                 <Text size="xs" className="font-bold text-white">

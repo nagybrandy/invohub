@@ -5,6 +5,7 @@ export default {
     invoices: "Invoices",
     newInvoice: "New invoice",
     clients: "Clients",
+    partners: "Partners",
     products: "Products",
     settings: "Settings",
     import: "Import",
@@ -16,6 +17,8 @@ export default {
     admin: "Admin panel",
     companySettings: "Company settings",
     accountSettings: "Account settings",
+    collapseSidebar: "Collapse sidebar",
+    expandSidebar: "Expand sidebar",
   },
   admin: {
     title: "Admin panel",
@@ -462,6 +465,8 @@ export default {
   settings: {
     title: "Settings",
     subtitle: "Account, templates, and app preferences.",
+    navTitle: "Settings",
+    backToHub: "Back to Settings",
     account: "Account & billing",
     tools: "Tools & preferences",
     company: "Company profile",
@@ -843,5 +848,16 @@ export default {
     ctaTitle: "Try organized invoicing",
     ctaDescription:
       "Create an account and explore the InvoHub workflows available today.",
+  },
+  notifications: {
+    banner: {
+      more: "+{{count}} more notifications",
+      dismiss: "Dismiss",
+    },
+  },
+  userMenu: {
+    accountSettings: "Account settings",
+    companyProfile: "Company profile",
+    signOut: "Sign out",
   },
 };
