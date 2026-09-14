@@ -60,7 +60,20 @@ export default function CompanySettingsScreen() {
     setCheckingNav(true);
     setNavCheckResult(null);
     try {
-      const result = await apiFetch<NavCheckResult>("/api/nav/check");
+      // Tests the values currently typed into the form, not (only) whatever
+      // was last saved — otherwise editing credentials and hitting "Test
+      // connection" silently re-checks the old saved ones.
+      const result = await apiFetch<NavCheckResult>("/api/nav/check", {
+        method: "POST",
+        body: JSON.stringify({
+          navEnvironment,
+          navTechnicalUser: navTechnicalUser.trim() || undefined,
+          navTechnicalPassword: navTechnicalPassword.trim() || undefined,
+          navXmlSignKey: navXmlSignKey.trim() || undefined,
+          navXmlChangeKey: navXmlChangeKey.trim() || undefined,
+          taxNumber: taxNumber.trim() || undefined,
+        }),
+      });
       setNavCheckResult(result);
     } catch (e) {
       setNavCheckResult({ ok: false, error: e instanceof Error ? e.message : t("common.error") });
@@ -68,6 +81,15 @@ export default function CompanySettingsScreen() {
       setCheckingNav(false);
     }
   }
+
+  // A stale ok/fail result from a previous check must not linger once the
+  // user edits environment or credentials again — otherwise a still-shown
+  // "connection successful" can silently describe values that no longer
+  // match what's in the form.
+  React.useEffect(() => {
+    setNavCheckResult(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navEnvironment, navTechnicalUser, navTechnicalPassword, navXmlSignKey, navXmlChangeKey]);
 
   React.useEffect(() => {
     if (company) {

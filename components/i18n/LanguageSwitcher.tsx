@@ -51,7 +51,8 @@ export function LanguageSwitcher({
             accessibilityState={{ selected }}
             accessibilityLabel={language.label}
             testID={`${testID}-${language.code}`}
-            className={`rounded-md px-2.5 py-1.5 ${
+            hitSlop={8}
+            className={`min-h-11 min-w-8 items-center justify-center rounded-md px-2.5 py-1.5 ${
               selected
                 ? onDark
                   ? "bg-white"

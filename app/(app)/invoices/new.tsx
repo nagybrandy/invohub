@@ -1,7 +1,7 @@
 // app/(app)/invoices/new.tsx
 import * as React from "react";
-import { ScrollView, useWindowDimensions } from "react-native";
-import { router } from "expo-router";
+import { KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions } from "react-native";
+import { router, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   ChevronDown,
@@ -338,18 +338,20 @@ export default function NewInvoiceScreen() {
             method: "POST",
             body: JSON.stringify({ invoiceId: saved.id }),
           });
-        } catch (navError) {
+        } catch (navSubmitError) {
           // Keep the invoice saved; NAV may be unconfigured in local/dev.
-          setError(
-            navError instanceof Error
-              ? `${t("invoices.errors.navSubmitFailed", {
-                  defaultValue: "A számla mentve, de a NAV beküldés sikertelen:",
-                })} ${navError.message}`
-              : t("invoices.errors.navSubmitFailed", {
-                  defaultValue: "A számla mentve, de a NAV beküldés sikertelen.",
-                }),
+          // This screen unmounts on the router.replace below before any
+          // local error state would render, so the reason is carried
+          // forward as a query param — the detail screen surfaces it via
+          // its own navError effect instead of the user landing on a
+          // silently "sent" invoice with no explanation.
+          const reason =
+            navSubmitError instanceof Error
+              ? navSubmitError.message
+              : t("invoices.errors.navSubmitFailed");
+          router.replace(
+            `${routes.invoiceDetail(saved.id)}?navError=${encodeURIComponent(reason)}` as Href
           );
-          router.replace(routes.invoiceDetail(saved.id));
           return;
         }
       }
@@ -364,6 +366,13 @@ export default function NewInvoiceScreen() {
 
   return (
     <Box className="flex-1 bg-background">
+      {/* Without this, a focused field low in the form (Dates/Payment card,
+          bank account, notes) can end up hidden behind the on-screen
+          keyboard on mobile. */}
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
       <ScrollView
         className="flex-1"
         contentContainerClassName="mx-auto w-full max-w-[1280px] gap-5 p-4 pb-52 md:gap-6 md:px-10 md:py-6 md:pb-36"
@@ -792,6 +801,7 @@ export default function NewInvoiceScreen() {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Sticky footer */}
       {!showPreview ? (

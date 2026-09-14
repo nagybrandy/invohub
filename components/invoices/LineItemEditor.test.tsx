@@ -3,10 +3,16 @@ import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { LineItemEditor } from "@/components/invoices/LineItemEditor";
 import { makeLineItem } from "@/__tests__/fixtures/invoices";
+import { confirmAsync } from "@/lib/ui/confirm";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string, opts?: Record<string, unknown>) => (opts ? `${key}:${JSON.stringify(opts)}` : key) }),
 }));
+jest.mock("@/lib/ui/confirm", () => ({
+  confirmAsync: jest.fn(),
+}));
+
+const mockConfirmAsync = confirmAsync as jest.MockedFunction<typeof confirmAsync>;
 jest.mock("@/lib/theme/icon-colors", () => ({
   useIconColors: () => ({ foreground: "#000", muted: "#666", primary: "#4f46e5" }),
 }));
@@ -60,6 +66,10 @@ function findPressableWithText(root: TestRenderer.ReactTestInstance, text: strin
 }
 
 describe("LineItemEditor", () => {
+  beforeEach(() => {
+    mockConfirmAsync.mockReset();
+  });
+
   it("renders the VAT category buttons", () => {
     const { tree } = renderEditor();
     const json = JSON.stringify(tree.toJSON());
@@ -139,5 +149,72 @@ describe("LineItemEditor", () => {
     const added = callArgs[1] as { vatCategory: string; vatRate: number };
     expect(added.vatCategory).toBe("normal");
     expect(added.vatRate).toBe(27);
+  });
+
+  it("confirms before removing a line item that has a description", async () => {
+    mockConfirmAsync.mockResolvedValue(true);
+    const { tree, onChange } = renderEditor({
+      lineItems: [
+        makeLineItem({ id: "line-1", description: "Consulting" }),
+        makeLineItem({ id: "line-2", description: "Design" }),
+      ],
+    });
+
+    const deleteButton = tree.root.findAll(
+      (node) => node.props?.accessibilityLabel === "invoices.lineItemEditor.deleteAction"
+    )[0];
+
+    await act(async () => {
+      await deleteButton.props.onPress?.();
+    });
+
+    expect(mockConfirmAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ destructive: true })
+    );
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "line-2" }),
+    ]);
+  });
+
+  it("does not remove the line item when the confirmation is dismissed", async () => {
+    mockConfirmAsync.mockResolvedValue(false);
+    const { tree, onChange } = renderEditor({
+      lineItems: [
+        makeLineItem({ id: "line-1", description: "Consulting" }),
+        makeLineItem({ id: "line-2", description: "Design" }),
+      ],
+    });
+
+    const deleteButton = tree.root.findAll(
+      (node) => node.props?.accessibilityLabel === "invoices.lineItemEditor.deleteAction"
+    )[0];
+
+    await act(async () => {
+      await deleteButton.props.onPress?.();
+    });
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("removes a still-blank line item without prompting for confirmation", async () => {
+    const { tree, onChange } = renderEditor({
+      lineItems: [
+        makeLineItem({ id: "line-1", description: "" }),
+        makeLineItem({ id: "line-2", description: "Design" }),
+      ],
+    });
+
+    const deleteButton = tree.root.findAll(
+      (node) => node.props?.accessibilityLabel === "invoices.lineItemEditor.deleteAction"
+    )[0];
+
+    await act(async () => {
+      await deleteButton.props.onPress?.();
+    });
+
+    expect(mockConfirmAsync).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "line-2" }),
+    ]);
   });
 });

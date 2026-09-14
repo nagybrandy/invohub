@@ -270,6 +270,68 @@ describe("markInvoicePaid", () => {
     const result = await markInvoicePaid("user-1", "missing", {});
     expect(result).toBeNull();
   });
+
+  it("accumulates a second partial payment instead of overwriting the first", async () => {
+    // Invoice total is 1000; 400 was already paid (partially_paid). A
+    // second 300 payment should land on 700 total paid, not overwrite the
+    // recorded amount down to 300.
+    mockSelectQueue = [
+      // getInvoiceById(id) inside markInvoicePaid
+      [dbInvoiceRow({ id: "inv-1", status: "partially_paid", dueDate: "2026-12-31", paidAmount: "400" })],
+      [dbLineItemRow({ invoiceId: "inv-1", quantity: "1", unitPrice: "1000", vatRate: 0 })],
+      // getInvoiceById inside upsertInvoice (existing row found)
+      [dbInvoiceRow({ id: "inv-1", status: "partially_paid", dueDate: "2026-12-31", paidAmount: "400" })],
+      [dbLineItemRow({ invoiceId: "inv-1", quantity: "1", unitPrice: "1000", vatRate: 0 })],
+      // getInvoiceById after save
+      [
+        dbInvoiceRow({
+          id: "inv-1",
+          status: "partially_paid",
+          dueDate: "2026-12-31",
+          paymentMethod: "transfer",
+          paidAmount: "700",
+          paidAt: now,
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "inv-1", quantity: "1", unitPrice: "1000", vatRate: 0 })],
+    ];
+
+    const result = await markInvoicePaid("user-1", "inv-1", {
+      paymentMethod: "transfer",
+      paidAmount: 300,
+    });
+
+    expect(result?.status).toBe("partially_paid");
+    expect(result?.paidAmount).toBe(700);
+  });
+
+  it("defaults the payment amount to the outstanding balance, not the full total, for an already-partially-paid invoice", async () => {
+    // 400 of a 1000 total already paid, no paidAmount override supplied —
+    // the remaining 600 should be recorded, taking the invoice to fully
+    // paid (1000), not 400 (the total, silently overwriting) or 400+1000.
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "inv-1", status: "partially_paid", dueDate: "2026-12-31", paidAmount: "400" })],
+      [dbLineItemRow({ invoiceId: "inv-1", quantity: "1", unitPrice: "1000", vatRate: 0 })],
+      [dbInvoiceRow({ id: "inv-1", status: "partially_paid", dueDate: "2026-12-31", paidAmount: "400" })],
+      [dbLineItemRow({ invoiceId: "inv-1", quantity: "1", unitPrice: "1000", vatRate: 0 })],
+      [
+        dbInvoiceRow({
+          id: "inv-1",
+          status: "paid",
+          dueDate: "2026-12-31",
+          paymentMethod: "cash",
+          paidAmount: "1000",
+          paidAt: now,
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "inv-1", quantity: "1", unitPrice: "1000", vatRate: 0 })],
+    ];
+
+    const result = await markInvoicePaid("user-1", "inv-1", { paymentMethod: "cash" });
+
+    expect(result?.status).toBe("paid");
+    expect(result?.paidAmount).toBe(1000);
+  });
 });
 
 describe("listInvoicesInDateRange", () => {

@@ -444,7 +444,13 @@ export type MarkInvoicePaidInput = {
   paymentMethod?: PaymentMethod;
   /** ISO date/time; defaults to now. */
   paidAt?: string;
-  /** Defaults to the invoice's full gross total. */
+  /**
+   * The amount of *this* payment (not the invoice's running total-paid) —
+   * defaults to the full outstanding balance (total minus amount already
+   * paid). Accumulated onto invoice.paidAmount, never overwrites it, so
+   * recording a second partial payment adds to the first instead of
+   * clobbering it.
+   */
   paidAmount?: number;
 };
 
@@ -459,7 +465,9 @@ export async function markInvoicePaid(
 
   const totals = calculateInvoiceTotals(existing.lineItems);
   const paidAt = input.paidAt ?? new Date().toISOString();
-  const paidAmount = input.paidAmount ?? totals.totalAmount;
+  const alreadyPaid = existing.paidAmount ?? 0;
+  const outstanding = Math.max(0, totals.totalAmount - alreadyPaid);
+  const paidAmount = alreadyPaid + (input.paidAmount ?? outstanding);
   const status = deriveInvoiceStatusFromPayment(
     totals.totalAmount,
     paidAmount,

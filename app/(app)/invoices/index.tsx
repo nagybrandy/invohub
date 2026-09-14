@@ -15,6 +15,7 @@ import { ListScreen } from "@/components/layout/ListScreen";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/layout/StatCard";
 import { formatCurrency } from "@/lib/invoices/calculations";
+import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
@@ -40,6 +41,10 @@ export default function InvoiceListScreen() {
     status: filter,
     search,
   });
+  // Matches dashboard/index.tsx's app-wide default (HUF) — invoices don't
+  // carry a single "the" currency, so this is a best-effort label for a
+  // mixed-currency total, not the hardcoded "EUR" it used to be.
+  const monthlyTotalCurrency = invoices[0]?.currency ?? "HUF";
   const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(null);
 
   React.useEffect(() => {
@@ -58,14 +63,14 @@ export default function InvoiceListScreen() {
         refreshing={loading}
         onRefresh={refresh}
         emptyTitle={t("invoices.empty")}
-        emptyDescription="Create your first NAV-ready invoice or load demo data from Settings."
+        emptyDescription={t("invoices.list.emptyDescription")}
         emptyAction={
           <VStack space="sm" className="items-center">
             <Button onPress={() => router.push(routes.newInvoice)}>
               <ButtonText>{t("nav.newInvoice")}</ButtonText>
             </Button>
             <Button variant="outline" onPress={() => router.push(routes.settings)}>
-              <ButtonText>Load demo data</ButtonText>
+              <ButtonText>{t("common.seedDemo")}</ButtonText>
             </Button>
           </VStack>
         }
@@ -75,16 +80,16 @@ export default function InvoiceListScreen() {
               title={t("invoices.title")}
               actions={
                 <Button size="sm" onPress={() => router.push(routes.newInvoice)}>
-                  <ButtonText>New</ButtonText>
+                  <ButtonText>{t("nav.newInvoice")}</ButtonText>
                 </Button>
               }
             />
             <HStack space="md" className="flex-wrap">
-              <StatCard label="Total" value={stats.count} />
-              <StatCard label="This month" value={stats.thisMonthCount} />
+              <StatCard label={t("invoices.list.total")} value={stats.count} />
+              <StatCard label={t("invoices.list.thisMonth")} value={stats.thisMonthCount} />
               <StatCard
-                label="Monthly total"
-                value={formatCurrency(stats.monthlyTotal, "EUR")}
+                label={t("invoices.list.monthlyTotal")}
+                value={formatCurrency(stats.monthlyTotal, monthlyTotalCurrency)}
               />
             </HStack>
             <Input>
@@ -100,7 +105,7 @@ export default function InvoiceListScreen() {
             </Input>
             {total > invoices.length ? (
               <Text size="xs" className="text-muted-foreground">
-                Showing {invoices.length} of {total} invoices (most recent first).
+                {t("invoices.list.showingCount", { shown: invoices.length, total })}
               </Text>
             ) : null}
             <HStack space="xs" className="flex-wrap">
@@ -118,7 +123,7 @@ export default function InvoiceListScreen() {
                     size="xs"
                     className={filter === f ? "text-primary-foreground" : "text-muted-foreground"}
                   >
-                    {f === "all" ? "All" : f}
+                    {f === "all" ? t("invoices.list.filterAll") : t(STATUS_I18N_KEY[f])}
                   </Text>
                 </Pressable>
               ))}

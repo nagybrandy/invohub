@@ -1,7 +1,7 @@
 // components/layout/ScreenLayout.tsx
 // SafeArea scroll container with optional header slot.
 import type { ReactNode } from "react";
-import { ScrollView, type ScrollViewProps } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, type ScrollViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { VStack } from "@/components/ui/vstack";
@@ -29,14 +29,24 @@ export function ScreenLayout({
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["left", "right"]}>
       {scroll ? (
-        <ScrollView
+        // Without this, a focused field low in a form (Recipient/Dates
+        // cards, notes textarea) can end up hidden behind the on-screen
+        // keyboard — there was no keyboard-avoidance anywhere in the app.
+        // "padding" on iOS, "height" on Android (works without relying on
+        // an android:windowSoftInputMode manifest setting).
+        <KeyboardAvoidingView
           className="flex-1"
-          contentContainerClassName="pb-28"
-          keyboardShouldPersistTaps="handled"
-          {...scrollProps}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          {content}
-        </ScrollView>
+          <ScrollView
+            className="flex-1"
+            contentContainerClassName="pb-28"
+            keyboardShouldPersistTaps="handled"
+            {...scrollProps}
+          >
+            {content}
+          </ScrollView>
+        </KeyboardAvoidingView>
       ) : (
         content
       )}

@@ -21,6 +21,7 @@ import {
 import { resolveVatExemptionReason, VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import type { InvoiceCurrency, InvoiceLineItem, VatCategory, VatRate } from "@/lib/invoices/types";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import { confirmAsync } from "@/lib/ui/confirm";
 
 export function LineItemEditor({
   lineItems,
@@ -50,11 +51,26 @@ export function LineItemEditor({
     });
   }
 
-  function removeItem(id: string) {
+  async function removeItem(id: string) {
     if (lineItems.length === 1) {
       return;
     }
-    onChange(lineItems.filter((item) => item.id !== id));
+    const item = lineItems.find((li) => li.id === id);
+    // A blank, never-touched row can go without a prompt; anything with
+    // real content gets the same confirm-before-delete treatment as the
+    // invoice-level delete flow (InvoiceCard), instead of vanishing on a
+    // single mis-tap of a small icon.
+    if (item?.description.trim()) {
+      const confirmed = await confirmAsync({
+        title: t("invoices.lineItemEditor.deleteTitle"),
+        message: t("invoices.lineItemEditor.deleteMessage", { description: item.description }),
+        confirmLabel: t("common.delete"),
+        cancelLabel: t("common.cancel"),
+        destructive: true,
+      });
+      if (!confirmed) return;
+    }
+    onChange(lineItems.filter((li) => li.id !== id));
   }
 
   function addItem() {
@@ -78,7 +94,13 @@ export function LineItemEditor({
                 {t("invoices.lineItemEditor.lineLabel", { index: index + 1 })}
               </Text>
               {lineItems.length > 1 ? (
-                <Pressable onPress={() => removeItem(item.id)} className="p-1">
+                <Pressable
+                  onPress={() => void removeItem(item.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("invoices.lineItemEditor.deleteAction")}
+                  hitSlop={8}
+                  className="h-11 w-11 items-center justify-center"
+                >
                   <Trash2 size={18} color={icons.muted} />
                 </Pressable>
               ) : null}

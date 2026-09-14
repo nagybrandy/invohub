@@ -1,7 +1,7 @@
 // app/(app)/invoices/[id]/index.tsx
 // Invoice detail with inline HTML/PDF preview and actions.
 import * as React from "react";
-import { ActivityIndicator, Alert } from "react-native";
+import { ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Badge, BadgeText } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ import {
   calculateInvoiceTotals,
   formatCurrency,
 } from "@/lib/invoices/calculations";
+import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
@@ -33,6 +34,7 @@ import {
   formatInvoiceDueDate,
   formatInvoiceIssueDateTime,
 } from "@/lib/dates/format";
+import { confirmAsync } from "@/lib/ui/confirm";
 
 type InvoiceLinks = {
   originalInvoice: Invoice | null;
@@ -52,19 +54,9 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-const STATUS_I18N_KEY: Record<Invoice["status"], string> = {
-  draft: "invoices.status.draft",
-  proforma: "invoices.proforma",
-  sent: "invoices.status.sent",
-  paid: "invoices.status.paid",
-  partially_paid: "invoices.status.partiallyPaid",
-  unpaid: "invoices.status.unpaid",
-  overdue: "invoices.status.overdue",
-  cancelled: "invoices.status.cancelled",
-};
-
 export default function InvoiceDetailScreen() {
   const id = useRouteParam("id");
+  const navError = useRouteParam("navError");
   const { t } = useTranslation();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [links, setLinks] = React.useState<InvoiceLinks | null>(null);
@@ -88,7 +80,10 @@ export default function InvoiceDetailScreen() {
       ]);
       setInvoice(invoiceData.invoice);
       setLinks(linksData);
-      setPaidAmount(String(calculateInvoiceTotals(invoiceData.invoice.lineItems).totalAmount));
+      const totalAmount = calculateInvoiceTotals(invoiceData.invoice.lineItems).totalAmount;
+      const alreadyPaid = invoiceData.invoice.paidAmount ?? 0;
+      const outstanding = Math.max(0, totalAmount - alreadyPaid);
+      setPaidAmount(String(outstanding));
     } catch (e) {
       setInvoice(null);
       setLoadError(e instanceof Error ? e.message : "Failed to load invoice.");
@@ -100,13 +95,23 @@ export default function InvoiceDetailScreen() {
     void reload().finally(() => setLoading(false));
   }, [id, reload]);
 
+  // Surfaces a NAV submission failure carried forward via ?navError= from
+  // invoices/new.tsx — that screen navigates away immediately after a
+  // failed submit, so a local error there is never seen.
+  React.useEffect(() => {
+    if (navError) {
+      setMessage(t("invoices.errors.navSubmitFailedWithReason", { reason: navError }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navError]);
+
   async function runAction(key: string, fn: () => Promise<void>) {
     setBusy(key);
     setMessage(null);
     try {
       await fn();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Action failed.");
+      setMessage(e instanceof Error ? e.message : t("invoices.detail.actionFailed"));
     } finally {
       setBusy(null);
     }
@@ -118,52 +123,44 @@ export default function InvoiceDetailScreen() {
       method: "POST",
       body: JSON.stringify({}),
     });
-    setMessage("Invoice email sent with PDF attachment.");
+    setMessage(t("invoices.detail.emailSent"));
     await reload();
   }
 
   async function handleDelete() {
     if (!id) return;
-    Alert.alert(
-      "Delete invoice",
-      `Permanently remove ${invoice?.invoiceNumber}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () =>
-            void runAction("delete", async () => {
-              await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
-              router.replace(routes.invoices);
-            }),
-        },
-      ]
-    );
+    const confirmed = await confirmAsync({
+      title: t("invoices.detail.deleteTitle"),
+      message: t("invoices.detail.deleteMessage", { number: invoice?.invoiceNumber }),
+      confirmLabel: t("invoices.detail.deleteAction"),
+      cancelLabel: t("common.cancel"),
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await runAction("delete", async () => {
+      await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
+      router.replace(routes.invoices);
+    });
   }
 
   async function handleStorno() {
     if (!id) return;
-    Alert.alert(
-      "Create storno invoice",
-      "This creates a cancellation invoice with negated line items.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Create storno",
-          style: "destructive",
-          onPress: () =>
-            void runAction("storno", async () => {
-              const data = await apiFetch<{ invoice: Invoice }>(
-                `/api/invoices/${id}/storno`,
-                { method: "POST" }
-              );
-              setMessage(`Storno created: ${data.invoice.invoiceNumber}`);
-              router.push(routes.invoiceDetail(data.invoice.id));
-            }),
-        },
-      ]
-    );
+    const confirmed = await confirmAsync({
+      title: t("invoices.detail.stornoTitle"),
+      message: t("invoices.detail.stornoMessage"),
+      confirmLabel: t("invoices.detail.stornoConfirm"),
+      cancelLabel: t("common.cancel"),
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await runAction("storno", async () => {
+      const data = await apiFetch<{ invoice: Invoice }>(
+        `/api/invoices/${id}/storno`,
+        { method: "POST" }
+      );
+      setMessage(t("invoices.detail.stornoCreated", { number: data.invoice.invoiceNumber }));
+      router.push(routes.invoiceDetail(data.invoice.id));
+    });
   }
 
   async function handleDuplicate() {
@@ -198,24 +195,20 @@ export default function InvoiceDetailScreen() {
 
   async function handleCorrection() {
     if (!id) return;
-    Alert.alert(
-      t("invoices.correction.confirmTitle"),
-      t("invoices.correction.confirmMessage"),
-      [
-        { text: t("invoices.markPaid.cancel"), style: "cancel" },
-        {
-          text: t("invoices.correction.confirm"),
-          onPress: () =>
-            void runAction("correction", async () => {
-              const data = await apiFetch<{ invoice: Invoice }>(
-                `/api/invoices/${id}/modify`,
-                { method: "POST" }
-              );
-              router.push(routes.invoiceEdit(data.invoice.id));
-            }),
-        },
-      ]
-    );
+    const confirmed = await confirmAsync({
+      title: t("invoices.correction.confirmTitle"),
+      message: t("invoices.correction.confirmMessage"),
+      confirmLabel: t("invoices.correction.confirm"),
+      cancelLabel: t("common.cancel"),
+    });
+    if (!confirmed) return;
+    await runAction("correction", async () => {
+      const data = await apiFetch<{ invoice: Invoice }>(
+        `/api/invoices/${id}/modify`,
+        { method: "POST" }
+      );
+      router.push(routes.invoiceEdit(data.invoice.id));
+    });
   }
 
   async function handlePaymentLink(provider: "revolut" | "barion") {
@@ -225,7 +218,11 @@ export default function InvoiceDetailScreen() {
         method: "POST",
         body: JSON.stringify({ invoiceId: id, provider }),
       });
-      setMessage(`${provider} link: ${data.payment.url}`);
+      setMessage(
+        provider === "revolut"
+          ? t("invoices.detail.revolutLink", { url: data.payment.url })
+          : t("invoices.detail.barionLink", { url: data.payment.url })
+      );
     });
   }
 
@@ -241,9 +238,9 @@ export default function InvoiceDetailScreen() {
     return (
       <ScreenLayout>
         <VStack space="md">
-          <Text className="text-destructive">{loadError ?? "Invoice not found."}</Text>
+          <Text className="text-destructive">{loadError ?? t("invoices.detail.notFound")}</Text>
           <Button variant="outline" onPress={() => void reload()}>
-            <ButtonText>Retry</ButtonText>
+            <ButtonText>{t("invoices.detail.retry")}</ButtonText>
           </Button>
         </VStack>
       </ScreenLayout>
@@ -271,19 +268,19 @@ export default function InvoiceDetailScreen() {
           <VStack space="sm">
             <HStack className="justify-between">
               <Text size="sm" className="text-muted-foreground">
-                Issue date
+                {t("invoices.detail.issueDate")}
               </Text>
               <Text>{formatInvoiceIssueDateTime(invoice)}</Text>
             </HStack>
             <HStack className="justify-between">
               <Text size="sm" className="text-muted-foreground">
-                Due date
+                {t("invoices.detail.dueDate")}
               </Text>
               <Text>{formatInvoiceDueDate(invoice)}</Text>
             </HStack>
             <HStack className="justify-between">
               <Text size="sm" className="text-muted-foreground">
-                Total
+                {t("invoices.detail.total")}
               </Text>
               <Text className="text-lg font-bold">
                 {formatCurrency(totals.totalAmount, invoice.currency)}
@@ -337,24 +334,24 @@ export default function InvoiceDetailScreen() {
         {id ? <NavStatusCard invoiceId={id} /> : null}
 
         <VStack space="sm">
-          <Text className="font-semibold">Actions</Text>
+          <Text className="font-semibold">{t("invoices.detail.actionsTitle")}</Text>
           <HStack space="sm" className="flex-wrap">
             <Button variant="outline" onPress={() => router.push(routes.invoiceEdit(id!))}>
-              <ButtonText>Edit</ButtonText>
+              <ButtonText>{t("invoices.detail.edit")}</ButtonText>
             </Button>
             <Button
               variant="outline"
               disabled={busy === "send"}
               onPress={() => void runAction("send", handleSend)}
             >
-              <ButtonText>Send email</ButtonText>
+              <ButtonText>{t("invoices.detail.sendEmail")}</ButtonText>
             </Button>
             <Button
               variant="outline"
               disabled={busy === "delete"}
               onPress={() => void handleDelete()}
             >
-              <ButtonText>Delete</ButtonText>
+              <ButtonText>{t("invoices.detail.deleteAction")}</ButtonText>
             </Button>
           </HStack>
           <HStack space="sm" className="flex-wrap">
@@ -449,6 +446,13 @@ export default function InvoiceDetailScreen() {
                       onChangeText={setPaidAmount}
                     />
                   </Input>
+                  {(invoice.paidAmount ?? 0) > 0 ? (
+                    <Text size="xs" className="mt-1 text-muted-foreground">
+                      {t("invoices.markPaid.paidAmountHint", {
+                        amount: formatCurrency(invoice.paidAmount ?? 0, invoice.currency),
+                      })}
+                    </Text>
+                  ) : null}
                 </FormControl>
               </HStack>
               <HStack space="sm">
