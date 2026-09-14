@@ -115,7 +115,6 @@ authTest.describe("Dashboard KPIs and layout (redesign)", () => {
     !hasE2ECredentials,
     "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
   );
-  authTest.use({ viewport: { width: 1440, height: 900 } });
 
   authTest("all 4 KPI cards are clickable and navigate to a filtered invoice list", async ({
     page,

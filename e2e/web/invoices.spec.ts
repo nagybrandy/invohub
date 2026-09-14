@@ -154,7 +154,6 @@ authTest.describe("Invoice list (desktop table)", () => {
     !hasE2ECredentials,
     "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
   );
-  authTest.use({ viewport: { width: 1440, height: 900 } });
 
   authTest("renders a table with Sorszám/Partner/Kelt/Fizetési határidő/Státusz/NAV/Bruttó headers", async ({
     page,
@@ -226,7 +225,6 @@ authTest.describe("Invoice detail (money header + timeline + danger zone)", () =
     !hasE2ECredentials,
     "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
   );
-  authTest.use({ viewport: { width: 1440, height: 900 } });
 
   authTest("shows the money header, timeline, single preview and danger zone", async ({
     page,
