@@ -57,7 +57,7 @@ export default function InvoiceListScreen() {
     status: filter,
     search,
   });
-  const { counts, other: otherCount } = useInvoiceStatusCounts(total);
+  const { counts, allCount, other: otherCount } = useInvoiceStatusCounts();
   // Matches the dashboard's default currency (HUF) — invoices don't share a
   // single currency, so this is only a label for the primary total, never a
   // sum across currencies (L6).
@@ -164,7 +164,7 @@ export default function InvoiceListScreen() {
   }
 
   const filterLabel = (f: InvoiceStatus | "all") => (f === "all" ? t("invoices.list.filterAll") : t(STATUS_I18N_KEY[f]));
-  const filterCount = (f: InvoiceStatus | "all") => (f === "all" ? total : counts[f] ?? 0);
+  const filterCount = (f: InvoiceStatus | "all") => (f === "all" ? allCount : counts[f] ?? 0);
 
   const header = (
     <VStack space="md" className="pb-4">
