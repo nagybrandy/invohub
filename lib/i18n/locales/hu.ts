@@ -681,6 +681,7 @@ export default {
     columnCity: "Város",
     rowMenuLabel: "Sor műveletei",
     edit: "Szerkesztés",
+    editTitle: "Partner szerkesztése",
     deleteConfirmTitle: "Partner törlése",
     deleteConfirmMessage: "Törlöd ezt: {{name}}?",
   },

@@ -17,6 +17,11 @@ export const routes = {
   invoicesFiltered: (status: string) =>
     ({ pathname: "/invoices", params: { status } }) as Href,
   newInvoice: "/invoices/new" as Href,
+  /** /invoices/new with a partner preselected — the row-menu's "Számla ennek
+   * a partnernek" (C4). Reads back via `?clientId=` when the composer
+   * supports it. */
+  newInvoiceForClient: (clientId: string) =>
+    ({ pathname: "/invoices/new", params: { clientId } }) as Href,
   invoiceDetail: (id: string) => `/invoices/${id}` as Href,
   invoiceEdit: (id: string) => `/invoices/${id}/edit` as Href,
   clients: "/clients" as Href,

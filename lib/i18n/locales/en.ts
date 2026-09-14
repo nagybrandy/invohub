@@ -681,6 +681,7 @@ export default {
     columnCity: "City",
     rowMenuLabel: "Row actions",
     edit: "Edit",
+    editTitle: "Edit partner",
     deleteConfirmTitle: "Delete partner",
     deleteConfirmMessage: "Remove {{name}}?",
   },

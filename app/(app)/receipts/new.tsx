@@ -339,7 +339,7 @@ export default function NewReceiptScreen() {
                   >
                     <HStack className="items-center justify-between">
                       <Text className="font-medium text-foreground">
-                        Item {index + 1}
+                        {t("receipts.item", { index: index + 1 })}
                       </Text>
                       {lineItems.length > 1 ? (
                         <Pressable onPress={() => removeItem(item.id)} className="p-1">
@@ -364,7 +364,7 @@ export default function NewReceiptScreen() {
                     <HStack space="sm" className="flex-wrap">
                       <FormControl className="min-w-[100px] flex-1">
                         <FormControlLabel>
-                          <FormControlLabelText>Net price</FormControlLabelText>
+                          <FormControlLabelText>{t("receipts.netPrice")}</FormControlLabelText>
                         </FormControlLabel>
                         <Input>
                           <InputField
@@ -381,7 +381,7 @@ export default function NewReceiptScreen() {
 
                       <FormControl className="min-w-[70px] flex-1">
                         <FormControlLabel>
-                          <FormControlLabelText>Qty</FormControlLabelText>
+                          <FormControlLabelText>{t("receipts.quantity")}</FormControlLabelText>
                         </FormControlLabel>
                         <Input>
                           <InputField
@@ -411,7 +411,7 @@ export default function NewReceiptScreen() {
 
                     <FormControl>
                       <FormControlLabel>
-                        <FormControlLabelText>VAT rate</FormControlLabelText>
+                        <FormControlLabelText>{t("receipts.vatRate")}</FormControlLabelText>
                       </FormControlLabel>
                       <HStack space="sm">
                         {HU_VAT_RATES.map((rate) => (
@@ -431,7 +431,7 @@ export default function NewReceiptScreen() {
                     </FormControl>
 
                     <Text size="sm" className="text-muted-foreground">
-                      Line total:{" "}
+                      {t("receipts.lineTotalLabel")}:{" "}
                       {formatCurrency(
                         item.quantity * item.unitPrice * (1 + item.vatRate / 100),
                         currency
@@ -459,7 +459,9 @@ export default function NewReceiptScreen() {
               </HStack>
               {totals.vatBreakdown.map((entry) => (
                 <HStack key={entry.vatRate} className="justify-between">
-                  <Text className="text-muted-foreground">{entry.vatRate}% VAT</Text>
+                  <Text className="text-muted-foreground">
+                    {t("receipts.vatRatePercent", { rate: entry.vatRate })}
+                  </Text>
                   <Text>{formatCurrency(entry.vatAmount, currency)}</Text>
                 </HStack>
               ))}
