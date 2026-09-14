@@ -90,8 +90,16 @@ before or alongside Phase 1 items that depend on it.
 The app's own functions and UX come first; audits, tooling and "confirm
 that" items wait. Build in this order (each maps to an unchecked item below):
 
+0. **App UX/UI overhaul (desktop first, then mobile)** — owner, 2026-09-14
+   evening: "the app has a lot of UX/UI problems on desktop: invoice creation
+   is complicated, it's hard to see what is where, the in-app menu isn't
+   clear, and it isn't pretty — fix these first." Handled as a dedicated
+   multi-track workflow (`.claude/workflows/app-ux-overhaul.js`), not as one
+   slice: information architecture + app shell/menu, invoice creation
+   redesign, list/detail/dashboard polish, visual system. Items 1, 7 and 8
+   below are absorbed by it.
 1. Invoice creation flow: step/accordion flow on mobile, fewer fields before
-   line items (`app/(app)/invoices/new.tsx`)
+   line items (`app/(app)/invoices/new.tsx`) — absorbed by item 0
 2. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
 3. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
