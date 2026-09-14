@@ -135,7 +135,20 @@ export function DataTable<T>({
                     {col.render(row)}
                   </Text>
                 ) : (
-                  col.render(row)
+                  (() => {
+                    const rendered = col.render(row);
+                    // A plain string/number would be a bare text node inside
+                    // a View on native — always wrap it in <Text>. A caller
+                    // that already returns JSX (e.g. its own <Text>, a chip)
+                    // is left exactly as rendered.
+                    return typeof rendered === "string" || typeof rendered === "number" ? (
+                      <Text size="sm" className="text-foreground">
+                        {rendered}
+                      </Text>
+                    ) : (
+                      rendered
+                    );
+                  })()
                 )}
               </Box>
             ))}
