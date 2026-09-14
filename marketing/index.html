@@ -113,11 +113,13 @@
       <a href="#gyik" data-i18n="nav.faq">GYIK</a>
       <a href="/blog" data-i18n="nav.blog">Blog</a>
       <a href="/login" data-i18n="nav.login">Belépés</a>
-      <a class="btn btn--primary btn--block" href="/login" data-i18n="nav.cta">Ingyenes regisztráció</a>
 
-      <div class="mobile-menu__lang lang-switch" role="group" data-i18n-attr="aria-label:lang.label" aria-label="Nyelv" data-testid="marketing-mobile-lang-switcher">
-        <button type="button" class="lang-switch__btn is-active" data-lang-btn="hu" aria-pressed="true">HU</button>
-        <button type="button" class="lang-switch__btn" data-lang-btn="en" aria-pressed="false">EN</button>
+      <div class="mobile-menu__bottom-row">
+        <a class="btn btn--primary" href="/login" data-i18n="nav.cta">Ingyenes regisztráció</a>
+        <div class="mobile-menu__lang lang-switch" role="group" data-i18n-attr="aria-label:lang.label" aria-label="Nyelv" data-testid="marketing-mobile-lang-switcher">
+          <button type="button" class="lang-switch__btn is-active" data-lang-btn="hu" aria-pressed="true">HU</button>
+          <button type="button" class="lang-switch__btn" data-lang-btn="en" aria-pressed="false">EN</button>
+        </div>
       </div>
     </nav>
 
@@ -563,6 +565,17 @@
       <section class="section">
         <div class="shell">
           <div class="cta" data-reveal>
+            <!-- Decorative brand mark watermark — same geometry as
+                 /marketing/assets/mark-inverse.svg and BrandTexture. -->
+            <svg class="cta__mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+              <g fill="currentColor">
+                <path d="M30 6H6V30L13 27.1V13H27.1Z" />
+                <path d="M18 42H42V18L35 20.9V35H20.9Z" />
+                <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
+                <path d="M25.5 19L37.25 7.25L40.75 10.75L29 22.5Z" />
+                <path d="M22.5 29L10.75 40.75L7.25 37.25L19 25.5Z" />
+              </g>
+            </svg>
             <span class="kicker kicker--dark" data-i18n="cta.kicker">Kezdés</span>
             <h2 class="h2" data-i18n="cta.title">Vidd rendezett rendszerbe a napi számlázást</h2>
             <p class="lede lede--dark" style="text-align: center" data-i18n="cta.lede">
@@ -578,7 +591,18 @@
       <div class="shell">
         <div class="footer__top">
           <div class="footer__brand">
-            <a class="brand" href="/" data-i18n-attr="aria-label:brand.home" aria-label="InvoHub főoldal">
+            <a class="brand brand--mark" href="/" data-i18n-attr="aria-label:brand.home" aria-label="InvoHub főoldal">
+              <svg class="brand__mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                <g class="brand__mark-frame">
+                  <path d="M30 6H6V30L13 27.1V13H27.1Z" />
+                  <path d="M18 42H42V18L35 20.9V35H20.9Z" />
+                </g>
+                <g class="brand__mark-flow">
+                  <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
+                  <path d="M25.5 19L37.25 7.25L40.75 10.75L29 22.5Z" />
+                  <path d="M22.5 29L10.75 40.75L7.25 37.25L19 25.5Z" />
+                </g>
+              </svg>
               <span class="brand__word">Invo<span class="brand__hub">Hub</span></span>
             </a>
             <p data-i18n="footer.blurb">

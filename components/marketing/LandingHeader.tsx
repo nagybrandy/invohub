@@ -94,11 +94,18 @@ export function LandingHeader({
     <>
       <Box
         testID="landing-header"
-        className={`z-50 px-3 py-2 web:fixed web:left-1/2 web:top-3 web:w-[min(1180px,calc(100%-24px))] web:-translate-x-1/2 web:rounded-2xl web:border web:transition-[background-color,border-color,box-shadow,backdrop-filter] web:duration-200 md:px-5 ${
-          chromeSolid
-            ? "border-white/12 bg-secondary/90 web:shadow-lg web:backdrop-blur-md"
-            : "border-transparent bg-transparent"
-        }`}
+        className={
+          !isDesktop && menuOpen
+            ? // Flush with the fullscreen menu below it while open — no
+              // floating pill (rounded corners/border/top margin) sitting on
+              // top, so header + menu read as one continuous surface.
+              "z-50 w-full border-transparent bg-secondary px-3 py-2 web:fixed web:left-0 web:top-0"
+            : `z-50 px-3 py-2 web:fixed web:left-1/2 web:top-3 web:w-[min(1180px,calc(100%-24px))] web:-translate-x-1/2 web:rounded-2xl web:border web:transition-[background-color,border-color,box-shadow,backdrop-filter] web:duration-200 md:px-5 ${
+                chromeSolid
+                  ? "border-white/12 bg-secondary/90 web:shadow-lg web:backdrop-blur-md"
+                  : "border-transparent bg-transparent"
+              }`
+        }
       >
         <HStack className="mx-auto w-full max-w-[1280px] items-center justify-between">
         <Pressable
@@ -202,7 +209,7 @@ export function LandingHeader({
       {!isDesktop && menuOpen ? (
         <Box
           testID="landing-mobile-menu"
-          className="fixed inset-0 z-40 bg-secondary px-6 pb-10 pt-28"
+          className="fixed inset-0 z-40 flex-col justify-end bg-secondary px-6 pb-8"
         >
           <VStack space="sm" className="mx-auto w-full max-w-[480px]">
             {navItems.map(([section, label]) => (
@@ -246,11 +253,12 @@ export function LandingHeader({
             ) : null}
 
             {/* CTA + language switch live here instead of the top bar, which
-                on mobile stays down to just brand + hamburger. */}
-            <Box className="mt-4 gap-4 border-t border-white/10 pt-6">
+                on mobile stays down to just brand + hamburger. Same row —
+                CTA takes the remaining width, the switcher stays minimal. */}
+            <HStack space="sm" className="mt-4 items-center border-t border-white/10 pt-6">
               <Button
                 size="lg"
-                className="min-h-14"
+                className="min-h-14 flex-1"
                 accessibilityLabel={isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
                 testID="landing-mobile-cta"
                 onPress={() => {
@@ -262,10 +270,11 @@ export function LandingHeader({
                   {isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
                 </ButtonText>
               </Button>
-              <HStack className="items-center justify-center">
-                <LanguageSwitcher tone="onDark" testID="landing-mobile-language-switcher" />
-              </HStack>
-            </Box>
+              <LanguageSwitcher
+                tone="onDark"
+                testID="landing-mobile-language-switcher"
+              />
+            </HStack>
           </VStack>
         </Box>
       ) : null}
