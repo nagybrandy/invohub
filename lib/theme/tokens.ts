@@ -35,6 +35,10 @@ export const invoHubDesignTokens = {
     border200: "#c5c7ca",
     border100: "#e4e6e8",
     border400: "#8e9094",
+    /** Lighter card/table border — V8. Not the input/divider --border. */
+    borderSubtle: "#e4e6e8",
+    /** Raised-surface background (popover, modal, sticky footer). */
+    surfaceRaised: "#ffffff",
   },
   radius: {
     lg: 8,
@@ -88,6 +92,12 @@ export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
     "--destructive": "220 38 38",
     "--destructive-foreground": "255 255 255",
     "--border": "197 199 202",
+    // Lighter card/table border (V8) — #e4e6e8. Distinct from --border, which
+    // stays the heavier input/divider color.
+    "--border-subtle": "228 230 232",
+    // Raised surfaces (popover, modal, sticky footer) — where shadow-sm is
+    // allowed. Plain cards use --card and no shadow.
+    "--surface-raised": "255 255 255",
     "--input": "255 255 255",
     "--ring": "100 149 237",
     "--hard-shadow": "33 35 37",
@@ -110,6 +120,8 @@ export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
     "--destructive": "248 113 113",
     "--destructive-foreground": "255 255 255",
     "--border": "38 45 61",
+    "--border-subtle": "48 56 74",
+    "--surface-raised": "24 28 38",
     "--input": "27 32 44",
     "--ring": "120 165 240",
   },

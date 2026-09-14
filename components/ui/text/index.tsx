@@ -5,7 +5,10 @@ import { Text as RNText } from 'react-native';
 import { textStyle } from './styles';
 
 type ITextProps = React.ComponentProps<typeof RNText> &
-  VariantProps<typeof textStyle>;
+  VariantProps<typeof textStyle> & {
+    /** Tabular figures for money/quantity columns — spec §4.6. */
+    numeric?: boolean;
+  };
 
 const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(
   function Text(
@@ -19,6 +22,8 @@ const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(
       sub,
       italic,
       highlight,
+      numeric,
+      style,
       ...props
     },
     ref
@@ -36,6 +41,7 @@ const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(
           highlight: highlight as boolean,
           class: className,
         })}
+        style={numeric ? [{ fontVariant: ['tabular-nums'] }, style] : style}
         {...props}
         ref={ref}
       />

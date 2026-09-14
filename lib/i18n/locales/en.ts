@@ -83,6 +83,18 @@ export default {
     refresh: "Refresh",
     seedDemo: "Load demo data",
     seedSuccess: "Demo data loaded successfully.",
+    retry: "Retry",
+    search: "Search",
+    moreActions: "More actions",
+    required: "required",
+    collapse: "Collapse",
+    expand: "Expand",
+  },
+  states: {
+    loading: "Loading…",
+    emptyTitle: "Nothing here yet",
+    errorTitle: "Something went wrong",
+    errorDescription: "Try again, or refresh the page.",
   },
   cookies: {
     title: "Cookie preferences",

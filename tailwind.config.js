@@ -23,6 +23,11 @@ module.exports = {
       },
       colors: {
         border: "rgb(var(--border) / <alpha-value>)",
+        // Named "subtle" (not "border-subtle") so Tailwind's border-color
+        // plugin generates the utility our components actually use:
+        // `border-subtle` (border-{colorKey}), not `border-border-subtle`.
+        subtle: "rgb(var(--border-subtle) / <alpha-value>)",
+        "surface-raised": "rgb(var(--surface-raised) / <alpha-value>)",
         input: "rgb(var(--input) / <alpha-value>)",
         ring: "rgb(var(--ring) / <alpha-value>)",
         background: "rgb(var(--background) / <alpha-value>)",

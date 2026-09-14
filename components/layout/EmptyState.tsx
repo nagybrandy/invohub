@@ -1,10 +1,10 @@
 // components/layout/EmptyState.tsx
-// Centered empty placeholder — use outside FlatList (web-safe).
+// Thin backward-compatible wrapper around StateView (V11) — existing calls
+// with the old { title, description, action, loading, className } shape
+// keep working unchanged, but loading now renders a skeleton instead of an
+// ActivityIndicator floating in the void.
 import type { ReactNode } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { Heading } from "@/components/ui/heading";
-import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
+import { StateView } from "@/components/layout/StateView";
 
 type EmptyStateProps = {
   title: string;
@@ -19,27 +19,18 @@ export function EmptyState({
   description,
   action,
   loading = false,
-  className = "py-16",
+  className,
 }: EmptyStateProps) {
+  if (loading) {
+    return <StateView kind="loading" className={className} />;
+  }
   return (
-    <View className={`flex-1 items-center justify-center ${className}`}>
-      <VStack space="md" className="max-w-sm items-center px-6">
-        {loading ? (
-          <ActivityIndicator />
-        ) : (
-          <>
-            <Heading size="lg" className="text-center text-foreground">
-              {title}
-            </Heading>
-            {description ? (
-              <Text size="sm" className="text-center text-muted-foreground">
-                {description}
-              </Text>
-            ) : null}
-            {action}
-          </>
-        )}
-      </VStack>
-    </View>
+    <StateView
+      kind="empty"
+      title={title}
+      description={description}
+      action={action}
+      className={className}
+    />
   );
 }
