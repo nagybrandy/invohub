@@ -1,124 +1,161 @@
 // app/(app)/dashboard/index.tsx
-import { useWindowDimensions } from "react-native";
+// Vezérlőpult: 4 clickable KPIs that link to the matching filtered invoice
+// list (A4), a "Következő lépések" card, a real chart instead of a
+// colour-legend with nothing behind it (A5), an honest VAT caption that
+// names the period (A3), and the M2M dev-diagnostics panel collapsed at
+// the very bottom (A2). Recent invoices reuse the same InvoiceListTable
+// the /invoices screen uses — one visual language, not two (A1, L1).
+import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import {
-  Download,
-  Headphones,
-  Inbox,
-  MoreHorizontal,
-  Plus,
-} from "lucide-react-native";
-import { Badge, BadgeText } from "@/components/ui/badge";
+import { Headphones, Inbox } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { Breadcrumb } from "@/components/layout/Breadcrumb";
-import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { InvoiceCard } from "@/components/invoices/InvoiceCard";
+import { InvoiceListTable } from "@/components/invoices/InvoiceListTable";
+import { NextActionsCard } from "@/components/dashboard/NextActionsCard";
 import { M2mDemoCard } from "@/components/dashboard/M2mDemoCard";
-import { useSession } from "@/lib/auth-client";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { Section } from "@/components/layout/Section";
+import { StatCard } from "@/components/layout/StatCard";
+import { apiFetch } from "@/lib/api/client";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { formatCurrency, calculateInvoiceTotals } from "@/lib/invoices/calculations";
+import { formatCurrency } from "@/lib/invoices/calculations";
 import { routes } from "@/lib/navigation";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
-import type { Invoice } from "@/lib/invoices/types";
-
-function getInvoiceGross(invoice: Invoice): number {
-  return calculateInvoiceTotals(invoice.lineItems).totalAmount;
-}
+import { formatVatPeriodLabel } from "@/lib/dashboard/vat-period";
+import { useIsDesktop } from "@/lib/useIsDesktop";
+import type { InvoiceStatus } from "@/lib/invoices/types";
 
 export default function DashboardScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const icons = useIconColors();
-  const { data: session } = useSession();
-  const { summary: computed, loading } = useDashboardSummary();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+  const { summary, draftCount, outstandingCount, paidCount, loading, refresh } =
+    useDashboardSummary();
+  const isDesktop = useIsDesktop();
 
-  const currency: Invoice["currency"] = "HUF";
+  const currency = "HUF" as const;
+  const vatPeriod = formatVatPeriodLabel(new Date(), i18n.language);
+
+  function goTo(status: InvoiceStatus | "all") {
+    router.push(status === "all" ? routes.invoices : routes.invoicesFiltered(status));
+  }
+
+  async function handleDeleteInvoice(id: string) {
+    await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
+    await refresh();
+  }
+
+  const revenueTotal = summary.revenue + summary.outstanding;
+  const paidShare = revenueTotal > 0 ? summary.revenue / revenueTotal : 0;
+  const outstandingShare = revenueTotal > 0 ? summary.outstanding / revenueTotal : 0;
 
   return (
-    <ScreenLayout>
-      <VStack space="lg" className="mx-auto w-full max-w-[1280px]">
-        <Breadcrumb items={[{ label: t("dashboard.breadcrumb") }]} />
-        {/* Header row */}
-        <Box className="gap-4 md:flex-row md:items-start md:justify-between">
-          <VStack space="xs">
-            <Heading size="2xl" className="text-foreground">
-              {t("nav.dashboard")}
-            </Heading>
-            <Text size="sm" className="text-muted-foreground">
-              {t("dashboard.subtitle")}
-            </Text>
-          </VStack>
-          {isDesktop ? (
-          <HStack space="sm" className="items-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onPress={() => router.push(routes.invoices)}
-            >
-              <Inbox size={16} color={icons.foreground} />
-              <ButtonText>{t("dashboard.incomingInvoices")}</ButtonText>
-              {computed.overdueCount > 0 ? (
-                <Badge
-                  variant="destructive"
-                  className="ml-1 rounded-full px-1.5 py-0"
-                >
-                  <BadgeText className="text-[10px]">
-                    {computed.overdueCount}
-                  </BadgeText>
-                </Badge>
-              ) : null}
-            </Button>
-            <Button variant="outline" size="sm">
-              <Headphones size={16} color={icons.foreground} />
-              <ButtonText>{t("dashboard.customerService")}</ButtonText>
-            </Button>
-          </HStack>
-          ) : (
-            <Button onPress={() => router.push(routes.newInvoice)}>
-              <Plus size={16} color="#ffffff" />
-              <ButtonText>{t("dashboard.newInvoice")}</ButtonText>
-            </Button>
-          )}
-        </Box>
-
-        {/* 3 equal stat cards */}
+    <ScreenLayout
+      header={
+        <PageHeader
+          title={t("nav.dashboard")}
+          subtitle={t("dashboard.subtitle")}
+          primaryAction={
+            isDesktop ? (
+              <Button variant="outline" size="sm" onPress={() => goTo("unpaid")} testID="dashboard-incoming-invoices">
+                <Inbox size={16} color={icons.foreground} />
+                <ButtonText>{t("dashboard.incomingInvoices")}</ButtonText>
+              </Button>
+            ) : (
+              <Button onPress={() => router.push(routes.newInvoice)}>
+                <ButtonText>{t("dashboard.newInvoice")}</ButtonText>
+              </Button>
+            )
+          }
+          overflowActions={
+            isDesktop
+              ? [{ label: t("dashboard.customerService"), icon: Headphones, onPress: () => undefined }]
+              : undefined
+          }
+        />
+      }
+    >
+      <VStack space="lg">
+        {/* 4 clickable KPIs (A4) */}
         <Box className="flex-col gap-4 md:flex-row">
-          <RevenueCard
+          <StatCard
+            label={t("dashboard.kpi.outstanding")}
+            value={loading ? "…" : formatCurrency(summary.outstanding, currency)}
+            hint={t("dashboard.kpi.invoiceCount", { count: outstandingCount ?? 0 })}
+            onPress={() => goTo("unpaid")}
             loading={loading}
-            revenue={computed.revenue}
-            paid={computed.revenue}
-            issued={computed.issuedTotal}
-            outstanding={computed.outstanding}
-            currency={currency}
           />
-          <VatCard
+          <StatCard
+            label={t("dashboard.kpi.overdue")}
+            value={loading ? "…" : formatCurrency(summary.overdueTotal, currency)}
+            tone="critical"
+            hint={
+              summary.oldestOverdueDays < 1
+                ? t("dashboard.kpi.overdueHintToday", { count: summary.overdueCount })
+                : t("dashboard.kpi.overdueHint", { count: summary.overdueCount, days: summary.oldestOverdueDays })
+            }
+            onPress={() => goTo("overdue")}
             loading={loading}
-            estimatedVat={computed.estimatedVat}
-            currency={currency}
           />
-          <OverdueCard
+          <StatCard
+            label={t("dashboard.kpi.revenueThisMonth")}
+            value={loading ? "…" : formatCurrency(summary.revenue, currency)}
+            hint={t("dashboard.kpi.invoiceCount", { count: paidCount ?? 0 })}
+            onPress={() => goTo("paid")}
             loading={loading}
-            outstanding={computed.overdueTotal}
-            overdueCount={computed.overdueCount}
-            oldestDays={computed.oldestOverdueDays}
-            currency={currency}
+          />
+          <StatCard
+            label={t("dashboard.kpi.estimatedVat")}
+            value={loading ? "…" : formatCurrency(Math.round(summary.estimatedVat), currency)}
+            hint={t("dashboard.vatPeriodNote", { period: vatPeriod })}
+            onPress={() => goTo("all")}
+            loading={loading}
           />
         </Box>
 
-        {/* Recent Invoices */}
+        <NextActionsCard
+          overdueCount={summary.overdueCount}
+          draftCount={draftCount}
+          loading={loading}
+          onSelect={goTo}
+        />
+
+        {/* Revenue split — a real chart, not a legend without one (A5). No orange. */}
+        <Section title={t("dashboard.revenueStats")}>
+          <VStack space="sm">
+            <HStack className="h-2 overflow-hidden rounded-full bg-muted" testID="dashboard-revenue-bar">
+              <Box className="h-full bg-[#15803d]" style={{ width: `${paidShare * 100}%` }} />
+              <Box className="h-full bg-primary" style={{ width: `${outstandingShare * 100}%` }} />
+            </HStack>
+            <HStack space="md" className="flex-wrap">
+              <HStack space="xs" className="items-center">
+                <Box className="h-2.5 w-2.5 rounded-full bg-[#15803d]" />
+                <Text size="xs" className="text-muted-foreground">
+                  {t("dashboard.paid")}: {formatCurrency(summary.revenue, currency)}
+                </Text>
+              </HStack>
+              <HStack space="xs" className="items-center">
+                <Box className="h-2.5 w-2.5 rounded-full bg-primary" />
+                <Text size="xs" className="text-muted-foreground">
+                  {t("dashboard.outstanding")}: {formatCurrency(summary.outstanding, currency)}
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </Section>
+
+        {/* Recent invoices — same visual language as /invoices (A1, L1) */}
         <VStack space="sm">
           <HStack className="items-center justify-between">
-            <Heading size="lg" className="text-foreground">
+            <Text className="font-heading text-lg font-semibold text-foreground">
               {t("dashboard.recentInvoices")}
-            </Heading>
+            </Text>
             <Pressable onPress={() => router.push(routes.invoices)}>
               <Text size="sm" className="font-medium text-primary">
                 {t("dashboard.allOutgoing")} →
@@ -127,428 +164,33 @@ export default function DashboardScreen() {
           </HStack>
 
           {isDesktop ? (
-            <InvoiceTable
-              invoices={computed.recentInvoices}
+            <InvoiceListTable
+              invoices={summary.recentInvoices}
               loading={loading}
-              icons={icons}
+              onRowPress={(inv) => router.push(routes.invoiceDetail(inv.id))}
+              menuItemsFor={() => []}
+              empty={<Text className="p-4 text-muted-foreground">{t("dashboard.table.noInvoices")}</Text>}
             />
           ) : (
-            <InvoiceCards
-              invoices={computed.recentInvoices}
-              loading={loading}
-            />
+            <VStack space="sm">
+              {summary.recentInvoices.length === 0 ? (
+                <Text className="text-muted-foreground">{t("dashboard.table.noInvoices")}</Text>
+              ) : (
+                summary.recentInvoices.map((invoice) => (
+                  <InvoiceCard
+                    key={invoice.id}
+                    invoice={invoice}
+                    onDelete={handleDeleteInvoice}
+                    onPress={(inv) => router.push(routes.invoiceDetail(inv.id))}
+                  />
+                ))
+              )}
+            </VStack>
           )}
         </VStack>
 
         <M2mDemoCard />
-
       </VStack>
     </ScreenLayout>
   );
-}
-
-/* ─── Revenue Stat Card ───────────────────────────────────── */
-
-function RevenueCard({
-  loading,
-  revenue,
-  paid,
-  issued,
-  outstanding,
-  currency,
-}: {
-  loading: boolean;
-  revenue: number;
-  paid: number;
-  issued: number;
-  outstanding: number;
-  currency: Invoice["currency"];
-}) {
-  const { t } = useTranslation();
-  return (
-    <Card className="flex-1 p-5">
-      <VStack space="sm">
-        <Text size="sm" className="font-light text-muted-foreground">
-          {t("dashboard.revenueStats")}
-        </Text>
-        <Text className="text-2xl font-bold text-foreground">
-          {loading ? "…" : formatCurrency(revenue, currency)}
-        </Text>
-        <VStack space="xs">
-          <HStack space="sm" className="items-center">
-            <Box className="h-2.5 w-2.5 rounded-full bg-green-500" />
-            <Text size="xs" className="font-light text-muted-foreground">
-              {t("dashboard.paid")}:{" "}
-              {loading ? "…" : formatCurrency(paid, currency)}
-            </Text>
-          </HStack>
-          <HStack space="sm" className="items-center">
-            <Box className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-            <Text size="xs" className="font-light text-muted-foreground">
-              {t("dashboard.issued")}:{" "}
-              {loading ? "…" : formatCurrency(issued, currency)}
-            </Text>
-          </HStack>
-          <HStack space="sm" className="items-center">
-            <Box className="h-2.5 w-2.5 rounded-full bg-orange-500" />
-            <Text size="xs" className="font-light text-muted-foreground">
-              {t("dashboard.outstanding")}:{" "}
-              {loading ? "…" : formatCurrency(outstanding, currency)}
-            </Text>
-          </HStack>
-        </VStack>
-      </VStack>
-    </Card>
-  );
-}
-
-/* ─── Estimated VAT Card ──────────────────────────────────── */
-
-function VatCard({
-  loading,
-  estimatedVat,
-  currency,
-}: {
-  loading: boolean;
-  estimatedVat: number;
-  currency: Invoice["currency"];
-}) {
-  const { t } = useTranslation();
-  return (
-    <Card className="flex-1 p-5">
-      <VStack space="sm">
-        <Text size="sm" className="font-light text-muted-foreground">
-          {t("dashboard.estimatedVat")}
-        </Text>
-        <Text className="text-2xl font-bold text-foreground">
-          {loading
-            ? "…"
-            : formatCurrency(Math.round(estimatedVat), currency)}
-        </Text>
-        <Text size="xs" className="font-light text-muted-foreground">
-          {t("dashboard.vatPeriodNote")}
-        </Text>
-      </VStack>
-    </Card>
-  );
-}
-
-/* ─── Overdue Debt Card ───────────────────────────────────── */
-
-function OverdueCard({
-  loading,
-  outstanding,
-  overdueCount,
-  oldestDays,
-  currency,
-}: {
-  loading: boolean;
-  outstanding: number;
-  overdueCount: number;
-  oldestDays: number;
-  currency: Invoice["currency"];
-}) {
-  const { t } = useTranslation();
-  return (
-    <Card className="flex-1 p-5">
-      <VStack space="sm">
-        <Text size="sm" className="font-light text-muted-foreground">
-          {t("dashboard.overdueDebt")}
-        </Text>
-        <Text className="text-2xl font-bold text-destructive">
-          {loading ? "…" : formatCurrency(outstanding, currency)}
-        </Text>
-        <Text size="xs" className="font-light text-muted-foreground">
-          {loading
-            ? "…"
-            : t("dashboard.overdueDetail", {
-                count: overdueCount,
-                days: oldestDays,
-              })}
-        </Text>
-      </VStack>
-    </Card>
-  );
-}
-
-/* ─── Invoice Table (Desktop) ─────────────────────────────── */
-
-function InvoiceTable({
-  invoices,
-  loading,
-  icons,
-}: {
-  invoices: Invoice[];
-  loading: boolean;
-  icons: ReturnType<typeof useIconColors>;
-}) {
-  const { t } = useTranslation();
-  if (loading) {
-    return (
-      <Card className="p-6">
-        <Text className="text-muted-foreground">{t("common.loading")}</Text>
-      </Card>
-    );
-  }
-
-  if (invoices.length === 0) {
-    return (
-      <Card className="p-6">
-        <Text className="text-muted-foreground">
-          {t("dashboard.table.noInvoices")}
-        </Text>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="overflow-hidden p-0">
-      {/* Table header */}
-      <HStack className="border-b border-border bg-muted/30 px-4 py-3">
-        <Box className="w-[40px]" />
-        <Text
-          size="xs"
-          className="w-[120px] font-medium text-muted-foreground"
-        >
-          {t("dashboard.table.serialNumber")}
-        </Text>
-        <Text size="xs" className="flex-1 font-medium text-muted-foreground">
-          {t("dashboard.table.partner")}
-        </Text>
-        <Text
-          size="xs"
-          className="w-[110px] font-medium text-muted-foreground"
-        >
-          {t("dashboard.table.paymentStatus")}
-        </Text>
-        <Text
-          size="xs"
-          className="w-[50px] text-center font-medium text-muted-foreground"
-        >
-          NAV
-        </Text>
-        <Text
-          size="xs"
-          className="w-[80px] font-medium text-muted-foreground"
-        >
-          {t("dashboard.table.sentDate")}
-        </Text>
-        <Text
-          size="xs"
-          className="w-[90px] font-medium text-muted-foreground"
-        >
-          {t("dashboard.table.dateIssued")}
-        </Text>
-        <Text
-          size="xs"
-          className="w-[120px] text-right font-medium text-muted-foreground"
-        >
-          {t("dashboard.table.grossAmount")}
-        </Text>
-        <Box className="w-[70px]" />
-      </HStack>
-
-      {/* Table rows */}
-      {invoices.map((inv) => (
-        <InvoiceRow key={inv.id} invoice={inv} icons={icons} />
-      ))}
-    </Card>
-  );
-}
-
-function InvoiceRow({
-  invoice,
-  icons,
-}: {
-  invoice: Invoice;
-  icons: ReturnType<typeof useIconColors>;
-}) {
-  const { t } = useTranslation();
-  const gross = getInvoiceGross(invoice);
-  const statusLabel = t(getStatusI18nKey(invoice.status));
-  const statusColor = getStatusColor(invoice.status);
-
-  return (
-    <Pressable onPress={() => router.push(routes.invoiceDetail(invoice.id))}>
-      <HStack className="items-center border-b border-border px-4 py-3 last:border-b-0">
-        {/* Checkbox placeholder */}
-        <Box className="w-[40px]">
-          <Box className="h-4 w-4 rounded border border-border" />
-        </Box>
-        <Text size="sm" className="w-[120px] font-medium text-foreground">
-          {invoice.invoiceNumber}
-        </Text>
-        <Text size="sm" className="flex-1 text-foreground">
-          {invoice.clientName}
-        </Text>
-        <Box className="w-[110px]">
-          <Badge
-            variant="outline"
-            className={`self-start rounded-full ${statusColor}`}
-          >
-            <BadgeText className={`text-[10px] normal-case ${statusColor}`}>
-              {statusLabel}
-            </BadgeText>
-          </Badge>
-        </Box>
-        <Box className="w-[50px] items-center">
-          <Box
-            className={`h-3 w-3 rounded-full ${
-              invoice.status === "paid"
-                ? "bg-green-500"
-                : "bg-muted-foreground/30"
-            }`}
-          />
-        </Box>
-        <Text size="xs" className="w-[80px] font-light text-muted-foreground">
-          {invoice.status === "sent" || invoice.status === "paid"
-            ? invoice.issueDate.slice(0, 10)
-            : "—"}
-        </Text>
-        <Text size="sm" className="w-[90px] font-light text-muted-foreground">
-          {invoice.issueDate.slice(0, 10)}
-        </Text>
-        <Text
-          size="sm"
-          className="w-[120px] text-right font-medium text-foreground"
-        >
-          {formatCurrency(gross, invoice.currency)}
-        </Text>
-        <HStack space="xs" className="w-[70px] justify-end">
-          <Pressable>
-            <Download size={16} color={icons.muted} />
-          </Pressable>
-          <Pressable>
-            <MoreHorizontal size={16} color={icons.muted} />
-          </Pressable>
-        </HStack>
-      </HStack>
-    </Pressable>
-  );
-}
-
-/* ─── Invoice Cards (Mobile) ──────────────────────────────── */
-
-function InvoiceCards({
-  invoices,
-  loading,
-}: {
-  invoices: Invoice[];
-  loading: boolean;
-}) {
-  const { t } = useTranslation();
-  if (loading) {
-    return (
-      <Card className="p-4">
-        <Text className="text-muted-foreground">{t("common.loading")}</Text>
-      </Card>
-    );
-  }
-
-  if (invoices.length === 0) {
-    return (
-      <Card className="p-4">
-        <Text className="text-muted-foreground">
-          {t("dashboard.table.noInvoices")}
-        </Text>
-      </Card>
-    );
-  }
-
-  return (
-    <VStack space="sm">
-      {invoices.map((inv) => {
-        const gross = getInvoiceGross(inv);
-        const statusLabel = t(getStatusI18nKey(inv.status));
-        const statusColor = getStatusColor(inv.status);
-
-        return (
-          <Pressable
-            key={inv.id}
-            onPress={() => router.push(routes.invoiceDetail(inv.id))}
-          >
-            <Card className="p-4">
-              <HStack className="items-center justify-between">
-                <VStack space="xs">
-                  <Text size="sm" className="font-medium text-foreground">
-                    {inv.invoiceNumber}
-                  </Text>
-                  <Text size="xs" className="font-light text-muted-foreground">
-                    {inv.clientName}
-                  </Text>
-                </VStack>
-                <VStack space="xs" className="items-end">
-                  <Text size="sm" className="font-medium text-foreground">
-                    {formatCurrency(gross, inv.currency)}
-                  </Text>
-                  <Badge
-                    variant="outline"
-                    className={`rounded-full ${statusColor}`}
-                  >
-                    <BadgeText
-                      className={`text-[10px] normal-case ${statusColor}`}
-                    >
-                      {statusLabel}
-                    </BadgeText>
-                  </Badge>
-                </VStack>
-              </HStack>
-            </Card>
-          </Pressable>
-        );
-      })}
-    </VStack>
-  );
-}
-
-/* ─── Helpers ─────────────────────────────────────────────── */
-
-function getStatusI18nKey(status: Invoice["status"]): string {
-  switch (status) {
-    case "paid":
-      return "dashboard.table.statusPaid";
-    case "partially_paid":
-      return "invoices.status.partiallyPaid";
-    case "unpaid":
-      return "invoices.status.unpaid";
-    case "overdue":
-      return "dashboard.table.statusOverdue";
-    case "sent":
-      return "invoices.status.sent";
-    case "draft":
-      return "invoices.status.draft";
-    case "proforma":
-      return "invoices.proforma";
-    case "cancelled":
-      return "invoices.status.cancelled";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
-}
-
-function getStatusColor(status: Invoice["status"]): string {
-  switch (status) {
-    case "paid":
-      return "border-green-500 text-green-700";
-    case "partially_paid":
-      return "border-amber-500 text-amber-600";
-    case "unpaid":
-      return "border-blue-400 text-blue-500";
-    case "overdue":
-      return "border-red-500 text-red-600";
-    case "sent":
-      return "border-blue-500 text-blue-600";
-    case "draft":
-      return "border-muted-foreground text-muted-foreground";
-    case "proforma":
-      return "border-orange-500 text-orange-600";
-    case "cancelled":
-      return "border-muted-foreground/50 text-muted-foreground/50";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
 }

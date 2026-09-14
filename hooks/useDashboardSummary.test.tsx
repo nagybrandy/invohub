@@ -70,4 +70,35 @@ describe("useDashboardSummary", () => {
     expect(ref.current?.error).toBe("Network error");
     expect(ref.current?.summary.revenue).toBe(0);
   });
+
+  it("sums the per-status counts into outstandingCount, and reads paidCount", async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path.includes("status=draft")) return Promise.resolve({ total: 2 });
+      if (path.includes("status=paid")) return Promise.resolve({ total: 7 });
+      if (path.includes("status=sent")) return Promise.resolve({ total: 3 });
+      if (path.includes("status=unpaid")) return Promise.resolve({ total: 1 });
+      if (path.includes("status=overdue")) return Promise.resolve({ total: 2 });
+      if (path.includes("status=partially_paid")) return Promise.resolve({ total: 1 });
+      return Promise.resolve({
+        summary: {
+          revenue: 0,
+          outstanding: 0,
+          overdueTotal: 0,
+          issuedTotal: 0,
+          estimatedVat: 0,
+          overdueCount: 2,
+          oldestOverdueDays: 5,
+          recentInvoices: [],
+        },
+      });
+    });
+
+    const ref = await renderHook();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(ref.current?.paidCount).toBe(7);
+    expect(ref.current?.outstandingCount).toBe(3 + 1 + 2 + 1);
+  });
 });
