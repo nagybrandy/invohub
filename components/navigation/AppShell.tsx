@@ -117,6 +117,8 @@ export function AppShell() {
           onNavigate={navigate}
           onNewInvoice={() => router.push(routes.newInvoice)}
           onOpenNotifications={() => setPanelOpen(true)}
+          onOpenCompanySettings={() => router.push(routes.settingsCompany)}
+          onOpenAccountSettings={() => router.push(routes.settings)}
         />
         {latestUnread ? (
           <NotificationBanner

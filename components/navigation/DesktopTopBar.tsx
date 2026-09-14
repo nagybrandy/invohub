@@ -20,6 +20,13 @@ type DesktopTopBarProps = {
   onNavigate: (href: AppRoute) => void;
   onNewInvoice: () => void;
   onOpenNotifications: () => void;
+  /** Company name/tax-id button — there's no multi-company switcher (a user
+   * has exactly one company profile), so this opens that profile's settings
+   * rather than a dropdown the chevron implied. */
+  onOpenCompanySettings: () => void;
+  /** Avatar button — opens account settings (sign-out lives there today);
+   * previously had no handler at all. */
+  onOpenAccountSettings: () => void;
 };
 
 function initials(name: string): string {
@@ -41,6 +48,8 @@ export function DesktopTopBar({
   onNavigate,
   onNewInvoice,
   onOpenNotifications,
+  onOpenCompanySettings,
+  onOpenAccountSettings,
 }: DesktopTopBarProps) {
   const { t } = useTranslation();
   const icons = useIconColors();
@@ -52,8 +61,15 @@ export function DesktopTopBar({
         <HStack space="lg" className="items-center">
           <FileText size={24} color="#f9f9f9" />
 
-          {/* Company dropdown button */}
-          <Pressable className="w-60 flex-row items-center justify-between rounded-lg bg-[#1f305e] px-3 py-2">
+          {/* Company profile button — opens that company's settings (there's
+              only ever one company, so this isn't a switcher despite the
+              chevron). */}
+          <Pressable
+            onPress={onOpenCompanySettings}
+            accessibilityRole="button"
+            accessibilityLabel={t("nav.companySettings")}
+            className="w-60 flex-row items-center justify-between rounded-lg bg-[#1f305e] px-3 py-2"
+          >
             <VStack>
               <Text className="text-sm font-medium text-white" numberOfLines={1}>
                 {companyName || "InvoHub"}
@@ -118,11 +134,16 @@ export function DesktopTopBar({
             ) : null}
           </Pressable>
 
-          <Box className="h-9 w-9 items-center justify-center rounded-full bg-[#111f4a]">
+          <Pressable
+            onPress={onOpenAccountSettings}
+            accessibilityRole="button"
+            accessibilityLabel={t("nav.accountSettings")}
+            className="h-9 w-9 items-center justify-center rounded-full bg-[#111f4a]"
+          >
             <Text className="text-xs font-bold text-white">
               {initials(userName || "U")}
             </Text>
-          </Box>
+          </Pressable>
 
           <LanguageSwitcher tone="onDark" />
         </HStack>

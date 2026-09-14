@@ -44,6 +44,8 @@ describe("DesktopTopBar", () => {
           onNavigate={jest.fn()}
           onNewInvoice={jest.fn()}
           onOpenNotifications={jest.fn()}
+          onOpenCompanySettings={jest.fn()}
+          onOpenAccountSettings={jest.fn()}
         />,
       );
     });
@@ -58,6 +60,44 @@ describe("DesktopTopBar", () => {
     expect(switcherIndex).toBeGreaterThan(-1);
     expect(switcherIndex).toBeGreaterThan(avatarIndex);
     expect(avatarIndex).toBeGreaterThan(newInvoiceIndex);
+    tree.unmount();
+  });
+
+  it("wires the company button and avatar to real handlers instead of leaving them dead-ends", async () => {
+    const onOpenCompanySettings = jest.fn();
+    const onOpenAccountSettings = jest.fn();
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(
+        <DesktopTopBar
+          companyName="TestCorp Kft."
+          navItems={[]}
+          activeHref="/dashboard"
+          unreadCount={0}
+          userName="Kovács Anna"
+          onNavigate={jest.fn()}
+          onNewInvoice={jest.fn()}
+          onOpenNotifications={jest.fn()}
+          onOpenCompanySettings={onOpenCompanySettings}
+          onOpenAccountSettings={onOpenAccountSettings}
+        />,
+      );
+    });
+
+    const companyButton = tree.root.find(
+      (node) => node.props?.accessibilityLabel === "nav.companySettings"
+    );
+    const avatarButton = tree.root.find(
+      (node) => node.props?.accessibilityLabel === "nav.accountSettings"
+    );
+
+    act(() => {
+      companyButton.props.onPress?.();
+      avatarButton.props.onPress?.();
+    });
+
+    expect(onOpenCompanySettings).toHaveBeenCalledTimes(1);
+    expect(onOpenAccountSettings).toHaveBeenCalledTimes(1);
     tree.unmount();
   });
 });
