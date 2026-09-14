@@ -1,0 +1,930 @@
+{
+  "generatedAt": "2026-09-14T13:55:08.924Z",
+  "marketingBase": "http://localhost:4380",
+  "appBase": "http://localhost:8090",
+  "viewports": [
+    {
+      "label": "375",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "hasTouch": true
+    },
+    {
+      "label": "768",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "hasTouch": false
+    },
+    {
+      "label": "1440",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "hasTouch": false
+    }
+  ],
+  "results": [
+    {
+      "page": "marketing-home",
+      "variant": "default",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-default-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 212,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 212,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 304,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 351,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "default",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-default-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 600.578125,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 600.578125,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 692.578125,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 744,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "default",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-default-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerActions": {
+          "x": 948.953125,
+          "y": 25,
+          "width": 244.046875,
+          "height": 40
+        },
+        "menuToggle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "header": {
+          "x": 130,
+          "y": 12,
+          "width": 1180,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "cookiebar",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-cookiebar-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 212,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 212,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 304,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 351,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "cookiebar",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-cookiebar-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 600.578125,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 600.578125,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 692.578125,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 744,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "cookiebar",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-cookiebar-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerActions": {
+          "x": 948.953125,
+          "y": 25,
+          "width": 244.046875,
+          "height": 40
+        },
+        "menuToggle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "header": {
+          "x": 130,
+          "y": 12,
+          "width": 1180,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "mobilemenu",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-mobilemenu-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 212,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 212,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 304,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 351,
+          "height": 513
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "mobilemenu",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-mobilemenu-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 600.578125,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 600.578125,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 692.578125,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 744,
+          "height": 513
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "mobilemenu",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-mobilemenu-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerActions": {
+          "x": 948.953125,
+          "y": 25,
+          "width": 244.046875,
+          "height": 40
+        },
+        "menuToggle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "header": {
+          "x": 130,
+          "y": 12,
+          "width": 1180,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "en",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-en-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 212,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 212,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 304,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 351,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "en",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-en-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 600.578125,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 600.578125,
+          "y": 23,
+          "width": 136,
+          "height": 44
+        },
+        "headerActions": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "menuToggle": {
+          "x": 692.578125,
+          "y": 23,
+          "width": 44,
+          "height": 44
+        },
+        "header": {
+          "x": 12,
+          "y": 12,
+          "width": 744,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "marketing-home",
+      "variant": "en",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:4380/",
+      "finalUrl": "http://localhost:4380/",
+      "redirected": false,
+      "screenshot": "marketing-home-en-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerRight": {
+          "x": 1205,
+          "y": 24,
+          "width": 82,
+          "height": 42
+        },
+        "headerActions": {
+          "x": 1021.046875,
+          "y": 25,
+          "width": 171.953125,
+          "height": 40
+        },
+        "menuToggle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "header": {
+          "x": 130,
+          "y": 12,
+          "width": 1180,
+          "height": 66
+        }
+      }
+    },
+    {
+      "page": "app-login",
+      "variant": "default",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:8090/login",
+      "finalUrl": "http://localhost:8090/login",
+      "redirected": false,
+      "screenshot": "app-login-default-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-login",
+      "variant": "default",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:8090/login",
+      "finalUrl": "http://localhost:8090/login",
+      "redirected": false,
+      "screenshot": "app-login-default-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-login",
+      "variant": "default",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:8090/login",
+      "finalUrl": "http://localhost:8090/login",
+      "redirected": false,
+      "screenshot": "app-login-default-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-blog",
+      "variant": "default",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:8090/blog",
+      "finalUrl": "http://localhost:8090/blog",
+      "redirected": false,
+      "screenshot": "app-blog-default-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-blog",
+      "variant": "default",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:8090/blog",
+      "finalUrl": "http://localhost:8090/blog",
+      "redirected": false,
+      "screenshot": "app-blog-default-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-blog",
+      "variant": "default",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:8090/blog",
+      "finalUrl": "http://localhost:8090/blog",
+      "redirected": false,
+      "screenshot": "app-blog-default-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-blog-post",
+      "variant": "default",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:8090/blog/magyar-szamlazas-alapok",
+      "finalUrl": "http://localhost:8090/blog/magyar-szamlazas-alapok",
+      "redirected": false,
+      "screenshot": "app-blog-post-default-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-blog-post",
+      "variant": "default",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:8090/blog/magyar-szamlazas-alapok",
+      "finalUrl": "http://localhost:8090/blog/magyar-szamlazas-alapok",
+      "redirected": false,
+      "screenshot": "app-blog-post-default-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-blog-post",
+      "variant": "default",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:8090/blog/magyar-szamlazas-alapok",
+      "finalUrl": "http://localhost:8090/blog/magyar-szamlazas-alapok",
+      "redirected": false,
+      "screenshot": "app-blog-post-default-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-aszf",
+      "variant": "default",
+      "width": 375,
+      "height": 812,
+      "isMobile": true,
+      "url": "http://localhost:8090/aszf",
+      "finalUrl": "http://localhost:8090/aszf",
+      "redirected": false,
+      "screenshot": "app-aszf-default-375.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 375,
+        "innerWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-aszf",
+      "variant": "default",
+      "width": 768,
+      "height": 1024,
+      "isMobile": false,
+      "url": "http://localhost:8090/aszf",
+      "finalUrl": "http://localhost:8090/aszf",
+      "redirected": false,
+      "screenshot": "app-aszf-default-768.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    },
+    {
+      "page": "app-aszf",
+      "variant": "default",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "url": "http://localhost:8090/aszf",
+      "finalUrl": "http://localhost:8090/aszf",
+      "redirected": false,
+      "screenshot": "app-aszf-default-1440.png",
+      "navigationError": null,
+      "overflow": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "headerBoxes": {
+        "langSwitcher": null,
+        "headerRight": null,
+        "headerActions": null,
+        "menuToggle": null,
+        "header": null
+      }
+    }
+  ]
+}
