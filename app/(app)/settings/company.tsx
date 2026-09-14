@@ -1,6 +1,5 @@
 // app/(app)/settings/company.tsx
 import * as React from "react";
-import { Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import {
@@ -103,9 +102,13 @@ export default function CompanySettingsScreen() {
       setInvoiceEmailTo(company.invoiceEmailTo ?? "");
       setInvoiceEmailCc(company.invoiceEmailCc ?? "");
       setNavTechnicalUser(company.navTechnicalUser ?? "");
-      setNavTechnicalPassword(company.navTechnicalPassword ?? "");
-      setNavXmlSignKey(company.navXmlSignKey ?? "");
-      setNavXmlChangeKey(company.navXmlChangeKey ?? "");
+      // Secret fields are never pre-filled from the server response — GET
+      // /api/companies only ever returns navTechnicalPasswordSet/
+      // navXmlSignKeySet/navXmlChangeKeySet booleans, never the decrypted
+      // value, so the form starts blank and shows an "already set" hint
+      // instead (see the isSet indicators below). Leaving a field blank on
+      // save keeps whatever secret is already stored — see
+      // lib/companies/service.ts's patchSecretField.
       setNavEnvironment(company.navEnvironment ?? "demo");
     }
   }, [company]);
@@ -164,7 +167,11 @@ export default function CompanySettingsScreen() {
     }
   }
 
-  const maskSecrets = Platform.OS === "web" ? false : !showNavSecrets;
+  // Nothing decrypted is ever pre-filled into these fields anymore (see
+  // the company-load effect above), so masking by default and letting the
+  // toggle reveal what's currently being *typed* is safe on every
+  // platform — there's no longer a web-only "never masked" branch here.
+  const maskSecrets = !showNavSecrets;
 
   if (loading && !company) {
     return (
@@ -302,7 +309,7 @@ export default function CompanySettingsScreen() {
                 </Badge>
               ) : null}
             </HStack>
-            {Platform.OS !== "web" && navEnvironment !== "demo" ? (
+            {navEnvironment !== "demo" ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -366,6 +373,11 @@ export default function CompanySettingsScreen() {
                     autoCorrect={false}
                   />
                 </Input>
+                {company?.navTechnicalPasswordSet ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground">
+                    {t("settings.companySettings.secretAlreadySet")}
+                  </Text>
+                ) : null}
               </FormControl>
               <FormControl>
                 <FormControlLabel>
@@ -381,6 +393,11 @@ export default function CompanySettingsScreen() {
                     autoCorrect={false}
                   />
                 </Input>
+                {company?.navXmlSignKeySet ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground">
+                    {t("settings.companySettings.secretAlreadySet")}
+                  </Text>
+                ) : null}
               </FormControl>
               <FormControl>
                 <FormControlLabel>
@@ -396,6 +413,11 @@ export default function CompanySettingsScreen() {
                     autoCorrect={false}
                   />
                 </Input>
+                {company?.navXmlChangeKeySet ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground">
+                    {t("settings.companySettings.secretAlreadySet")}
+                  </Text>
+                ) : null}
               </FormControl>
 
               <HStack space="sm" className="items-center flex-wrap">

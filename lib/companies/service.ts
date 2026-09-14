@@ -39,6 +39,14 @@ export type Company = CompanyInput & {
   updatedAt: string;
 };
 
+// PublicCompany / toPublicCompany (redacts the NAV secret fields for API
+// responses) live in lib/companies/public-company.ts, not here — that
+// module has no DB import, so it stays usable with jest.requireActual in
+// tests that don't have a live DATABASE_URL. Re-exported here so existing
+// `import { toPublicCompany } from "@/lib/companies/service"` call sites
+// keep working.
+export { toPublicCompany, type PublicCompany } from "@/lib/companies/public-company";
+
 function patchOptionalField(
   next: string | undefined,
   previous: string | undefined

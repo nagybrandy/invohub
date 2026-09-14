@@ -13,7 +13,13 @@ jest.mock("@/lib/clients/service", () => ({
 
 import { db } from "@/db";
 import { findClientByName } from "@/lib/clients/service";
-import { resolveInvoiceEmailRecipient, resolveInvoiceEmailRecipients, upsertCompany } from "@/lib/companies/service";
+import {
+  resolveInvoiceEmailRecipient,
+  resolveInvoiceEmailRecipients,
+  toPublicCompany,
+  upsertCompany,
+  type Company,
+} from "@/lib/companies/service";
 
 const mockDb = db as unknown as {
   select: jest.Mock;
@@ -253,5 +259,44 @@ describe("resolveInvoiceEmailRecipients", () => {
 
     const emails = await resolveInvoiceEmailRecipients("u1", "Acme");
     expect(emails).toEqual(["company@test.com"]);
+  });
+});
+
+describe("toPublicCompany", () => {
+  const fullCompany: Company = {
+    id: "c1",
+    userId: "u1",
+    name: "Demo Kft.",
+    navTechnicalUser: "nav-user",
+    navTechnicalPassword: "decrypted-password",
+    navXmlSignKey: "decrypted-sign-key",
+    navXmlChangeKey: "decrypted-change-key",
+    createdAt: "",
+    updatedAt: "",
+  };
+
+  it("strips the decrypted NAV secret values", () => {
+    const publicCompany = toPublicCompany(fullCompany);
+    expect(publicCompany).not.toHaveProperty("navTechnicalPassword");
+    expect(publicCompany).not.toHaveProperty("navXmlSignKey");
+    expect(publicCompany).not.toHaveProperty("navXmlChangeKey");
+    expect(JSON.stringify(publicCompany)).not.toContain("decrypted-");
+  });
+
+  it("reports whether each secret is set", () => {
+    expect(toPublicCompany(fullCompany).navTechnicalPasswordSet).toBe(true);
+    expect(toPublicCompany(fullCompany).navXmlSignKeySet).toBe(true);
+    expect(toPublicCompany(fullCompany).navXmlChangeKeySet).toBe(true);
+
+    const noSecrets = toPublicCompany({ ...fullCompany, navTechnicalPassword: undefined, navXmlSignKey: undefined, navXmlChangeKey: undefined });
+    expect(noSecrets.navTechnicalPasswordSet).toBe(false);
+    expect(noSecrets.navXmlSignKeySet).toBe(false);
+    expect(noSecrets.navXmlChangeKeySet).toBe(false);
+  });
+
+  it("keeps non-secret fields intact", () => {
+    const publicCompany = toPublicCompany(fullCompany);
+    expect(publicCompany.name).toBe("Demo Kft.");
+    expect(publicCompany.navTechnicalUser).toBe("nav-user");
   });
 });

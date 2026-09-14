@@ -3,6 +3,7 @@
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { getCompanyByUserId, upsertCompany } from "@/lib/companies/service";
 import type { CompanyInput } from "@/lib/companies/service";
+import { toPublicCompany } from "@/lib/companies/public-company";
 import { isNavEnvironment } from "@/lib/nav/environment";
 
 export async function GET(request: Request) {
@@ -11,7 +12,9 @@ export async function GET(request: Request) {
 
   try {
     const company = await getCompanyByUserId(session.user.id);
-    return jsonResponse({ company });
+    // Never the raw Company: it carries decrypted NAV secrets, and this
+    // response is what lands in the browser (network tab, DOM, etc).
+    return jsonResponse({ company: company ? toPublicCompany(company) : null });
   } catch (error) {
     console.error("[GET /api/companies]", error);
     const message = error instanceof Error ? error.message : "Failed to load company profile.";
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const company = await upsertCompany(session.user.id, body);
-    return jsonResponse({ company });
+    return jsonResponse({ company: toPublicCompany(company) });
   } catch (error) {
     console.error("[POST /api/companies]", error);
     const message = error instanceof Error ? error.message : "Failed to save company profile.";

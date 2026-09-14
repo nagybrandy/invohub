@@ -495,6 +495,7 @@ export default {
         "Technical user credentials for NAV API integration. Choose test or live environment before saving credentials.",
       hideSecrets: "Hide secrets",
       showSecrets: "Show secrets",
+      secretAlreadySet: "Already set — leave blank to keep it",
     },
   },
   company: {

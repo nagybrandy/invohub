@@ -495,6 +495,7 @@ export default {
         "Technikai felhasználó hitelesítő adatok a NAV API integrációhoz. Válaszd ki a teszt vagy éles környezetet a mentés előtt.",
       hideSecrets: "Titkok elrejtése",
       showSecrets: "Titkok mutatása",
+      secretAlreadySet: "Már be van állítva — hagyd üresen a megtartásához",
     },
   },
   company: {

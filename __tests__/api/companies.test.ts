@@ -11,6 +11,10 @@ jest.mock("@/lib/companies/service", () => ({
   upsertCompany: jest.fn(),
 }));
 
+// toPublicCompany is a pure redaction helper with no DB import — use the
+// real implementation (not mocked) so these tests exercise the actual
+// response shape.
+
 import { GET, POST } from "@/app/api/companies+api";
 import { getCompanyByUserId, upsertCompany } from "@/lib/companies/service";
 import { requireSession } from "@/lib/api/session";
@@ -47,6 +51,34 @@ describe("companies API", () => {
     expect(response.status).toBe(200);
     expect(body.company.name).toBe("Demo Kft.");
     expect(body.company.navEnvironment).toBe("test");
+  });
+
+  it("GET never returns decrypted NAV secrets, only whether one is set", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockGetCompany.mockResolvedValue({
+      id: "c1",
+      userId: "user-1",
+      name: "Demo Kft.",
+      navEnvironment: "test",
+      navTechnicalUser: "nav-user",
+      navTechnicalPassword: "super-secret-password",
+      navXmlSignKey: "super-secret-sign-key",
+      navXmlChangeKey: "super-secret-change-key",
+      createdAt: "",
+      updatedAt: "",
+    });
+
+    const response = await GET(new Request("http://localhost/api/companies"));
+    const body = await response.json();
+    const raw = JSON.stringify(body);
+
+    expect(raw).not.toContain("super-secret-password");
+    expect(raw).not.toContain("super-secret-sign-key");
+    expect(raw).not.toContain("super-secret-change-key");
+    expect(body.company.navTechnicalUser).toBe("nav-user");
+    expect(body.company.navTechnicalPasswordSet).toBe(true);
+    expect(body.company.navXmlSignKeySet).toBe(true);
+    expect(body.company.navXmlChangeKeySet).toBe(true);
   });
 
   it("POST rejects invalid navEnvironment", async () => {

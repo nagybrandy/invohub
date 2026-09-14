@@ -2,12 +2,13 @@
 // Company profile hook backed by the API.
 import * as React from "react";
 import { apiFetch } from "@/lib/api/client";
-import type { Company, CompanyInput } from "@/lib/companies/service";
+import type { CompanyInput } from "@/lib/companies/service";
+import type { PublicCompany } from "@/lib/companies/public-company";
 
-type CompanyResponse = { company: Company | null };
+type CompanyResponse = { company: PublicCompany | null };
 
 export function useCompany() {
-  const [company, setCompany] = React.useState<Company | null>(null);
+  const [company, setCompany] = React.useState<PublicCompany | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -30,7 +31,7 @@ export function useCompany() {
 
   const save = React.useCallback(
     async (input: CompanyInput) => {
-      const data = await apiFetch<{ company: Company }>("/api/companies", {
+      const data = await apiFetch<{ company: PublicCompany }>("/api/companies", {
         method: "POST",
         body: JSON.stringify(input),
       });

@@ -55,9 +55,10 @@ export default function OnboardingScreen() {
       setCountry(company.country ?? "HU");
       setBankAccount(company.bankAccount ?? "");
       setNavTechUser(company.navTechnicalUser ?? "");
-      setNavTechPass(company.navTechnicalPassword ?? "");
-      setNavSignKey(company.navXmlSignKey ?? "");
-      setNavChangeKey(company.navXmlChangeKey ?? "");
+      // Secret fields (password/sign key/change key) are never pre-filled —
+      // GET /api/companies only returns whether one is already set, never
+      // the decrypted value. Leaving these blank on save keeps whatever is
+      // already stored (see lib/companies/service.ts's patchSecretField).
       setNavEnv(company.navEnvironment ?? "demo");
     }
   }, [company]);
