@@ -48,7 +48,6 @@ export function InvoiceListRow({
     <Pressable
       testID="invoice-list-row"
       onPress={onPress ? () => onPress(invoice) : undefined}
-      accessibilityRole="button"
       className="flex-row items-center border-b border-subtle px-4 py-3 last:border-b-0 data-[hover=true]:bg-muted/40"
     >
       <Box style={{ width: w.serial }}>
@@ -68,7 +67,7 @@ export function InvoiceListRow({
         )}
       </Box>
       <Box className="min-w-0 flex-1 pr-2">
-        <Text size="sm" className="text-foreground" numberOfLines={1}>
+        <Text size="sm" className="truncate text-foreground" numberOfLines={1}>
           {invoice.clientName}
         </Text>
       </Box>

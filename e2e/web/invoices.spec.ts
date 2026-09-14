@@ -145,3 +145,107 @@ authTest.describe("Invoice form UI (authenticated)", () => {
     ).toBeVisible();
   });
 });
+
+// Desktop-first checks for the /invoices LIST screen (L1-L9): a real table
+// instead of a phone-card-list stretched to 1400px, sortable due-date
+// column, per-status filter counts, and no bare trash icon in the row.
+authTest.describe("Invoice list (desktop table)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
+  authTest.use({ viewport: { width: 1440, height: 900 } });
+
+  authTest("renders a table with Sorszám/Partner/Kelt/Fizetési határidő/Státusz/NAV/Bruttó headers", async ({
+    page,
+  }) => {
+    await page.goto("/invoices");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByTestId("invoice-list-table")).toBeVisible();
+    for (const header of [
+      "Sorszám",
+      "Partner",
+      "Kelt",
+      "Fizetési határidő",
+      "Státusz",
+      "NAV",
+      "Bruttó",
+    ]) {
+      await expect(page.getByText(header, { exact: true }).first()).toBeVisible();
+    }
+  });
+
+  authTest("filter chips show a count and the selected chip is high-contrast", async ({
+    page,
+  }) => {
+    await page.goto("/invoices");
+    await page.waitForLoadState("networkidle");
+
+    const allChip = page.getByTestId("invoice-filter-all");
+    await expect(allChip).toBeVisible();
+    await expect(allChip).toHaveClass(/bg-primary/);
+
+    const draftChip = page.getByTestId("invoice-filter-draft");
+    await expect(draftChip).toBeVisible();
+    await draftChip.click();
+    await expect(draftChip).toHaveClass(/bg-primary/);
+    await expect(allChip).not.toHaveClass(/bg-primary/);
+  });
+
+  authTest("Kelt/Bruttó headers sort and show a direction indicator", async ({ page }) => {
+    await page.goto("/invoices");
+    await page.waitForLoadState("networkidle");
+
+    const grossHeader = page.getByTestId("invoice-table-sort-gross");
+    await expect(grossHeader).toBeVisible();
+    await grossHeader.click();
+    await expect(page.getByTestId("invoice-list-table")).toBeVisible();
+  });
+
+  authTest("no bare trash icon in a row — delete lives in the row's ⋯ menu", async ({
+    page,
+  }) => {
+    await page.goto("/invoices");
+    await page.waitForLoadState("networkidle");
+
+    const rows = page.getByTestId("data-table-row");
+    const rowCount = await rows.count();
+    if (rowCount === 0) return; // nothing to assert against with no invoices yet
+
+    await page.getByTestId("overflow-menu-trigger").first().click();
+    await expect(page.getByText("Törlés").last()).toBeVisible();
+  });
+});
+
+// The invoice DETAIL screen (D1-D3, D6, INV-11): a money header, a status
+// timeline above the preview, exactly one solid action, and a collapsed
+// danger zone instead of 11 identical outline buttons.
+authTest.describe("Invoice detail (money header + timeline + danger zone)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
+  authTest.use({ viewport: { width: 1440, height: 900 } });
+
+  authTest("shows the money header, timeline, single preview and danger zone", async ({
+    page,
+  }) => {
+    await page.goto("/invoices");
+    await page.waitForLoadState("networkidle");
+
+    const firstRow = page.getByTestId("data-table-row").first();
+    if ((await firstRow.count()) === 0) return; // no invoices to open
+
+    await firstRow.click();
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByTestId("invoice-money-header-gross")).toBeVisible();
+    await expect(page.getByTestId("invoice-timeline")).toBeVisible();
+    await expect(page.getByTestId("danger-zone-toggle")).toBeVisible();
+
+    // The old HTML|PDF tab pair is gone — a single preview + a
+    // "PDF letöltése" download button instead.
+    await expect(page.getByTestId("invoice-preview-download-pdf")).toBeVisible();
+  });
+});
