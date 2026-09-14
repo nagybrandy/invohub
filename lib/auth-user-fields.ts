@@ -12,4 +12,17 @@ export const authUserAdditionalFields = {
     defaultValue: "entrepreneur",
     input: false,
   },
+  // Non-authoritative: what the signup form's Vállalkozó/Könyvelő picker sent.
+  // Safe to accept as client input (`input: true`) because it is NEVER read
+  // as an authorization value directly — lib/auth.ts's databaseHooks clamps
+  // it through resolveSignupRole() (entrepreneur/accountant only, never
+  // "admin") before using it to set the real, still-input:false `role` field
+  // at creation time. Self-service /update-user can also touch this field
+  // freely; it doesn't matter, since it never controls `role` after signup.
+  signupRole: {
+    type: "string",
+    required: false,
+    defaultValue: "entrepreneur",
+    input: true,
+  },
 } as const;

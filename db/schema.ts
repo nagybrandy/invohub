@@ -21,6 +21,10 @@ export const user = pgTable("user", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   role: text("role").notNull().default("entrepreneur"),
+  // What the user picked at signup ("entrepreneur" | "accountant"), clamped
+  // server-side (lib/auth-signup-role.ts) before it ever reaches `role`.
+  // Informational only — never itself an authorization check.
+  signupRole: text("signup_role").notNull().default("entrepreneur"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

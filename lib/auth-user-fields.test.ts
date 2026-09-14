@@ -16,3 +16,15 @@ describe("authUserAdditionalFields.role", () => {
     expect(authUserAdditionalFields.role.defaultValue).toBe("entrepreneur");
   });
 });
+
+describe("authUserAdditionalFields.signupRole", () => {
+  it("is client-settable (the signup screen's account-type picker needs this)", () => {
+    // Safe only because lib/auth.ts's databaseHooks clamps it through
+    // resolveSignupRole() before it can ever influence the real `role` field.
+    expect(authUserAdditionalFields.signupRole.input).toBe(true);
+  });
+
+  it("defaults to entrepreneur", () => {
+    expect(authUserAdditionalFields.signupRole.defaultValue).toBe("entrepreneur");
+  });
+});

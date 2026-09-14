@@ -1,0 +1,42 @@
+<!-- assets/brand/mark-pattern.svg -->
+<!--
+  InvoHub brand texture — a seamlessly repeating 96x96 tile built from the same
+  language as mark.svg (open corner brackets, chamfered hub, 45 degree links).
+
+  Why it is seamless: every motif sits on the family of diagonals
+  x + y = 48 + 48k. Translating the tile by 96 in x or y shifts x + y by
+  96 = 2 * 48, which maps that family onto itself, so the chains run unbroken
+  across tile edges. Only the three diagonals that actually cross the tile are
+  drawn (x + y = 48, 96 and 144), and nothing but those chains touches an edge.
+
+  Why it does not read as a grid: full bracket-hubs and bare hubs alternate in a
+  checker across the chains, so the eye follows diagonal movement instead of
+  rows and columns. Rotating the tile in use breaks it up further.
+
+  Intended use: `currentColor` at 4-8% opacity over navy (#111f4a) or over
+  white / mist (#edf2fa), tiled at 96-240px, optionally rotated. Hairline by
+  design so it never competes with body copy.
+-->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 96 96"
+  width="96"
+  height="96"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  aria-hidden="true"
+>
+  <!-- Diagonal chains: x + y = 48, 96, 144. -->
+  <path d="M0 48L48 0M0 96L96 0M48 96L96 48" />
+  <!-- Open corner brackets around the hubs on the 48 and 144 chains. -->
+  <path d="M30 6H6V30M18 42H42V18" />
+  <path d="M78 54H54V78M66 90H90V66" />
+  <!-- Hubs: solid, self-similar chamfered squares. -->
+  <g fill="currentColor" stroke="none">
+    <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
+    <path d="M67 67H73.5L77 70.5V77H70.5L67 73.5Z" />
+    <path d="M19 67H25.5L29 70.5V77H22.5L19 73.5Z" />
+    <path d="M67 19H73.5L77 22.5V29H70.5L67 25.5Z" />
+  </g>
+</svg>

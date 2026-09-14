@@ -23,6 +23,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { authClient } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
+import { SIGNUP_ROLES, type SignupRole } from "@/lib/user-roles";
 
 export default function Login() {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export default function Login() {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [signupRole, setSignupRole] = React.useState<SignupRole>("entrepreneur");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -41,11 +43,11 @@ export default function Login() {
     setError(null);
     setLoading(true);
     try {
-      // New accounts always start as "entrepreneur" (server-enforced in lib/auth.ts —
-      // the account type can no longer be chosen at signup). An admin can change a
-      // user's role afterwards via the admin panel.
+      // The chosen account type is sent as `signupRole` — a non-authoritative
+      // field the server clamps to entrepreneur/accountant before it can
+      // ever influence the real `role` (see lib/auth.ts databaseHooks).
       const result = isSignup
-        ? await authClient.signUp.email({ name, email, password })
+        ? await authClient.signUp.email({ name, email, password, signupRole })
         : await authClient.signIn.email({ email, password });
 
       if (result.error) {
@@ -88,6 +90,39 @@ export default function Login() {
                   className="font-light"
                 />
               </Input>
+            </FormControl>
+
+            <FormControl>
+              <FormControlLabel>
+                <FormControlLabelText>{t("auth.accountType")}</FormControlLabelText>
+              </FormControlLabel>
+              <Box className="flex-row gap-2" testID="signup-role-picker">
+                {SIGNUP_ROLES.map((role) => (
+                  <Pressable
+                    key={role}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: signupRole === role }}
+                    onPress={() => setSignupRole(role)}
+                    testID={`signup-role-${role}`}
+                    className={`flex-1 rounded-lg border p-3 ${
+                      signupRole === role
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-transparent"
+                    }`}
+                  >
+                    <Text
+                      className={`font-medium ${
+                        signupRole === role ? "text-primary" : "text-foreground"
+                      }`}
+                    >
+                      {t(`roles.${role}`)}
+                    </Text>
+                    <Text size="xs" className="mt-1 font-light text-muted-foreground">
+                      {t(`roles.${role}Hint`)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </Box>
             </FormControl>
           </>
         ) : null}
