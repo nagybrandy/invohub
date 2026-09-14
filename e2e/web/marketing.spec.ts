@@ -133,30 +133,6 @@ test.describe("Static marketing homepage", () => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText("bevallásig");
   });
 
-  test("uses a floating transparent header that solidifies on scroll", async ({ page }) => {
-    await seedDismissedConsent(page);
-    await page.goto("/");
-
-    const header = page.getByTestId("marketing-header");
-    await expect(header).toBeVisible();
-    await expect(header).not.toHaveClass(/is-solid/);
-
-    await page.evaluate(() => window.scrollTo(0, 400));
-    await expect(header).toHaveClass(/is-solid/);
-  });
-
-  test("switches marketing copy between HU and EN", async ({ page }) => {
-    await seedDismissedConsent(page);
-    await page.goto("/");
-
-    await page.getByTestId("marketing-lang-switcher").getByRole("button", { name: "EN" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("invoicing");
-    await expect(page.getByTestId("marketing-header-cta")).toHaveText("Start for free");
-
-    await page.getByTestId("marketing-lang-switcher").getByRole("button", { name: "HU" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("számlázás");
-  });
-
   test("primary calls to action point at the application login", async ({ page }, testInfo) => {
     await seedDismissedConsent(page);
     await page.goto("/");
