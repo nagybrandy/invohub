@@ -1,25 +1,82 @@
-# InvoHub product roadmap after the first slice
+// docs/product-roadmap.md
+# InvoHub product roadmap
 
-## Phase 1 — launch gates for the approved foundation
+InvoHub is a Hungarian invoicing app for **egyéni vállalkozók (EV)** —
+sole proprietors. The product ships in four ordered phases; each phase's
+launch gate must be satisfied before the next phase's features reach
+users, and marketing copy may only claim what has shipped and passed its
+gate (see `CLAUDE.md`). Engineering sequencing for each phase follows
+`docs/tdd-phases.md`; the live backlog lives in `docs/loop-queue.md`,
+including a Phase 0 Stabilization bucket for cross-cutting hardening that
+doesn't belong to a single feature phase.
 
-- Hungarian lawyer and DPO review of all legal drafts; replace every placeholder.
-- Production security/privacy review, processor inventory, retention rules, backups, recovery, monitoring, and incident procedure.
-- NAV Online Számla end-to-end certification with test and production credentials.
-- Billing/pricing decisions, support policy, accessibility review, mobile store readiness, and domain/auth cutover verification.
-- Confirm every marketing compliance claim against implemented production behavior.
+## Phase 1 — Core invoicing, NAV-compliant
 
-## Phase 2 — bank matching
+Mandatory invoice fields, AAM/TAM/fordított adózás handling, gapless
+invoice numbering, storno/helyesbítő corrections, and NAV Online Számla
+submission.
 
-Add consented bank connectivity, normalized transaction ingestion, deterministic and reviewable invoice matching, exception handling, reconciliation audit history, and provider/security review. Gate launch on sandbox and failure-mode coverage; never auto-finalize uncertain matches.
+**Launch gate:**
+- Hungarian invoicing rules verified against Áfa tv. 169. § (see
+  `.claude/skills/hu-invoicing-rules/SKILL.md`), including AAM/TAM/reverse-
+  charge legal text.
+- NAV Online Számla end-to-end certification with test credentials —
+  production credentials and calls remain out of scope for any automated
+  agent.
+- Production security/privacy review, processor inventory, retention
+  rules, backups, recovery, and monitoring.
+- Hungarian lawyer and DPO review of all legal drafts; replace every
+  placeholder.
+- Billing/pricing decisions, support policy, accessibility review, mobile
+  store readiness, and domain/auth cutover verification.
+- Confirm every marketing compliance claim against implemented production
+  behavior (see `.claude/skills/claims-check/SKILL.md`).
+
+## Phase 2 — Bank data connection & paid/unpaid matching
+
+Add bank statement ingestion and deterministic, reviewable invoice
+matching. **CSV and camt.053 file import ship first** — before any live
+bank/PSD2 connection is built. **Never auto-finalize an uncertain match**;
+only exact, unambiguous matches may auto-confirm, everything else goes to
+a human review queue.
+
+**Launch gate:** sandbox and failure-mode coverage for the import/matching
+path; a provider and security review before any live PSD2/bank connection
+is added on top of file import.
 
 ## Phase 3 — EV tax calculator
 
-Model supported Hungarian sole-proprietor tax regimes with versioned rules, effective dates, explainable calculations, source references, warnings, and accountant review workflows. Gate launch on Hungarian tax-professional validation and regression fixtures. Clearly separate estimates from tax advice.
+Model supported Hungarian sole-proprietor tax regimes with year-versioned
+rules (`lib/tax/rules/<year>.ts`, see `.claude/skills/ev-tax-rules/SKILL.md`),
+effective dates, explainable calculations, source references, and clear
+"estimate, not tax advice" warnings.
 
-## Phase 4 — machine-to-machine submission
+**Launch gate:** validation by a Hungarian tax professional against
+regression fixtures, tracked as its own sign-off in `docs/loop-queue.md` —
+never assumed just because the rule files exist.
 
-Provide scoped API credentials, idempotent submission endpoints, signed webhooks, rate limits, replay protection, audit logs, retry/dead-letter handling, and tenant isolation. Gate launch on threat modeling, external API documentation, load testing, and NAV failure/recovery verification.
+## Phase 4 — NAV M2M tax-return submission
 
-These phases intentionally exclude speculative UI from the first slice. Each starts only after the preceding launch gates and foundational telemetry (with valid consent where required) are in place.
+Scoped API credentials, idempotent submission endpoints, signed webhooks,
+rate limits, replay protection, audit logs, retry/dead-letter handling,
+tenant isolation, and the power-of-attorney (meghatalmazás) flow required
+for InvoHub to submit on a user's behalf. This is the phase that actually
+replaces the accountant relationship the product is named for.
 
-For engineering sequencing after the premium landing/brand ship and Tick 1 (blog + SEO), follow the TDD phases in `docs/tdd-phases.md` (dashboard/invoice polish → bank matching → EV tax). See also `docs/loop-queue.md`.
+**Launch gate:** threat modeling, external API documentation, load
+testing, NAV failure/recovery verification, and **a legal review before
+any marketing copy claims InvoHub replaces an accountant** — that specific
+claim must not ship without explicit sign-off.
+
+## How phases relate to engineering work
+
+These phases intentionally exclude speculative UI ahead of their turn.
+Each phase starts only after the preceding phase's launch gate is
+satisfied and foundational telemetry (with valid consent where required)
+is in place. Phase 0 Stabilization items in `docs/loop-queue.md` (security
+hardening, test fixtures, credential encryption, i18n gaps) can proceed
+alongside any phase — they're prerequisites for shipping any phase safely,
+not a phase of their own.
+
+For engineering sequencing, follow `docs/tdd-phases.md`. For the concrete,
+checkbox-level backlog, see `docs/loop-queue.md`.
