@@ -61,6 +61,18 @@ export default {
     refresh: "Frissítés",
     seedDemo: "Demo adatok betöltése",
     seedSuccess: "Demo adatok sikeresen betöltve.",
+    retry: "Újra",
+    search: "Keresés",
+    moreActions: "További műveletek",
+    required: "kötelező",
+    collapse: "Összecsukás",
+    expand: "Kinyitás",
+  },
+  states: {
+    loading: "Betöltés…",
+    emptyTitle: "Még nincs itt semmi",
+    errorTitle: "Valami hiba történt",
+    errorDescription: "Próbáld újra, vagy frissítsd az oldalt.",
   },
   cookies: {
     title: "Cookie-beállítások",
