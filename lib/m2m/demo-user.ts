@@ -24,7 +24,7 @@ export type M2mDemoCheck = {
 
 export type M2mDemoSnapshot = {
   taxpayer: M2mTestTaxpayer;
-  environment: "test" | "production";
+  environment: "demo" | "test" | "production";
   checks: M2mDemoCheck[];
   taxSummary: M2mTaxSummary | null;
   missingDeclarations: M2mMissingDeclaration[];

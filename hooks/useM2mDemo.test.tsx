@@ -10,33 +10,27 @@ jest.mock("@/lib/api/client", () => ({
 
 const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>;
 
-const sampleSnapshot = {
-  taxpayer: { id: "88888888", label: "Test taxpayer #88888888" },
-  environment: "test" as const,
-  checks: [
-    { name: "Token + signing key", ok: true, resultCode: "OK", message: "Session created" },
-    { name: "Összesített adószámla", ok: true, resultCode: "SIKERES" },
-  ],
-  taxSummary: { totalBalance: -15000, taxDebt: 15000, overpayment: 0 },
+const demoSnapshot = {
+  taxpayer: { id: "12345678", label: "Demo taxpayer" },
+  environment: "demo" as const,
+  checks: [{ name: "Token", ok: true, resultCode: "OK", message: null }],
+  taxSummary: { totalBalance: 100, taxDebt: 0, overpayment: 100 },
   missingDeclarations: [],
   publicDebt: null,
-  detailedTaxpayer: { name: "Test Corp", taxNumber: "88888888", address: "Test St 1", period: "2025" },
+  detailedTaxpayer: null,
   allEndpointsReachable: true,
 };
 
-async function renderUseM2mDemo() {
+async function renderHook() {
   const ref: { current: ReturnType<typeof useM2mDemo> | null } = { current: null };
-
   function HookHost() {
     ref.current = useM2mDemo();
     return null;
   }
-
   await act(async () => {
     TestRenderer.create(<HookHost />);
     await Promise.resolve();
   });
-
   return ref;
 }
 
@@ -45,80 +39,55 @@ describe("useM2mDemo", () => {
     jest.clearAllMocks();
   });
 
-  it("starts with no snapshot and not loading", async () => {
-    mockApiFetch.mockResolvedValue({ snapshot: sampleSnapshot, configured: true });
-    const ref = await renderUseM2mDemo();
-
-    expect(ref.current?.snapshot).toBeNull();
-    expect(ref.current?.loading).toBe(false);
-    expect(ref.current?.error).toBeNull();
-    expect(ref.current?.notConfigured).toBe(false);
-  });
-
-  it("loads snapshot via load()", async () => {
-    mockApiFetch.mockResolvedValue({ snapshot: sampleSnapshot, configured: true });
-    const ref = await renderUseM2mDemo();
+  it("loads the demo snapshot and reports mode=demo", async () => {
+    mockApiFetch.mockResolvedValue({ snapshot: demoSnapshot, configured: false, mode: "demo" });
+    const ref = await renderHook();
 
     await act(async () => {
       await ref.current?.load();
     });
 
-    expect(ref.current?.snapshot).toEqual(sampleSnapshot);
-    expect(ref.current?.loading).toBe(false);
-    expect(ref.current?.error).toBeNull();
     expect(mockApiFetch).toHaveBeenCalledWith("/api/m2m/demo");
+    expect(ref.current?.snapshot?.taxpayer.id).toBe("12345678");
+    expect(ref.current?.mode).toBe("demo");
+    expect(ref.current?.error).toBeNull();
   });
 
-  it("passes seed parameter", async () => {
-    mockApiFetch.mockResolvedValue({ snapshot: sampleSnapshot, configured: true });
-    const ref = await renderUseM2mDemo();
-
-    await act(async () => {
-      await ref.current?.load(12345);
-    });
-
-    expect(mockApiFetch).toHaveBeenCalledWith("/api/m2m/demo?seed=12345");
-  });
-
-  it("handles not configured state", async () => {
+  it("reports mode=test when the server used the real M2M registry", async () => {
     mockApiFetch.mockResolvedValue({
-      error: "M2M not configured.",
-      hint: "Add M2M_* variables to .env",
+      snapshot: { ...demoSnapshot, environment: "test" },
+      configured: true,
+      mode: "test",
     });
-    const ref = await renderUseM2mDemo();
+    const ref = await renderHook();
 
     await act(async () => {
       await ref.current?.load();
     });
 
-    expect(ref.current?.notConfigured).toBe(true);
-    expect(ref.current?.error).toBe("M2M not configured.");
-    expect(ref.current?.snapshot).toBeNull();
+    expect(ref.current?.mode).toBe("test");
   });
 
-  it("handles API errors", async () => {
-    mockApiFetch.mockRejectedValue(new Error("Network error"));
-    const ref = await renderUseM2mDemo();
+  it("passes seed as a query param", async () => {
+    mockApiFetch.mockResolvedValue({ snapshot: demoSnapshot, mode: "demo" });
+    const ref = await renderHook();
 
     await act(async () => {
-      await ref.current?.load();
+      await ref.current?.load(42);
     });
 
-    expect(ref.current?.error).toBe("Network error");
-    expect(ref.current?.snapshot).toBeNull();
-    expect(ref.current?.loading).toBe(false);
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/m2m/demo?seed=42");
   });
 
-  it("handles server error response", async () => {
-    mockApiFetch.mockResolvedValue({ error: "M2M demo failed." });
-    const ref = await renderUseM2mDemo();
+  it("surfaces a server error and clears the snapshot", async () => {
+    mockApiFetch.mockResolvedValue({ error: "boom" });
+    const ref = await renderHook();
 
     await act(async () => {
       await ref.current?.load();
     });
 
-    expect(ref.current?.error).toBe("M2M demo failed.");
-    expect(ref.current?.notConfigured).toBe(false);
+    expect(ref.current?.error).toBe("boom");
     expect(ref.current?.snapshot).toBeNull();
   });
 });

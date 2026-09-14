@@ -21,6 +21,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { M2mDemoCard } from "@/components/dashboard/M2mDemoCard";
 import { useSession } from "@/lib/auth-client";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { formatCurrency, calculateInvoiceTotals } from "@/lib/invoices/calculations";
@@ -142,6 +143,8 @@ export default function DashboardScreen() {
             />
           )}
         </VStack>
+
+        <M2mDemoCard />
 
       </VStack>
     </ScreenLayout>

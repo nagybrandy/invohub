@@ -11,6 +11,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
+import { NavStatusCard } from "@/components/invoices/NavStatusCard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { apiFetch } from "@/lib/api/client";
@@ -204,6 +205,8 @@ export default function InvoiceDetailScreen() {
         </Card>
 
         <InvoiceDocumentPreview invoice={invoice} invoiceId={id} />
+
+        {id ? <NavStatusCard invoiceId={id} /> : null}
 
         <VStack space="sm">
           <Text className="font-semibold">Actions</Text>

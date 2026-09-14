@@ -20,14 +20,22 @@ jest.mock("@/lib/m2m/demo-user", () => ({
   fetchM2mDemoSnapshot: jest.fn(),
 }));
 
+jest.mock("@/lib/m2m/simulator", () => ({
+  buildM2mSimulatorSnapshot: jest.fn(),
+}));
+
 import { requireSession } from "@/lib/api/session";
 import { isM2mConfigured, M2mConfigError } from "@/lib/m2m/credentials";
 import { fetchM2mDemoSnapshot } from "@/lib/m2m/demo-user";
+import { buildM2mSimulatorSnapshot } from "@/lib/m2m/simulator";
 import { GET } from "@/app/api/m2m/demo+api";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
 const mockIsConfigured = isM2mConfigured as jest.MockedFunction<typeof isM2mConfigured>;
 const mockFetchSnapshot = fetchM2mDemoSnapshot as jest.MockedFunction<typeof fetchM2mDemoSnapshot>;
+const mockBuildSimulatorSnapshot = buildM2mSimulatorSnapshot as jest.MockedFunction<
+  typeof buildM2mSimulatorSnapshot
+>;
 
 describe("GET /api/m2m/demo", () => {
   beforeEach(() => {
@@ -41,14 +49,19 @@ describe("GET /api/m2m/demo", () => {
     expect(response.status).toBe(401);
   });
 
-  it("returns 503 when M2M is not configured", async () => {
+  it("falls back to the demo simulator when M2M is not configured (no error)", async () => {
     mockIsConfigured.mockReturnValue(false);
+    const simulated = { taxpayer: { id: "1", label: "Demo" }, checks: [] };
+    mockBuildSimulatorSnapshot.mockReturnValue(simulated as never);
+
     const response = await GET(new Request("http://localhost/api/m2m/demo"));
     const body = await response.json();
 
-    expect(response.status).toBe(503);
-    expect(body.error).toBe("M2M not configured.");
-    expect(body.hint).toContain("M2M_*");
+    expect(response.status).toBe(200);
+    expect(body.snapshot).toEqual(simulated);
+    expect(body.configured).toBe(false);
+    expect(body.mode).toBe("demo");
+    expect(mockFetchSnapshot).not.toHaveBeenCalled();
   });
 
   it("returns snapshot when configured", async () => {
@@ -62,6 +75,7 @@ describe("GET /api/m2m/demo", () => {
     expect(response.status).toBe(200);
     expect(body.snapshot).toEqual(snapshot);
     expect(body.configured).toBe(true);
+    expect(body.mode).toBe("test");
   });
 
   it("passes taxpayerId and seed query params", async () => {
@@ -76,15 +90,19 @@ describe("GET /api/m2m/demo", () => {
     });
   });
 
-  it("returns 503 on M2mConfigError", async () => {
+  it("falls back to the demo simulator on M2mConfigError (no error surfaced)", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockFetchSnapshot.mockRejectedValue(new M2mConfigError("Missing key"));
+    const simulated = { taxpayer: { id: "1", label: "Demo" }, checks: [] };
+    mockBuildSimulatorSnapshot.mockReturnValue(simulated as never);
 
     const response = await GET(new Request("http://localhost/api/m2m/demo"));
     const body = await response.json();
 
-    expect(response.status).toBe(503);
-    expect(body.error).toBe("Missing key");
+    expect(response.status).toBe(200);
+    expect(body.snapshot).toEqual(simulated);
+    expect(body.configured).toBe(false);
+    expect(body.mode).toBe("demo");
   });
 
   it("returns 502 on generic error", async () => {

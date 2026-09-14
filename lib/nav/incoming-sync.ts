@@ -3,14 +3,26 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { incomingInvoice } from "@/db/schema";
+import type { Company } from "@/lib/companies/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
-import { buildNavCredentials } from "@/lib/nav/credentials";
-import { fetchIncomingInvoices } from "@/lib/nav/client";
+import { fetchIncomingInvoices, type NavCredentials } from "@/lib/nav/client";
+
+// This demo-shaped stub predates (and is out of scope for) the OSA 3.0
+// manageInvoice/queryTaxpayer work in lib/nav/{real-client,simulator}.ts —
+// see the note on fetchIncomingInvoices in lib/nav/client.ts.
+function buildLegacyNavCredentials(company: Company | null): NavCredentials {
+  return {
+    technicalUser: company?.navTechnicalUser ?? "sandbox",
+    xmlSignKey: company?.navXmlSignKey ?? "sandbox",
+    taxNumber: company?.taxNumber ?? "00000000-0-00",
+    environment: company?.navEnvironment === "production" ? "production" : "test",
+  };
+}
 
 export async function syncIncomingInvoices(userId: string) {
   const company = await getCompanyByUserId(userId);
-  const credentials = buildNavCredentials(company);
+  const credentials = buildLegacyNavCredentials(company);
 
   const navInvoices = await fetchIncomingInvoices(credentials);
   const now = new Date();

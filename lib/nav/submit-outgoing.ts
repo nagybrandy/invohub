@@ -1,19 +1,23 @@
 // lib/nav/submit-outgoing.ts
-// Shared NAV outgoing invoice submission (XML build + DB record).
+// Shared NAV outgoing invoice submission: builds OSA 3.0 InvoiceData XML,
+// submits it through the mode-appropriate client (demo simulator, or the
+// real test/production client), and records the submission + transactionId.
 import { db } from "@/db";
 import { navSubmission } from "@/db/schema";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
 import type { Invoice } from "@/lib/invoices/types";
-import { buildNavCredentials } from "@/lib/nav/credentials";
-import { submitInvoiceToNav } from "@/lib/nav/client";
+import { getNavClient } from "@/lib/nav/client";
+import type { NavEnvironment } from "@/lib/nav/environment";
 import { buildNavInvoiceXml } from "@/lib/nav/invoice-xml";
+import { resolveNavCredentials } from "@/lib/nav/resolve-credentials";
 
 export type NavSubmissionResult = {
   submissionId: string;
   status: string;
   transactionId: string;
   invoiceXml: string;
+  mode: NavEnvironment;
 };
 
 export async function submitOutgoingInvoiceToNav(
@@ -21,27 +25,33 @@ export async function submitOutgoingInvoiceToNav(
   invoice: Invoice
 ): Promise<NavSubmissionResult> {
   const company = await getCompanyByUserId(userId);
-  const invoiceXml = buildNavInvoiceXml(invoice, company);
+  const mode: NavEnvironment = company?.navEnvironment ?? "demo";
 
-  const result = await submitInvoiceToNav(buildNavCredentials(company), invoiceXml);
+  const invoiceXml = buildNavInvoiceXml(invoice, company);
+  const invoiceDataBase64 = Buffer.from(invoiceXml, "utf8").toString("base64");
+
+  const client = getNavClient(mode);
+  const credentials = mode === "demo" ? null : resolveNavCredentials(company);
+
+  const { exchangeToken } = await client.tokenExchange(credentials);
+  const { transactionId } = await client.manageInvoice(credentials, exchangeToken, [
+    { index: 1, operation: "CREATE", invoiceDataBase64 },
+  ]);
 
   const now = new Date();
   const submissionId = createId();
+  const status = "sent";
 
   await db.insert(navSubmission).values({
     id: submissionId,
     invoiceId: invoice.id,
-    status: result.status,
-    transactionId: result.transactionId,
+    status,
+    mode,
+    transactionId,
     submittedAt: now,
     createdAt: now,
     updatedAt: now,
   });
 
-  return {
-    submissionId,
-    status: result.status,
-    transactionId: result.transactionId,
-    invoiceXml,
-  };
+  return { submissionId, status, transactionId, invoiceXml, mode };
 }

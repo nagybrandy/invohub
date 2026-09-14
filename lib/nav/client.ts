@@ -1,15 +1,38 @@
 // lib/nav/client.ts
-// NAV Online Számla API client — sandbox stub with test/production endpoints.
-import {
-  NAV_API_BASE_URL,
-  type NavEnvironment,
-} from "@/lib/nav/environment";
+// NAV Online Számla client factory: selects the in-process demo simulator
+// (mode "demo", the default — zero NAV accounts needed) or the real OSA 3.0
+// client (mode "test"/"production") based on the company's NAV mode.
+import type { NavEnvironment } from "@/lib/nav/environment";
+import { createNavRealClient } from "@/lib/nav/real-client";
+import { createNavSimulatorClient } from "@/lib/nav/simulator";
+import type { NavClient } from "@/lib/nav/types";
 
+export function getNavClient(mode: NavEnvironment): NavClient {
+  if (mode === "demo") return createNavSimulatorClient();
+  return createNavRealClient(mode);
+}
+
+export type {
+  NavClient,
+  NavInvoiceOperationInput,
+  NavInvoiceOperationKind,
+  NavManageInvoiceResult,
+  NavTaxpayerQueryResult,
+  NavTokenExchangeResult,
+  NavTransactionStatusResult,
+  NavTransactionStatusValue,
+} from "@/lib/nav/types";
+
+// --- Legacy demo stub for the incoming-invoice sync feature -----------------
+// syncIncomingInvoices (lib/nav/incoming-sync.ts) pulls a fixed demo list of
+// "invoices received from suppliers" — this predates (and is out of scope
+// for) the OSA 3.0 manageInvoice/queryTaxpayer work above. It's still wired
+// through demo-shaped data only; see openIssues in docs/nav-test-setup.md.
 export type NavCredentials = {
   technicalUser: string;
   xmlSignKey: string;
   taxNumber: string;
-  environment: NavEnvironment;
+  environment: "test" | "production";
 };
 
 export type NavIncomingInvoiceStub = {
@@ -23,15 +46,7 @@ export type NavIncomingInvoiceStub = {
   currency: string;
 };
 
-export function getNavApiBaseUrl(environment: NavEnvironment): string {
-  return NAV_API_BASE_URL[environment];
-}
-
-export async function fetchIncomingInvoices(
-  credentials: NavCredentials
-): Promise<NavIncomingInvoiceStub[]> {
-  void getNavApiBaseUrl(credentials.environment);
-
+export async function fetchIncomingInvoices(credentials: NavCredentials): Promise<NavIncomingInvoiceStub[]> {
   const prefix = credentials.environment === "production" ? "NAV" : "NAV-TEST";
 
   return [
@@ -56,20 +71,4 @@ export async function fetchIncomingInvoices(
       currency: "HUF",
     },
   ];
-}
-
-export async function submitInvoiceToNav(
-  credentials: NavCredentials,
-  invoiceXml: string
-): Promise<{ transactionId: string; status: string; environment: NavEnvironment }> {
-  void getNavApiBaseUrl(credentials.environment);
-  void invoiceXml;
-
-  const envTag = credentials.environment === "production" ? "LIVE" : "TEST";
-
-  return {
-    transactionId: `NAV-${envTag}-TXN-${Date.now()}`,
-    status: "accepted",
-    environment: credentials.environment,
-  };
 }

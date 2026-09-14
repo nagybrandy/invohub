@@ -80,9 +80,14 @@ export const company = pgTable(
     invoiceEmailTo: text("invoice_email_to"),
     invoiceEmailCc: text("invoice_email_cc"),
     navTechnicalUser: text("nav_technical_user"),
+    // navTechnicalPassword, navXmlSignKey, navXmlChangeKey are stored
+    // AES-256-GCM encrypted (see lib/nav/credentials.ts) when
+    // NAV_CREDENTIALS_KEY is configured; legacy plaintext rows are still
+    // read transparently.
     navTechnicalPassword: text("nav_technical_password"),
     navXmlSignKey: text("nav_xml_sign_key"),
-    navEnvironment: text("nav_environment").default("test"),
+    navXmlChangeKey: text("nav_xml_change_key"),
+    navEnvironment: text("nav_environment").default("demo"),
     navReceiptSoftwareId: text("nav_receipt_software_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -197,8 +202,14 @@ export const navSubmission = pgTable(
       .notNull()
       .references(() => invoice.id, { onDelete: "cascade" }),
     status: text("status").notNull().default("pending"),
+    // NAV mode used at submission time: "demo" | "test" | "production".
+    mode: text("mode").notNull().default("demo"),
     transactionId: text("transaction_id"),
     errorMessage: text("error_message"),
+    // JSON-stringified string[] of the latest technical/business validation
+    // messages from queryTransactionStatus (status timeline).
+    messages: text("messages"),
+    checkedAt: timestamp("checked_at"),
     submittedAt: timestamp("submitted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

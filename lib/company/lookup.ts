@@ -1,5 +1,12 @@
 // lib/company/lookup.ts
-// Company lookup by tax number — MVP stub with mock data for Hungarian format.
+// Company lookup by tax number: real NAV queryTaxpayer when the company is
+// in test/production mode with usable credentials, deterministic demo
+// taxpayers otherwise (demo mode, the default, and the fallback when real
+// credentials aren't configured yet).
+import type { Company } from "@/lib/companies/service";
+import { getNavClient } from "@/lib/nav/client";
+import { NavCredentialsMissingError, resolveNavCredentials } from "@/lib/nav/resolve-credentials";
+
 export type CompanyLookupResult = {
   name: string;
   taxNumber: string;
@@ -31,23 +38,54 @@ const MOCK_COMPANIES: Record<string, CompanyLookupResult> = {
   },
 };
 
+function demoLookup(normalized: string): CompanyLookupResult | null {
+  const mock = MOCK_COMPANIES[normalized];
+  if (mock) return mock;
+
+  // Unknown but plausibly-formatted: return a partial result so the user can fill in manually.
+  if (/^\d{8}-\d-\d{2}$/.test(normalized)) {
+    return { name: "", taxNumber: normalized, country: "HU" };
+  }
+
+  return null;
+}
+
+/**
+ * `company` is optional and defaults every caller to demo-mode behavior —
+ * pass the requesting user's Company (from getCompanyByUserId) to enable a
+ * real NAV lookup when they're in test/production mode with credentials.
+ */
 export async function lookupCompanyByTaxNumber(
-  taxNumber: string
+  taxNumber: string,
+  company?: Company | null
 ): Promise<CompanyLookupResult | null> {
   const normalized = taxNumber.trim();
   if (!normalized) return null;
 
-  const mock = MOCK_COMPANIES[normalized];
-  if (mock) return mock;
-
-  // Stub: return partial result so user can fill manually
-  if (/^\d{8}-\d-\d{2}$/.test(normalized)) {
-    return {
-      name: "",
-      taxNumber: normalized,
-      country: "HU",
-    };
+  const mode = company?.navEnvironment ?? "demo";
+  if (mode !== "demo") {
+    const digits = normalized.replace(/\D/g, "").slice(0, 8);
+    if (digits.length === 8) {
+      try {
+        const credentials = resolveNavCredentials(company ?? null);
+        const client = getNavClient(mode);
+        const result = await client.queryTaxpayer(credentials, digits);
+        if (!result.valid) return null;
+        return {
+          name: result.name ?? "",
+          taxNumber: normalized,
+          address: result.address,
+          city: result.city,
+          zipCode: result.zipCode,
+          country: result.country ?? "HU",
+        };
+      } catch (error) {
+        if (!(error instanceof NavCredentialsMissingError)) throw error;
+        // No usable real credentials yet — fall through to the demo lookup
+        // so the UI still works while the owner finishes NAV setup.
+      }
+    }
   }
 
-  return null;
+  return demoLookup(normalized);
 }

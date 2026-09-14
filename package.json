@@ -88,6 +88,8 @@
     "test:ci": "npm run typecheck && npm run test:unit && npm run test:e2e:web",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "nav:check": "node scripts/nav-check.mjs",
+    "m2m:check": "node scripts/m2m-check.mjs",
     "auth:generate": "npx @better-auth/cli generate",
     "marketing": "node scripts/serve-marketing.mjs",
     "vercel-build": "expo export -p web && node scripts/copy-marketing-site.mjs && node scripts/prepare-server-pdf-deps.mjs && node scripts/verify-pdf-vendor.mjs",

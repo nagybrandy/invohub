@@ -1,37 +1,34 @@
 // app/api/m2m/demo+api.ts
-// Live NAV M2M demo — random official test taxpayer snapshot (session auth).
+// NAV M2M Adózó snapshot (session auth): the real test-env call when
+// M2M_* env vars are configured (owner sets these up once), otherwise the
+// in-process demo simulator — always returns a snapshot, zero setup needed.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { isM2mConfigured, M2mConfigError } from "@/lib/m2m/credentials";
 import { fetchM2mDemoSnapshot } from "@/lib/m2m/demo-user";
+import { buildM2mSimulatorSnapshot } from "@/lib/m2m/simulator";
 
 export async function GET(request: Request) {
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  if (!isM2mConfigured()) {
-    return jsonResponse(
-      {
-        error: "M2M not configured.",
-        hint: "Add M2M_* variables to .env (see .env.example).",
-      },
-      503
-    );
-  }
-
   const url = new URL(request.url);
   const taxpayerId = url.searchParams.get("taxpayerId") ?? undefined;
   const seedParam = url.searchParams.get("seed");
   const seed = seedParam != null ? Number(seedParam) : undefined;
+  const normalizedSeed = Number.isFinite(seed) ? seed : undefined;
+
+  if (!isM2mConfigured()) {
+    const snapshot = buildM2mSimulatorSnapshot({ taxpayerId, seed: normalizedSeed });
+    return jsonResponse({ snapshot, configured: false, mode: "demo" });
+  }
 
   try {
-    const snapshot = await fetchM2mDemoSnapshot({
-      taxpayerId,
-      seed: Number.isFinite(seed) ? seed : undefined,
-    });
-    return jsonResponse({ snapshot, configured: true });
+    const snapshot = await fetchM2mDemoSnapshot({ taxpayerId, seed: normalizedSeed });
+    return jsonResponse({ snapshot, configured: true, mode: "test" });
   } catch (error) {
     if (error instanceof M2mConfigError) {
-      return jsonResponse({ error: error.message }, 503);
+      const snapshot = buildM2mSimulatorSnapshot({ taxpayerId, seed: normalizedSeed });
+      return jsonResponse({ snapshot, configured: false, mode: "demo" });
     }
     const message = error instanceof Error ? error.message : "M2M demo failed.";
     return jsonResponse({ error: message }, 502);

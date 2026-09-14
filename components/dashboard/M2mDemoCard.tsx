@@ -1,7 +1,11 @@
 // components/dashboard/M2mDemoCard.tsx
-// Dashboard card showing a live NAV M2M random test taxpayer snapshot.
+// Dashboard card showing a NAV M2M Adózó snapshot: demo (simulator, default,
+// zero setup) or test (real m2m-dev.nav.gov.hu registry) when M2M_* env is
+// configured on the server.
 import * as React from "react";
 import { RefreshCw } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
+import { Badge, BadgeText } from "@/components/ui/badge";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
@@ -18,15 +22,16 @@ function CheckRow({ label, ok, code }: { label: string; ok: boolean; code?: stri
         {label}
       </Text>
       <Text size="sm" className={ok ? "text-green-600" : "text-destructive"}>
-        {ok ? "OK" : code ?? "Failed"}
+        {ok ? "OK" : (code ?? "—")}
       </Text>
     </HStack>
   );
 }
 
 export function M2mDemoCard() {
+  const { t } = useTranslation();
   const icons = useIconColors();
-  const { snapshot, loading, error, notConfigured, load } = useM2mDemo();
+  const { snapshot, mode, loading, error, load } = useM2mDemo();
 
   React.useEffect(() => {
     void load();
@@ -36,31 +41,36 @@ export function M2mDemoCard() {
     void load(Date.now());
   }
 
+  const isDemo = mode === "demo";
+
   return (
     <Card className="border-primary/20 bg-primary/5 p-4">
       <VStack space="md">
         <HStack className="items-start justify-between">
           <VStack space="xs" className="flex-1">
-            <Text className="font-semibold text-foreground">NAV M2M test user</Text>
+            <HStack space="xs" className="items-center flex-wrap">
+              <Text className="font-semibold text-foreground">
+                {isDemo ? t("dashboard.m2m.titleDemo") : t("dashboard.m2m.titleTest")}
+              </Text>
+              {isDemo ? (
+                <Badge variant="outline" className="border-primary/40">
+                  <BadgeText className="text-[10px] text-primary">{t("dashboard.m2m.demoBadge")}</BadgeText>
+                </Badge>
+              ) : null}
+            </HStack>
             <Text size="sm" className="text-muted-foreground">
-              Live snapshot from the official NAV dev test registry.
+              {isDemo ? t("dashboard.m2m.subtitleDemo") : t("dashboard.m2m.subtitleTest")}
             </Text>
           </VStack>
           <Button size="sm" variant="outline" onPress={handleRefresh} isDisabled={loading}>
             <RefreshCw size={14} color={icons.muted} />
-            <ButtonText className="ml-1">Random</ButtonText>
+            <ButtonText className="ml-1">{t("dashboard.m2m.refresh")}</ButtonText>
           </Button>
         </HStack>
 
-        {loading && !snapshot ? <Text size="sm">Loading test user…</Text> : null}
+        {loading && !snapshot ? <Text size="sm">{t("dashboard.m2m.loading")}</Text> : null}
 
-        {notConfigured ? (
-          <Text size="sm" className="text-muted-foreground">
-            Add M2M_* credentials to `.env` to enable this demo (see `.env.example`).
-          </Text>
-        ) : null}
-
-        {error && !notConfigured ? (
+        {error ? (
           <Text size="sm" className="text-destructive">
             {error}
           </Text>
@@ -83,15 +93,10 @@ export function M2mDemoCard() {
 
             <VStack space="xs" className="rounded-md bg-background/80 p-3">
               <Text size="sm" className="font-medium text-foreground">
-                API checks
+                {t("dashboard.m2m.checksLabel")}
               </Text>
               {snapshot.checks.map((check) => (
-                <CheckRow
-                  key={check.name}
-                  label={check.name}
-                  ok={check.ok}
-                  code={check.resultCode}
-                />
+                <CheckRow key={check.name} label={check.name} ok={check.ok} code={check.resultCode} />
               ))}
             </VStack>
 
@@ -99,7 +104,7 @@ export function M2mDemoCard() {
               <HStack space="md" className="flex-wrap">
                 <VStack>
                   <Text size="xs" className="text-muted-foreground">
-                    Balance
+                    {t("dashboard.m2m.balance")}
                   </Text>
                   <Text size="sm" className="font-medium">
                     {formatCurrency(snapshot.taxSummary.totalBalance, "HUF")}
@@ -107,7 +112,7 @@ export function M2mDemoCard() {
                 </VStack>
                 <VStack>
                   <Text size="xs" className="text-muted-foreground">
-                    Debt
+                    {t("dashboard.m2m.debt")}
                   </Text>
                   <Text size="sm" className="font-medium">
                     {formatCurrency(snapshot.taxSummary.taxDebt, "HUF")}
@@ -118,14 +123,15 @@ export function M2mDemoCard() {
 
             {snapshot.missingDeclarations.length > 0 ? (
               <Text size="sm" className="text-foreground">
-                {snapshot.missingDeclarations.length} missing declaration
-                {snapshot.missingDeclarations.length > 1 ? "s" : ""} in test data
+                {t("dashboard.m2m.missingDeclarations", { count: snapshot.missingDeclarations.length })}
               </Text>
             ) : null}
 
             {snapshot.publicDebt && snapshot.publicDebt.outstanding > 0 ? (
               <Text size="sm" className="text-foreground">
-                Public debt: {formatCurrency(snapshot.publicDebt.outstanding, "HUF")}
+                {t("dashboard.m2m.publicDebt", {
+                  amount: formatCurrency(snapshot.publicDebt.outstanding, "HUF"),
+                })}
               </Text>
             ) : null}
 
@@ -133,9 +139,7 @@ export function M2mDemoCard() {
               size="sm"
               className={snapshot.allEndpointsReachable ? "text-green-600" : "text-muted-foreground"}
             >
-              {snapshot.allEndpointsReachable
-                ? "All M2M endpoints responded successfully."
-                : "Some endpoints returned no data for this test ID (expected for random picks)."}
+              {snapshot.allEndpointsReachable ? t("dashboard.m2m.allOk") : t("dashboard.m2m.someFailed")}
             </Text>
           </VStack>
         ) : null}

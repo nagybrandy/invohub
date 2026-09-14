@@ -31,11 +31,19 @@ function mockCompanySelect(row: unknown | null) {
 }
 
 describe("upsertCompany", () => {
+  const originalProdFlag = process.env.NAV_PRODUCTION_ENABLED;
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("stores navEnvironment on create", async () => {
+  afterEach(() => {
+    if (originalProdFlag === undefined) delete process.env.NAV_PRODUCTION_ENABLED;
+    else process.env.NAV_PRODUCTION_ENABLED = originalProdFlag;
+  });
+
+  it("stores navEnvironment on create (production requires NAV_PRODUCTION_ENABLED)", async () => {
+    process.env.NAV_PRODUCTION_ENABLED = "true";
     mockCompanySelect(null);
     mockDb.insert.mockReturnValue({
       values: jest.fn(() => ({
@@ -72,6 +80,76 @@ describe("upsertCompany", () => {
 
     expect(company.navEnvironment).toBe("production");
     expect(mockDb.insert).toHaveBeenCalled();
+  });
+
+  it("falls back to demo when production is requested but not enabled", async () => {
+    delete process.env.NAV_PRODUCTION_ENABLED;
+    mockCompanySelect(null);
+    mockDb.insert.mockReturnValue({
+      values: jest.fn(() => ({
+        returning: jest.fn().mockResolvedValue([
+          {
+            id: "c1",
+            userId: "user-1",
+            name: "Demo Kft.",
+            taxNumber: null,
+            euVatNumber: null,
+            address: null,
+            city: null,
+            zipCode: null,
+            country: "HU",
+            bankAccount: null,
+            logoUrl: null,
+            invoiceEmailTo: null,
+            invoiceEmailCc: null,
+            navTechnicalUser: null,
+            navTechnicalPassword: null,
+            navXmlSignKey: null,
+            navXmlChangeKey: null,
+            navEnvironment: "production",
+            createdAt: new Date("2026-01-01"),
+            updatedAt: new Date("2026-01-01"),
+          },
+        ]),
+      })),
+    });
+
+    const company = await upsertCompany("user-1", {
+      name: "Demo Kft.",
+      navEnvironment: "production",
+    });
+
+    expect(company.navEnvironment).toBe("demo");
+  });
+
+  it("encrypts NAV secret fields before storing, and refuses without NAV_CREDENTIALS_KEY", async () => {
+    const originalKey = process.env.NAV_CREDENTIALS_KEY;
+    delete process.env.NAV_CREDENTIALS_KEY;
+    mockCompanySelect(null);
+    mockDb.insert.mockReturnValue({
+      values: jest.fn(() => ({ returning: jest.fn().mockResolvedValue([{}]) })),
+    });
+
+    await expect(
+      upsertCompany("user-1", { name: "Demo Kft.", navXmlSignKey: "plain-sign-key" })
+    ).rejects.toThrow(/NAV_CREDENTIALS_KEY/);
+
+    process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 3).toString("base64");
+    let storedValues: Record<string, unknown> | undefined;
+    mockDb.insert.mockReturnValue({
+      values: jest.fn((v: Record<string, unknown>) => {
+        storedValues = v;
+        return { returning: jest.fn().mockResolvedValue([{ ...v, id: "c1", userId: "user-1" }]) };
+      }),
+    });
+
+    await upsertCompany("user-1", { name: "Demo Kft.", navXmlSignKey: "plain-sign-key" });
+    expect(storedValues?.navXmlSignKey).toEqual(expect.any(String));
+    expect(storedValues?.navXmlSignKey).not.toBe("plain-sign-key");
+    expect(String(storedValues?.navXmlSignKey)).toMatch(/^gcm1:/);
+
+    if (originalKey === undefined) delete process.env.NAV_CREDENTIALS_KEY;
+    else process.env.NAV_CREDENTIALS_KEY = originalKey;
   });
 });
 
