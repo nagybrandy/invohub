@@ -1,6 +1,11 @@
 // lib/invoices/preview-html.ts
 // Generates HTML preview for invoice modal display.
-import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
+import {
+  calculateInvoiceTotals,
+  formatCurrency,
+  lineItemGrossTotal,
+} from "@/lib/invoices/calculations";
+import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
   formatInvoiceDueDate,
   formatInvoiceIssueDateTime,
@@ -16,17 +21,26 @@ export function generateInvoicePreviewHtml(invoice: Invoice): string {
           <td>${escapeHtml(item.description)}</td>
           <td style="text-align:right">${item.quantity}</td>
           <td style="text-align:right">${formatCurrency(item.unitPrice, invoice.currency)}</td>
-          <td style="text-align:right">${item.vatRate}%</td>
-          <td style="text-align:right">${formatCurrency(item.quantity * item.unitPrice * (1 + item.vatRate / 100), invoice.currency)}</td>
+          <td style="text-align:right">${item.vatCategory === "normal" ? `${item.vatRate}%` : escapeHtml(item.vatCategory)}</td>
+          <td style="text-align:right">${formatCurrency(lineItemGrossTotal(item), invoice.currency)}</td>
         </tr>`
     )
     .join("");
 
+  const exemptionReasons = [
+    ...new Set(
+      invoice.lineItems
+        .filter((item) => item.vatCategory !== "normal")
+        .map((item) => resolveVatExemptionReason(item.vatCategory, item.vatExemptionReason))
+        .filter((reason): reason is string => !!reason)
+    ),
+  ];
+
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>${escapeHtml(invoice.invoiceNumber)}</title></head>
+<head><meta charset="utf-8"><title>${escapeHtml(invoice.invoiceNumber || "DRAFT")}</title></head>
 <body style="font-family:system-ui,sans-serif;padding:24px;max-width:720px;margin:0 auto;color:#111">
-  <h1 style="margin:0 0 8px">${escapeHtml(invoice.invoiceNumber)}</h1>
+  <h1 style="margin:0 0 8px">${escapeHtml(invoice.invoiceNumber || "DRAFT")}</h1>
   <p style="color:#666;margin:0 0 24px">Status: ${escapeHtml(invoice.status)}</p>
   <section style="margin-bottom:24px">
     <strong>Bill to:</strong> ${escapeHtml(invoice.clientName)}
@@ -45,6 +59,7 @@ export function generateInvoicePreviewHtml(invoice: Invoice): string {
     <p>VAT: ${formatCurrency(totals.vatTotal, invoice.currency)}</p>
     <p><strong>Total: ${formatCurrency(totals.totalAmount, invoice.currency)}</strong></p>
   </div>
+  ${exemptionReasons.length > 0 ? `<p style="color:#444">${exemptionReasons.map(escapeHtml).join("<br>")}</p>` : ""}
   <p style="color:#666;margin-top:24px">Issue: ${escapeHtml(formatInvoiceIssueDateTime(invoice))} · Due: ${escapeHtml(formatInvoiceDueDate(invoice))}</p>
   ${invoice.notes ? `<p style="margin-top:16px">${escapeHtml(invoice.notes)}</p>` : ""}
 </body>

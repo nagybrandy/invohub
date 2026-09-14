@@ -11,6 +11,7 @@ import {
 import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { FormScreen } from "@/components/layout/FormScreen";
@@ -27,6 +28,7 @@ export default function CompanySettingsScreen() {
   const [city, setCity] = React.useState("");
   const [zipCode, setZipCode] = React.useState("");
   const [bankAccount, setBankAccount] = React.useState("");
+  const [vatExempt, setVatExempt] = React.useState(false);
   const [invoiceEmailTo, setInvoiceEmailTo] = React.useState("");
   const [invoiceEmailCc, setInvoiceEmailCc] = React.useState("");
   const [navTechnicalUser, setNavTechnicalUser] = React.useState("");
@@ -47,6 +49,7 @@ export default function CompanySettingsScreen() {
       setCity(company.city ?? "");
       setZipCode(company.zipCode ?? "");
       setBankAccount(company.bankAccount ?? "");
+      setVatExempt(company.vatExempt ?? false);
       setInvoiceEmailTo(company.invoiceEmailTo ?? "");
       setInvoiceEmailCc(company.invoiceEmailCc ?? "");
       setNavTechnicalUser(company.navTechnicalUser ?? "");
@@ -92,6 +95,7 @@ export default function CompanySettingsScreen() {
         city: city.trim() || undefined,
         zipCode: zipCode.trim() || undefined,
         bankAccount: bankAccount.trim() || undefined,
+        vatExempt,
         invoiceEmailTo: invoiceEmailTo.trim() || undefined,
         invoiceEmailCc: invoiceEmailCc.trim() || undefined,
         navTechnicalUser: navTechnicalUser.trim() || undefined,
@@ -185,6 +189,17 @@ export default function CompanySettingsScreen() {
               <InputField value={bankAccount} onChangeText={setBankAccount} />
             </Input>
           </FormControl>
+          <HStack className="items-center justify-between">
+            <VStack className="flex-1 pr-3">
+              <Text size="sm" className="font-medium text-foreground">
+                {t("company.vatExempt")}
+              </Text>
+              <Text size="xs" className="font-light text-muted-foreground">
+                {t("company.vatExemptHint")}
+              </Text>
+            </VStack>
+            <Switch value={vatExempt} onValueChange={setVatExempt} />
+          </HStack>
         </VStack>
 
         <VStack space="md">

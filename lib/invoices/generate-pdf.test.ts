@@ -1,4 +1,6 @@
 // lib/invoices/generate-pdf.test.ts
+let mockDrawnTexts: string[] = [];
+
 jest.mock("@/lib/invoices/pdf-document", () => {
   const { EventEmitter } = require("events");
 
@@ -28,7 +30,8 @@ jest.mock("@/lib/invoices/pdf-document", () => {
     fill() {
       return this;
     }
-    text() {
+    text(value: string) {
+      mockDrawnTexts.push(value);
       return this;
     }
     save() {
@@ -79,6 +82,10 @@ jest.mock("@/lib/invoices/pdf-document", () => {
 import { generateInvoicePdf, invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
+beforeEach(() => {
+  mockDrawnTexts = [];
+});
+
 describe("invoicePdfFilename", () => {
   it("sanitizes unsafe characters", () => {
     expect(invoicePdfFilename("INV/2026#001")).toBe("INV_2026_001.pdf");
@@ -99,5 +106,42 @@ describe("generateInvoicePdf", () => {
 
     expect(Buffer.isBuffer(pdf)).toBe(true);
     expect(pdf.toString("utf8")).toContain("%PDF-");
+  });
+
+  it("prints the VAT category instead of a percentage, and the exemption reason once", async () => {
+    const invoice = makeInvoice({
+      lineItems: [
+        makeLineItem({ id: "l1", vatCategory: "AAM", vatRate: 0 }),
+        makeLineItem({ id: "l2", description: "Second exempt line", vatCategory: "AAM", vatRate: 0 }),
+      ],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts).toContain("AAM");
+    expect(mockDrawnTexts.filter((t) => t === "Alanyi adómentes")).toHaveLength(1);
+  });
+
+  it("prints a custom exemption reason override when set", async () => {
+    const invoice = makeInvoice({
+      lineItems: [
+        makeLineItem({ vatCategory: "FAD", vatRate: 0, vatExemptionReason: "Custom FAD reason" }),
+      ],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts).toContain("Custom FAD reason");
+    expect(mockDrawnTexts).not.toContain("Fordított adózás");
+  });
+
+  it("prints no exemption note block for an ordinary taxed invoice", async () => {
+    const invoice = makeInvoice({
+      lineItems: [makeLineItem({ vatCategory: "normal", vatRate: 27 })],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts).not.toContain("Alanyi adómentes");
   });
 });
