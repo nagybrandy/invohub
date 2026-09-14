@@ -171,13 +171,17 @@ Remaining for the launch gate:
       account (needs `NAV_TEST_*` configured — see docs/nav-test-setup.md)
       — do a real storno/modify test submission once that's set up, as a
       final check before relying on this for production.
-- [ ] Invoice creation (`app/(app)/invoices/new.tsx`) is one long, flat
+- [~] folyamatban (slice/invoice-creation-step-flow-mobile)
+      Invoice creation (`app/(app)/invoices/new.tsx`) is one long, flat
       scroll with ~16 fields and no sectioned/step flow on mobile —
       consider a step/accordion flow (Recipient → Dates/Payment → Line
       items) or collapsing less-common fields behind "more options" to
       shorten the pre-line-items scroll distance. Deferred here as a
       product/design decision rather than restructured unilaterally in the
       2026-09-14 fixer pass. (ux-mobile)
+      Plan: `docs/plans/2026-09-14-invoice-creation-step-flow-mobile.md`
+      (design decision: accordion with collapsed-section summaries, not a
+      wizard — desktop layout unchanged)
 - [ ] Notification bell tap target (`components/navigation/
       MobileAppHeader.tsx`) is ~42px, just under the 44px minimum — bump
       padding to p-3 or add hitSlop (2026-09-14 audit, ux-mobile)
