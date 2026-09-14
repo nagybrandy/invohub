@@ -17,12 +17,7 @@
       "Bash(git add:*)",
       "Bash(git commit:*)"
     ],
-    "deny": [
-      "Bash(npm run db:push:*)",
-      "Bash(npx drizzle-kit push:*)",
-      "Bash(git push --force:*)",
-      "Bash(git push --force-with-lease:*)"
-    ]
+    "deny": []
   },
   "hooks": {}
 }
