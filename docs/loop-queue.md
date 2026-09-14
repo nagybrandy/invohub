@@ -16,10 +16,13 @@ before starting a duplicate.
 Cross-cutting hardening that doesn't belong to one feature phase. Do this
 before or alongside Phase 1 items that depend on it.
 
-- [ ] Seed/demo data and admin-endpoint security audit — confirm
+- [~] folyamatban (slice/seed-demo-data-admin-endpoint-security-audit)
+      Seed/demo data and admin-endpoint security audit — confirm
       `lib/seed/demo-data.ts` cannot run outside a demo context and that no
       seeded/admin account ships with a predictable or blank password
-      reachable in production (`app/api/admin/**`, `lib/admin/service.ts`)
+      reachable in production (`app/api/admin/**`, `lib/admin/service.ts`).
+      Plan:
+      `docs/plans/2026-09-14-seed-demo-data-admin-endpoint-security-audit.md`
 - [ ] Reminders cron reliability — confirm `app/api/cron`/`app/api/reminders`
       + `lib/reminders/process.ts` handle retries and partial failures, not
       just the happy path
@@ -82,6 +85,27 @@ before or alongside Phase 1 items that depend on it.
 
 ## Phase 1 — Core invoicing, NAV-compliant
 
+### Prioritás (owner, 2026-09-14) — feature-first order for the dev-loop
+
+The app's own functions and UX come first; audits, tooling and "confirm
+that" items wait. Build in this order (each maps to an unchecked item below):
+
+1. Invoice creation flow: step/accordion flow on mobile, fewer fields before
+   line items (`app/(app)/invoices/new.tsx`)
+2. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
+   NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
+3. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
+4. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
+   action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
+5. Partially-paid invoice past due date surfaces as overdue (status derivation)
+6. e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
+   test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test
+   modes — big item, plan it in slices
+7. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
+8. Invoices empty-state CTA: replace "Load demo data" with "Első számla
+   kiállítása" (demo seed stays behind the dev flag)
+
+
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
 verified against Áfa tv. 169. §, NAV OSA end-to-end certified with test
 credentials, security/privacy review passed.
@@ -99,25 +123,33 @@ Already shipped:
 Remaining for the launch gate:
 - [ ] Authenticated create→preview→PDF E2E (blocked on the Phase 0 auth
       test-user item above)
-- [ ] AAM/TAM/fordított adózás review — confirm invoice VAT-treatment text
+- [x] AAM/TAM/fordított adózás review — confirm invoice VAT-treatment text
       and 0%-VAT handling match `.claude/skills/hu-invoicing-rules/SKILL.md`
       (mark anything the skill flags "ellenőrizendő" as needing human tax
       sign-off before closing this item)
-- [ ] Invoice numbering sequence — confirm gapless, concurrency-safe
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
+- [x] Invoice numbering sequence — confirm gapless, concurrency-safe
       numbering (a DB-level sequence/constraint, not just an in-app
       counter) in `lib/invoices/` / `db/schema.ts`
-- [ ] Payment fields completeness — payment method, bank account, due-date
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
+- [x] Payment fields completeness — payment method, bank account, due-date
       handling reviewed end to end (`lib/payments/`, `db/schema.ts`)
-- [ ] Storno / helyesbítő correction linkage — correction and cancellation
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
+- [x] Storno / helyesbítő correction linkage — correction and cancellation
       invoices must reference the original invoice id and remain
       NAV-reportable, not just an internal note
-- [ ] Invoice edit screen for draft/unsent invoices
-- [ ] NAV OSA 3.0 real client wiring with an explicit demo/test/production
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
+- [x] Invoice edit screen for draft/unsent invoices
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
+- [x] NAV OSA 3.0 real client wiring with an explicit demo/test/production
       mode switch surfaced in settings (never defaulting to production)
-- [ ] NAV submission status polling UI — poll transaction status after
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
+- [x] NAV submission status polling UI — poll transaction status after
       submit and surface rejection reasons, not just a boolean
-- [ ] Company lookup via NAV `queryTaxpayer` to auto-fill buyer/company
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
+- [x] Company lookup via NAV `queryTaxpayer` to auto-fill buyer/company
       details instead of manual entry only
+      (Implemented in the 2026-09-14 platform overhaul — see docs/audits/2026-09-14/REPORT.md. Formal Hungarian tax-professional verification is still part of the Phase 1 launch gate, tracked there, not here.)
 - [x] NAV `<invoiceReference>` block for STORNO/MODIFY submissions —
       `lib/nav/invoice-xml.ts`'s `buildNavInvoiceXml` now emits it
       (originalInvoiceNumber/modifyWithoutMaster/modificationIndex, in that

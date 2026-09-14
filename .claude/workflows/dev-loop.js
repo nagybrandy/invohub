@@ -143,7 +143,10 @@ const SHIP_SCHEMA = {
 phase('Triage')
 const triage = await agent(
   RULES +
-    '\n\nRead docs/loop-queue.md and CLAUDE.md. Report: how many "- [ ]" items remain in total; which phase is the current one (the earliest phase that still has unchecked items); the exact text of the FIRST unchecked item in phase order, its phase, and a short kebab-case slug for it. Skip items marked "[~]" (in progress elsewhere). Set blocked=true with a reason if there is no pickable item. Do not edit anything.',
+    '\n\nRead docs/loop-queue.md and CLAUDE.md. Report: how many "- [ ]" items remain in total; the current PRODUCT phase (the earliest of Phase 1–4 that still has unchecked items — Phase 0 is a side queue, never the "current phase"); and the item to build next. ' +
+    'SELECTION RULE (owner priority, 2026-09-14): the app\'s actual functionality and user experience come first. If the current phase section starts with a "### Prioritás" numbered list, take the first entry of that list whose matching "- [ ]" item below is still unchecked and not "[~]" — that ordered list overrides file order. Otherwise pick the FIRST unchecked item, top to bottom, in the current product phase whose primary value is user-facing app functionality or UX (a screen, a flow, a calculation the user sees, a NAV/receipt integration that makes the product actually work). ' +
+    'Skip: items marked "[~]" (in progress elsewhere), items that are audits/"confirm that"/refactor-only/observability/tooling with no user-visible change, and items tagged as needing tax/legal sign-off unless nothing else remains. Only when no such Phase 1–4 feature item exists may you fall back to a Phase 0 item. ' +
+    'Return the exact item text, its phase, and a short kebab-case slug. Set blocked=true with a reason if there is no pickable item. Do not edit anything.',
   { schema: TRIAGE_SCHEMA, phase: 'Triage', model: 'sonnet', effort: 'low', label: 'triage' },
 )
 if (!triage) throw new Error('Triage agent returned nothing.')
@@ -172,7 +175,9 @@ if (triage.blocked && (!research || research.itemsAdded.length === 0)) {
 phase('Plan')
 const plan = await agent(
   RULES +
-    '\n\nYou are the planner for exactly one backlog item. If the Research phase just ran, re-read docs/loop-queue.md and pick the FIRST unchecked item in phase order; otherwise the item is: "' + triage.topItem + '" (phase ' + triage.topItemPhase + ', slug ' + triage.slug + '). ' +
+    '\n\nYou are the planner for exactly one backlog item: "' + triage.topItem + '" (phase ' + triage.topItemPhase + ', slug ' + triage.slug + '). ' +
+    (research ? 'The Research phase just added items — if one of them is clearly a higher-value user-facing feature in the same phase than this item, you may pick that instead (say so), but never swap to an audit/refactor/tooling item. ' : '') +
+    'Plan for real product quality, not just the literal checkbox: the owner\'s current priority is making the app\'s functions genuinely better for an egyéni vállalkozó (fewer steps, correct Hungarian invoicing behaviour, working NAV/receipt flows, clear mobile + desktop UX). ' +
     'Study the relevant code, tests and docs first. Write a concrete implementation plan to docs/plans/' + DATE + '-<slug>.md containing: goal and user value; acceptance criteria (testable, numbered); files to touch; tests to write first (TDD); i18n keys (hu+en); db/schema.ts changes if any (say ADDITIVE or DESTRUCTIVE explicitly); UX notes for mobile (375px) and desktop; risk classification (none | schema | tax-legal | nav-production) with reason; out-of-scope list. ' +
     'Keep the plan small enough for one Sonnet implementer to finish in one run. Then in docs/loop-queue.md mark the chosen item "[~] folyamatban (slice/<slug>)" and commit both files ("Plan: <slug>"). Branch name must be slice/<slug>.',
   { schema: PLAN_SCHEMA, phase: 'Plan', model: 'opus', label: 'plan' },
