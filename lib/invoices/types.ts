@@ -46,6 +46,13 @@ export interface InvoiceLineItem {
   vatCategory: VatCategory;
   /** Human-readable exemption/reverse-charge reason. Auto-filled from vatCategory when omitted. */
   vatExemptionReason?: string;
+  /**
+   * Unit of measure (db/óra/nap/…). UI-only field for the composer grid —
+   * optional so it never forces a value NAV submission doesn't expect yet.
+   * Persistence beyond the in-memory invoice is a separate, NAV-gated
+   * queue item (see docs/design/app-ux-spec-2026-09-14.md §2.4).
+   */
+  unit?: string;
 }
 
 export interface Invoice {
