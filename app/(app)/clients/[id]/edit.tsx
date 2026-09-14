@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ActivityIndicator } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import {
   FormControl,
@@ -20,6 +21,7 @@ import { useClients } from "@/hooks/useClients";
 
 export default function EditClientScreen() {
   const id = useRouteParam("id");
+  const { t } = useTranslation();
   const { update, getById } = useClients();
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -40,13 +42,13 @@ export default function EditClientScreen() {
         setAddress(client.address ?? "");
         setCity(client.city ?? "");
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load."))
+      .catch((e) => setError(e instanceof Error ? e.message : t("clients.loadFailed")))
       .finally(() => setLoading(false));
-  }, [id, getById]);
+  }, [id, getById, t]);
 
   async function handleSave() {
     if (!id || !name.trim()) {
-      setError("Name is required.");
+      setError(t("clients.nameRequired"));
       return;
     }
     setSaving(true);
@@ -60,7 +62,7 @@ export default function EditClientScreen() {
       });
       router.replace(routes.clients);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save.");
+      setError(e instanceof Error ? e.message : t("clients.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -68,18 +70,18 @@ export default function EditClientScreen() {
 
   if (loading) {
     return (
-      <FormScreen header={<PageHeader title="Edit client" />}>
+      <FormScreen header={<PageHeader title={t("clients.edit")} />}>
         <ActivityIndicator />
       </FormScreen>
     );
   }
 
   return (
-    <FormScreen header={<PageHeader title="Edit client" subtitle={name} />}>
+    <FormScreen header={<PageHeader title={t("clients.edit")} subtitle={name} />}>
       <VStack space="md">
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Name</FormControlLabelText>
+            <FormControlLabelText>{t("clients.name")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={name} onChangeText={setName} />
@@ -87,7 +89,7 @@ export default function EditClientScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Email</FormControlLabelText>
+            <FormControlLabelText>{t("auth.email")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={email} onChangeText={setEmail} />
@@ -95,7 +97,7 @@ export default function EditClientScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Tax number</FormControlLabelText>
+            <FormControlLabelText>{t("company.taxNumber")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={taxNumber} onChangeText={setTaxNumber} />
@@ -103,7 +105,7 @@ export default function EditClientScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Address</FormControlLabelText>
+            <FormControlLabelText>{t("company.address")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={address} onChangeText={setAddress} />
@@ -111,7 +113,7 @@ export default function EditClientScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>City</FormControlLabelText>
+            <FormControlLabelText>{t("company.city")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={city} onChangeText={setCity} />
@@ -119,7 +121,7 @@ export default function EditClientScreen() {
         </FormControl>
         {error ? <Text className="text-destructive">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
-          <ButtonText>Save changes</ButtonText>
+          <ButtonText>{t("clients.saveChanges")}</ButtonText>
         </Button>
       </VStack>
     </FormScreen>

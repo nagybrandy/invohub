@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ActivityIndicator } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CheckCircle2, XCircle } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
@@ -18,6 +19,7 @@ import { useIconColors } from "@/lib/theme/icon-colors";
 
 export default function PublicReceiptViewScreen() {
   const { token } = useLocalSearchParams<{ token?: string | string[] }>();
+  const { t } = useTranslation();
   const icons = useIconColors();
   const [receipt, setReceipt] = React.useState<PublicReceiptView | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -27,7 +29,7 @@ export default function PublicReceiptViewScreen() {
 
   React.useEffect(() => {
     if (!qrToken?.trim()) {
-      setError("Missing verification token.");
+      setError(t("receipts.verify.missingToken"));
       setLoading(false);
       return;
     }
@@ -40,14 +42,15 @@ export default function PublicReceiptViewScreen() {
           error?: string;
         };
         if (!response.ok) {
-          throw new Error(body.error ?? "Verification failed.");
+          throw new Error(body.error ?? t("receipts.verify.failed"));
         }
         setReceipt(body.receipt ?? null);
       })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : "Verification failed.");
+        setError(e instanceof Error ? e.message : t("receipts.verify.failed"));
       })
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrToken]);
 
   return (
@@ -59,10 +62,10 @@ export default function PublicReceiptViewScreen() {
               <Text className="text-xl font-bold text-primary-foreground">IH</Text>
             </Box>
             <Heading size="xl" className="text-center text-foreground">
-              Receipt verification
+              {t("receipts.verify.title")}
             </Heading>
             <Text size="sm" className="text-center text-muted-foreground">
-              Scan result from InvoHub electronic receipt
+              {t("receipts.verify.subtitle")}
             </Text>
           </VStack>
 
@@ -84,22 +87,22 @@ export default function PublicReceiptViewScreen() {
               <VStack space="md">
                 <HStack space="sm" className="items-center justify-center">
                   <CheckCircle2 size={22} color={icons.primary} />
-                  <Text className="font-semibold text-primary">Verified receipt</Text>
+                  <Text className="font-semibold text-primary">{t("receipts.verify.verified")}</Text>
                 </HStack>
 
                 <VStack space="sm">
-                  <Row label="Receipt no." value={receipt.receiptNumber} />
-                  <Row label="Issuer" value={receipt.issuerName} />
+                  <Row label={t("receipts.verify.receiptNumber")} value={receipt.receiptNumber} />
+                  <Row label={t("receipts.verify.issuer")} value={receipt.issuerName} />
                   {receipt.clientName ? (
-                    <Row label="Customer" value={receipt.clientName} />
+                    <Row label={t("receipts.verify.customer")} value={receipt.clientName} />
                   ) : null}
                   <Row
-                    label="Amount"
+                    label={t("receipts.verify.amount")}
                     value={formatCurrency(receipt.totalAmount, receipt.currency)}
                     emphasize
                   />
                   <Row
-                    label="Issued"
+                    label={t("receipts.issued")}
                     value={formatDateWithTime(receipt.issuedAt)}
                   />
                 </VStack>

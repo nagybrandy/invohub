@@ -45,13 +45,13 @@ export default function EmailTemplatesScreen() {
   }
 
   return (
-    <ScreenLayout header={<Heading size="2xl">Email templates</Heading>}>
+    <ScreenLayout header={<Heading size="2xl">{t("settings.templates")}</Heading>}>
       <VStack space="md">
         <Text size="sm" className="text-muted-foreground">
           Variables: {"{{invoiceNumber}}"}, {"{{clientName}}"}, {"{{total}}"}, {"{{dueDate}}"}, {"{{paymentLink}}"}
         </Text>
         {loading ? (
-          <Text>Loading…</Text>
+          <Text>{t("common.loading")}</Text>
         ) : (
           <>
             <VStack space="xs">
@@ -79,7 +79,7 @@ export default function EmailTemplatesScreen() {
                     />
                   </Textarea>
                   <Button onPress={handleSave} disabled={saving}>
-                    <ButtonText>Save template</ButtonText>
+                    <ButtonText>{t("settings.saveTemplate")}</ButtonText>
                   </Button>
                 </VStack>
               </Card>

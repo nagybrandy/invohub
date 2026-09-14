@@ -1,6 +1,7 @@
 // app/(app)/settings/api-keys.tsx
 // Manage public/secret API keys for external invoice issuance.
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -19,8 +20,9 @@ import { useApiKeys } from "@/hooks/useApiKeys";
 import type { CreatedApiKey } from "@/lib/api-keys/service";
 
 export default function ApiKeysSettingsScreen() {
+  const { t } = useTranslation();
   const { keys, loading, error, create, revoke } = useApiKeys();
-  const [name, setName] = React.useState("External integration");
+  const [name, setName] = React.useState(t("settings.apiKeysScreen.defaultKeyName"));
   const [creating, setCreating] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [createdKey, setCreatedKey] = React.useState<CreatedApiKey | null>(null);
@@ -34,10 +36,10 @@ export default function ApiKeysSettingsScreen() {
     setMessage(null);
     setCreatedKey(null);
     try {
-      const created = await create(name.trim() || "External integration");
+      const created = await create(name.trim() || t("settings.apiKeysScreen.defaultKeyName"));
       setCreatedKey(created);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Failed to create key.");
+      setMessage(e instanceof Error ? e.message : t("settings.apiKeysScreen.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -55,37 +57,41 @@ export default function ApiKeysSettingsScreen() {
       }
       setRevokeTarget(null);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Revoke failed.");
+      setMessage(e instanceof Error ? e.message : t("settings.apiKeysScreen.revokeFailed"));
     } finally {
       setRevokingId(null);
     }
   }
 
   return (
-    <FormScreen header={<Heading size="2xl">API keys</Heading>}>
+    <FormScreen header={<Heading size="2xl">{t("settings.apiKeysScreen.title")}</Heading>}>
       <VStack space="lg">
         <Text size="sm" className="text-muted-foreground">
-          Create a public key + secret key pair to issue invoices from external systems
-          (ERP, scripts, integrations).
+          {t("settings.apiKeysScreen.description")}
         </Text>
 
         {createdKey ? (
           <Card className="border-primary/40 bg-primary/5 p-4">
             <VStack space="md">
               <VStack space="xs">
-                <Text className="font-semibold text-foreground">New API key — save now</Text>
+                <Text className="font-semibold text-foreground">
+                  {t("settings.apiKeysScreen.newKeyTitle")}
+                </Text>
                 <Text size="sm" className="text-muted-foreground">
-                  The secret key is shown only once. Copy both values before leaving this page.
+                  {t("settings.apiKeysScreen.newKeyHint")}
                 </Text>
               </VStack>
-              <CopyableCredential label="Public key" value={createdKey.publicKey} />
               <CopyableCredential
-                label="Secret key"
+                label={t("settings.apiKeysScreen.publicKeyLabel")}
+                value={createdKey.publicKey}
+              />
+              <CopyableCredential
+                label={t("settings.apiKeysScreen.secretKeyLabel")}
                 value={createdKey.secretKey}
-                hint="Use with the public key as Bearer publicKey:secretKey"
+                hint={t("settings.apiKeysScreen.secretKeyHint")}
               />
               <Button variant="outline" onPress={() => setCreatedKey(null)}>
-                <ButtonText>I saved the secret key</ButtonText>
+                <ButtonText>{t("settings.apiKeysScreen.savedSecretButton")}</ButtonText>
               </Button>
             </VStack>
           </Card>
@@ -93,7 +99,9 @@ export default function ApiKeysSettingsScreen() {
 
         <Card className="p-4">
           <VStack space="md">
-            <Text className="font-semibold text-foreground">Example request</Text>
+            <Text className="font-semibold text-foreground">
+              {t("settings.apiKeysScreen.exampleRequestTitle")}
+            </Text>
             <Text size="xs" className="font-mono text-muted-foreground">
               POST /api/v1/invoices{"\n"}
               Authorization: Bearer {"<publicKey>:<secretKey>"}
@@ -106,15 +114,19 @@ export default function ApiKeysSettingsScreen() {
 
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Key name</FormControlLabelText>
+            <FormControlLabelText>{t("settings.apiKeysScreen.keyNameLabel")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
-            <InputField value={name} onChangeText={setName} placeholder="ERP integration" />
+            <InputField
+              value={name}
+              onChangeText={setName}
+              placeholder={t("settings.apiKeysScreen.keyNamePlaceholder")}
+            />
           </Input>
         </FormControl>
 
         <Button onPress={() => void handleCreate()} disabled={creating}>
-          {creating ? <ButtonSpinner /> : <ButtonText>Generate new key pair</ButtonText>}
+          {creating ? <ButtonSpinner /> : <ButtonText>{t("settings.apiKeysScreen.generateButton")}</ButtonText>}
         </Button>
 
         {error ? <Text className="text-destructive">{error}</Text> : null}
@@ -124,10 +136,10 @@ export default function ApiKeysSettingsScreen() {
           <Card className="border-destructive/40 bg-destructive/5 p-4">
             <VStack space="md">
               <Text className="font-medium text-foreground">
-                Revoke &quot;{revokeTarget.name}&quot;?
+                {t("settings.apiKeysScreen.revokeConfirmTitle", { name: revokeTarget.name })}
               </Text>
               <Text size="sm" className="text-muted-foreground">
-                External systems using this key will stop working immediately.
+                {t("settings.apiKeysScreen.revokeConfirmHint")}
               </Text>
               <HStack space="sm">
                 <Button
@@ -136,7 +148,7 @@ export default function ApiKeysSettingsScreen() {
                   onPress={() => setRevokeTarget(null)}
                   disabled={revokingId === revokeTarget.id}
                 >
-                  <ButtonText>Cancel</ButtonText>
+                  <ButtonText>{t("common.cancel")}</ButtonText>
                 </Button>
                 <Button
                   variant="destructive"
@@ -147,7 +159,7 @@ export default function ApiKeysSettingsScreen() {
                   {revokingId === revokeTarget.id ? (
                     <ButtonSpinner />
                   ) : (
-                    <ButtonText>Revoke key</ButtonText>
+                    <ButtonText>{t("settings.apiKeysScreen.revokeConfirmButton")}</ButtonText>
                   )}
                 </Button>
               </HStack>
@@ -156,11 +168,13 @@ export default function ApiKeysSettingsScreen() {
         ) : null}
 
         <VStack space="sm">
-          <Text className="font-semibold text-foreground">Active keys</Text>
-          {loading ? <Text className="text-muted-foreground">Loading…</Text> : null}
+          <Text className="font-semibold text-foreground">
+            {t("settings.apiKeysScreen.activeKeysTitle")}
+          </Text>
+          {loading ? <Text className="text-muted-foreground">{t("common.loading")}</Text> : null}
           {!loading && keys.length === 0 ? (
             <Text size="sm" className="text-muted-foreground">
-              No API keys yet.
+              {t("settings.apiKeysScreen.noKeysYet")}
             </Text>
           ) : null}
           {keys.map((key) => (
@@ -169,17 +183,22 @@ export default function ApiKeysSettingsScreen() {
                 <HStack className="items-start justify-between gap-2">
                   <VStack className="flex-1" space="sm">
                     <Text className="font-medium text-foreground">{key.name}</Text>
-                    <CopyableCredential label="Public key" value={key.publicKey} />
+                    <CopyableCredential
+                      label={t("settings.apiKeysScreen.publicKeyLabel")}
+                      value={key.publicKey}
+                    />
                     <Text size="xs" className="text-muted-foreground">
-                      Secret key hidden after creation
+                      {t("settings.apiKeysScreen.secretHiddenNote")}
                     </Text>
                     {key.lastUsedAt ? (
                       <Text size="xs" className="text-muted-foreground">
-                        Last used {new Date(key.lastUsedAt).toLocaleString()}
+                        {t("settings.apiKeysScreen.lastUsed", {
+                          date: new Date(key.lastUsedAt).toLocaleString(),
+                        })}
                       </Text>
                     ) : (
                       <Text size="xs" className="text-muted-foreground">
-                        Never used
+                        {t("settings.apiKeysScreen.neverUsed")}
                       </Text>
                     )}
                   </VStack>
@@ -189,7 +208,7 @@ export default function ApiKeysSettingsScreen() {
                     onPress={() => setRevokeTarget({ id: key.id, name: key.name })}
                     disabled={revokingId === key.id}
                   >
-                    <ButtonText>Revoke</ButtonText>
+                    <ButtonText>{t("settings.apiKeysScreen.revokeButton")}</ButtonText>
                   </Button>
                 </HStack>
               </VStack>

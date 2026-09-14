@@ -2,6 +2,7 @@
 // Product catalog list screen (accountants only).
 import * as React from "react";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,6 +21,7 @@ import { routes } from "@/lib/navigation";
 import { useProducts } from "@/hooks/useProducts";
 
 export default function ProductsScreen() {
+  const { t } = useTranslation();
   const { products, loading, refresh, create } = useProducts();
   const [name, setName] = React.useState("");
   const [unitPrice, setUnitPrice] = React.useState("");
@@ -47,36 +49,40 @@ export default function ProductsScreen() {
       loading={loading}
       refreshing={loading}
       onRefresh={refresh}
-      emptyTitle="No products yet"
-      emptyDescription="Build a product catalog for faster invoicing."
+      emptyTitle={t("products.empty")}
+      emptyDescription={t("products.emptyDesc")}
       header={
         <VStack space="md" className="pb-2">
-          <PageHeader title="Products" subtitle="Services and goods for invoice line items." />
+          <PageHeader title={t("products.title")} subtitle={t("products.subtitle")} />
           <Card className="p-4">
             <VStack space="sm">
               <FormControl>
                 <FormControlLabel>
-                  <FormControlLabelText>Quick add</FormControlLabelText>
+                  <FormControlLabelText>{t("products.quickAdd")}</FormControlLabelText>
                 </FormControlLabel>
                 <Input>
-                  <InputField value={name} onChangeText={setName} placeholder="Consulting hour" />
+                  <InputField
+                    value={name}
+                    onChangeText={setName}
+                    placeholder={t("products.namePlaceholder")}
+                  />
                 </Input>
               </FormControl>
               <FormControl>
                 <FormControlLabel>
-                  <FormControlLabelText>Unit price</FormControlLabelText>
+                  <FormControlLabelText>{t("products.unitPrice")}</FormControlLabelText>
                 </FormControlLabel>
                 <Input>
                   <InputField
                     value={unitPrice}
                     onChangeText={setUnitPrice}
                     keyboardType="decimal-pad"
-                    placeholder="100"
+                    placeholder={t("products.unitPricePlaceholder")}
                   />
                 </Input>
               </FormControl>
               <Button onPress={handleAdd} disabled={saving}>
-                <ButtonText>Add product</ButtonText>
+                <ButtonText>{t("products.add")}</ButtonText>
               </Button>
             </VStack>
           </Card>
@@ -88,7 +94,8 @@ export default function ProductsScreen() {
             <VStack space="xs">
               <Text className="font-semibold text-foreground">{item.name}</Text>
               <Text size="sm" className="text-muted-foreground">
-                {formatCurrency(item.unitPrice, item.currency as "EUR" | "HUF")} · VAT {item.vatRate}%
+                {formatCurrency(item.unitPrice, item.currency as "EUR" | "HUF")} ·{" "}
+                {t("invoices.fields.vat")} {item.vatRate}%
               </Text>
             </VStack>
           </Card>

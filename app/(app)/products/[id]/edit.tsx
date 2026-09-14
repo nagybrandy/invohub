@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ActivityIndicator } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import {
   FormControl,
@@ -20,6 +21,7 @@ import { useProducts } from "@/hooks/useProducts";
 
 export default function EditProductScreen() {
   const id = useRouteParam("id");
+  const { t } = useTranslation();
   const { update, getById } = useProducts();
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
@@ -38,13 +40,13 @@ export default function EditProductScreen() {
         setUnitPrice(String(product.unitPrice));
         setVatRate(String(product.vatRate));
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load."))
+      .catch((e) => setError(e instanceof Error ? e.message : t("products.loadFailed")))
       .finally(() => setLoading(false));
-  }, [id, getById]);
+  }, [id, getById, t]);
 
   async function handleSave() {
     if (!id || !name.trim()) {
-      setError("Name is required.");
+      setError(t("products.nameRequired"));
       return;
     }
     setSaving(true);
@@ -57,7 +59,7 @@ export default function EditProductScreen() {
       });
       router.replace(routes.products);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save.");
+      setError(e instanceof Error ? e.message : t("products.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -65,18 +67,18 @@ export default function EditProductScreen() {
 
   if (loading) {
     return (
-      <FormScreen header={<PageHeader title="Edit product" />}>
+      <FormScreen header={<PageHeader title={t("products.edit")} />}>
         <ActivityIndicator />
       </FormScreen>
     );
   }
 
   return (
-    <FormScreen header={<PageHeader title="Edit product" subtitle={name} />}>
+    <FormScreen header={<PageHeader title={t("products.edit")} subtitle={name} />}>
       <VStack space="md">
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Name</FormControlLabelText>
+            <FormControlLabelText>{t("products.name")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={name} onChangeText={setName} />
@@ -84,7 +86,7 @@ export default function EditProductScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Description</FormControlLabelText>
+            <FormControlLabelText>{t("products.description")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={description} onChangeText={setDescription} />
@@ -92,7 +94,7 @@ export default function EditProductScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>Unit price</FormControlLabelText>
+            <FormControlLabelText>{t("products.unitPrice")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField
@@ -104,7 +106,7 @@ export default function EditProductScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>VAT rate (%)</FormControlLabelText>
+            <FormControlLabelText>{t("products.vatRate")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
             <InputField value={vatRate} onChangeText={setVatRate} keyboardType="number-pad" />
@@ -112,7 +114,7 @@ export default function EditProductScreen() {
         </FormControl>
         {error ? <Text className="text-destructive">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
-          <ButtonText>Save changes</ButtonText>
+          <ButtonText>{t("products.saveChanges")}</ButtonText>
         </Button>
       </VStack>
     </FormScreen>

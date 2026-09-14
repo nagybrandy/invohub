@@ -219,7 +219,7 @@ export default function NewReceiptScreen() {
       <VStack space="md">
         <Card className="p-4">
           <VStack space="md">
-            <Heading size="md">{t("receipts.details") ?? "Receipt details"}</Heading>
+            <Heading size="md">{t("receipts.details")}</Heading>
 
             <FormControl>
               <FormControlLabel>
@@ -266,7 +266,7 @@ export default function NewReceiptScreen() {
 
             <FormControl>
               <FormControlLabel>
-                <FormControlLabelText>Payment method</FormControlLabelText>
+                <FormControlLabelText>{t("receipts.paymentMethod")}</FormControlLabelText>
               </FormControlLabel>
               <HStack space="sm" className="flex-wrap">
                 {RECEIPT_PAYMENT_METHODS.map((method) => (
@@ -290,7 +290,7 @@ export default function NewReceiptScreen() {
         <Card className="p-4">
           <VStack space="md">
             <HStack className="items-center justify-between">
-              <Heading size="md">Items</Heading>
+              <Heading size="md">{t("receipts.lineItems")}</Heading>
               <HStack space="xs">
                 <Pressable
                   onPress={() => setEntryMode("simple")}
@@ -300,7 +300,7 @@ export default function NewReceiptScreen() {
                       : "border-border bg-background"
                   }`}
                 >
-                  <Text size="xs">Simple</Text>
+                  <Text size="xs">{t("receipts.simpleMode")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setEntryMode("detailed")}
@@ -310,7 +310,7 @@ export default function NewReceiptScreen() {
                       : "border-border bg-background"
                   }`}
                 >
-                  <Text size="xs">Detailed</Text>
+                  <Text size="xs">{t("receipts.detailedMode")}</Text>
                 </Pressable>
               </HStack>
             </HStack>
@@ -350,7 +350,7 @@ export default function NewReceiptScreen() {
 
                     <FormControl>
                       <FormControlLabel>
-                        <FormControlLabelText>Description</FormControlLabelText>
+                        <FormControlLabelText>{t("invoices.lineItemEditor.description")}</FormControlLabelText>
                       </FormControlLabel>
                       <Input>
                         <InputField
@@ -398,7 +398,7 @@ export default function NewReceiptScreen() {
 
                       <FormControl className="min-w-[60px]">
                         <FormControlLabel>
-                          <FormControlLabelText>Unit</FormControlLabelText>
+                          <FormControlLabelText>{t("invoices.fields.unit")}</FormControlLabelText>
                         </FormControlLabel>
                         <Input>
                           <InputField
@@ -442,7 +442,7 @@ export default function NewReceiptScreen() {
 
                 <Button variant="outline" onPress={addItem}>
                   <Plus size={16} color={icons.foreground} />
-                  <ButtonText>Add item</ButtonText>
+                  <ButtonText>{t("receipts.addItem")}</ButtonText>
                 </Button>
               </>
             )}
@@ -452,9 +452,9 @@ export default function NewReceiptScreen() {
         {entryMode === "detailed" ? (
           <Card className="p-4">
             <VStack space="sm">
-              <Heading size="md">Totals</Heading>
+              <Heading size="md">{t("receipts.totals")}</Heading>
               <HStack className="justify-between">
-                <Text className="text-muted-foreground">Net total</Text>
+                <Text className="text-muted-foreground">{t("receipts.netTotal")}</Text>
                 <Text>{formatCurrency(totals.netTotal, currency)}</Text>
               </HStack>
               {totals.vatBreakdown.map((entry) => (
@@ -464,7 +464,7 @@ export default function NewReceiptScreen() {
                 </HStack>
               ))}
               <HStack className="justify-between border-t border-border pt-2">
-                <Text className="font-semibold">Gross total</Text>
+                <Text className="font-semibold">{t("receipts.grossTotal")}</Text>
                 <Text className="font-semibold">
                   {formatCurrency(totals.grossTotal, currency)}
                 </Text>

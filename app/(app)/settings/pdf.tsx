@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ActivityIndicator } from "react-native";
 import { FileText } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -35,6 +36,7 @@ function ToggleRow({
   value: boolean;
   onChange: (next: boolean) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <HStack className="items-center justify-between">
       <Text size="sm">{label}</Text>
@@ -43,13 +45,14 @@ function ToggleRow({
         variant={value ? "default" : "outline"}
         onPress={() => onChange(!value)}
       >
-        <ButtonText>{value ? "On" : "Off"}</ButtonText>
+        <ButtonText>{value ? t("settings.pdfScreen.on") : t("settings.pdfScreen.off")}</ButtonText>
       </Button>
     </HStack>
   );
 }
 
 export default function PdfSettingsScreen() {
+  const { t } = useTranslation();
   const icons = useIconColors();
   const { template, loading, save, previewSample } = usePdfTemplate();
   const [draft, setDraft] = React.useState<InvoicePdfTemplate>(DEFAULT_PDF_TEMPLATE);
@@ -79,9 +82,9 @@ export default function PdfSettingsScreen() {
     setMessage(null);
     try {
       await save(draft);
-      setMessage("PDF settings saved.");
+      setMessage(t("settings.pdfScreen.saved"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      setError(e instanceof Error ? e.message : t("settings.pdfScreen.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -101,7 +104,7 @@ export default function PdfSettingsScreen() {
         await sharePdfBlob(blob, "invohub-sample-preview.pdf");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Preview failed.");
+      setError(e instanceof Error ? e.message : t("settings.pdfScreen.previewFailed"));
     } finally {
       setPreviewing(false);
     }
@@ -112,13 +115,13 @@ export default function PdfSettingsScreen() {
       header={
         <HStack space="sm" className="items-center">
           <FileText size={28} color={icons.foreground} />
-          <Heading size="2xl">PDF appearance</Heading>
+          <Heading size="2xl">{t("settings.pdfScreen.title")}</Heading>
         </HStack>
       }
     >
       <VStack space="md">
         <Text size="sm" className="text-muted-foreground">
-          Customize how generated invoice PDFs look. Preview uses sample data and your company profile.
+          {t("settings.pdfScreen.description")}
         </Text>
 
         {loading ? (
@@ -129,7 +132,7 @@ export default function PdfSettingsScreen() {
               <VStack space="md">
                 <FormControl>
                   <FormControlLabel>
-                    <FormControlLabelText>Document title</FormControlLabelText>
+                    <FormControlLabelText>{t("settings.pdfScreen.documentTitle")}</FormControlLabelText>
                   </FormControlLabel>
                   <Input>
                     <InputField
@@ -142,7 +145,7 @@ export default function PdfSettingsScreen() {
 
                 <FormControl>
                   <FormControlLabel>
-                    <FormControlLabelText>Accent color</FormControlLabelText>
+                    <FormControlLabelText>{t("settings.pdfScreen.accentColor")}</FormControlLabelText>
                   </FormControlLabel>
                   <HStack space="sm" className="items-center">
                     <Input className="flex-1">
@@ -162,7 +165,7 @@ export default function PdfSettingsScreen() {
 
                 <VStack space="xs">
                   <Text size="sm" className="font-medium">
-                    Font size
+                    {t("settings.pdfScreen.fontSize")}
                   </Text>
                   <HStack space="sm" className="flex-wrap">
                     {PDF_FONT_SCALES.map((scale) => (
@@ -179,24 +182,24 @@ export default function PdfSettingsScreen() {
                 </VStack>
 
                 <ToggleRow
-                  label="Show company block"
+                  label={t("settings.pdfScreen.showCompanyBlock")}
                   value={draft.showCompanyBlock}
                   onChange={(v) => updateDraft({ showCompanyBlock: v })}
                 />
                 <ToggleRow
-                  label="Show bank details"
+                  label={t("settings.pdfScreen.showBankDetails")}
                   value={draft.showBankDetails}
                   onChange={(v) => updateDraft({ showBankDetails: v })}
                 />
                 <ToggleRow
-                  label="Show client tax number"
+                  label={t("settings.pdfScreen.showClientTaxNumber")}
                   value={draft.showClientTaxNumber}
                   onChange={(v) => updateDraft({ showClientTaxNumber: v })}
                 />
 
                 <FormControl>
                   <FormControlLabel>
-                    <FormControlLabelText>Notes label</FormControlLabelText>
+                    <FormControlLabelText>{t("settings.pdfScreen.notesLabel")}</FormControlLabelText>
                   </FormControlLabel>
                   <Input>
                     <InputField
@@ -209,7 +212,7 @@ export default function PdfSettingsScreen() {
 
                 <FormControl>
                   <FormControlLabel>
-                    <FormControlLabelText>Footer text</FormControlLabelText>
+                    <FormControlLabelText>{t("settings.pdfScreen.footerText")}</FormControlLabelText>
                   </FormControlLabel>
                   <Textarea>
                     <TextareaInput
@@ -224,10 +227,12 @@ export default function PdfSettingsScreen() {
 
             <HStack space="sm" className="flex-wrap">
               <Button onPress={handleSave} disabled={saving}>
-                <ButtonText>{saving ? "Saving…" : "Save settings"}</ButtonText>
+                <ButtonText>{saving ? t("settings.pdfScreen.saving") : t("settings.pdfScreen.save")}</ButtonText>
               </Button>
               <Button variant="outline" onPress={handlePreview} disabled={previewing}>
-                <ButtonText>{previewing ? "Generating…" : "Preview sample PDF"}</ButtonText>
+                <ButtonText>
+                  {previewing ? t("settings.pdfScreen.previewing") : t("settings.pdfScreen.preview")}
+                </ButtonText>
               </Button>
             </HStack>
 
@@ -238,15 +243,15 @@ export default function PdfSettingsScreen() {
               <Card className="overflow-hidden p-0">
                 <VStack space="xs" className="border-b border-border p-3">
                   <Text size="sm" className="font-medium">
-                    Sample PDF preview
+                    {t("settings.pdfScreen.previewTitle")}
                   </Text>
                   <Text size="xs" className="text-muted-foreground">
-                    INV-PREVIEW-001 — sample client and line items
+                    {t("settings.pdfScreen.previewSampleNote")}
                   </Text>
                 </VStack>
                 <PdfPreviewEmbed
                   src={previewUrl}
-                  title="Sample invoice PDF"
+                  title={t("settings.pdfScreen.previewFrameTitle")}
                   minHeight={640}
                 />
               </Card>
