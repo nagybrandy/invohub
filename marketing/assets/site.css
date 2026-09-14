@@ -65,7 +65,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
-  scroll-padding-top: 88px;
+  scroll-padding-top: 96px;
 }
 
 body {
@@ -78,6 +78,7 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
 img,
@@ -186,7 +187,7 @@ button {
 
 .display {
   font-family: var(--font-display);
-  font-size: clamp(2.35rem, 5.2vw, 3.55rem);
+  font-size: clamp(2.15rem, 7.4vw, 3.55rem);
   line-height: 1.08;
   letter-spacing: -0.028em;
   font-weight: 700;
@@ -231,6 +232,7 @@ button {
 .num {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 /* ---------- Buttons ---------- */
@@ -288,6 +290,16 @@ button {
   font-size: 14px;
 }
 
+.btn--xs {
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  font-weight: 620;
+  white-space: normal;
+  line-height: 1.15;
+  text-align: center;
+}
+
 .btn--block {
   width: 100%;
 }
@@ -329,35 +341,59 @@ button {
   color: var(--blue-500);
 }
 
-/* ---------- Header ---------- */
+/* ---------- Header (floating, transparent over hero) ---------- */
 .header {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  top: 12px;
+  left: 50%;
   z-index: 50;
-  background: rgba(11, 21, 51, 0.82);
-  backdrop-filter: saturate(150%) blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  width: min(1180px, calc(100% - 24px));
+  transform: translateX(-50%);
   color: var(--white);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  transition:
+    background 0.22s var(--ease),
+    border-color 0.22s var(--ease),
+    box-shadow 0.22s var(--ease),
+    backdrop-filter 0.22s var(--ease);
+}
+
+.header.is-solid,
+.header.is-menu-open {
+  background: rgba(11, 21, 51, 0.92);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(7, 14, 36, 0.28);
+  backdrop-filter: saturate(150%) blur(16px);
+}
+
+.header__inner {
+  padding-inline: clamp(14px, 2.4vw, 22px);
 }
 
 .header__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  min-height: 72px;
+  gap: 12px;
+  min-height: 64px;
 }
 
 .header__nav {
   display: none;
   align-items: center;
-  gap: 30px;
+  justify-content: center;
+  flex: 1;
+  gap: 24px;
+  min-width: 0;
 }
 
 .header__nav a {
-  font-size: 15px;
+  font-size: 14px;
   color: rgba(255, 255, 255, 0.76);
   transition: color 0.18s var(--ease);
+  white-space: nowrap;
 }
 
 .header__nav a:hover {
@@ -367,16 +403,63 @@ button {
 .header__actions {
   display: none;
   align-items: center;
-  gap: 12px;
+  flex-shrink: 0;
+  gap: 10px;
 }
 
 .header__login {
   font-size: 15px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
 }
 
 .header__login:hover {
+  color: var(--white);
+}
+
+/* Groups the language switch with the menu toggle so they sit flush together
+   at the true right edge of the bar, instead of being spread apart by the
+   row's space-between (which would center a lone switch between brand and
+   toggle once the nav/actions are hidden on mobile). */
+.header__right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lang-switch__btn {
+  min-width: 36px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.lang-switch__btn.is-active {
+  background: var(--white);
+  color: var(--navy-800);
+}
+
+.lang-switch__btn:hover:not(.is-active) {
   color: var(--white);
 }
 
@@ -388,6 +471,7 @@ button {
   height: 44px;
   border-radius: var(--r-sm);
   border: 1px solid rgba(255, 255, 255, 0.22);
+  flex-shrink: 0;
 }
 
 .menu-toggle__bars,
@@ -417,7 +501,7 @@ button {
 .mobile-menu {
   display: grid;
   gap: 4px;
-  padding: 8px 0 20px;
+  padding: 8px 0 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -443,7 +527,8 @@ button {
   overflow: clip;
   background: var(--navy-900);
   color: var(--white);
-  padding-block: clamp(56px, 8vw, 104px) clamp(72px, 10vw, 132px);
+  /* Extra top space so content clears the floating header */
+  padding-block: clamp(96px, 22vw, 148px) clamp(56px, 9vw, 132px);
 }
 
 .hero::before {
@@ -473,13 +558,13 @@ button {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: clamp(40px, 6vw, 64px);
+  gap: clamp(32px, 6vw, 64px);
   align-items: center;
 }
 
 .hero__copy {
   display: grid;
-  gap: 22px;
+  gap: 16px;
   max-width: 660px;
 }
 
@@ -494,8 +579,8 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 22px;
-  padding-top: 10px;
-  font-size: 14px;
+  padding-top: 6px;
+  font-size: 13px;
   color: rgba(217, 231, 255, 0.72);
 }
 
@@ -531,6 +616,7 @@ button {
   border: 1px solid var(--line-100);
   padding: 18px;
   color: var(--ink-900);
+  min-width: 0;
 }
 
 .panel__head {
@@ -585,6 +671,7 @@ button {
   gap: 10px;
   padding: 11px 0;
   border-top: 1px solid var(--line-100);
+  min-width: 0;
 }
 
 .row:first-child {
@@ -607,6 +694,7 @@ button {
   gap: 10px;
   font-size: 14px;
   font-weight: 620;
+  flex-shrink: 0;
 }
 
 .chip {
@@ -619,6 +707,7 @@ button {
   font-size: 11px;
   font-weight: 640;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .chip--paid {
@@ -636,10 +725,25 @@ button {
   color: var(--warn-700);
 }
 
+.chip--live {
+  background: var(--paid-100);
+  color: var(--paid-700);
+}
+
+.chip--dev {
+  background: var(--warn-100);
+  color: var(--warn-700);
+}
+
 .chip--planned {
   background: rgba(255, 255, 255, 0.1);
   color: var(--blue-100);
   border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.section--dark .chip--live,
+.section--dark .chip--dev {
+  border: 1px solid transparent;
 }
 
 /* ---------- Section heads ---------- */
@@ -720,6 +824,7 @@ button {
   border-radius: var(--r-md);
   background: var(--canvas);
   border: 1px solid var(--line-100);
+  min-width: 0;
 }
 
 .mini__row {
@@ -783,13 +888,13 @@ button {
   font-size: 15px;
 }
 
-/* ---------- Roadmap ---------- */
-.roadmap {
+/* ---------- EV journey timeline ---------- */
+.journey {
   display: grid;
   gap: 16px;
 }
 
-.roadmap__card {
+.journey__card {
   display: grid;
   gap: 10px;
   align-content: start;
@@ -799,9 +904,140 @@ button {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.roadmap__card p {
+.journey__card--live {
+  border-color: rgba(21, 128, 61, 0.4);
+  background: rgba(21, 128, 61, 0.1);
+}
+
+.journey__card p {
   color: rgba(217, 231, 255, 0.76);
   font-size: 15px;
+}
+
+/* ---------- Why InvoHub ---------- */
+.diff-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.diff-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 24px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-200);
+  background: var(--white);
+}
+
+.diff-card p {
+  color: var(--ink-500);
+  font-size: 15px;
+}
+
+/* ---------- Pricing ---------- */
+.pricing-card {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  max-width: 560px;
+  padding: 32px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--line-200);
+  background: var(--white);
+  box-shadow: var(--shadow-card);
+}
+
+.pricing-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pricing-list li {
+  position: relative;
+  padding-left: 26px;
+  color: var(--ink-700);
+  font-size: 15px;
+}
+
+.pricing-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--paid-100);
+  box-shadow: inset 0 0 0 2px var(--paid-700);
+}
+
+.pricing-note {
+  font-size: 13px;
+  color: var(--ink-400);
+}
+
+/* ---------- FAQ ---------- */
+.faq-list {
+  display: grid;
+  gap: 10px;
+  max-width: 74ch;
+}
+
+.faq-item {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-200);
+  background: var(--white);
+  padding: 4px 20px;
+}
+
+.faq-item + .faq-item {
+  margin-top: 0;
+}
+
+.faq-item summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 16px 28px 16px 0;
+  font-weight: 620;
+  font-size: 15.5px;
+  position: relative;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary::after {
+  content: "+";
+  position: absolute;
+  right: 0;
+  top: 14px;
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--blue-500);
+  transition: transform 0.18s var(--ease);
+}
+
+.faq-item[open] summary::after {
+  content: "\2212";
+}
+
+.faq-item p {
+  padding-bottom: 18px;
+  color: var(--ink-500);
+  font-size: 15px;
+}
+
+/* ---------- Roadmap chip legend fallback (kept for older references) ---------- */
+.roadmap__card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 24px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* ---------- CTA ---------- */
@@ -885,6 +1121,15 @@ button {
   padding: 0;
   text-align: left;
   color: inherit;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
 }
 
 .footer a:hover {
@@ -899,11 +1144,7 @@ button {
   color: rgba(217, 231, 255, 0.56);
 }
 
-.footer__note {
-  max-width: 76ch;
-}
-
-/* ---------- Cookie consent ---------- */
+/* ---------- Cookie consent (compact bottom bar) ---------- */
 .consent {
   position: fixed;
   left: 0;
@@ -912,7 +1153,7 @@ button {
   z-index: 80;
   display: flex;
   justify-content: center;
-  padding: 14px;
+  padding: 10px;
   pointer-events: none;
 }
 
@@ -920,27 +1161,58 @@ button {
   display: none;
 }
 
-.consent__card {
+.consent__bar {
   pointer-events: auto;
   display: grid;
-  gap: 14px;
+  gap: 8px;
   width: 100%;
-  max-width: 720px;
-  padding: 20px;
+  max-width: 900px;
+  padding: 10px 14px 12px;
   border-radius: var(--r-lg);
   background: var(--white);
   border: 1px solid var(--line-200);
-  box-shadow: 0 24px 60px -24px rgba(11, 21, 51, 0.5);
+  box-shadow: 0 18px 48px -20px rgba(11, 21, 51, 0.5);
 }
 
-.consent__card h2 {
-  font-size: 1.02rem;
-  font-weight: 660;
+.consent__settings {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 900px;
+  margin: 8px auto 0;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: var(--white);
+  border: 1px solid var(--line-200);
+  box-shadow: 0 18px 48px -20px rgba(11, 21, 51, 0.5);
+  display: grid;
+  gap: 12px;
 }
 
-.consent__card p {
-  font-size: 14px;
+.consent__settings[hidden] {
+  display: none;
+}
+
+.consent__title {
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.3;
+  color: var(--ink-700);
+}
+
+.consent__body {
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--ink-500);
+}
+
+.consent__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.consent__actions .btn {
+  flex: 1;
+  min-width: 0;
 }
 
 .consent__options {
@@ -952,7 +1224,7 @@ button {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .consent__option input {
@@ -960,11 +1232,7 @@ button {
   width: 18px;
   height: 18px;
   accent-color: var(--blue-500);
-}
-
-.consent__actions {
-  display: grid;
-  gap: 8px;
+  flex-shrink: 0;
 }
 
 /* ---------- Reveal ---------- */
@@ -989,12 +1257,26 @@ button {
   }
 }
 
-@media (min-width: 620px) {
-  .consent__actions {
-    grid-auto-flow: column;
-    justify-content: end;
+@media (min-width: 560px) {
+  .consent__bar {
+    grid-template-columns: 1fr auto;
+    align-items: center;
   }
 
+  .consent__actions {
+    flex: none;
+  }
+
+  .consent__actions .btn {
+    flex: none;
+  }
+
+  .btn--xs {
+    padding: 0 14px;
+  }
+}
+
+@media (min-width: 620px) {
   .footer__cols {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1018,8 +1300,12 @@ button {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .roadmap {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .journey {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .diff-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .footer__top {

@@ -92,10 +92,8 @@ export function DesktopTopBar({
           </HStack>
         </HStack>
 
-        {/* Right: language + new invoice + bell + avatar */}
+        {/* Right: new invoice + bell + avatar + language (right-most) */}
         <HStack space="md" className="items-center">
-          <LanguageSwitcher tone="onDark" />
-
           <Pressable
             onPress={onNewInvoice}
             className="flex-row items-center gap-2 rounded-lg bg-primary px-4 py-2"
@@ -125,6 +123,8 @@ export function DesktopTopBar({
               {initials(userName || "U")}
             </Text>
           </Box>
+
+          <LanguageSwitcher tone="onDark" />
         </HStack>
       </HStack>
     </Box>

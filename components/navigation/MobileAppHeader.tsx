@@ -56,7 +56,6 @@ export function MobileAppHeader({
         </HStack>
 
         <HStack space="sm" className="items-center">
-          <LanguageSwitcher tone="onDark" />
           <Pressable
             onPress={onOpenNotifications}
             className="relative rounded-full p-2.5"
@@ -71,6 +70,7 @@ export function MobileAppHeader({
               </Box>
             ) : null}
           </Pressable>
+          <LanguageSwitcher tone="onDark" />
         </HStack>
       </HStack>
     </Box>

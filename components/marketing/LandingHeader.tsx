@@ -4,6 +4,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Menu, X } from "lucide-react-native";
 import { BrandLogo } from "@/components/marketing/BrandLogo";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { landingColors } from "@/components/marketing/landing-theme";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
@@ -109,6 +110,7 @@ export function LandingHeader({
               {isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
             </ButtonText>
           </Button>
+          <LanguageSwitcher tone="onDark" testID="landing-language-switcher" />
           {!isDesktop ? (
             <Pressable
               accessibilityRole="button"

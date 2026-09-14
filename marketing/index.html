@@ -5,16 +5,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>InvoHub — számlázás rendezett munkafolyamatban</title>
+    <title>InvoHub — számlázástól a bevallásig</title>
     <meta
       name="description"
-      content="Az InvoHub magyar egyéni vállalkozóknak és kisvállalkozásoknak ad rendezett számlázási munkafolyamatot: bizonylatkiállítás, PDF és e-mail küldés, partner- és terméktörzs, fizetési emlékeztetők, áttekintés."
+      content="Az InvoHub magyar egyéni vállalkozóknak ad rendezett számlázási munkafolyamatot ma, és egyetlen rendszerbe vezeti a banki párosítást, az adótervezést és a NAV-bevallást a jövőben."
     />
     <meta name="theme-color" content="#0b1533" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="InvoHub" />
     <meta property="og:locale" content="hu_HU" />
-    <meta property="og:title" content="InvoHub — számlázás rendezett munkafolyamatban" />
+    <meta property="og:title" content="InvoHub — számlázástól a bevallásig" />
     <meta
       property="og:description"
       content="Bizonylatkiállítás, PDF és e-mail küldés, törzsadatok, emlékeztetők és áttekintés egy rendszerben. Web, iOS és Android."
@@ -33,7 +33,7 @@
           {
             "@type": "Organization",
             "name": "InvoHub",
-            "description": "Számlázási munkafolyamat magyar egyéni vállalkozóknak és kisvállalkozásoknak."
+            "description": "Számlázási munkafolyamat magyar egyéni vállalkozóknak, amely a banki párosítás, az adótervezés és a NAV-bevallás felé bővül."
           },
           {
             "@type": "SoftwareApplication",
@@ -47,48 +47,59 @@
     </script>
   </head>
   <body data-testid="marketing-page">
-    <a class="skip-link" href="#main">Ugrás a tartalomra</a>
+    <a class="skip-link" href="#main" data-i18n="skip">Ugrás a tartalomra</a>
 
     <header class="header" data-testid="marketing-header">
-      <div class="shell">
+      <div class="header__inner">
         <div class="header__row">
-          <a class="brand" href="/" aria-label="InvoHub főoldal" data-testid="marketing-brand">
+          <a class="brand" href="/" data-i18n-attr="aria-label:brand.home" aria-label="InvoHub főoldal" data-testid="marketing-brand">
             <span class="brand__word">Invo<span class="brand__hub">Hub</span></span>
           </a>
 
-          <nav class="header__nav" aria-label="Fő navigáció">
-            <a href="#termek">Termék</a>
-            <a href="#munkafolyamat">Munkafolyamat</a>
-            <a href="#irany">Irány</a>
-            <a href="/blog">Blog</a>
+          <nav class="header__nav" data-i18n-attr="aria-label:nav.main" aria-label="Fő navigáció">
+            <a href="#termek" data-i18n="nav.product">Termék</a>
+            <a href="#irany" data-i18n="nav.roadmap">EV-út</a>
+            <a href="#arazas" data-i18n="nav.pricing">Árazás</a>
+            <a href="#gyik" data-i18n="nav.faq">GYIK</a>
+            <a href="/blog" data-i18n="nav.blog">Blog</a>
           </nav>
 
           <div class="header__actions">
-            <a class="header__login" href="/login">Belépés</a>
-            <a class="btn btn--primary btn--sm" href="/login" data-testid="marketing-header-cta">
+            <a class="header__login" href="/login" data-i18n="nav.login">Belépés</a>
+            <a class="btn btn--primary btn--sm" href="/login" data-testid="marketing-header-cta" data-i18n="nav.cta">
               Ingyenes regisztráció
             </a>
           </div>
 
-          <button
-            class="menu-toggle"
-            type="button"
-            aria-expanded="false"
-            aria-controls="mobile-menu"
-            aria-label="Menü megnyitása"
-            data-testid="marketing-menu-toggle"
-          >
-            <span class="menu-toggle__bars"></span>
-          </button>
+          <div class="header__right" data-testid="marketing-header-right">
+            <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.label" aria-label="Nyelv" data-testid="marketing-lang-switcher">
+              <button type="button" class="lang-switch__btn is-active" data-lang-btn="hu" aria-pressed="true">HU</button>
+              <button type="button" class="lang-switch__btn" data-lang-btn="en" aria-pressed="false">EN</button>
+            </div>
+
+            <button
+              class="menu-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="mobile-menu"
+              data-i18n-attr="aria-label:nav.openMenu"
+              aria-label="Menü megnyitása"
+              data-testid="marketing-menu-toggle"
+            >
+              <span class="menu-toggle__bars"></span>
+            </button>
+          </div>
         </div>
 
-        <nav class="mobile-menu" id="mobile-menu" aria-label="Mobil navigáció" data-testid="marketing-mobile-menu" hidden>
-          <a href="#termek">Termék</a>
-          <a href="#munkafolyamat">Munkafolyamat</a>
-          <a href="#irany">Irány</a>
-          <a href="/blog">Blog</a>
-          <a href="/login">Belépés</a>
-          <a class="btn btn--primary btn--block" href="/login">Ingyenes regisztráció</a>
+        <nav class="mobile-menu" id="mobile-menu" data-i18n-attr="aria-label:nav.mobile" aria-label="Mobil navigáció" data-testid="marketing-mobile-menu" hidden>
+          <a href="#termek" data-i18n="nav.product">Termék</a>
+          <a href="#munkafolyamat" data-i18n="nav.workflow">Munkafolyamat</a>
+          <a href="#irany" data-i18n="nav.roadmap">EV-út</a>
+          <a href="#arazas" data-i18n="nav.pricing">Árazás</a>
+          <a href="#gyik" data-i18n="nav.faq">GYIK</a>
+          <a href="/blog" data-i18n="nav.blog">Blog</a>
+          <a href="/login" data-i18n="nav.login">Belépés</a>
+          <a class="btn btn--primary btn--block" href="/login" data-i18n="nav.cta">Ingyenes regisztráció</a>
         </nav>
       </div>
     </header>
@@ -97,32 +108,33 @@
       <section class="hero" data-testid="marketing-hero">
         <div class="shell hero__grid">
           <div class="hero__copy">
-            <span class="kicker kicker--dark"><span class="dot"></span>Magyar számlázás</span>
+            <span class="kicker kicker--dark"><span class="dot"></span><span data-i18n="hero.kicker">Egyéni vállalkozóknak</span></span>
             <h1 class="display">
-              A számlázás legyen a nap <span class="accent">biztos pontja</span>.
+              <span data-i18n="hero.title.prefix">Számlázástól a </span><span class="accent" data-i18n="hero.title.accent">bevallásig</span><span data-i18n="hero.title.suffix">.</span>
             </h1>
-            <p class="lede lede--dark">
-              Bizonylatkiállítás, PDF és e-mail küldés, törzsadatok, emlékeztetők és áttekintés
-              egyetlen munkafolyamatban — weben, iPhone-on és Androidon.
+            <p class="lede lede--dark" data-i18n="hero.lede">
+              Az InvoHub ma rendezett számlázási munkafolyamatot ad egyéni vállalkozóknak, és
+              fokozatosan bővül a banki párosítással, az adótervezéssel és a NAV-bevallással —
+              hogy egy helyen legyen a bizonylattól az adóig minden.
             </p>
             <div class="hero__actions">
-              <a class="btn btn--primary" href="/login">Ingyenes regisztráció</a>
-              <a class="btn btn--ghost" href="#termek" data-testid="marketing-product-tour">
-                Mit tud most a termék?
+              <a class="btn btn--primary" href="/login" data-i18n="hero.cta">Ingyenes regisztráció</a>
+              <a class="btn btn--ghost" href="#termek" data-testid="marketing-product-tour" data-i18n="hero.tour">
+                Mit tud ma az InvoHub?
               </a>
             </div>
             <ul class="hero__meta">
-              <li><span class="dot"></span>Web, iOS és Android</li>
-              <li><span class="dot"></span>HUF és EUR</li>
-              <li><span class="dot"></span>Számla, díjbekérő, előleg, nyugta</li>
+              <li><span class="dot"></span><span data-i18n="hero.meta.platforms">Web, iOS és Android</span></li>
+              <li><span class="dot"></span><span data-i18n="hero.meta.docs">Számla, díjbekérő, előleg, nyugta</span></li>
+              <li><span class="dot"></span><span data-i18n="hero.meta.ev">Egyéni vállalkozóknak tervezve</span></li>
             </ul>
           </div>
 
           <div class="surface" aria-hidden="true">
             <div class="panel">
               <div class="panel__head">
-                <span class="panel__label">Aktuális időszak</span>
-                <span class="chip chip--open">Áttekintés</span>
+                <span class="panel__label" data-i18n="panel.period">Aktuális időszak</span>
+                <span class="chip chip--open" data-i18n="panel.overview">Áttekintés</span>
               </div>
               <p class="amount num">1 284 500 Ft</p>
               <div class="bars">
@@ -137,37 +149,37 @@
 
             <div class="panel">
               <div class="panel__head">
-                <span class="panel__label">Legutóbbi bizonylatok</span>
+                <span class="panel__label" data-i18n="panel.recent">Legutóbbi bizonylatok</span>
               </div>
               <div class="rows">
                 <div class="row">
                   <div>
-                    <p class="row__title">INV-2026-0142</p>
+                    <p class="row__title num">INV-2026-0142</p>
                     <p class="row__sub">Minta Stúdió Kft.</p>
                   </div>
                   <div class="row__right">
                     <span class="num">248 920 Ft</span>
-                    <span class="chip chip--paid">Fizetve</span>
+                    <span class="chip chip--paid" data-i18n="chip.paid">Fizetve</span>
                   </div>
                 </div>
                 <div class="row">
                   <div>
-                    <p class="row__title">INV-2026-0141</p>
+                    <p class="row__title num">INV-2026-0141</p>
                     <p class="row__sub">Kék Duna Bt.</p>
                   </div>
                   <div class="row__right">
                     <span class="num">86 400 Ft</span>
-                    <span class="chip chip--open">Elküldve</span>
+                    <span class="chip chip--open" data-i18n="chip.sent">Elküldve</span>
                   </div>
                 </div>
                 <div class="row">
                   <div>
-                    <p class="row__title">INV-2026-0139</p>
+                    <p class="row__title num">INV-2026-0139</p>
                     <p class="row__sub">Horizont Tervező Kft.</p>
                   </div>
                   <div class="row__right">
                     <span class="num">154 300 Ft</span>
-                    <span class="chip chip--due">Határidős</span>
+                    <span class="chip chip--due" data-i18n="chip.due">Határidős</span>
                   </div>
                 </div>
               </div>
@@ -179,9 +191,9 @@
       <section class="section section--canvas" id="termek" data-testid="marketing-section-product">
         <div class="shell">
           <div class="head" data-reveal>
-            <span class="kicker">Ami ma elérhető</span>
-            <h2 class="h2">Egy rendszer a bizonylat körüli teljes munkához</h2>
-            <p class="lede">
+            <span class="kicker" data-i18n="product.kicker">Ma elérhető</span>
+            <h2 class="h2" data-i18n="product.title">Egy rendszer a bizonylat körüli teljes munkához</h2>
+            <p class="lede" data-i18n="product.lede">
               A funkciók ugyanarra az adatkészletre épülnek, így a partner, a tétel és a fizetési
               állapot nem csúszik szét a folyamat közben.
             </p>
@@ -195,23 +207,23 @@
                   <path d="M14 3v5h5M9 13h6M9 17h4" />
                 </svg>
               </span>
-              <h3 class="h3">Bizonylatkiállítás, végig átláthatóan</h3>
-              <p>
-                Számla, díjbekérő és előlegszámla tételsorokkal, ÁFA-számítással, dátumokkal és
-                fizetési feltételekkel. A dokumentum a mentés előtt előnézetben ellenőrizhető.
+              <h3 class="h3" data-i18n="product.invoice.title">Számla, díjbekérő, előleg</h3>
+              <p data-i18n="product.invoice.body">
+                Tételsorokkal, ÁFA-számítással, dátumokkal és fizetési feltételekkel. A dokumentum
+                a mentés előtt előnézetben ellenőrizhető.
               </p>
               <div class="mini">
                 <div class="mini__row">
-                  <span>Nettó részösszeg</span>
+                  <span data-i18n="product.net">Nettó részösszeg</span>
                   <strong class="num">196 000 Ft</strong>
                 </div>
                 <div class="mini__row">
-                  <span>ÁFA 27%</span>
+                  <span data-i18n="product.vat">ÁFA 27%</span>
                   <strong class="num">52 920 Ft</strong>
                 </div>
                 <div class="mini__bar"><i style="width: 78%"></i></div>
                 <div class="mini__row">
-                  <span class="muted">Bruttó összesen</span>
+                  <span class="muted" data-i18n="product.gross">Bruttó összesen</span>
                   <strong class="num">248 920 Ft</strong>
                 </div>
               </div>
@@ -224,15 +236,15 @@
                   <path d="M9 8h6M9 12h6" />
                 </svg>
               </span>
-              <h3 class="h3">Nyugta külön folyamatban</h3>
-              <p>
+              <h3 class="h3" data-i18n="product.receipt.title">Nyugta külön folyamatban</h3>
+              <p data-i18n="product.receipt.body">
                 A nyugták saját, célzott felületen készülnek és követhetők, nem keverednek a
                 számlák listájába.
               </p>
               <ul class="tags">
-                <li>Nyugta</li>
-                <li>Előnézet</li>
-                <li>PDF</li>
+                <li data-i18n="product.tag.receipt">Nyugta</li>
+                <li data-i18n="product.tag.preview">Előnézet</li>
+                <li data-i18n="product.tag.pdf">PDF</li>
               </ul>
             </article>
 
@@ -243,8 +255,8 @@
                   <path d="m4 6 8 6 8-6" />
                 </svg>
               </span>
-              <h3 class="h3">PDF és e-mail küldés</h3>
-              <p>
+              <h3 class="h3" data-i18n="product.email.title">PDF és e-mail küldés</h3>
+              <p data-i18n="product.email.body">
                 A kész bizonylat előnézete, PDF-letöltése és e-mailes kiküldése ugyanabban a
                 folyamatban marad.
               </p>
@@ -257,8 +269,8 @@
                   <path d="M3 20c0-3 2.7-5 6-5s6 2 6 5M16 6h5M16 10h5M16 14h5" />
                 </svg>
               </span>
-              <h3 class="h3">Partnerek és termékek</h3>
-              <p>
+              <h3 class="h3" data-i18n="product.partners.title">Partnerek és termékek</h3>
+              <p data-i18n="product.partners.body">
                 Újrahasználható törzsadatok, hogy ne minden bizonylat üres mezőkkel induljon.
               </p>
             </article>
@@ -270,19 +282,19 @@
                   <path d="M12 8v4l3 2" />
                 </svg>
               </span>
-              <h3 class="h3">Fizetési emlékeztetők és áttekintés</h3>
-              <p>
+              <h3 class="h3" data-i18n="product.reminders.title">Fizetési emlékeztetők és áttekintés</h3>
+              <p data-i18n="product.reminders.body">
                 Beállítható emlékeztetők a nyitott tételekhez, mellette bevételi, ÁFA-becslési és
                 lejárt tartozás szerinti összesítés a vezérlőpulton.
               </p>
               <div class="mini">
                 <div class="mini__row">
-                  <span>Fizetve</span>
+                  <span data-i18n="product.paid">Fizetve</span>
                   <strong class="num">842 100 Ft</strong>
                 </div>
                 <div class="mini__bar"><i style="width: 66%"></i></div>
                 <div class="mini__row">
-                  <span>Nyitott</span>
+                  <span data-i18n="product.open">Nyitott</span>
                   <strong class="num">442 400 Ft</strong>
                 </div>
               </div>
@@ -295,14 +307,28 @@
                   <path d="M8 8h8M8 12h8M8 16h5" />
                 </svg>
               </span>
-              <h3 class="h3">Import és API-kulcsok</h3>
-              <p>
+              <h3 class="h3" data-i18n="product.import.title">Import és API-kulcsok</h3>
+              <p data-i18n="product.import.body">
                 Meglévő adatok táblázatos importja, valamint API-kulcsok a külső integrációkhoz.
               </p>
               <ul class="tags">
-                <li>Táblázatos import</li>
-                <li>API-kulcs</li>
+                <li data-i18n="product.tag.import">Táblázatos import</li>
+                <li data-i18n="product.tag.api">API-kulcs</li>
               </ul>
+            </article>
+
+            <article class="tile" data-reveal>
+              <span class="tile__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3 4 6v6c0 4.5 3.4 7.7 8 9 4.6-1.3 8-4.5 8-9V6Z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </span>
+              <h3 class="h3" data-i18n="product.nav.title">NAV-adatszolgáltatás</h3>
+              <p data-i18n="product.nav.body">
+                A NAV felé történő adatszolgáltatás jelenleg demó és teszt módban érhető el —
+                éles környezetre nem küldünk adatot.
+              </p>
             </article>
           </div>
         </div>
@@ -311,9 +337,9 @@
       <section class="section" id="munkafolyamat" data-testid="marketing-section-workflow">
         <div class="shell">
           <div class="head" data-reveal>
-            <span class="kicker">Munkafolyamat</span>
-            <h2 class="h2">A következő lépés mindig egyértelmű</h2>
-            <p class="lede">
+            <span class="kicker" data-i18n="workflow.kicker">Munkafolyamat</span>
+            <h2 class="h2" data-i18n="workflow.title">A következő lépés mindig egyértelmű</h2>
+            <p class="lede" data-i18n="workflow.lede">
               Három szakasz, amely megtartja a szükséges részleteket, de nem engedi eltűnni a
               fontos döntéseket.
             </p>
@@ -321,22 +347,22 @@
 
           <div class="steps">
             <article class="step" data-reveal>
-              <h3 class="h3">Alapadatok kiválasztása</h3>
-              <p>
+              <h3 class="h3" data-i18n="workflow.step1.title">Alapadatok kiválasztása</h3>
+              <p data-i18n="workflow.step1.body">
                 Partner, bizonylattípus és korábban rögzített termékek adják a rendezett
                 kiindulópontot.
               </p>
             </article>
             <article class="step" data-reveal>
-              <h3 class="h3">Dokumentum ellenőrzése</h3>
-              <p>
+              <h3 class="h3" data-i18n="workflow.step2.title">Dokumentum ellenőrzése</h3>
+              <p data-i18n="workflow.step2.body">
                 A tételsorok, dátumok, fizetési feltételek és az előnézet együtt nézhetők át a
                 véglegesítés előtt.
               </p>
             </article>
             <article class="step" data-reveal>
-              <h3 class="h3">Mentés, letöltés vagy küldés</h3>
-              <p>
+              <h3 class="h3" data-i18n="workflow.step3.title">Mentés, letöltés vagy küldés</h3>
+              <p data-i18n="workflow.step3.body">
                 A bizonylat piszkozatként menthető, véglegesíthető, PDF-ként letölthető vagy
                 e-mailben elküldhető.
               </p>
@@ -348,58 +374,170 @@
       <section class="section section--dark" id="irany" data-testid="marketing-section-roadmap">
         <div class="shell">
           <div class="head" data-reveal>
-            <span class="kicker kicker--dark">Fejlesztési irány</span>
-            <h2 class="h2">A következő réteg: kevesebb kézi egyeztetés</h2>
-            <p class="lede lede--dark">
-              Ezek az elemek a termék tervezett irányát mutatják. Jelenleg nem részei az elérhető
-              szolgáltatásnak, és nem ígérünk hozzájuk indulási dátumot.
+            <span class="kicker kicker--dark" data-i18n="roadmap.kicker">Az egyéni vállalkozó útja</span>
+            <h2 class="h2" data-i18n="roadmap.title">A számlázástól a bevallásig, lépésről lépésre</h2>
+            <p class="lede lede--dark" data-i18n="roadmap.lede">
+              Az alábbi státuszok pontosan mutatják, mi működik ma, mi van fejlesztés alatt, és mi
+              csak terv — dátumot egyikhez sem ígérünk.
             </p>
           </div>
 
-          <div class="roadmap">
-            <article class="roadmap__card" data-reveal>
-              <span class="chip chip--planned">Tervezett</span>
-              <h3 class="h3">Banki párosítás</h3>
-              <p>Beérkező tranzakciók és nyitott számlák ellenőrizhető összerendelése.</p>
-            </article>
-            <article class="roadmap__card" data-reveal>
-              <span class="chip chip--planned">Tervezett</span>
-              <h3 class="h3">EV adókalkulátor</h3>
-              <p>Egyéni vállalkozóknak szánt, tájékoztató jellegű adótervezési nézet.</p>
-            </article>
-            <article class="roadmap__card" data-reveal>
-              <span class="chip chip--planned">Tervezett</span>
-              <h3 class="h3">NAV-adatszolgáltatás és M2M</h3>
-              <p>
-                Az adatok előkészítése és a beküldési lépések egy későbbi fejlesztési fázisban,
-                hatósági tesztelés után.
+          <ol class="journey">
+            <li class="journey__card journey__card--live" data-reveal>
+              <span class="chip chip--live" data-i18n="chip.live">Elérhető</span>
+              <h3 class="h3" data-i18n="roadmap.invoicing.title">Számlázás</h3>
+              <p data-i18n="roadmap.invoicing.body">Bizonylatkiállítás, PDF és e-mail küldés, törzsadatok, emlékeztetők.</p>
+            </li>
+            <li class="journey__card journey__card--dev" data-reveal>
+              <span class="chip chip--dev" data-i18n="chip.dev">Fejlesztés alatt</span>
+              <h3 class="h3" data-i18n="roadmap.bank.title">Banki párosítás</h3>
+              <p data-i18n="roadmap.bank.body">Beérkező tranzakciók és nyitott számlák ellenőrizhető összerendelése.</p>
+            </li>
+            <li class="journey__card journey__card--planned" data-reveal>
+              <span class="chip chip--planned" data-i18n="chip.planned">Tervezett</span>
+              <h3 class="h3" data-i18n="roadmap.tax.title">EV adókalkulátor</h3>
+              <p data-i18n="roadmap.tax.body">Egyéni vállalkozóknak szánt, tájékoztató jellegű adótervezési nézet.</p>
+            </li>
+            <li class="journey__card journey__card--planned" data-reveal>
+              <span class="chip chip--planned" data-i18n="chip.planned">Tervezett</span>
+              <h3 class="h3" data-i18n="roadmap.nav.title">Bevallás M2M-en</h3>
+              <p data-i18n="roadmap.nav.body">
+                A bevallás előkészítése és beküldése a NAV gépi interfészén, hatósági tesztelés
+                után.
               </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section section--canvas" data-testid="marketing-section-diff">
+        <div class="shell">
+          <div class="head" data-reveal>
+            <span class="kicker" data-i18n="diff.kicker">Miért az InvoHub</span>
+            <h2 class="h2" data-i18n="diff.title">Nem egy újabb számlázó — egy EV-nek épülő rendszer</h2>
+            <p class="lede" data-i18n="diff.lede">
+              A legtöbb számlázó program a bizonylatnál megáll. Az InvoHub célja, hogy ugyanabban
+              a rendszerben legyen a bevétel, a banki egyeztetés és — hosszú távon — az adó is.
+            </p>
+          </div>
+
+          <div class="diff-grid">
+            <article class="diff-card" data-reveal>
+              <h3 class="h3" data-i18n="diff.one.title">Egy adatkészlet végig</h3>
+              <p data-i18n="diff.one.body">A partner, a tétel és a fizetési állapot nem külön táblázatokban él, hanem egy rendszerben marad a bevallásig vezető úton.</p>
+            </article>
+            <article class="diff-card" data-reveal>
+              <h3 class="h3" data-i18n="diff.two.title">EV-specifikus fókusz</h3>
+              <p data-i18n="diff.two.body">Nem általános vállalati számlázást építünk, hanem kifejezetten egyéni vállalkozók napi és éves teendőire tervezünk.</p>
+            </article>
+            <article class="diff-card" data-reveal>
+              <h3 class="h3" data-i18n="diff.three.title">Átlátható fejlesztési irány</h3>
+              <p data-i18n="diff.three.body">Pontosan látod, mi elérhető ma, mi van fejlesztés alatt, és mi a terv — nincs eltitkolt vagy túlígért funkció.</p>
+            </article>
+            <article class="diff-card" data-reveal>
+              <h3 class="h3" data-i18n="diff.four.title">Egy előfizetés, nem több eszköz</h3>
+              <p data-i18n="diff.four.body">A cél, hogy a számlázó, a banki egyeztetés és az adóbecslés helyett ne kelljen több különálló eszközt kezelned.</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section section--tight section--canvas" data-testid="marketing-section-blog">
+      <section class="section" id="arazas" data-testid="marketing-section-pricing">
         <div class="shell">
           <div class="head" data-reveal>
-            <span class="kicker">Tudásbázis</span>
-            <h2 class="h2">Gyakorlati írások a számlázásról</h2>
+            <span class="kicker" data-i18n="pricing.kicker">Árazás</span>
+            <h2 class="h2" data-i18n="pricing.title">Jelenleg ingyenes a béta alatt</h2>
+            <p class="lede" data-i18n="pricing.lede">
+              Az InvoHub aktív fejlesztés alatt áll. A béta időszakban minden elérhető funkciót
+              díjmentesen használhatsz, végleges árazást csak a fejlesztés előrehaladtával
+              hirdetünk.
+            </p>
+          </div>
+
+          <div class="pricing-card" data-reveal>
+            <span class="chip chip--live" data-i18n="pricing.badge">Béta — ingyenes</span>
+            <ul class="pricing-list">
+              <li data-i18n="pricing.item1">Korlátlan számla, díjbekérő, előleg és nyugta a béta alatt</li>
+              <li data-i18n="pricing.item2">PDF, e-mail küldés, partner- és termektörzs</li>
+              <li data-i18n="pricing.item3">Fizetési emlékeztetők és áttekintő vezérlőpult</li>
+            </ul>
+            <a class="btn btn--primary" href="/login" data-i18n="pricing.cta">Fiók létrehozása</a>
+            <p class="pricing-note" data-i18n="pricing.note">
+              Nincs elrejtett ár és nincs bankkártya-kötelezettség a regisztrációhoz.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--canvas" id="gyik" data-testid="marketing-section-faq">
+        <div class="shell">
+          <div class="head" data-reveal>
+            <span class="kicker" data-i18n="faq.kicker">GYIK</span>
+            <h2 class="h2" data-i18n="faq.title">Gyakori kérdések</h2>
+          </div>
+
+          <div class="faq-list" data-reveal>
+            <details class="faq-item">
+              <summary data-i18n="faq.q1.q">Az InvoHub kiváltja a könyvelőt?</summary>
+              <p data-i18n="faq.q1.a">
+                Ez a hosszú távú célunk, de ma még nem tartunk itt. A tervezett adókalkulátor
+                és a NAV-bevallás tájékoztató, nem hivatalos adótanácsadás — a könyvelőddel
+                érdemes egyeztetni a végleges bevallás előtt.
+              </p>
+            </details>
+            <details class="faq-item">
+              <summary data-i18n="faq.q2.q">Hogyan kezeli az InvoHub a NAV-adatszolgáltatást?</summary>
+              <p data-i18n="faq.q2.a">
+                A NAV felé történő adatszolgáltatás jelenleg demó és teszt módban működik. Éles
+                NAV-környezetbe nem küldünk adatot, amíg ezt nem jelentjük be külön.
+              </p>
+            </details>
+            <details class="faq-item">
+              <summary data-i18n="faq.q3.q">Alanyi adómentes egyéni vállalkozóként is használható?</summary>
+              <p data-i18n="faq.q3.a">
+                Igen, a bizonylatkiállítás alanyi adómentes és ÁFA-körös vállalkozóknak egyaránt
+                támogatott; az adószámítási beállítások a cégprofilban módosíthatók.
+              </p>
+            </details>
+            <details class="faq-item">
+              <summary data-i18n="faq.q4.q">Mennyire biztonságosak az adataim?</summary>
+              <p data-i18n="faq.q4.a">
+                Az adatok titkosított kapcsolaton keresztül, hozzáférés-védett adatbázisban
+                tárolódnak, és csak a saját fiókodból érhetők el.
+              </p>
+            </details>
+            <details class="faq-item">
+              <summary data-i18n="faq.q5.q">Kell fizetnem a béta alatt?</summary>
+              <p data-i18n="faq.q5.a">
+                Nem, a béta időszak alatt az elérhető funkciók díjmentesen használhatók,
+                bankkártya megadása nélkül.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--tight" data-testid="marketing-section-blog">
+        <div class="shell">
+          <div class="head" data-reveal>
+            <span class="kicker" data-i18n="blog.kicker">Tudásbázis</span>
+            <h2 class="h2" data-i18n="blog.title">Gyakorlati írások a számlázásról</h2>
           </div>
           <div class="bento">
             <a class="tile" href="/blog/magyar-szamlazas-alapok" data-reveal>
-              <h3 class="h3">Magyar számlázás alapok induláskor</h3>
-              <p>Mit érdemes tisztázni az első bizonylat kiállítása előtt.</p>
-              <span class="textlink">Elolvasom →</span>
+              <h3 class="h3" data-i18n="blog.post1.title">Magyar számlázás alapok induláskor</h3>
+              <p data-i18n="blog.post1.body">Mit érdemes tisztázni az első bizonylat kiállítása előtt.</p>
+              <span class="textlink" data-i18n="blog.read">Elolvasom →</span>
             </a>
             <a class="tile" href="/blog/fizetesi-emlekeztetok" data-reveal>
-              <h3 class="h3">Fizetési emlékeztetők a gyakorlatban</h3>
-              <p>Nyitott számlák követhető, ismételhető kezelése.</p>
-              <span class="textlink">Elolvasom →</span>
+              <h3 class="h3" data-i18n="blog.post2.title">Fizetési emlékeztetők a gyakorlatban</h3>
+              <p data-i18n="blog.post2.body">Nyitott számlák követhető, ismételhető kezelése.</p>
+              <span class="textlink" data-i18n="blog.read">Elolvasom →</span>
             </a>
             <a class="tile" href="/blog/elerheto-es-tervezett-funkciok" data-reveal>
-              <h3 class="h3">Mi működik ma az InvoHubban</h3>
-              <p>Elérhető és tervezett funkciók világos szétválasztása.</p>
-              <span class="textlink">Elolvasom →</span>
+              <h3 class="h3" data-i18n="blog.post3.title">Mi működik ma az InvoHubban</h3>
+              <p data-i18n="blog.post3.body">Elérhető és tervezett funkciók világos szétválasztása.</p>
+              <span class="textlink" data-i18n="blog.read">Elolvasom →</span>
             </a>
           </div>
         </div>
@@ -408,12 +546,12 @@
       <section class="section">
         <div class="shell">
           <div class="cta" data-reveal>
-            <span class="kicker kicker--dark">Kezdés</span>
-            <h2 class="h2">Vidd rendezett rendszerbe a napi számlázást</h2>
-            <p class="lede lede--dark" style="text-align: center">
+            <span class="kicker kicker--dark" data-i18n="cta.kicker">Kezdés</span>
+            <h2 class="h2" data-i18n="cta.title">Vidd rendezett rendszerbe a napi számlázást</h2>
+            <p class="lede lede--dark" style="text-align: center" data-i18n="cta.lede">
               Hozd létre a fiókodat, és nézd meg az InvoHub jelenleg elérhető munkafolyamatait.
             </p>
-            <a class="btn btn--primary" href="/login">Ingyenes regisztráció</a>
+            <a class="btn btn--primary" href="/login" data-i18n="cta.button">Ingyenes regisztráció</a>
           </div>
         </div>
       </section>
@@ -423,42 +561,43 @@
       <div class="shell">
         <div class="footer__top">
           <div class="footer__brand">
-            <a class="brand" href="/" aria-label="InvoHub főoldal">
+            <a class="brand" href="/" data-i18n-attr="aria-label:brand.home" aria-label="InvoHub főoldal">
               <span class="brand__word">Invo<span class="brand__hub">Hub</span></span>
             </a>
-            <p>
-              Átlátható számlázási munkatér magyar egyéni vállalkozóknak és kisvállalkozásoknak.
+            <p data-i18n="footer.blurb">
+              Átlátható számlázási munkatér magyar egyéni vállalkozóknak — a bevallásig vezető
+              úton.
             </p>
           </div>
 
           <div class="footer__cols">
             <div>
-              <h4>Termék</h4>
+              <h4 data-i18n="footer.product">Termék</h4>
               <ul>
-                <li><a href="#termek">Elérhető funkciók</a></li>
-                <li><a href="#munkafolyamat">Munkafolyamat</a></li>
-                <li><a href="#irany">Fejlesztési irány</a></li>
-                <li><a href="/login">Belépés az alkalmazásba</a></li>
+                <li><a href="#termek" data-i18n="footer.features">Elérhető funkciók</a></li>
+                <li><a href="#irany" data-i18n="footer.roadmap">Fejlesztési irány</a></li>
+                <li><a href="#arazas" data-i18n="footer.pricing">Árazás</a></li>
+                <li><a href="/login" data-i18n="footer.login">Belépés az alkalmazásba</a></li>
               </ul>
             </div>
             <div>
-              <h4>Tartalom</h4>
+              <h4 data-i18n="footer.content">Tartalom</h4>
               <ul>
-                <li><a href="/blog">Blog</a></li>
-                <li><a href="/blog/magyar-szamlazas-alapok">Számlázás alapok</a></li>
-                <li><a href="/blog/partner-es-termek-torzsadatok">Törzsadatok</a></li>
-                <li><a href="/blog/pdf-es-email-szamlakuldes">PDF és e-mail küldés</a></li>
+                <li><a href="/blog" data-i18n="footer.blog">Blog</a></li>
+                <li><a href="#gyik" data-i18n="footer.faq">GYIK</a></li>
+                <li><a href="/blog/partner-es-termek-torzsadatok" data-i18n="footer.master">Törzsadatok</a></li>
+                <li><a href="/blog/pdf-es-email-szamlakuldes" data-i18n="footer.pdf">PDF és e-mail küldés</a></li>
               </ul>
             </div>
             <div>
-              <h4>Jogi</h4>
+              <h4 data-i18n="footer.legal">Jogi</h4>
               <ul>
-                <li><a href="/aszf">ÁSZF</a></li>
-                <li><a href="/adatkezeles">Adatkezelés</a></li>
-                <li><a href="/cookie-tajekoztato">Cookie tájékoztató</a></li>
-                <li><a href="/impresszum">Impresszum</a></li>
+                <li><a href="/aszf" data-i18n="footer.terms">ÁSZF</a></li>
+                <li><a href="/adatkezeles" data-i18n="footer.privacy">Adatkezelés</a></li>
+                <li><a href="/cookie-tajekoztato" data-i18n="footer.cookies">Cookie tájékoztató</a></li>
+                <li><a href="/impresszum" data-i18n="footer.imprint">Impresszum</a></li>
                 <li>
-                  <button type="button" data-testid="footer-cookie-preferences">
+                  <button type="button" data-testid="footer-cookie-preferences" data-i18n="footer.cookiePrefs">
                     Cookie-beállítások
                   </button>
                 </li>
@@ -468,50 +607,55 @@
         </div>
 
         <div class="footer__bottom">
-          <p class="footer__note">
-            A jogi dokumentumok tervezetek: közzététel előtt magyar ügyvédi és adatvédelmi
-            felülvizsgálat szükséges.
-          </p>
           <p>© <span data-year>2026</span> InvoHub</p>
         </div>
       </div>
     </footer>
 
     <div class="consent" role="dialog" aria-modal="false" aria-labelledby="consent-title" data-testid="cookie-consent-dialog" hidden>
-      <div class="consent__card">
-        <h2 class="h3" id="consent-title">Cookie-beállítások</h2>
-        <p>
-          A működéshez szükséges tárolást használjuk. Analitikai és marketing célú tárolás
-          alapértelmezetten tiltott, és csak a hozzájárulásoddal engedélyezzük.
+      <div class="consent__bar">
+        <p class="consent__title" id="consent-title" data-i18n="consent.title">
+          Cookie-kat használunk a működéshez.
+        </p>
+        <div class="consent__actions">
+          <button class="btn btn--outline btn--xs" type="button" data-testid="cookie-consent-settings" data-i18n="consent.settings" aria-expanded="false" aria-controls="consent-settings">
+            Beállítások
+          </button>
+          <button class="btn btn--outline btn--xs" type="button" data-testid="cookie-consent-essential" data-i18n="consent.essentialOnly">
+            Csak a szükséges
+          </button>
+          <button class="btn btn--primary btn--xs" type="button" data-testid="cookie-consent-accept-all" data-i18n="consent.acceptAll">
+            Elfogadom
+          </button>
+        </div>
+      </div>
+
+      <div class="consent__settings" id="consent-settings" hidden>
+        <p class="consent__body" data-i18n="consent.body">
+          A működéshez szükséges tárolást mindig használjuk. Analitikai és marketing tárolás csak
+          hozzájárulással aktiválódik.
         </p>
         <div class="consent__options">
           <label class="consent__option">
             <input type="checkbox" checked disabled />
-            <span><strong>Szükséges</strong> — munkamenet, biztonság, beállítások tárolása.</span>
+            <span data-i18n="consent.essential"><strong>Szükséges</strong> — munkamenet, biztonság, beállítások tárolása.</span>
           </label>
           <label class="consent__option">
             <input type="checkbox" data-consent="analytics" />
-            <span><strong>Analitika</strong> — használati statisztika, ha később bevezetjük.</span>
+            <span data-i18n="consent.analytics"><strong>Analitika</strong> — használati statisztika, ha később bevezetjük.</span>
           </label>
           <label class="consent__option">
             <input type="checkbox" data-consent="marketing" />
-            <span><strong>Marketing</strong> — kampánymérés, ha később bevezetjük.</span>
+            <span data-i18n="consent.marketing"><strong>Marketing</strong> — kampánymérés, ha később bevezetjük.</span>
           </label>
         </div>
-        <div class="consent__actions">
-          <button class="btn btn--outline btn--sm" type="button" data-testid="cookie-consent-essential">
-            Csak a szükséges
-          </button>
-          <button class="btn btn--outline btn--sm" type="button" data-testid="cookie-consent-save">
-            Kiválasztás mentése
-          </button>
-          <button class="btn btn--primary btn--sm" type="button" data-testid="cookie-consent-accept-all">
-            Összes elfogadása
-          </button>
-        </div>
+        <button class="btn btn--primary btn--sm btn--block" type="button" data-testid="cookie-consent-save" data-i18n="consent.save">
+          Kiválasztás mentése
+        </button>
       </div>
     </div>
 
+    <script src="/marketing/assets/i18n.js" defer></script>
     <script src="/marketing/assets/site.js" defer></script>
   </body>
 </html>
