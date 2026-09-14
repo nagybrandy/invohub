@@ -3,7 +3,7 @@ import { and, between, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { receipt, receiptLineItem } from "@/db/schema";
 import { getCompanyByUserId } from "@/lib/companies/service";
-import { createId } from "@/lib/id";
+import { createId, createSecureToken } from "@/lib/id";
 import {
   calculateLineItemTotals,
   type ReceiptLineItemCalcInput,
@@ -189,7 +189,11 @@ export async function createReceipt(
 
   const now = new Date();
   const id = createId();
-  const qrToken = createId();
+  // A CSPRNG token, not createId() — this is handed to an unauthenticated
+  // party (printed on a receipt as a QR code) and looked up with no auth
+  // by getPublicReceiptByToken(); createId()'s Date.now()+Math.random() is
+  // guessable enough to be brute-forced against an unthrottled endpoint.
+  const qrToken = createSecureToken();
 
   const [row] = await db
     .insert(receipt)

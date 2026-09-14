@@ -5,14 +5,22 @@ jest.mock("@/lib/receipts/service", () => ({
 
 import { GET } from "@/app/api/receipts/verify+api";
 import { getPublicReceiptByToken } from "@/lib/receipts/service";
+import { resetRateLimitsForTests } from "@/lib/api/rate-limit";
 
 const mockVerify = getPublicReceiptByToken as jest.MockedFunction<
   typeof getPublicReceiptByToken
 >;
 
+function requestFrom(ip: string, token = "abc") {
+  return new Request(`http://localhost/api/receipts/verify?token=${token}`, {
+    headers: { "x-forwarded-for": ip },
+  });
+}
+
 describe("GET /api/receipts/verify", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetRateLimitsForTests();
   });
 
   it("requires token", async () => {
@@ -45,5 +53,29 @@ describe("GET /api/receipts/verify", () => {
       new Request("http://localhost/api/receipts/verify?token=missing")
     );
     expect(response.status).toBe(404);
+  });
+
+  it("rate-limits repeated lookups from the same IP instead of allowing unbounded token enumeration", async () => {
+    mockVerify.mockResolvedValue(null);
+    const ip = "203.0.113.9";
+
+    for (let i = 0; i < 20; i++) {
+      const response = await GET(requestFrom(ip, `guess-${i}`));
+      expect(response.status).not.toBe(429);
+    }
+
+    const limited = await GET(requestFrom(ip, "guess-20"));
+    expect(limited.status).toBe(429);
+    // The lookup itself must never even run once the caller is throttled.
+    expect(mockVerify).toHaveBeenCalledTimes(20);
+  });
+
+  it("rate-limits per IP, not globally", async () => {
+    mockVerify.mockResolvedValue(null);
+    for (let i = 0; i < 20; i++) {
+      await GET(requestFrom("203.0.113.9", `guess-${i}`));
+    }
+    const otherIp = await GET(requestFrom("198.51.100.4", "guess-x"));
+    expect(otherIp.status).not.toBe(429);
   });
 });

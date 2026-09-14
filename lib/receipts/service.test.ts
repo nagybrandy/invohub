@@ -13,6 +13,7 @@ jest.mock("@/lib/companies/service", () => ({
 
 jest.mock("@/lib/id", () => ({
   createId: jest.fn(() => "receipt-id-1"),
+  createSecureToken: jest.fn(() => "secure-qr-token"),
 }));
 
 jest.mock("@/lib/receipts/qr-payload", () => ({
