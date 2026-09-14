@@ -82,6 +82,14 @@ jest.mock("@/lib/api/client", () => {
         stats: { users: 1, invoices: 1 },
       };
     }
+    if (path.includes("/api/invoices") && path.includes("/links")) {
+      return {
+        originalInvoice: null,
+        modifiesInvoice: null,
+        stornoDocuments: [],
+        correctionDocuments: [],
+      };
+    }
     if (path.includes("/api/invoices")) {
       return { invoice: defaultInvoice, invoices: [defaultInvoice], total: 1 };
     }

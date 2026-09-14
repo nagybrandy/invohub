@@ -255,6 +255,7 @@ export default {
       confirm: "Create draft",
     },
     links: {
+      title: "Related documents",
       originalInvoice: "Original document",
       stornoOf: "Storno of {{number}}",
       stornoDocument: "Storno document",

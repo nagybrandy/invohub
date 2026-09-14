@@ -255,6 +255,7 @@ export default {
       confirm: "Piszkozat létrehozása",
     },
     links: {
+      title: "Kapcsolódó bizonylatok",
       originalInvoice: "Eredeti bizonylat",
       stornoOf: "Sztornó ehhez: {{number}}",
       stornoDocument: "Sztornó bizonylat",
