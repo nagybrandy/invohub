@@ -104,10 +104,17 @@ export async function processPaymentReminders(
           })
           .where(eq(paymentReminderSchedule.id, schedule.id));
 
-        await db
-          .update(invoice)
-          .set({ status: "overdue", updatedAt: now })
-          .where(and(eq(invoice.id, inv.id), eq(invoice.userId, uid)));
+        // Never force "overdue" onto an invoice that's already
+        // partially_paid — that status carries the partial-payment signal
+        // (see lib/invoices/payment-status.ts), and unconditionally
+        // overwriting it here silently discarded that the client had paid
+        // something.
+        if (inv.status !== "partially_paid") {
+          await db
+            .update(invoice)
+            .set({ status: "overdue", updatedAt: now })
+            .where(and(eq(invoice.id, inv.id), eq(invoice.userId, uid)));
+        }
       } else if (sendResult.error) {
         result.errors.push(sendResult.error);
       }

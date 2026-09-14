@@ -1,6 +1,6 @@
 // lib/nav/incoming-sync.ts
 // Pulls incoming invoices from NAV and upserts into DB.
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { incomingInvoice } from "@/db/schema";
 import type { Company } from "@/lib/companies/service";
@@ -29,10 +29,21 @@ export async function syncIncomingInvoices(userId: string) {
   let synced = 0;
 
   for (const nav of navInvoices) {
+    // Scoped by userId, not just navInvoiceId: lib/nav/client.ts's
+    // fetchIncomingInvoices returns fixed, environment-keyed navInvoiceId
+    // values that are identical across every caller/company, so an
+    // existence check on navInvoiceId alone made the first user to sync
+    // permanently "claim" those rows — every other user's sync then found
+    // them already existing and inserted nothing for themselves.
     const existing = await db
       .select()
       .from(incomingInvoice)
-      .where(eq(incomingInvoice.navInvoiceId, nav.navInvoiceId))
+      .where(
+        and(
+          eq(incomingInvoice.navInvoiceId, nav.navInvoiceId),
+          eq(incomingInvoice.userId, userId)
+        )
+      )
       .limit(1);
 
     if (existing.length > 0) continue;

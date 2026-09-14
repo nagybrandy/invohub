@@ -32,6 +32,7 @@ jest.mock("@/lib/invoices/service", () => ({
 }));
 
 import { db } from "@/db";
+import { invoice } from "@/db/schema";
 import { listClients } from "@/lib/clients/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
@@ -127,6 +128,31 @@ describe("processPaymentReminders", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("INV-2026-001");
     expect(result.errors[0]).not.toContain("client@example.com");
+  });
+
+  it("sets a reminded invoice's status to overdue", async () => {
+    await processPaymentReminders("user-1");
+
+    const invoiceUpdateCalls = mockDb.update.mock.calls.filter(([table]) => table === invoice);
+    expect(invoiceUpdateCalls).toHaveLength(1);
+  });
+
+  it("does not downgrade an already partially_paid invoice's status when it gets a reminder", async () => {
+    mockListInvoices.mockResolvedValue({
+      invoices: [{ ...overdueInvoice, status: "partially_paid" }],
+      total: 1,
+      limit: 500,
+      offset: 0,
+    } as never);
+
+    const result = await processPaymentReminders("user-1");
+
+    expect(result.sent).toBe(1);
+    // The reminder still sends and the schedule still advances, but the
+    // invoice's own status update must be skipped entirely — forcing it to
+    // "overdue" would discard the partial-payment signal.
+    const invoiceUpdateCalls = mockDb.update.mock.calls.filter(([table]) => table === invoice);
+    expect(invoiceUpdateCalls).toHaveLength(0);
   });
 
   it("skips invoices with no linked client record at all", async () => {

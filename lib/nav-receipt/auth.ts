@@ -4,7 +4,17 @@ import { createHash, randomUUID } from "crypto";
 import type { NavReceiptAuthToken, NavReceiptCredentials, NavReceiptEnvironment } from "./types";
 import { getReceiptBaseUrl } from "./environment";
 
-let cachedToken: NavReceiptAuthToken | null = null;
+// Keyed by credentials identity + environment, not a single module-level
+// token — this module runs once per process, and the daily receipt-report
+// cron (app/api/cron/nav-receipt-report+api.ts) authenticates for every
+// company's own NAV credentials in a loop within that one process. A
+// single shared variable would hand company B a still-valid token minted
+// for company A's credentials.
+const tokenCache = new Map<string, NavReceiptAuthToken>();
+
+function cacheKey(credentials: NavReceiptCredentials, env: NavReceiptEnvironment): string {
+  return `${env}:${credentials.taxNumber}:${credentials.technicalUser}`;
+}
 
 function hashPassword(password: string): string {
   return createHash("sha512").update(password, "utf8").digest("hex").toUpperCase();
@@ -18,6 +28,8 @@ export async function authenticate(
   credentials: NavReceiptCredentials,
   env: NavReceiptEnvironment
 ): Promise<NavReceiptAuthToken> {
+  const key = cacheKey(credentials, env);
+  const cachedToken = tokenCache.get(key);
   if (cachedToken && isTokenValid(cachedToken)) {
     return cachedToken;
   }
@@ -59,10 +71,11 @@ export async function authenticate(
   }
 
   const expiresAt = new Date(Date.now() + (parsed.tokenValiditySeconds ?? 300) * 1000);
-  cachedToken = { token: parsed.token, expiresAt };
-  return cachedToken;
+  const token: NavReceiptAuthToken = { token: parsed.token, expiresAt };
+  tokenCache.set(key, token);
+  return token;
 }
 
 export function clearAuthCache(): void {
-  cachedToken = null;
+  tokenCache.clear();
 }

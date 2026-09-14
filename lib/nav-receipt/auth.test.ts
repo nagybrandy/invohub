@@ -77,6 +77,39 @@ describe("authenticate", () => {
     );
   });
 
+  it("does not reuse a token cached for a different company's credentials", async () => {
+    // Reproduces the cron path: app/api/cron/nav-receipt-report+api.ts
+    // authenticates once per company, in a loop, within one process.
+    const companyA: NavReceiptCredentials = {
+      technicalUser: "user-a",
+      technicalPassword: "pass-a",
+      signingKey: "sign-a",
+      taxNumber: "11111111",
+    };
+    const companyB: NavReceiptCredentials = {
+      technicalUser: "user-b",
+      technicalPassword: "pass-b",
+      signingKey: "sign-b",
+      taxNumber: "22222222",
+    };
+
+    mockAuthResponse("tok-company-a");
+    const tokenA = await authenticate(companyA, "test");
+
+    mockAuthResponse("tok-company-b");
+    const tokenB = await authenticate(companyB, "test");
+
+    expect(tokenA.token).toBe("tok-company-a");
+    expect(tokenB.token).toBe("tok-company-b");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // And a third call for companyA again should hit its own cached token,
+    // not re-fetch and not somehow return companyB's.
+    const tokenAAgain = await authenticate(companyA, "test");
+    expect(tokenAAgain.token).toBe("tok-company-a");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
   it("clears cache via clearAuthCache", async () => {
     mockAuthResponse("tok-1");
     await authenticate(testCredentials, "test");

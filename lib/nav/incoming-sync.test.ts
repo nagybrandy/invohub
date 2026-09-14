@@ -1,4 +1,6 @@
 // lib/nav/incoming-sync.test.ts
+import { and, eq } from "drizzle-orm";
+import { incomingInvoice } from "@/db/schema";
 import { syncIncomingInvoices } from "@/lib/nav/incoming-sync";
 
 jest.mock("@/db", () => ({
@@ -94,5 +96,32 @@ describe("syncIncomingInvoices", () => {
     const result = await syncIncomingInvoices("user-1");
     expect(result.synced).toBe(0);
     expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("scopes the existence check by userId, not just navInvoiceId", async () => {
+    // fetchIncomingInvoices returns environment-keyed, not per-user,
+    // navInvoiceId values (see lib/nav/client.ts) — the same NAV-TEST-1
+    // shows up for every company. The dedupe check must include userId or
+    // the first user to sync permanently "claims" that row for everyone.
+    const existenceCheckWhere = jest.fn().mockReturnValue({
+      limit: jest.fn().mockResolvedValue([]),
+    });
+    db.select
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({ where: existenceCheckWhere }),
+      })
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+    await syncIncomingInvoices("user-2");
+
+    const expectedCondition = and(
+      eq(incomingInvoice.navInvoiceId, "NAV-TEST-1"),
+      eq(incomingInvoice.userId, "user-2")
+    );
+    expect(existenceCheckWhere).toHaveBeenCalledWith(expectedCondition);
   });
 });
