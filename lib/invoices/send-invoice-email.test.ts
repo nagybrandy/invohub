@@ -100,6 +100,71 @@ describe("sendInvoiceNotificationEmail", () => {
     );
   });
 
+  it("finalizes (assigns a number) a draft BEFORE building the PDF, not after sending", async () => {
+    const draft = makeInvoice({ status: "draft", invoiceNumber: "" });
+    const finalized = { ...draft, status: "sent" as const, invoiceNumber: "INV-2026-042" };
+
+    mockGetInvoice.mockResolvedValue(draft);
+    mockUpsert.mockResolvedValue(finalized);
+    mockResolveRecipients.mockResolvedValue(["client@example.com"]);
+    mockGetTemplate.mockResolvedValue({
+      id: "tpl-1",
+      userId: "user-1",
+      type: "invoice_notification",
+      subject: "Invoice {{invoiceNumber}}",
+      bodyHtml: "<p>{{clientName}}</p>",
+      bodyText: "{{clientName}}",
+      createdAt: "",
+      updatedAt: "",
+    });
+    mockBuildPdf.mockResolvedValue({ pdf: Buffer.from("%PDF"), invoiceNumber: "INV-2026-042" });
+    mockGetCompany.mockResolvedValue(null);
+    mockSendEmail.mockResolvedValue({ ok: true });
+
+    const callOrder: string[] = [];
+    mockUpsert.mockImplementation(async () => {
+      callOrder.push("upsert");
+      return finalized;
+    });
+    mockBuildPdf.mockImplementation(async () => {
+      callOrder.push("buildPdf");
+      return { pdf: Buffer.from("%PDF"), invoiceNumber: "INV-2026-042" };
+    });
+
+    const result = await sendInvoiceNotificationEmail("user-1", draft.id);
+
+    expect(callOrder).toEqual(["upsert", "buildPdf"]);
+    expect(mockUpsert).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ status: "sent" })
+    );
+    expect(result.invoice?.invoiceNumber).toBe("INV-2026-042");
+  });
+
+  it("skips the finalize step when markSent is false", async () => {
+    const draft = makeInvoice({ status: "draft", invoiceNumber: "" });
+    mockGetInvoice.mockResolvedValue(draft);
+    mockResolveRecipients.mockResolvedValue(["client@example.com"]);
+    mockGetTemplate.mockResolvedValue({
+      id: "tpl-1",
+      userId: "user-1",
+      type: "invoice_notification",
+      subject: "Invoice {{invoiceNumber}}",
+      bodyHtml: "<p>{{clientName}}</p>",
+      bodyText: "{{clientName}}",
+      createdAt: "",
+      updatedAt: "",
+    });
+    mockBuildPdf.mockResolvedValue({ pdf: Buffer.from("%PDF"), invoiceNumber: "" });
+    mockGetCompany.mockResolvedValue(null);
+    mockSendEmail.mockResolvedValue({ ok: true });
+
+    const result = await sendInvoiceNotificationEmail("user-1", draft.id, { markSent: false });
+
+    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(result.invoice?.status).toBe("draft");
+  });
+
   it("sends to multiple recipients when provided", async () => {
     const invoice = makeInvoice({ status: "sent" });
     mockGetInvoice.mockResolvedValue(invoice);

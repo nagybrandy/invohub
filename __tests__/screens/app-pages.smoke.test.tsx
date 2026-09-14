@@ -82,6 +82,14 @@ jest.mock("@/lib/api/client", () => {
         stats: { users: 1, invoices: 1 },
       };
     }
+    if (path.includes("/api/invoices") && path.includes("/links")) {
+      return {
+        originalInvoice: null,
+        modifiesInvoice: null,
+        stornoDocuments: [],
+        correctionDocuments: [],
+      };
+    }
     if (path.includes("/api/invoices")) {
       return { invoice: defaultInvoice, invoices: [defaultInvoice], total: 1 };
     }
@@ -160,6 +168,24 @@ jest.mock("@/hooks/useCompany", () => ({
     loading: false,
     save: jest.fn(),
     lookup: jest.fn(),
+  }),
+}));
+
+jest.mock("@/hooks/useDashboardSummary", () => ({
+  useDashboardSummary: () => ({
+    summary: {
+      revenue: 0,
+      outstanding: 0,
+      overdueTotal: 0,
+      issuedTotal: 0,
+      estimatedVat: 0,
+      overdueCount: 0,
+      oldestOverdueDays: 0,
+      recentInvoices: [],
+    },
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
   }),
 }));
 

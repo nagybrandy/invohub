@@ -4,10 +4,22 @@ jest.mock("@/lib/invoices/service", () => ({
   upsertInvoice: jest.fn(),
 }));
 
+jest.mock("@/lib/companies/service", () => ({
+  getCompanyByUserId: jest.fn().mockResolvedValue(null),
+}));
+
 import {
+  createInvoiceFromPayload,
   validateExternalInvoiceInput,
   type ExternalInvoiceInput,
 } from "@/lib/invoices/create-from-payload";
+import { upsertInvoice } from "@/lib/invoices/service";
+import { getCompanyByUserId } from "@/lib/companies/service";
+
+const mockUpsertInvoice = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+const mockGetCompanyByUserId = getCompanyByUserId as jest.MockedFunction<
+  typeof getCompanyByUserId
+>;
 
 describe("validateExternalInvoiceInput", () => {
   const valid: ExternalInvoiceInput = {
@@ -56,5 +68,77 @@ describe("validateExternalInvoiceInput", () => {
         emailTo: ["billing@acme.hu", "accounting@acme.hu"],
       })
     ).toBeNull();
+  });
+
+  it("validates vatCategory", () => {
+    expect(
+      validateExternalInvoiceInput({
+        ...valid,
+        lineItems: [{ description: "X", quantity: 1, unitPrice: 1, vatCategory: "BOGUS" as never }],
+      })
+    ).toContain("vatCategory");
+  });
+});
+
+describe("createInvoiceFromPayload", () => {
+  const input: ExternalInvoiceInput = {
+    clientName: "Client Kft.",
+    lineItems: [{ description: "Consulting", quantity: 1, unitPrice: 10000 }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetCompanyByUserId.mockResolvedValue(null);
+    mockUpsertInvoice.mockImplementation((_uid, inv) => Promise.resolve(inv));
+  });
+
+  it("leaves invoiceNumber blank so it's assigned at finalize", async () => {
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.invoiceNumber).toBe("");
+    expect(saved.documentType).toBe("invoice");
+  });
+
+  it("defaults every line to normal 27% VAT for a non-exempt company", async () => {
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.lineItems[0].vatCategory).toBe("normal");
+    expect(saved.lineItems[0].vatRate).toBe(27);
+  });
+
+  it("defaults every line to AAM/0% for a VAT-exempt company", async () => {
+    mockGetCompanyByUserId.mockResolvedValue({
+      id: "co-1",
+      userId: "user-1",
+      name: "Solo EV",
+      country: "HU",
+      vatExempt: true,
+    } as never);
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.lineItems[0].vatCategory).toBe("AAM");
+    expect(saved.lineItems[0].vatRate).toBe(0);
+  });
+
+  it("respects an explicit vatCategory even for a non-exempt company", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      lineItems: [{ description: "Export", quantity: 1, unitPrice: 100, vatCategory: "FAD" }],
+    });
+    expect(saved.lineItems[0].vatCategory).toBe("FAD");
+    expect(saved.lineItems[0].vatRate).toBe(0);
+  });
+
+  it("defaults currency to HUF for an HU company", async () => {
+    mockGetCompanyByUserId.mockResolvedValue({
+      id: "co-1",
+      userId: "user-1",
+      name: "Solo EV",
+      country: "HU",
+    } as never);
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.currency).toBe("HUF");
+  });
+
+  it("defaults currency to HUF when there is no company yet (onboarding)", async () => {
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.currency).toBe("HUF");
   });
 });

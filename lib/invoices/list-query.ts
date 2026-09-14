@@ -7,6 +7,8 @@ export const INVOICE_LIST_STATUSES: InvoiceStatus[] = [
   "proforma",
   "sent",
   "paid",
+  "partially_paid",
+  "unpaid",
   "overdue",
   "cancelled",
 ];

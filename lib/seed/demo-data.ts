@@ -130,6 +130,7 @@ function buildInvoice(
   return {
     id: createId(),
     invoiceNumber: num,
+    documentType: "invoice",
     clientName,
     clientTaxNumber: clientTax,
     issueDate: daysAgo(issueOffset),
@@ -143,6 +144,7 @@ function buildInvoice(
       quantity: l.qty,
       unitPrice: l.price,
       vatRate: l.vat,
+      vatCategory: "normal",
     })),
     createdAt: now,
     updatedAt: now,

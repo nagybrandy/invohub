@@ -117,6 +117,10 @@ export default {
       sent: "Kiküldve",
       draft: "Piszkozat",
       cancelled: "Törölve",
+      paid: "Fizetve",
+      partiallyPaid: "Részben fizetve",
+      unpaid: "Fizetetlen",
+      overdue: "Lejárt",
     },
     screenModes: {
       edit: "Szerkesztés",
@@ -127,6 +131,8 @@ export default {
       proforma: "Díjbekérő",
       advance: "Előlegszámla",
       receipt: "Nyugta",
+      storno: "Sztornó",
+      modify: "Helyesbítő számla",
     },
     sections: {
       recipient: "Kinek szól a bizonylat?",
@@ -152,6 +158,9 @@ export default {
       paymentDeadline: "Fizetési határidő",
       calculatedDeadline: "Számított határidő: {{date}}",
       bankAccount: "Bankszámlaszám",
+      exchangeRate: "Árfolyam (HUF-ra)",
+      exchangeRateHint:
+        "Egyelőre kézi megadás — az automatikus MNB árfolyam-lekérdezés tervben van.",
       productName: "Terméknév",
       netUnitPrice: "Nettó egységár",
       vat: "ÁFA",
@@ -184,6 +193,7 @@ export default {
       transfer: "Átutalás",
       cash: "Készpénz",
       card: "Bankkártya",
+      other: "Egyéb",
     },
     placeholders: {
       searchPartner: "Keresés név vagy adószám alapján...",
@@ -204,6 +214,63 @@ export default {
     },
     autoSaved: "Automatikusan mentve piszkozatként",
     autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",
+    vat: {
+      categoryLabel: "ÁFA kezelés",
+      category: {
+        normal: "Adóköteles",
+        AAM: "AAM — Alanyi adómentes",
+        TAM: "TAM — Tárgyi adómentes",
+        KBAET: "KBAET — Közösségen belüli mentes (új közlekedési eszköz)",
+        AHK: "AHK — Közösségen belüli mentes (jövedéki termék)",
+        FAD: "FAD — Fordított adózás",
+        ATK: "ATK — Áfa tárgyi hatályán kívüli",
+      },
+      reasonLabel: "Mentesség/fordított adózás indoklása",
+      reasonPlaceholder: "Üresen hagyva a NAV szerinti alapszöveg jelenik meg",
+      exemptNotice: "Alanyi adómentes",
+      reverseChargeNotice: "Fordított adózás",
+    },
+    lineItemEditor: {
+      lineLabel: "{{index}}. tétel",
+      description: "Megnevezés",
+      descriptionPlaceholder: "Termék vagy szolgáltatás",
+      quantity: "Menny.",
+      unitPrice: "Egységár",
+      vatRate: "ÁFA kulcs",
+      lineTotal: "Tétel összesen",
+      addLineItem: "Új tétel hozzáadása",
+    },
+    markPaid: {
+      action: "Fizetettnek jelölés",
+      title: "Fizetettnek jelölés",
+      paidAt: "Fizetés dátuma",
+      paidAmount: "Kifizetett összeg",
+      confirm: "Fizetés mentése",
+      cancel: "Mégse",
+      success: "A számla állapota: {{status}}.",
+    },
+    correction: {
+      action: "Helyesbítő számla",
+      confirmTitle: "Helyesbítő számla létrehozása",
+      confirmMessage:
+        "Az eredeti számla tételeivel előtöltött piszkozatot hoz létre, amit szerkeszthetsz és kiállíthatsz.",
+      confirm: "Piszkozat létrehozása",
+    },
+    links: {
+      title: "Kapcsolódó bizonylatok",
+      originalInvoice: "Eredeti bizonylat",
+      stornoOf: "Sztornó ehhez: {{number}}",
+      stornoDocument: "Sztornó bizonylat",
+      modifiesOf: "Helyesbíti ezt: {{number}}",
+      modifiedBy: "Helyesbítve ezzel",
+    },
+    edit: {
+      title: "Számla szerkesztése",
+      readOnlyTitle: "Ez a bizonylat kiállítva",
+      readOnlyHint:
+        "Egy kiállított bizonylatot nem lehet közvetlenül szerkeszteni. A módosításhoz használj sztornót vagy helyesbítő számlát.",
+      saveChanges: "Változások mentése",
+    },
   },
   receipts: {
     title: "Nyugta",
@@ -354,6 +421,9 @@ export default {
     navTechnicalUser: "NAV technikai felhasználó",
     navTechnicalPassword: "Technikai jelszó",
     navXmlSignKey: "XML aláíró kulcs",
+    vatExempt: "Alanyi adómentes",
+    vatExemptHint:
+      "Az új számlatételek alapértelmezetten AAM/0% ÁFával, a NAV szerinti alapszöveggel jönnek létre.",
     onboarding: {
       title: "Cég adatai",
       subtitle: "Add meg a vállalkozásod adatait a számlázáshoz.",

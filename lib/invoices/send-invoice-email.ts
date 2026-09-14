@@ -38,9 +38,20 @@ export async function sendInvoiceNotificationEmail(
     markSent?: boolean;
   }
 ): Promise<SendInvoiceEmailResult> {
-  const invoice = await getInvoiceById(userId, invoiceId);
+  let invoice = await getInvoiceById(userId, invoiceId);
   if (!invoice) {
     return { ok: false, error: "Invoice not found." };
+  }
+
+  // Finalize (assign the real invoice number) BEFORE building the PDF/email
+  // vars below — otherwise a still-draft invoice would be emailed with a
+  // blank invoiceNumber and only get its number afterwards.
+  if (options?.markSent !== false && invoice.status === "draft") {
+    invoice = await upsertInvoice(userId, {
+      ...invoice,
+      status: "sent",
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   const to = await resolveInvoiceEmailRecipients(userId, invoice.clientName, options?.to);
@@ -97,14 +108,5 @@ export async function sendInvoiceNotificationEmail(
     return { ok: false, error: result.error, to, cc };
   }
 
-  let updated = invoice;
-  if (options?.markSent !== false && invoice.status === "draft") {
-    updated = await upsertInvoice(userId, {
-      ...invoice,
-      status: "sent",
-      updatedAt: new Date().toISOString(),
-    });
-  }
-
-  return { ok: true, to, cc, invoice: updated, pdfAttached: true };
+  return { ok: true, to, cc, invoice, pdfAttached: true };
 }

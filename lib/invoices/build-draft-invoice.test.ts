@@ -20,6 +20,7 @@ describe("buildDraftInvoice", () => {
           quantity: 2,
           unitPrice: 100,
           vatRate: 27,
+          vatCategory: "normal",
         },
       ],
     });
@@ -28,6 +29,7 @@ describe("buildDraftInvoice", () => {
     expect(invoice.clientName).toBe("Acme Kft.");
     expect(invoice.lineItems).toHaveLength(1);
     expect(invoice.status).toBe("draft");
+    expect(invoice.documentType).toBe("invoice");
   });
 
   it("uses placeholder client when empty", () => {

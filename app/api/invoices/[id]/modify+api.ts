@@ -1,9 +1,8 @@
-// app/api/invoices/[id]/storno+api.ts
-// Create a storno (cancellation) invoice from an existing one, and flip the
-// original invoice to status "cancelled" (see lib/invoices/service.ts).
+// app/api/invoices/[id]/modify+api.ts
+// Starts a helyesbítő (correction) draft prefilled with the original's lines.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
-import { createStornoInvoice, getInvoiceById } from "@/lib/invoices/service";
+import { createModificationDraft, getInvoiceById } from "@/lib/invoices/service";
 
 type Params = { id: string };
 
@@ -19,10 +18,7 @@ export async function POST(
   if (!existing) {
     return jsonResponse({ error: "Not found" }, 404);
   }
-  if (existing.status === "cancelled") {
-    return jsonResponse({ error: "Invoice is already cancelled." }, 400);
-  }
 
-  const saved = await createStornoInvoice(session.user.id, existing);
-  return jsonResponse({ invoice: saved }, 201);
+  const draft = await createModificationDraft(session.user.id, existing);
+  return jsonResponse({ invoice: draft }, 201);
 }

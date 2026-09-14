@@ -9,6 +9,7 @@ export function makeLineItem(overrides: Partial<InvoiceLineItem> = {}): InvoiceL
     quantity: 2,
     unitPrice: 100,
     vatRate: 27,
+    vatCategory: "normal",
     ...overrides,
   };
 }
@@ -17,6 +18,7 @@ export function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
   return {
     id: "inv-1",
     invoiceNumber: "INV-2026-001",
+    documentType: "invoice",
     clientName: "Acme Kft.",
     clientTaxNumber: "12345678-1-23",
     issueDate: "2026-06-01",

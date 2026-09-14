@@ -6,9 +6,13 @@ import {
   integer,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -84,6 +88,8 @@ export const company = pgTable(
     navXmlSignKey: text("nav_xml_sign_key"),
     navEnvironment: text("nav_environment").default("test"),
     navReceiptSoftwareId: text("nav_receipt_software_id"),
+    /** Alanyi adómentes (VAT-exempt sole trader) — new invoices default every line to AAM/0% VAT. */
+    vatExempt: boolean("vat_exempt").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -148,15 +154,40 @@ export const invoice = pgTable(
     clientId: text("client_id").references(() => client.id, {
       onDelete: "set null",
     }),
-    invoiceNumber: text("invoice_number").notNull(),
+    /**
+     * Empty string until the document is finalized (any status other than
+     * "draft"): numbers are assigned atomically from document_sequence so a
+     * duplicated or still-editing draft never reserves/burns a number.
+     */
+    invoiceNumber: text("invoice_number").notNull().default(""),
+    /** Drives the numbering prefix (INV-/DBK-/ELO-) and NAV document kind. */
+    documentType: text("document_type").notNull().default("invoice"),
     clientName: text("client_name").notNull(),
     clientTaxNumber: text("client_tax_number"),
     issueDate: text("issue_date").notNull(),
     dueDate: text("due_date").notNull(),
     status: text("status").notNull().default("draft"),
-    currency: text("currency").notNull().default("EUR"),
+    currency: text("currency").notNull().default("HUF"),
+    /** Manual HUF exchange rate for non-HUF invoices (MNB rate fetch is a follow-up). */
+    exchangeRate: numeric("exchange_rate", { precision: 12, scale: 6 }),
     notes: text("notes"),
     paymentLink: text("payment_link"),
+    /** transfer | cash | card | other — real column; older rows kept it inside notes. */
+    paymentMethod: text("payment_method"),
+    paidAt: timestamp("paid_at"),
+    paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }),
+    /** Set on a storno document; the ORIGINAL invoice also flips to status "cancelled". */
+    originalInvoiceId: text("original_invoice_id").references(
+      (): AnyPgColumn => invoice.id,
+      { onDelete: "set null" }
+    ),
+    /** Set on a helyesbítő (correction) document pointing back at what it modifies. */
+    modifiesInvoiceId: text("modifies_invoice_id").references(
+      (): AnyPgColumn => invoice.id,
+      { onDelete: "set null" }
+    ),
+    /** 1-based count of corrections issued against the same original invoice. */
+    modificationIndex: integer("modification_index"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -164,6 +195,12 @@ export const invoice = pgTable(
     index("invoice_user_id_idx").on(table.userId),
     index("invoice_status_idx").on(table.status),
     index("invoice_issue_date_idx").on(table.issueDate),
+    index("invoice_original_invoice_id_idx").on(table.originalInvoiceId),
+    index("invoice_modifies_invoice_id_idx").on(table.modifiesInvoiceId),
+    // Partial unique index: blank invoiceNumber (unfinalized drafts) never collides.
+    uniqueIndex("invoice_user_number_unique_idx")
+      .on(table.userId, table.invoiceNumber)
+      .where(sql`${table.invoiceNumber} <> ''`),
   ]
 );
 
@@ -182,11 +219,32 @@ export const invoiceLineItem = pgTable(
       .notNull()
       .default("0"),
     vatRate: integer("vat_rate").notNull().default(27),
+    /** normal | AAM | TAM | KBAET | AHK | FAD | ATK — NAV VAT exemption/reverse-charge case. */
+    vatCategory: text("vat_category").notNull().default("normal"),
+    /** Human-readable exemption/reverse-charge reason shown on the PDF; auto-filled from vatCategory when unset. */
+    vatExemptionReason: text("vat_exemption_reason"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [index("invoice_line_item_invoice_id_idx").on(table.invoiceId)]
+);
+
+export const documentSequence = pgTable(
+  "document_sequence",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** invoice | proforma | advance — storno/modify documents share the "invoice" bucket. */
+    docType: text("doc_type").notNull(),
+    year: integer("year").notNull(),
+    lastNumber: integer("last_number").notNull().default(0),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.docType, table.year] }),
+  ]
 );
 
 export const navSubmission = pgTable(
@@ -435,6 +493,7 @@ export const schema = {
   product,
   invoice,
   invoiceLineItem,
+  documentSequence,
   navSubmission,
   invoicePdfTemplate,
   emailTemplate,

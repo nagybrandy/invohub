@@ -3,7 +3,9 @@
 import {
   calculateInvoiceTotals,
   formatCurrency,
+  lineItemGrossTotal,
 } from "@/lib/invoices/calculations";
+import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
   formatInvoiceDueDate,
   formatInvoiceIssueDateTime,
@@ -48,7 +50,7 @@ export type InvoicePdfContext = {
 };
 
 export function invoicePdfFilename(invoiceNumber: string): string {
-  const safe = invoiceNumber.replace(/[^\w.-]+/g, "_");
+  const safe = (invoiceNumber || "DRAFT").replace(/[^\w.-]+/g, "_");
   return `${safe}.pdf`;
 }
 
@@ -112,7 +114,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.text(template.titleText, metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.title + 8;
         doc.font("Helvetica-Bold").fontSize(fonts.subtitle).fillColor("#111111");
-        doc.text(invoice.invoiceNumber, metaX, metaY, { width: metaWidth, align: "right" });
+        doc.text(invoice.invoiceNumber || "DRAFT", metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.subtitle + 6;
         doc.font("Helvetica").fontSize(fonts.body).fillColor("#666666");
         doc.text(`Status: ${invoice.status}`, metaX, metaY, { width: metaWidth, align: "right" });
@@ -171,12 +173,17 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           accent
         );
 
+        const exemptCategories = new Set<string>();
+
         for (const item of invoice.lineItems) {
-          const lineTotal =
-            item.quantity * item.unitPrice * (1 + item.vatRate / 100);
+          const lineTotal = lineItemGrossTotal(item);
           const rowHeightEstimate = doc.heightOfString(item.description, {
             width: cols.descWidth,
           }) + 16;
+
+          if (item.vatCategory !== "normal") {
+            exemptCategories.add(item.vatCategory);
+          }
 
           ensureSpace(doc, rowHeightEstimate + 8);
           const rowY = doc.y;
@@ -187,7 +194,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
               description: item.description,
               quantity: String(item.quantity),
               unitPrice: formatCurrency(item.unitPrice, invoice.currency),
-              vat: `${item.vatRate}%`,
+              vat: item.vatCategory === "normal" ? `${item.vatRate}%` : item.vatCategory,
               total: formatCurrency(lineTotal, invoice.currency),
             },
             rowY,
@@ -236,6 +243,22 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           { bold: true, accent, fontSize: fonts.subtitle }
         );
         doc.y = totalsY + 8;
+
+        if (exemptCategories.size > 0) {
+          const reasons = invoice.lineItems
+            .filter((item) => exemptCategories.has(item.vatCategory))
+            .map((item) => resolveVatExemptionReason(item.vatCategory, item.vatExemptionReason))
+            .filter((reason, index, all): reason is string => !!reason && all.indexOf(reason) === index);
+
+          ensureSpace(doc, 20 + reasons.length * 14);
+          doc.font("Helvetica-Bold").fontSize(fonts.small).fillColor("#444444");
+          for (const reason of reasons) {
+            doc.text(reason, left, doc.y, { width: pageWidth });
+            doc.y += fonts.small + 4;
+          }
+          doc.fillColor("#000000");
+          doc.y += 4;
+        }
 
         if (invoice.notes) {
           ensureSpace(doc, 48);

@@ -7,6 +7,7 @@ export function buildSamplePreviewInvoice(): Invoice {
   return {
     id: "sample-preview",
     invoiceNumber: "INV-PREVIEW-001",
+    documentType: "invoice",
     clientName: "Sample Client Kft.",
     clientTaxNumber: "12345678-1-23",
     issueDate: now.slice(0, 10),
@@ -20,6 +21,7 @@ export function buildSamplePreviewInvoice(): Invoice {
         quantity: 8,
         unitPrice: 95,
         vatRate: 27,
+        vatCategory: "normal",
       },
       {
         id: "line-2",
@@ -27,6 +29,7 @@ export function buildSamplePreviewInvoice(): Invoice {
         quantity: 1,
         unitPrice: 450,
         vatRate: 27,
+        vatCategory: "normal",
       },
     ],
     notes: "This is a sample invoice for PDF layout preview.",

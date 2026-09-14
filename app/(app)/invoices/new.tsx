@@ -49,19 +49,28 @@ import {
   createEmptyLineItem,
   createId,
   formatCurrency,
-  generateInvoiceNumber,
 } from "@/lib/invoices/calculations";
-import type { Invoice, InvoiceCurrency, InvoiceStatus } from "@/lib/invoices/types";
+import type {
+  Invoice,
+  InvoiceCurrency,
+  InvoiceDocumentType,
+  InvoiceStatus,
+  PaymentMethod,
+} from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useIconColors } from "@/lib/theme/icon-colors";
-
-type PaymentMethod = "transfer" | "cash" | "card";
 
 const PAYMENT_METHOD_I18N: { value: PaymentMethod; i18nKey: string }[] = [
   { value: "transfer", i18nKey: "invoices.paymentMethods.transfer" },
   { value: "cash", i18nKey: "invoices.paymentMethods.cash" },
   { value: "card", i18nKey: "invoices.paymentMethods.card" },
+  { value: "other", i18nKey: "invoices.paymentMethods.other" },
 ];
+
+/** Maps the document-type tabs onto the domain InvoiceDocumentType for numbering/NAV. */
+function toInvoiceDocumentType(type: DocumentType): InvoiceDocumentType {
+  return type === "receipt" ? "invoice" : type;
+}
 
 const DEADLINE_QUICK_DAYS = [8, 15, 30];
 
@@ -101,7 +110,7 @@ function SectionHeader({
 
 export default function NewInvoiceScreen() {
   const { t } = useTranslation();
-  const { invoices, addOrUpdate } = useInvoices();
+  const { addOrUpdate } = useInvoices();
   const { clients } = useClients();
   const { company } = useCompany();
   const icons = useIconColors();
@@ -120,12 +129,12 @@ export default function NewInvoiceScreen() {
   const [clientAddress, setClientAddress] = React.useState("");
   const [clientEmail, setClientEmail] = React.useState("");
 
-  const [invoiceNumber, setInvoiceNumber] = React.useState("");
   const [fulfillmentDate, setFulfillmentDate] = React.useState(todayIso());
   const [issueDate, setIssueDate] = React.useState(todayIso());
   const [continuousPerformance, setContinuousPerformance] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("transfer");
   const [currency, setCurrency] = React.useState<InvoiceCurrency>("HUF");
+  const [exchangeRate, setExchangeRate] = React.useState("");
   const [deadlineDays, setDeadlineDays] = React.useState(8);
   const [dueDate, setDueDate] = React.useState(addDaysIso(8));
   const [bankAccount, setBankAccount] = React.useState("");
@@ -140,11 +149,23 @@ export default function NewInvoiceScreen() {
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<string | null>(null);
 
+  // Reset the still-pristine first line to the company's VAT-exempt default,
+  // once, the first time company data becomes available.
+  const appliedVatExemptDefault = React.useRef(false);
   React.useEffect(() => {
-    if (!invoiceNumber) {
-      setInvoiceNumber(generateInvoiceNumber(invoices));
-    }
-  }, [invoiceNumber, invoices]);
+    if (!company || appliedVatExemptDefault.current) return;
+    appliedVatExemptDefault.current = true;
+    setLineItems((items) => {
+      const [only] = items;
+      const isPristine =
+        items.length === 1 &&
+        !only.description.trim() &&
+        only.quantity === 1 &&
+        only.unitPrice === 0 &&
+        only.vatCategory === "normal";
+      return isPristine ? [createEmptyLineItem({ vatExempt: company.vatExempt })] : items;
+    });
+  }, [company]);
 
   React.useEffect(() => {
     setDueDate(addDaysIso(deadlineDays));
@@ -230,7 +251,7 @@ export default function NewInvoiceScreen() {
   const draftInvoice = React.useMemo(
     () =>
       buildDraftInvoice({
-        invoiceNumber,
+        invoiceNumber: "",
         clientName,
         clientTaxNumber,
         issueDate,
@@ -242,7 +263,6 @@ export default function NewInvoiceScreen() {
         ),
       }),
     [
-      invoiceNumber,
       clientName,
       clientTaxNumber,
       issueDate,
@@ -282,7 +302,10 @@ export default function NewInvoiceScreen() {
       const now = new Date().toISOString();
       const invoice: Invoice = {
         id: createId(),
-        invoiceNumber: invoiceNumber.trim() || generateInvoiceNumber(invoices),
+        // Left blank — lib/invoices/service.ts assigns the real number atomically
+        // once the invoice leaves "draft" status (finalize time), never here.
+        invoiceNumber: "",
+        documentType: toInvoiceDocumentType(documentType),
         clientName: clientName.trim(),
         clientTaxNumber: clientTaxNumber.trim() || undefined,
         clientId: clientId ?? undefined,
@@ -290,8 +313,11 @@ export default function NewInvoiceScreen() {
         dueDate,
         status: resolvedStatus,
         currency,
+        exchangeRate:
+          currency !== "HUF" && exchangeRate.trim() ? Number(exchangeRate) : undefined,
         lineItems: lineItems.filter((item) => item.description.trim()),
         notes: composedNotes,
+        paymentMethod,
         createdAt: now,
         updatedAt: now,
       };
@@ -618,6 +644,26 @@ export default function NewInvoiceScreen() {
                     </HStack>
                   </FormControl>
 
+                  {currency !== "HUF" ? (
+                    <FormControl>
+                      <FormControlLabel>
+                        <FormControlLabelText>{t("invoices.fields.exchangeRate")}</FormControlLabelText>
+                      </FormControlLabel>
+                      <Input>
+                        <InputField
+                          keyboardType="decimal-pad"
+                          placeholder="390.50"
+                          value={exchangeRate}
+                          onChangeText={setExchangeRate}
+                          className="font-light"
+                        />
+                      </Input>
+                      <Text size="xs" className="mt-1 font-light text-muted-foreground">
+                        {t("invoices.fields.exchangeRateHint")}
+                      </Text>
+                    </FormControl>
+                  ) : null}
+
                   <FormControl>
                     <FormControlLabel>
                       <FormControlLabelText>{t("invoices.fields.paymentDeadline")}</FormControlLabelText>
@@ -678,6 +724,7 @@ export default function NewInvoiceScreen() {
                 <LineItemEditor
                   lineItems={lineItems}
                   currency={currency}
+                  companyVatExempt={company?.vatExempt}
                   onChange={setLineItems}
                 />
               </VStack>
