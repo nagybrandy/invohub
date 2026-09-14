@@ -20,16 +20,18 @@
 //    and ATK -> vatOutOfScope mapping that has NOT been cross-checked against
 //    the real XSD the way vatExemption/vatPercentage were — verify before a
 //    real FAD/ATK submission.
-//  - Storno/helyesbítő (documentType "storno"/"modify", see
-//    Invoice.originalInvoiceId/modifiesInvoiceId/modificationIndex in
-//    lib/invoices/types.ts) still submit as a plain CREATE-shaped
-//    InvoiceData with no <invoiceReferenceData> block. NAV requires that
-//    block (pointing at the original invoiceNumber) for MODIFY/STORNO to
-//    validate — submit-outgoing.ts does at least pick the correct
-//    manageInvoice operation (CREATE/MODIFY/STORNO) from documentType, but
-//    the XML body itself needs the reference block added and verified
-//    against the real XSD before storno/modify submissions will pass NAV
-//    validation. Tracked as an open issue for a follow-up NAV track.
+//  - Storno/helyesbítő (documentType "storno"/"modify") now emit the
+//    <invoiceReference> block (originalInvoiceNumber/modifyWithoutMaster/
+//    modificationIndex, in that order) as the first child of <invoice>,
+//    before <invoiceHead> — verified directly against the real schema
+//    (InvoiceReferenceType in nav-gov-hu/Online-Invoice's invoiceData.xsd,
+//    fetched 2026-09-14; not just inferred). submit-outgoing.ts resolves
+//    the referenced invoice's number and whether it was ever actually
+//    reported to NAV (-> modifyWithoutMaster) before calling this.
+//    `invoiceCategory` stays "NORMAL" for every document type — that field
+//    is unrelated (simplified/aggregate vs. normal invoice shape), not a
+//    create/modify/storno marker; confirmed against invoiceBase.xsd's
+//    InvoiceCategoryType, which has no MODIFY/STORNO value.
 //  - invoice.paymentMethod/paidAt/paidAmount (lib/invoices/types.ts) are not
 //    yet reflected in the XML — same reason (schema placement not verified).
 import { lineItemGrossTotal, lineItemNetTotal, lineItemVatAmount } from "@/lib/invoices/calculations";
@@ -68,10 +70,25 @@ export type NavLineItemExtra = {
   reverseCharge?: boolean;
   vatOutOfScope?: NavOutOfScope;
 };
+/**
+ * Modification/cancellation reference (InvoiceReferenceType in the real
+ * XSD). Required for MODIFY/STORNO manageInvoice operations to validate;
+ * omit for CREATE.
+ */
+export type NavInvoiceReference = {
+  /** The referenced invoice's NAV-facing invoiceNumber (not InvoHub's internal id). */
+  originalInvoiceNumber: string;
+  /** True if the original invoice was never (and will never be) reported to NAV. */
+  modifyWithoutMaster: boolean;
+  /** 1-based count of corrections/stornos issued against the same original invoice. */
+  modificationIndex: number;
+};
+
 export type NavInvoiceExtra = {
   vatExemption?: NavVatExemption;
   invoiceAppearance?: "PAPER" | "ELECTRONIC";
   invoiceDeliveryDate?: string;
+  invoiceReference?: NavInvoiceReference;
 };
 
 /**
@@ -315,6 +332,17 @@ export function buildNavInvoiceXml(
 ): string {
   const deliveryDate = invoice.invoiceDeliveryDate ?? invoice.issueDate;
   const appearance = invoice.invoiceAppearance ?? "PAPER";
+  const reference = invoice.invoiceReference;
+  // Sequence order per InvoiceReferenceType: originalInvoiceNumber,
+  // modifyWithoutMaster, modificationIndex.
+  const referenceXml = reference
+    ? `<invoiceReference>
+        <originalInvoiceNumber>${escapeXml(reference.originalInvoiceNumber)}</originalInvoiceNumber>
+        <modifyWithoutMaster>${reference.modifyWithoutMaster}</modifyWithoutMaster>
+        <modificationIndex>${reference.modificationIndex}</modificationIndex>
+      </invoiceReference>
+      `
+    : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <InvoiceData xmlns="${NS_DATA}" xmlns:base="${NS_BASE}">
@@ -323,7 +351,7 @@ export function buildNavInvoiceXml(
   <completenessIndicator>false</completenessIndicator>
   <invoiceMain>
     <invoice>
-      <invoiceHead>
+      ${referenceXml}<invoiceHead>
         ${buildSupplierXml(company)}
         ${buildCustomerXml(invoice)}
         <invoiceDetail>

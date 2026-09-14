@@ -93,20 +93,27 @@ Remaining for the launch gate:
       submit and surface rejection reasons, not just a boolean
 - [ ] Company lookup via NAV `queryTaxpayer` to auto-fill buyer/company
       details instead of manual entry only
-- [ ] NAV `invoiceReferenceData` block missing for STORNO/MODIFY
-      submissions — `lib/nav/invoice-xml.ts`'s `buildNavInvoiceXml` still
-      emits a plain CREATE-shaped `InvoiceData` for `documentType`
-      storno/modify, with no `<invoiceReferenceData>`
-      (originalInvoiceNumber/modifyWithoutMaster/modificationIndex); the
-      file's own header comment already tracks this as an open issue.
-      Deliberately NOT force-fixed in the 2026-09-14 fixer pass: this
-      environment has no live NAV connection to validate the exact element
-      order against the real OSA 3.0 XSD, and shipping an unverified guess
-      for a tax-compliance XML submission is worse than leaving it
-      flagged — needs a NAV-XSD-literate follow-up (or test-account
-      verification) before storno/modify submissions will pass NAV
-      validation. Related to the "Storno / helyesbítő correction linkage"
-      item above.
+- [x] NAV `<invoiceReference>` block for STORNO/MODIFY submissions —
+      `lib/nav/invoice-xml.ts`'s `buildNavInvoiceXml` now emits it
+      (originalInvoiceNumber/modifyWithoutMaster/modificationIndex, in that
+      element order) as the first child of `<invoice>`, before
+      `<invoiceHead>`. Verified against the real element name/order/nesting
+      by fetching `invoiceData.xsd` from nav-gov-hu/Online-Invoice directly
+      (`InvoiceReferenceType`, referenced as `invoiceReference` inside
+      `InvoiceType`'s sequence) — not guessed. Also corrected a wrong
+      assumption in the earlier comment: `invoiceCategory` (kept as
+      "NORMAL") is unrelated to create/modify/storno — that axis is the
+      manageInvoice operation attribute, already handled correctly.
+      `lib/nav/submit-outgoing.ts` resolves the referenced invoice's real
+      NAV invoiceNumber (via `lib/invoices/service.ts#getInvoiceById`, not
+      the internal id) and sets `modifyWithoutMaster` from whether that
+      original ever reached a "done" NAV status
+      (`lib/nav/submission-history.ts`), rejecting the submission outright
+      if the reference is missing or unresolvable rather than silently
+      submitting invalid XML. Not yet exercised against a real NAV test
+      account (needs `NAV_TEST_*` configured — see docs/nav-test-setup.md)
+      — do a real storno/modify test submission once that's set up, as a
+      final check before relying on this for production.
 - [ ] Invoice creation (`app/(app)/invoices/new.tsx`) is one long, flat
       scroll with ~16 fields and no sectioned/step flow on mobile —
       consider a step/accordion flow (Recipient → Dates/Payment → Line

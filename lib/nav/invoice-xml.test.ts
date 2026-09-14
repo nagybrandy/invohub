@@ -198,4 +198,57 @@ describe("buildNavInvoiceXml", () => {
     expect(extractTag(xml, "invoiceAppearance")).toBe("ELECTRONIC");
     expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-03");
   });
+
+  it("omits <invoiceReference> for a plain CREATE (no invoiceReference passed)", () => {
+    const xml = buildNavInvoiceXml(makeInvoice(), null);
+    expect(xml).not.toContain("<invoiceReference>");
+  });
+
+  it("emits <invoiceReference> (originalInvoiceNumber/modifyWithoutMaster/modificationIndex, in that order) as the first child of <invoice>, before <invoiceHead>", () => {
+    const invoice = makeInvoice({ documentType: "storno" });
+    const xml = buildNavInvoiceXml(
+      {
+        ...invoice,
+        invoiceReference: {
+          originalInvoiceNumber: "INV-2026-099",
+          modifyWithoutMaster: false,
+          modificationIndex: 1,
+        },
+      },
+      null
+    );
+
+    const referenceBlock = extractBlock(xml, "invoiceReference")!;
+    expect(referenceBlock).toBeTruthy();
+    expect(extractTag(referenceBlock, "originalInvoiceNumber")).toBe("INV-2026-099");
+    expect(extractTag(referenceBlock, "modifyWithoutMaster")).toBe("false");
+    expect(extractTag(referenceBlock, "modificationIndex")).toBe("1");
+
+    // Element order inside <invoiceReference> matches InvoiceReferenceType's
+    // xs:sequence (verified against the real invoiceData.xsd).
+    const originalIdx = referenceBlock.indexOf("<originalInvoiceNumber>");
+    const withoutMasterIdx = referenceBlock.indexOf("<modifyWithoutMaster>");
+    const indexIdx = referenceBlock.indexOf("<modificationIndex>");
+    expect(originalIdx).toBeGreaterThan(-1);
+    expect(withoutMasterIdx).toBeGreaterThan(originalIdx);
+    expect(indexIdx).toBeGreaterThan(withoutMasterIdx);
+
+    // <invoiceReference> is the first child of <invoice>, before <invoiceHead>.
+    expect(xml.indexOf("<invoiceReference>")).toBeLessThan(xml.indexOf("<invoiceHead>"));
+  });
+
+  it("renders modifyWithoutMaster=true when the original was never exchanged with NAV", () => {
+    const xml = buildNavInvoiceXml(
+      {
+        ...makeInvoice({ documentType: "modify" }),
+        invoiceReference: {
+          originalInvoiceNumber: "INV-2026-001",
+          modifyWithoutMaster: true,
+          modificationIndex: 1,
+        },
+      },
+      null
+    );
+    expect(extractTag(extractBlock(xml, "invoiceReference")!, "modifyWithoutMaster")).toBe("true");
+  });
 });

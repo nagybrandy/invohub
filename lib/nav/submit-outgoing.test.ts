@@ -15,6 +15,16 @@ jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: (...args: unknown[]) => mockGetCompanyByUserId(...args),
 }));
 
+const mockGetInvoiceById = jest.fn();
+jest.mock("@/lib/invoices/service", () => ({
+  getInvoiceById: (...args: unknown[]) => mockGetInvoiceById(...args),
+}));
+
+const mockHasSuccessfulNavSubmission = jest.fn();
+jest.mock("@/lib/nav/submission-history", () => ({
+  hasSuccessfulNavSubmission: (...args: unknown[]) => mockHasSuccessfulNavSubmission(...args),
+}));
+
 const mockTokenExchange = jest.fn();
 const mockManageInvoice = jest.fn();
 const mockGetNavClient = jest.fn(() => ({
@@ -38,6 +48,7 @@ describe("submitOutgoingInvoiceToNav", () => {
     jest.clearAllMocks();
     mockTokenExchange.mockResolvedValue({ exchangeToken: "tok-abc" });
     mockManageInvoice.mockResolvedValue({ transactionId: "NAV-TXN-TEST" });
+    mockHasSuccessfulNavSubmission.mockResolvedValue(false);
   });
 
   it("defaults to demo mode and never resolves real credentials", async () => {
@@ -79,33 +90,84 @@ describe("submitOutgoingInvoiceToNav", () => {
     expect(result.mode).toBe("test");
   });
 
-  it("submits documentType=storno invoices with the STORNO operation", async () => {
+  it("submits documentType=storno invoices with the STORNO operation and an <invoiceReference> block", async () => {
     mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-original", invoiceNumber: "INV-2026-042" }));
+    mockHasSuccessfulNavSubmission.mockResolvedValue(true);
     const invoice = makeInvoice({ documentType: "storno", originalInvoiceId: "inv-original" });
 
-    await submitOutgoingInvoiceToNav("user-1", invoice);
+    const result = await submitOutgoingInvoiceToNav("user-1", invoice);
 
+    expect(mockGetInvoiceById).toHaveBeenCalledWith("user-1", "inv-original");
+    expect(mockHasSuccessfulNavSubmission).toHaveBeenCalledWith("inv-original");
     expect(mockManageInvoice).toHaveBeenCalledWith(
       null,
       "tok-abc",
       expect.arrayContaining([expect.objectContaining({ index: 1, operation: "STORNO" })])
     );
+    expect(result.invoiceXml).toContain("<invoiceReference>");
+    expect(result.invoiceXml).toContain("<originalInvoiceNumber>INV-2026-042</originalInvoiceNumber>");
+    // The original WAS successfully exchanged with NAV (mocked true above).
+    expect(result.invoiceXml).toContain("<modifyWithoutMaster>false</modifyWithoutMaster>");
   });
 
-  it("submits documentType=modify invoices with the MODIFY operation", async () => {
+  it("submits documentType=modify invoices with the MODIFY operation and modificationIndex", async () => {
     mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-original", invoiceNumber: "INV-2026-050" }));
     const invoice = makeInvoice({
       documentType: "modify",
       modifiesInvoiceId: "inv-original",
-      modificationIndex: 1,
+      modificationIndex: 2,
     });
 
-    await submitOutgoingInvoiceToNav("user-1", invoice);
+    const result = await submitOutgoingInvoiceToNav("user-1", invoice);
 
     expect(mockManageInvoice).toHaveBeenCalledWith(
       null,
       "tok-abc",
       expect.arrayContaining([expect.objectContaining({ index: 1, operation: "MODIFY" })])
     );
+    expect(result.invoiceXml).toContain("<originalInvoiceNumber>INV-2026-050</originalInvoiceNumber>");
+    expect(result.invoiceXml).toContain("<modificationIndex>2</modificationIndex>");
+  });
+
+  it("sets modifyWithoutMaster=true when the original was never successfully exchanged with NAV", async () => {
+    mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-original", invoiceNumber: "INV-2026-060" }));
+    mockHasSuccessfulNavSubmission.mockResolvedValue(false);
+    const invoice = makeInvoice({ documentType: "storno", originalInvoiceId: "inv-original" });
+
+    const result = await submitOutgoingInvoiceToNav("user-1", invoice);
+
+    expect(result.invoiceXml).toContain("<modifyWithoutMaster>true</modifyWithoutMaster>");
+  });
+
+  it("rejects a storno submission missing its originalInvoiceId", async () => {
+    mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+    const invoice = makeInvoice({ documentType: "storno", originalInvoiceId: undefined });
+
+    await expect(submitOutgoingInvoiceToNav("user-1", invoice)).rejects.toThrow(
+      /missing its reference/
+    );
+    expect(mockManageInvoice).not.toHaveBeenCalled();
+  });
+
+  it("rejects a storno submission whose referenced original invoice can't be found", async () => {
+    mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+    mockGetInvoiceById.mockResolvedValue(null);
+    const invoice = makeInvoice({ documentType: "storno", originalInvoiceId: "inv-missing" });
+
+    await expect(submitOutgoingInvoiceToNav("user-1", invoice)).rejects.toThrow(/was not found/);
+    expect(mockManageInvoice).not.toHaveBeenCalled();
+  });
+
+  it("does not look up a reference or emit <invoiceReference> for a plain CREATE", async () => {
+    mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+    const invoice = makeInvoice({ documentType: "invoice" });
+
+    const result = await submitOutgoingInvoiceToNav("user-1", invoice);
+
+    expect(mockGetInvoiceById).not.toHaveBeenCalled();
+    expect(result.invoiceXml).not.toContain("<invoiceReference>");
   });
 });
