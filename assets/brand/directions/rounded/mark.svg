@@ -2,27 +2,29 @@
 <!--
   InvoHub mark — DIRECTION B "rounded".
 
-  The same composition as direction A, softened. Two mirrored corner brackets
-  describe a square frame (the ledger page) whose two corners on the 45 degree
-  axis are left OPEN as gateways. One flow stripe runs the whole diagonal,
-  through both gates: value enters through one gate, meets at the hub in the
-  middle, and leaves through the other. The brackets' upright arms read as the
-  stems of an H; the stripe through the middle is the I.
+  The same composition and the same edge treatment as direction A, softened.
+  Two mirrored corner brackets describe a square frame (the ledger page) whose
+  two corners on the 45 degree axis are left OPEN as gateways. One flow stripe
+  runs the whole diagonal through both gates, swelling into a round hub at the
+  centre: value enters through one gate, is recorded at the hub, and leaves
+  through the other. The brackets' upright arms read as the stems of an H; the
+  stripe through the middle is the I. The hub button also gives the mark its
+  head-and-body, figure-like impression.
 
   Geometry:
   - Brackets: filled L-walls on the outer box 6..42, 7-unit wall, 12-unit outer
     corner radius with a concentric 5-unit inner radius.
-  - Both bracket ends are cut along x + y = 38 (and x + y = 58 for the mirror) —
-    lines PARALLEL to the stripe's own axis x + y = 48. Each wall therefore runs
-    flush alongside the stripe with a constant 4.07-unit channel, rather than
-    meeting it at a mismatched angle.
-  - Flow: one uniform round-capped stripe of the same 7-unit weight, centred on
-    x + y = 48. Deliberately unswollen, so the channel never pinches.
+  - Both bracket ends are cut along x + y = 36 (and x + y = 60 for the mirror) —
+    lines PARALLEL to the stripe's own axis x + y = 48 — so each wall runs flush
+    alongside the stripe. The cut sits two units further out than direction A's
+    so the hub can swell without pinching the channel.
+  - Flow: one uniform round-capped stripe of the same 7-unit weight on
+    x + y = 48, with a round hub of radius 5.5 at the centre.
 
   Sitting on that single diagonal is also what lets the mark tile: repeated,
   neighbouring stripes meet end to end and form continuous diagonal chains.
 
-  Colour: `currentColor` recolours the whole mark; the flow stripe also reads
+  Colour: `currentColor` recolours the whole mark; the stripe and hub also read
   `--ih-mark-accent` for the two-tone lockup.
 
   Compare with ../angular/mark.svg — see marketing/brand-directions.html.
@@ -39,8 +41,8 @@
   <title>InvoHub</title>
   <!-- Corner brackets, open on the top-right / bottom-left diagonal. -->
   <g fill="currentColor">
-    <path d="M32 6H18A12 12 0 0 0 6 18V32L13 25V18A5 5 0 0 1 18 13H25Z" />
-    <path d="M16 42H30A12 12 0 0 0 42 30V16L35 23V30A5 5 0 0 1 30 35H23Z" />
+    <path d="M30 6H18A12 12 0 0 0 6 18V30L13 23V18A5 5 0 0 1 18 13H23Z" />
+    <path d="M18 42H30A12 12 0 0 0 42 30V18L35 25V30A5 5 0 0 1 30 35H25Z" />
   </g>
   <!-- The flow stripe. -->
   <path
@@ -49,4 +51,6 @@
     stroke-width="7"
     stroke-linecap="round"
   />
+  <!-- The hub button. -->
+  <circle cx="24" cy="24" r="5.5" fill="var(--ih-mark-accent, currentColor)" />
 </svg>

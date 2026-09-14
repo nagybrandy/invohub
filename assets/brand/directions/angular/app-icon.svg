@@ -1,18 +1,14 @@
 <!-- assets/brand/directions/angular/app-icon.svg -->
 <!-- InvoHub app icon / avatar / favicon source — DIRECTION A "angular". -->
-<!-- Navy plate, white brackets, cornflower hub and links. Geometry: ./mark.svg -->
+<!-- Navy plate, white brackets, cornflower flow stripe. Geometry: ./mark.svg -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="InvoHub">
   <title>InvoHub</title>
   <rect width="48" height="48" rx="12" fill="#111f4a"/>
   <g transform="translate(4.8 4.8) scale(0.8)">
     <g fill="#ffffff">
-      <path d="M30 6H6V30L13 27.1V13H27.1Z"/>
-      <path d="M18 42H42V18L35 20.9V35H20.9Z"/>
+      <path d="M32 6H6V32L13 25V13H25Z"/>
+      <path d="M16 42H42V16L35 23V35H23Z"/>
     </g>
-    <g fill="#6495ed">
-      <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z"/>
-      <path d="M25.5 19L37.25 7.25L40.75 10.75L29 22.5Z"/>
-      <path d="M22.5 29L10.75 40.75L7.25 37.25L19 25.5Z"/>
-    </g>
+    <path d="M7.025 36.025L36.025 7.025L40.975 11.975L11.975 40.975Z" fill="#6495ed"/>
   </g>
 </svg>

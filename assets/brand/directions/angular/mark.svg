@@ -2,18 +2,26 @@
 <!--
   InvoHub mark — DIRECTION A "angular".
 
-  Concept: two mirrored corner brackets describe a chamfered square (the ledger
-  page), with the two corners on the 45 degree axis left OPEN as gateways. A
-  self-similar chamfered hub sits at the centre, and two mitred links spring
-  from the hub's own chamfered faces out through both gates — value enters
-  through one gate, is recorded at the hub, and leaves through the other. The
-  bracket uprights read as the stems of an H; the link stroke through the hub is
-  the I.
+  Concept: two mirrored corner brackets describe a square frame (the ledger
+  page) whose two corners on the 45 degree axis are left OPEN as gateways. One
+  flow stripe runs the whole diagonal through both gates: value enters through
+  one gate, meets at the hub in the middle, and leaves through the other. The
+  brackets' upright arms read as the stems of an H; the stripe through the
+  middle is the I.
 
-  Character: sharp, technical, drawn entirely with filled paths and mitred
-  joins. Everything sits on the diagonal x + y = 48, which is what lets it tile.
+  Geometry:
+  - Brackets: sharp-cornered filled L-walls on the outer box 6..42, 7-unit wall.
+  - Both bracket ends are cut along x + y = 38 (and x + y = 58 for the mirror) —
+    lines PARALLEL to the stripe's own axis x + y = 48. Each wall therefore runs
+    flush alongside the stripe with a constant 4.07-unit channel. Same edge
+    treatment as direction B; only the corners stay rectilinear.
+  - Flow: one uniform stripe of the same 7-unit weight centred on x + y = 48,
+    its ends cut square along the same 45 degree direction as the walls.
 
-  Colour: `currentColor` recolours the whole mark; the hub and links also read
+  Sitting on that single diagonal is also what lets the mark tile: repeated,
+  neighbouring stripes meet end to end and form continuous diagonal chains.
+
+  Colour: `currentColor` recolours the whole mark; the flow stripe also reads
   `--ih-mark-accent` for the two-tone lockup.
 
   Compare with ../rounded/mark.svg — see marketing/brand-directions.html.
@@ -23,18 +31,19 @@
   viewBox="0 0 48 48"
   width="48"
   height="48"
-  fill="currentColor"
+  fill="none"
   role="img"
   aria-label="InvoHub"
 >
   <title>InvoHub</title>
   <!-- Corner brackets, open on the top-right / bottom-left diagonal. -->
-  <path d="M30 6H6V30L13 27.1V13H27.1Z" />
-  <path d="M18 42H42V18L35 20.9V35H20.9Z" />
-  <!-- Hub + the two links. -->
-  <g fill="var(--ih-mark-accent, currentColor)">
-    <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
-    <path d="M25.5 19L37.25 7.25L40.75 10.75L29 22.5Z" />
-    <path d="M22.5 29L10.75 40.75L7.25 37.25L19 25.5Z" />
+  <g fill="currentColor">
+    <path d="M32 6H6V32L13 25V13H25Z" />
+    <path d="M16 42H42V16L35 23V35H23Z" />
   </g>
+  <!-- The flow stripe. -->
+  <path
+    d="M7.025 36.025L36.025 7.025L40.975 11.975L11.975 40.975Z"
+    fill="var(--ih-mark-accent, currentColor)"
+  />
 </svg>

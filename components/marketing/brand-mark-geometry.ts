@@ -16,12 +16,14 @@
 // what lets the mark tile: repeated, neighbouring links meet end to end and
 // form continuous diagonal chains with no visible seam.
 //
+// Both directions share the same edge treatment: each bracket end is cut along
+// a line PARALLEL to the flow stripe, so the two walls run flush alongside it.
+//
 // TWO DIRECTIONS, pending the brand owner's choice:
-//   angular — the first cut. Chamfered, mitred, drawn entirely as filled paths.
-//             Sharp and technical.
-//   rounded — the same composition softened: generously rounded bracket corners
-//             and one uniform round-capped flow stripe, with each bracket cut
-//             parallel to that stripe so the walls run flush alongside it.
+//   angular — sharp corners, square-cut stripe. Technical and precise.
+//   rounded — the same composition softened: generously rounded bracket corners,
+//             a round-capped stripe, and a round hub swelling at the centre —
+//             the "button" that gives the mark its figure-like impression.
 //
 // Both are kept on disk so they can be compared:
 //   assets/brand/directions/angular/*  ·  assets/brand/directions/rounded/*
@@ -64,19 +66,22 @@ export type BrandTileGeometry = {
 
 /* ------------------------------------------------------------------ angular */
 
+// Brackets: sharp-cornered L-walls on the outer box 6..42 with a 7-unit wall.
+// Both ends are cut along `x + y = 38` (mirror: 58) — lines PARALLEL to the flow
+// stripe's own axis (x + y = 48) — so each wall runs flush alongside the stripe
+// with a constant 4.07-unit channel. Same edge treatment as direction B; only
+// the corners stay rectilinear.
+//
+// Flow: one uniform stripe of the same 7-unit weight on x + y = 48, its ends cut
+// square along the same 45° direction as the walls.
 const ANGULAR_MARK: BrandMarkGeometry = {
   rounded: false,
   frame: [
-    // Corner brackets: chamfered square minus its two chamfer walls.
-    { kind: "path", d: "M30 6H6V30L13 27.1V13H27.1Z" },
-    { kind: "path", d: "M18 42H42V18L35 20.9V35H20.9Z" },
+    { kind: "path", d: "M32 6H6V32L13 25V13H25Z" },
+    { kind: "path", d: "M16 42H42V16L35 23V35H23Z" },
   ],
   flow: [
-    // Hub: a self-similar chamfered square.
-    { kind: "path", d: "M19 19H25.5L29 22.5V29H22.5L19 25.5Z" },
-    // Links: mitred bars springing from the hub's own chamfered faces.
-    { kind: "path", d: "M25.5 19L37.25 7.25L40.75 10.75L29 22.5Z" },
-    { kind: "path", d: "M22.5 29L10.75 40.75L7.25 37.25L19 25.5Z" },
+    { kind: "path", d: "M7.025 36.025L36.025 7.025L40.975 11.975L11.975 40.975Z" },
   ],
 };
 
@@ -84,8 +89,8 @@ const ANGULAR_TILE: BrandTileGeometry = {
   rounded: false,
   shapes: [
     { kind: "path", d: "M0 48L48 0M0 96L96 0M48 96L96 48", stroke: 2, cap: "butt" },
-    { kind: "path", d: "M30 6H6V30M18 42H42V18", stroke: 2 },
-    { kind: "path", d: "M78 54H54V78M66 90H90V66", stroke: 2 },
+    { kind: "path", d: "M32 6H6V32M16 42H42V16", stroke: 2 },
+    { kind: "path", d: "M80 54H54V80M64 90H90V64", stroke: 2 },
     { kind: "path", d: "M19 19H25.5L29 22.5V29H22.5L19 25.5Z" },
     { kind: "path", d: "M67 67H73.5L77 70.5V77H70.5L67 73.5Z" },
     { kind: "path", d: "M19 67H25.5L29 70.5V77H22.5L19 73.5Z" },
@@ -97,34 +102,38 @@ const ANGULAR_TILE: BrandTileGeometry = {
 
 // Brackets: filled L-walls on the outer box 6..42 with a 7-unit wall, a 12-unit
 // outer corner radius and a concentric 5-unit inner radius. Both ends are cut
-// along `x + y = 38` — a line PARALLEL to the flow stripe's own axis
-// (x + y = 48) — so each wall runs flush alongside the stripe with a constant
-// 4.07-unit channel, instead of meeting it at a mismatched angle. The mirrored
-// bracket is cut along x + y = 58.
+// along `x + y = 36` (mirror: 60) — lines PARALLEL to the flow stripe's own axis
+// (x + y = 48) — so each wall runs flush alongside the stripe instead of meeting
+// it at a mismatched angle. The cut sits two units further out than direction
+// A's so the hub below has room to swell without pinching the channel.
 //
-// Flow: one uniform round-capped stripe of the same 7-unit weight, centred on
-// x + y = 48. Deliberately unswollen — a bulging hub would pinch the channel
-// and break the parallel reading. The hub is where the two gates' flows meet at
-// the centre of the stripe.
+// Flow: one uniform round-capped stripe of the same 7-unit weight on x + y = 48,
+// with a round hub swelling at the centre. The hub is the "button" that keeps
+// the mark from reading as a plain rounded slash, and it is what gives the mark
+// its head-and-body, figure-like impression.
 const ROUNDED_MARK: BrandMarkGeometry = {
   rounded: true,
   frame: [
-    { kind: "path", d: "M32 6H18A12 12 0 0 0 6 18V32L13 25V18A5 5 0 0 1 18 13H25Z" },
-    { kind: "path", d: "M16 42H30A12 12 0 0 0 42 30V16L35 23V30A5 5 0 0 1 30 35H23Z" },
+    { kind: "path", d: "M30 6H18A12 12 0 0 0 6 18V30L13 23V18A5 5 0 0 1 18 13H23Z" },
+    { kind: "path", d: "M18 42H30A12 12 0 0 0 42 30V18L35 25V30A5 5 0 0 1 30 35H25Z" },
   ],
-  flow: [{ kind: "path", d: "M9.5 38.5L38.5 9.5", stroke: 7 }],
+  flow: [
+    { kind: "path", d: "M9.5 38.5L38.5 9.5", stroke: 7 },
+    { kind: "circle", cx: 24, cy: 24, r: 5.5 },
+  ],
 };
 
 // Texture weight: the brackets collapse to their centrelines (box 9.5..38.5,
-// corner radius 8.5) and the flow stripe becomes the continuous chain.
+// corner radius 8.5, cut at x + y = 36) and the flow stripe becomes the chain.
+// The hubs stay as dots, echoing the mark's own centre button.
 const ROUNDED_TILE: BrandTileGeometry = {
   rounded: true,
   shapes: [
     { kind: "path", d: "M0 48L48 0M0 96L96 0M48 96L96 48", stroke: 2, cap: "butt" },
-    { kind: "path", d: "M28.5 9.5H18A8.5 8.5 0 0 0 9.5 18V28.5", stroke: 2 },
-    { kind: "path", d: "M19.5 38.5H30A8.5 8.5 0 0 0 38.5 30V19.5", stroke: 2 },
-    { kind: "path", d: "M76.5 57.5H66A8.5 8.5 0 0 0 57.5 66V76.5", stroke: 2 },
-    { kind: "path", d: "M67.5 86.5H78A8.5 8.5 0 0 0 86.5 78V67.5", stroke: 2 },
+    { kind: "path", d: "M26.5 9.5H18A8.5 8.5 0 0 0 9.5 18V26.5", stroke: 2 },
+    { kind: "path", d: "M21.5 38.5H30A8.5 8.5 0 0 0 38.5 30V21.5", stroke: 2 },
+    { kind: "path", d: "M74.5 57.5H66A8.5 8.5 0 0 0 57.5 66V74.5", stroke: 2 },
+    { kind: "path", d: "M69.5 86.5H78A8.5 8.5 0 0 0 86.5 78V69.5", stroke: 2 },
     { kind: "circle", cx: 24, cy: 24, r: 3 },
     { kind: "circle", cx: 72, cy: 72, r: 3 },
     { kind: "circle", cx: 24, cy: 72, r: 3 },

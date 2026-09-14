@@ -27,13 +27,18 @@
 
 Two mirrored corner brackets describe a square frame — the ledger page — but the
 two corners on the 45° axis are left **open**, so the frame reads as a gateway
-rather than a closed box. A hub sits at the centre, and two links spring from it
-out through both gates: value enters through one gate, is recorded at the hub,
-and leaves through the other.
+rather than a closed box. One flow stripe runs the whole diagonal through both
+gates: value enters through one gate, is recorded at the hub in the middle, and
+leaves through the other.
 
 The letterform reading: the brackets' two upright arms are the stems of an
-**H**, the link crossing between them is its crossbar, and that same stroke
+**H**, the stripe crossing between them is its crossbar, and that same stroke
 running through the hub is the **I** — I and H sharing one diagonal.
+
+**The parallel wall.** In both directions each bracket end is cut along a line
+*parallel to the stripe's own axis* (`x + y = 48`), so the two walls run flush
+alongside it with a constant channel rather than meeting it at a mismatched
+angle. This is the detail that makes the mark feel drawn rather than assembled.
 
 Everything is built on a single diagonal axis (`x + y = 48` on the 48-unit
 grid). That is what makes the mark tile: repeated, neighbouring links meet end
@@ -52,8 +57,8 @@ palette, the proportions and every placement; only the character differs.
 
 | Direction | Character | Assets |
 |-----------|-----------|--------|
-| **A `angular`** | Chamfered corners, mitred joins, all filled paths. Sharp, technical. | `assets/brand/directions/angular/` |
-| **B `rounded`** | The same composition softened: round caps and joins, semicircular bracket corners, circular hub. | `assets/brand/directions/rounded/` |
+| **A `angular`** | Sharp corners, square-cut stripe; walls cut at `x + y = 38`. Technical and precise. | `assets/brand/directions/angular/` |
+| **B `rounded`** | Softened: 12-unit rounded corners, round-capped stripe, and a round **hub button** at the centre that gives the mark its figure-like impression. Walls cut at `x + y = 36` so the hub can swell without pinching the channel. | `assets/brand/directions/rounded/` |
 
 Compare them side by side — icon at every size, lockup, favicon, blog header,
 hero texture, soft band, CTA watermark — at **`marketing/brand-directions.html`**

@@ -2,6 +2,9 @@
 <!--
   InvoHub brand texture — DIRECTION A "angular". Seamless 96x96 tile.
 
+  At texture weight the brackets collapse to their outer polylines (cut at
+  x + y = 38, mirror 58) and the flow stripe becomes the continuous chain.
+
   Why it is seamless: every motif sits on the family of diagonals
   x + y = 48 + 48k. Translating the tile by 96 in x or y shifts x + y by
   96 = 2 * 48, which maps that family onto itself, so the chains run unbroken
@@ -29,8 +32,8 @@
   <!-- Diagonal chains: x + y = 48, 96, 144. -->
   <path d="M0 48L48 0M0 96L96 0M48 96L96 48" />
   <!-- Open corner brackets around the hubs on the 48 and 144 chains. -->
-  <path d="M30 6H6V30M18 42H42V18" />
-  <path d="M78 54H54V78M66 90H90V66" />
+  <path d="M32 6H6V32M16 42H42V16" />
+  <path d="M80 54H54V80M64 90H90V64" />
   <!-- Hubs: chamfered squares. -->
   <g fill="currentColor" stroke="none">
     <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
