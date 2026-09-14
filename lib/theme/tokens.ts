@@ -88,6 +88,10 @@ export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
     "--destructive": "220 38 38",
     "--destructive-foreground": "255 255 255",
     "--border": "197 199 202",
+    // Lighter divider for table rows / card borders — the plain --border
+    // (#c5c7ca) reads as too heavy for dense lists (V8).
+    "--border-subtle": "228 230 232",
+    "--surface-raised": "255 255 255",
     "--input": "255 255 255",
     "--ring": "100 149 237",
     "--hard-shadow": "33 35 37",
@@ -110,6 +114,8 @@ export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
     "--destructive": "248 113 113",
     "--destructive-foreground": "255 255 255",
     "--border": "38 45 61",
+    "--border-subtle": "48 56 74",
+    "--surface-raised": "24 28 38",
     "--input": "27 32 44",
     "--ring": "120 165 240",
   },

@@ -27,18 +27,23 @@ async function renderHook() {
 }
 
 describe("useDashboardSummary", () => {
-  it("loads the summary from /api/dashboard/summary on mount", async () => {
-    mockApiFetch.mockResolvedValue({
-      summary: {
-        revenue: 127_000,
-        outstanding: 88_900,
-        overdueTotal: 25_400,
-        issuedTotal: 0,
-        estimatedVat: 27_000,
-        overdueCount: 1,
-        oldestOverdueDays: 11,
-        recentInvoices: [],
-      },
+  it("loads the summary from /api/dashboard/summary on mount, plus the draft count", async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path.startsWith("/api/invoices")) {
+        return Promise.resolve({ total: 3 });
+      }
+      return Promise.resolve({
+        summary: {
+          revenue: 127_000,
+          outstanding: 88_900,
+          overdueTotal: 25_400,
+          issuedTotal: 0,
+          estimatedVat: 27_000,
+          overdueCount: 1,
+          oldestOverdueDays: 11,
+          recentInvoices: [],
+        },
+      });
     });
 
     const ref = await renderHook();
@@ -47,8 +52,10 @@ describe("useDashboardSummary", () => {
     });
 
     expect(mockApiFetch).toHaveBeenCalledWith("/api/dashboard/summary");
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/invoices?status=draft&limit=1");
     expect(ref.current?.summary.revenue).toBe(127_000);
     expect(ref.current?.summary.overdueCount).toBe(1);
+    expect(ref.current?.draftCount).toBe(3);
     expect(ref.current?.loading).toBe(false);
   });
 

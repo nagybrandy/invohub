@@ -13,6 +13,9 @@ export const routes = {
   imprint: "/impresszum" as Href,
   dashboard: "/dashboard" as Href,
   invoices: "/invoices" as Href,
+  /** /invoices pre-filtered by status — dashboard KPI cards + next-actions link here (A4). */
+  invoicesFiltered: (status: string) =>
+    ({ pathname: "/invoices", params: { status } }) as Href,
   newInvoice: "/invoices/new" as Href,
   invoiceDetail: (id: string) => `/invoices/${id}` as Href,
   invoiceEdit: (id: string) => `/invoices/${id}/edit` as Href,

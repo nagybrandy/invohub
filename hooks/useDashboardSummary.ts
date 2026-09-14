@@ -1,10 +1,15 @@
 // hooks/useDashboardSummary.ts
-// Loads the SQL-aggregated dashboard summary (all invoices, not just a page).
+// Loads the SQL-aggregated dashboard summary (all invoices, not just a page)
+// plus a derived `draftCount` for the "Következő lépések" card (dashboard
+// §3.3). draftCount is read from the existing /api/invoices list endpoint's
+// real `total` (an accurate SQL count, not a page size) — this file adds a
+// derived field only; it never rewrites the summary aggregation math.
 import * as React from "react";
 import { apiFetch } from "@/lib/api/client";
 import type { DashboardSummary } from "@/lib/dashboard/summary";
 
 type SummaryResponse = { summary: DashboardSummary };
+type InvoicesTotalResponse = { total: number };
 
 const EMPTY_SUMMARY: DashboardSummary = {
   revenue: 0,
@@ -19,6 +24,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 
 export function useDashboardSummary() {
   const [summary, setSummary] = React.useState<DashboardSummary>(EMPTY_SUMMARY);
+  const [draftCount, setDraftCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -26,8 +32,12 @@ export function useDashboardSummary() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<SummaryResponse>("/api/dashboard/summary");
-      setSummary(data.summary);
+      const [summaryData, draftsData] = await Promise.all([
+        apiFetch<SummaryResponse>("/api/dashboard/summary"),
+        apiFetch<InvoicesTotalResponse>("/api/invoices?status=draft&limit=1"),
+      ]);
+      setSummary(summaryData.summary);
+      setDraftCount(draftsData.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load dashboard summary.");
     } finally {
@@ -39,5 +49,5 @@ export function useDashboardSummary() {
     void refresh();
   }, [refresh]);
 
-  return { summary, loading, error, refresh };
+  return { summary, draftCount, loading, error, refresh };
 }

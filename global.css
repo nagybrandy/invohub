@@ -23,6 +23,8 @@
     --destructive: 220 38 38;
     --destructive-foreground: 255 255 255;
     --border: 197 199 202;
+    --border-subtle: 228 230 232;
+    --surface-raised: 255 255 255;
     --input: 255 255 255;
     --ring: 100 149 237;
     --hard-shadow: 33 35 37;
@@ -47,6 +49,8 @@
     --destructive: 248 113 113;
     --destructive-foreground: 255 255 255;
     --border: 38 45 61;
+    --border-subtle: 48 56 74;
+    --surface-raised: 24 28 38;
     --input: 27 32 44;
     --ring: 120 165 240;
   }
@@ -59,7 +63,9 @@
    marketing static build isn't layered onto the app's own dev server. */
 @font-face {
   font-family: "Ranade";
-  src: url("/marketing/assets/fonts/ranade-500.woff2") format("woff2");
+  src:
+    url("/assets/fonts/ranade-500.woff2") format("woff2"),
+    url("/marketing/assets/fonts/ranade-500.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -67,7 +73,9 @@
 
 @font-face {
   font-family: "Ranade";
-  src: url("/marketing/assets/fonts/ranade-700.woff2") format("woff2");
+  src:
+    url("/assets/fonts/ranade-700.woff2") format("woff2"),
+    url("/marketing/assets/fonts/ranade-700.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
