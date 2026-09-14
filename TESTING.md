@@ -28,6 +28,23 @@ npm run test:e2e:web
 # Use an already-running Expo web dev server on :8081
 E2E_SKIP_SERVER=1 npm run test:e2e:web
 
+# Authenticated web E2E specs (dashboard/invoices/receipts/settings "(authenticated)"
+# describe blocks) — set up a test account once against a scratch/dev database, then
+# export the same credentials when running Playwright:
+DATABASE_URL=<scratch db> E2E_TEST_EMAIL=e2e-test@invohub.test E2E_TEST_PASSWORD='...' \
+  npm run create-test-user
+
+E2E_TEST_EMAIL=e2e-test@invohub.test E2E_TEST_PASSWORD='...' \
+  npm run test:e2e:web
+```
+
+Without `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` set, those authenticated specs report a
+clear skip reason instead of running against an unauthenticated page (see
+`e2e/web/fixtures/auth.ts`). CI does not set these by default, so authenticated specs
+skip there too unless a scratch database + secrets are wired up.
+
+```bash
+
 # Web E2E interactive UI
 npm run test:e2e:web:ui
 

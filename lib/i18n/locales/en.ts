@@ -307,10 +307,6 @@ export default {
     darkMode: "Dark mode",
     darkModeOn: "Currently on",
     darkModeOff: "Currently off",
-    promoteAdmin: "Make me admin (dev)",
-    promoteSuccess:
-      "Your account is now admin. Refresh or sign in again to see the admin panel.",
-    promoteFailed: "Promotion failed.",
     seedFailed: "Seed failed.",
     seedResult:
       "Loaded {{invoices}} invoices, {{clients}} clients, {{products}} products, and {{receipts}} receipts.",

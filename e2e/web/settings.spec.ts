@@ -1,6 +1,7 @@
 // e2e/web/settings.spec.ts
 // Settings E2E tests.
 import { test, expect } from "@playwright/test";
+import { test as authTest, hasE2ECredentials } from "./fixtures/auth";
 
 test.describe("Settings", () => {
   test.describe("Auth guard", () => {
@@ -22,10 +23,13 @@ test.describe("Settings", () => {
   });
 });
 
-test.describe("Settings hub (authenticated)", () => {
-  // TODO: Requires test user authentication setup
+authTest.describe("Settings hub (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
 
-  test.skip("renders settings page title", async ({ page }) => {
+  authTest("renders settings page title", async ({ page }) => {
     await page.goto("/settings");
     await page.waitForLoadState("networkidle");
 
@@ -35,7 +39,7 @@ test.describe("Settings hub (authenticated)", () => {
     ).toBeVisible();
   });
 
-  test.skip("shows account section with all setting cards", async ({
+  authTest("shows account section with all setting cards", async ({
     page,
   }) => {
     await page.goto("/settings");
@@ -49,7 +53,7 @@ test.describe("Settings hub (authenticated)", () => {
     await expect(page.getByText("API kulcsok")).toBeVisible();
   });
 
-  test.skip("shows tools section with export and dark mode", async ({
+  authTest("shows tools section with export and dark mode", async ({
     page,
   }) => {
     await page.goto("/settings");
@@ -60,7 +64,7 @@ test.describe("Settings hub (authenticated)", () => {
     await expect(page.getByText("Sötét mód")).toBeVisible();
   });
 
-  test.skip("dark mode toggle shows current state", async ({ page }) => {
+  authTest("dark mode toggle shows current state", async ({ page }) => {
     await page.goto("/settings");
     await page.waitForLoadState("networkidle");
 
@@ -75,7 +79,7 @@ test.describe("Settings hub (authenticated)", () => {
     expect(hasOn || hasOff).toBe(true);
   });
 
-  test.skip("dark mode card is clickable and toggles theme", async ({
+  authTest("dark mode card is clickable and toggles theme", async ({
     page,
   }) => {
     await page.goto("/settings");
@@ -99,7 +103,15 @@ test.describe("Settings hub (authenticated)", () => {
     expect(afterOnVisible).not.toBe(initialOnVisible);
   });
 
-  test.skip("shows demo data section", async ({ page }) => {
+  authTest("shows demo data section", async ({ page }) => {
+    // The demo-seed button itself is further gated behind
+    // EXPO_PUBLIC_ALLOW_DEV_SEED=true (lib/dev/seed-guard.ts) — it's off by default,
+    // including on most e2e runs.
+    authTest.skip(
+      process.env.EXPO_PUBLIC_ALLOW_DEV_SEED !== "true",
+      "Set EXPO_PUBLIC_ALLOW_DEV_SEED=true (and start the web server with it) to show the demo data button."
+    );
+
     await page.goto("/settings");
     await page.waitForLoadState("networkidle");
 
@@ -109,7 +121,7 @@ test.describe("Settings hub (authenticated)", () => {
     ).toBeVisible();
   });
 
-  test.skip("shows sign-out button", async ({ page }) => {
+  authTest("shows sign-out button", async ({ page }) => {
     await page.goto("/settings");
     await page.waitForLoadState("networkidle");
 
@@ -119,10 +131,13 @@ test.describe("Settings hub (authenticated)", () => {
   });
 });
 
-test.describe("Company settings (authenticated)", () => {
-  // TODO: Requires test user authentication setup
+authTest.describe("Company settings (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
 
-  test.skip("company settings page loads with sections", async ({ page }) => {
+  authTest("company settings page loads with sections", async ({ page }) => {
     await page.goto("/settings/company");
     await page.waitForLoadState("networkidle");
 
@@ -130,7 +145,7 @@ test.describe("Company settings (authenticated)", () => {
     await expect(page.getByText("Cégadatok")).toBeVisible();
   });
 
-  test.skip("company form shows required fields", async ({ page }) => {
+  authTest("company form shows required fields", async ({ page }) => {
     await page.goto("/settings/company");
     await page.waitForLoadState("networkidle");
 
@@ -141,7 +156,7 @@ test.describe("Company settings (authenticated)", () => {
     await expect(page.getByText("Bankszámlaszám")).toBeVisible();
   });
 
-  test.skip("NAV section is present", async ({ page }) => {
+  authTest("NAV section is present", async ({ page }) => {
     await page.goto("/settings/company");
     await page.waitForLoadState("networkidle");
 
@@ -149,7 +164,7 @@ test.describe("Company settings (authenticated)", () => {
     await expect(page.getByText("NAV technikai felhasználó")).toBeVisible();
   });
 
-  test.skip("invoice email section is visible", async ({ page }) => {
+  authTest("invoice email section is visible", async ({ page }) => {
     await page.goto("/settings/company");
     await page.waitForLoadState("networkidle");
 
@@ -157,7 +172,7 @@ test.describe("Company settings (authenticated)", () => {
     await expect(page.getByText("Számla küldése ide")).toBeVisible();
   });
 
-  test.skip("save button is present", async ({ page }) => {
+  authTest("save button is present", async ({ page }) => {
     await page.goto("/settings/company");
     await page.waitForLoadState("networkidle");
 

@@ -73,25 +73,11 @@ export default function SettingsScreen() {
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const isAdmin = canAccessAdminPanel(userRole);
+  // The demo-seed route is a dev/demo-only tool (server-gated in lib/dev/seed-guard.ts);
+  // only show the button when the deploy explicitly opts in.
+  const seedEnabled = process.env.EXPO_PUBLIC_ALLOW_DEV_SEED === "true";
   const [seeding, setSeeding] = React.useState(false);
-  const [promoting, setPromoting] = React.useState(false);
   const [seedMessage, setSeedMessage] = React.useState<string | null>(null);
-
-  async function handlePromoteAdmin() {
-    setPromoting(true);
-    setSeedMessage(null);
-    try {
-      await apiFetch("/api/dev/seed", {
-        method: "POST",
-        body: JSON.stringify({ promoteAdmin: true }),
-      });
-      setSeedMessage(t("settings.promoteSuccess"));
-    } catch (e) {
-      setSeedMessage(e instanceof Error ? e.message : t("settings.promoteFailed"));
-    } finally {
-      setPromoting(false);
-    }
-  }
 
   async function handleSeed() {
     setSeeding(true);
@@ -218,32 +204,25 @@ export default function SettingsScreen() {
           </VStack>
         ) : null}
 
-        <Card className="p-4">
-          <VStack space="md">
-            <HStack space="sm" className="items-center">
-              <Database size={20} color={icons.accent} />
-              <VStack className="flex-1">
-                <Text className="font-medium">{t("settings.demoData")}</Text>
-                <Text size="sm" className="text-muted-foreground">
-                  {t("settings.demoDataHint")}
-                </Text>
-              </VStack>
-            </HStack>
-            <Button onPress={() => void handleSeed()} disabled={seeding}>
-              {seeding ? <ButtonSpinner /> : <ButtonText>{t("common.seedDemo")}</ButtonText>}
-            </Button>
-            {!isAdmin ? (
-              <Button variant="outline" onPress={() => void handlePromoteAdmin()} disabled={promoting}>
-                {promoting ? (
-                  <ButtonSpinner />
-                ) : (
-                  <ButtonText>{t("settings.promoteAdmin")}</ButtonText>
-                )}
+        {seedEnabled ? (
+          <Card className="p-4">
+            <VStack space="md">
+              <HStack space="sm" className="items-center">
+                <Database size={20} color={icons.accent} />
+                <VStack className="flex-1">
+                  <Text className="font-medium">{t("settings.demoData")}</Text>
+                  <Text size="sm" className="text-muted-foreground">
+                    {t("settings.demoDataHint")}
+                  </Text>
+                </VStack>
+              </HStack>
+              <Button onPress={() => void handleSeed()} disabled={seeding}>
+                {seeding ? <ButtonSpinner /> : <ButtonText>{t("common.seedDemo")}</ButtonText>}
               </Button>
-            ) : null}
-            {seedMessage ? <Text size="sm">{seedMessage}</Text> : null}
-          </VStack>
-        </Card>
+              {seedMessage ? <Text size="sm">{seedMessage}</Text> : null}
+            </VStack>
+          </Card>
+        ) : null}
 
         <Button variant="outline" onPress={() => void handleSignOut()}>
           <HStack space="sm" className="items-center">

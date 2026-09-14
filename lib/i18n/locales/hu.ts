@@ -307,10 +307,6 @@ export default {
     darkMode: "Sötét mód",
     darkModeOn: "Jelenleg bekapcsolva",
     darkModeOff: "Jelenleg kikapcsolva",
-    promoteAdmin: "Admin jogosultság (dev)",
-    promoteSuccess:
-      "A fiókod mostantól admin. Frissíts vagy lépj be újra az admin panel eléréséhez.",
-    promoteFailed: "Jogosultság beállítás sikertelen.",
     seedFailed: "Demo adatok betöltése sikertelen.",
     seedResult:
       "Betöltve: {{invoices}} számla, {{clients}} ügyfél, {{products}} termék és {{receipts}} nyugta.",

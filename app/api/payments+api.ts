@@ -1,6 +1,6 @@
 // app/api/payments+api.ts
 // Generate payment link (Revolut/Barion stub).
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice } from "@/db/schema";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   await db
     .update(invoice)
     .set({ paymentLink: link.url, updatedAt: new Date() })
-    .where(eq(invoice.id, inv.id));
+    .where(and(eq(invoice.id, inv.id), eq(invoice.userId, session.user.id)));
 
   return jsonResponse({ payment: link });
 }

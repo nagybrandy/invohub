@@ -4,6 +4,7 @@ import { addDays, isBefore, parseISO } from "date-fns";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice, paymentReminderSchedule } from "@/db/schema";
+import { listClients } from "@/lib/clients/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
 import { renderTemplate } from "@/lib/email/templates/render";
@@ -39,6 +40,8 @@ export async function processPaymentReminders(
     const defaultSchedule = userSchedules.find((s) => !s.invoiceId);
     const { invoices } = await listInvoices(uid, { limit: INVOICE_LIST_MAX_LIMIT });
     const company = await getCompanyByUserId(uid);
+    const clients = await listClients(uid);
+    const clientsById = new Map(clients.map((c) => [c.id, c]));
 
     for (const inv of invoices) {
       if (inv.status === "paid" || inv.status === "cancelled" || inv.status === "draft") {
@@ -59,6 +62,14 @@ export async function processPaymentReminders(
 
       result.processed += 1;
 
+      const recipientEmail = (inv.clientId ? clientsById.get(inv.clientId)?.email : undefined)?.trim();
+      if (!recipientEmail) {
+        const message = `Skipped reminder for invoice ${inv.invoiceNumber}: client "${inv.clientName}" has no email on file.`;
+        result.errors.push(message);
+        console.warn(`[reminders] ${message}`);
+        continue;
+      }
+
       const template = await getEmailTemplateByType(uid, "payment_reminder");
       if (!template) {
         result.errors.push(`No template for user ${uid}`);
@@ -76,7 +87,7 @@ export async function processPaymentReminders(
       };
 
       const sendResult = await sendEmail({
-        to: inv.clientName.includes("@") ? inv.clientName : "client@example.com",
+        to: recipientEmail,
         subject: renderTemplate(template.subject, vars),
         html: renderTemplate(template.bodyHtml, vars),
         text: renderTemplate(template.bodyText ?? template.bodyHtml, vars),

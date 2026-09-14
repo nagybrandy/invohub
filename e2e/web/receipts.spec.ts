@@ -1,6 +1,7 @@
 // e2e/web/receipts.spec.ts
 // Receipt management E2E tests.
 import { test, expect } from "@playwright/test";
+import { test as authTest, hasE2ECredentials } from "./fixtures/auth";
 
 test.describe("Receipt management", () => {
   test.describe("Auth guard", () => {
@@ -30,17 +31,20 @@ test.describe("Receipt management", () => {
   });
 });
 
-test.describe("Receipt form UI (authenticated)", () => {
-  // TODO: Requires test user authentication setup
+authTest.describe("Receipt form UI (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
 
-  test.skip("new receipt form renders heading", async ({ page }) => {
+  authTest("new receipt form renders heading", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Új nyugta")).toBeVisible();
   });
 
-  test.skip("receipt details section shows all fields", async ({ page }) => {
+  authTest("receipt details section shows all fields", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
@@ -51,7 +55,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByText("EUR")).toBeVisible();
   });
 
-  test.skip("payment method options are visible", async ({ page }) => {
+  authTest("payment method options are visible", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
@@ -61,7 +65,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByText("Utalvány")).toBeVisible();
   });
 
-  test.skip("entry mode toggle shows Simple and Detailed", async ({
+  authTest("entry mode toggle shows Simple and Detailed", async ({
     page,
   }) => {
     await page.goto("/receipts/new");
@@ -71,7 +75,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByText("Detailed")).toBeVisible();
   });
 
-  test.skip("detailed mode shows line item with fields", async ({ page }) => {
+  authTest("detailed mode shows line item with fields", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
@@ -83,7 +87,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByText("VAT rate")).toBeVisible();
   });
 
-  test.skip("can add a new line item", async ({ page }) => {
+  authTest("can add a new line item", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
@@ -94,7 +98,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByText("Item 2")).toBeVisible();
   });
 
-  test.skip("can remove a line item when multiple exist", async ({ page }) => {
+  authTest("can remove a line item when multiple exist", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
@@ -114,7 +118,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByText("Item 2")).not.toBeVisible({ timeout: 3000 });
   });
 
-  test.skip("totals section shows in detailed mode", async ({ page }) => {
+  authTest("totals section shows in detailed mode", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
@@ -123,7 +127,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByText("Gross total")).toBeVisible();
   });
 
-  test.skip("switching to simple mode shows amount field", async ({
+  authTest("switching to simple mode shows amount field", async ({
     page,
   }) => {
     await page.goto("/receipts/new");
@@ -134,7 +138,7 @@ test.describe("Receipt form UI (authenticated)", () => {
     await expect(page.getByPlaceholder("0")).toBeVisible();
   });
 
-  test.skip("create button is visible", async ({ page }) => {
+  authTest("create button is visible", async ({ page }) => {
     await page.goto("/receipts/new");
     await page.waitForLoadState("networkidle");
 
@@ -144,10 +148,13 @@ test.describe("Receipt form UI (authenticated)", () => {
   });
 });
 
-test.describe("Receipt detail page (authenticated)", () => {
-  // TODO: Requires test user with existing receipts
+authTest.describe("Receipt detail page (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
 
-  test.skip("receipt detail page shows receipt data", async ({ page }) => {
+  authTest("receipt detail page shows receipt data", async ({ page }) => {
     // This would navigate to an actual receipt; needs seeded data
     await page.goto("/receipts");
     await page.waitForLoadState("networkidle");
