@@ -8,6 +8,13 @@
       "when": 1789393777465,
       "tag": "0000_platform_overhaul",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789406186328,
+      "tag": "0001_signup_role",
+      "breakpoints": true
     }
   ]
 }
