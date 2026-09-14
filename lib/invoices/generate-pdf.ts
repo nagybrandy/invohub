@@ -50,7 +50,7 @@ export type InvoicePdfContext = {
 };
 
 export function invoicePdfFilename(invoiceNumber: string): string {
-  const safe = invoiceNumber.replace(/[^\w.-]+/g, "_");
+  const safe = (invoiceNumber || "DRAFT").replace(/[^\w.-]+/g, "_");
   return `${safe}.pdf`;
 }
 
@@ -114,7 +114,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.text(template.titleText, metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.title + 8;
         doc.font("Helvetica-Bold").fontSize(fonts.subtitle).fillColor("#111111");
-        doc.text(invoice.invoiceNumber, metaX, metaY, { width: metaWidth, align: "right" });
+        doc.text(invoice.invoiceNumber || "DRAFT", metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.subtitle + 6;
         doc.font("Helvetica").fontSize(fonts.body).fillColor("#666666");
         doc.text(`Status: ${invoice.status}`, metaX, metaY, { width: metaWidth, align: "right" });

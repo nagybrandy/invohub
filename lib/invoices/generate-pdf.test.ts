@@ -90,6 +90,10 @@ describe("invoicePdfFilename", () => {
   it("sanitizes unsafe characters", () => {
     expect(invoicePdfFilename("INV/2026#001")).toBe("INV_2026_001.pdf");
   });
+
+  it("falls back to DRAFT.pdf for an unfinalized invoice (blank number)", () => {
+    expect(invoicePdfFilename("")).toBe("DRAFT.pdf");
+  });
 });
 
 describe("generateInvoicePdf", () => {
