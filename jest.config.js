@@ -1,5 +1,19 @@
 // jest.config.js
 // Jest preset for Expo unit/integration tests across web and native targets.
+const path = require("path");
+
+// Jest only ever scans inside its own rootDir (this directory) — it never
+// reaches into sibling directories. So when THIS config lives inside a git
+// worktree (.claude/worktrees/<id>/jest.config.js), excluding
+// ".claude/worktrees/" would match this worktree's OWN rootDir path and
+// silently discard every test in the suite (0 matches). The exclusion is
+// only meaningful when running from the MAIN checkout, where other
+// worktrees' full source trees are physically nested underneath and would
+// otherwise be double-scanned.
+const isRunningInsideAWorktree = __dirname
+  .split(path.sep)
+  .includes("worktrees") && __dirname.includes(`${path.sep}.claude${path.sep}worktrees${path.sep}`);
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: "jest-expo",
@@ -15,8 +29,9 @@ module.exports = {
     "/.expo/",
     // Nested git worktrees for other concurrent Claude sessions live under
     // .claude/worktrees/ inside this checkout — never run their tests as
-    // part of this repo's own suite.
-    "/.claude/worktrees/",
+    // part of this repo's own suite. Skipped when this config itself is
+    // already running from inside one such worktree (see above).
+    ...(isRunningInsideAWorktree ? [] : ["/.claude/worktrees/"]),
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
