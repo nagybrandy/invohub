@@ -155,8 +155,11 @@ export default function Login() {
     </VStack>
   );
 
+  // bg-secondary (token --secondary, #111f4a) — not a hardcoded #0b1533,
+  // which diverged from docs/brand.md's single documented navy and from
+  // DesktopTopBar's bg-[#111f4a].
   return (
-    <SafeAreaView className="flex-1 bg-[#0b1533]" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-secondary" edges={["top", "bottom"]}>
       <Box className="absolute right-4 top-4 z-10 md:right-8 md:top-6">
         <LanguageSwitcher tone={isDesktop ? "onLight" : "onDark"} />
       </Box>
@@ -175,7 +178,7 @@ export default function Login() {
                 {t("auth.heroSubtitle")}
               </Text>
             </VStack>
-            <Text size="xs" className="text-white/45">
+            <Text size="xs" className="text-white/60">
               {t("auth.evPriorityNote")}
             </Text>
           </Box>

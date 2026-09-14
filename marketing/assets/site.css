@@ -3,11 +3,19 @@
 
 /* ---------- Tokens ---------- */
 :root {
-  --navy-900: #0b1533;
+  /* Aliased to navy-800 (#111f4a) — docs/brand.md documents a single navy
+     (#111f4a); this used to be a divergent #0b1533 that made .hero/
+     .section--dark/footer surfaces a visibly different shade from the rest
+     of the dark chrome. Kept as a named alias (not removed) so every
+     existing var(--navy-900) usage stays valid. */
+  --navy-900: #111f4a;
   --navy-800: #111f4a;
   --navy-700: #1a2a5c;
   --navy-600: #1f305e;
   --blue-500: #6495ed;
+  /* AA-accessible fill for white text (buttons) — see .btn--primary below.
+     Raw blue-500 (#6495ed) with white text is only ~2.98:1, failing AA. */
+  --blue-600: #4675ca;
   --blue-400: #82aaf2;
   --blue-200: #c3d8fb;
   --blue-100: #d9e7ff;
@@ -178,7 +186,9 @@ button {
   font-weight: 650;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--blue-500);
+  /* navy-800, not blue-500 — blue-500 as small text on light backgrounds
+     is only ~2.76:1, failing WCAG AA (4.5:1). */
+  color: var(--navy-800);
 }
 
 .kicker--dark {
@@ -253,13 +263,14 @@ button {
 }
 
 .btn--primary {
-  background: var(--blue-500);
+  /* blue-600, not blue-500 — white text on blue-500 fails WCAG AA (~2.98:1). */
+  background: var(--blue-600);
   color: var(--white);
   box-shadow: 0 10px 24px -14px rgba(100, 149, 237, 0.9);
 }
 
 .btn--primary:hover {
-  background: #5285e3;
+  background: #3a63ac;
   transform: translateY(-1px);
 }
 

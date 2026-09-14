@@ -26,16 +26,24 @@ describe("themeTokens", () => {
   });
 
   it("keeps green out of brand primary tokens", () => {
-    expect(themeTokens.light["--primary"]).toBe("100 149 237");
+    expect(themeTokens.light["--primary"]).toBe("70 117 202");
     expect(themeTokens.light["--secondary"]).toBe("17 31 74");
     expect(invoHubDesignTokens.color.primary500).not.toMatch(/15803d|16a34a|22c55e/i);
   });
 
   it("uses Figma design system colors", () => {
-    expect(themeTokens.light["--primary"]).toBe("100 149 237");
     expect(themeTokens.light["--secondary"]).toBe("17 31 74");
     expect(themeTokens.light["--accent"]).toBe("217 231 255");
     expect(themeTokens.dark["--muted-foreground"]).toBe("180 190 204");
+  });
+
+  it("keeps --primary at an AA-accessible shade (primary600) for white-on-fill text", () => {
+    // #4675ca on white ~= 4.5:1, passing WCAG AA for normal text/buttons.
+    // The raw brand cornflower (primary500 #6495ed, ~2.98:1) must not be
+    // reintroduced here — it stays available for large text/icons/outlines
+    // via invoHubDesignTokens.color.primary500 instead.
+    expect(themeTokens.light["--primary"]).toBe("70 117 202");
+    expect(invoHubDesignTokens.color.primary600).toBe("#4675ca");
   });
 });
 

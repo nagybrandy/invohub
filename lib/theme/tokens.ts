@@ -71,7 +71,13 @@ export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
     "--card-foreground": "33 35 37",
     "--popover": "255 255 255",
     "--popover-foreground": "33 35 37",
-    "--primary": "100 149 237",
+    // primary600 (#4675ca) — not the raw cornflower (primary500 #6495ed):
+    // white-on-#6495ed only reaches ~2.98:1 contrast (fails WCAG AA 4.5:1)
+    // on every solid button/badge that pairs this with --primary-foreground.
+    // primary500 (#6495ed) stays available via invoHubDesignTokens for
+    // large text, icons, and outline/border contexts where the AA bar is
+    // lower or doesn't apply.
+    "--primary": "70 117 202",
     "--primary-foreground": "255 255 255",
     "--secondary": "17 31 74",
     "--secondary-foreground": "228 230 232",

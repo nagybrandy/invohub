@@ -82,7 +82,7 @@ export function BlogIndexScreen({ posts }: { posts: BlogPostSummary[] }) {
               >
                 <VStack space="sm">
                   <HStack className="items-center gap-3">
-                    <Text size="xs" className="font-medium text-primary">
+                    <Text size="xs" className="font-medium text-secondary">
                       {formatDate(post.publishedAt, i18n.language)}
                     </Text>
                     <HStack space="xs" className="items-center">
@@ -99,7 +99,7 @@ export function BlogIndexScreen({ posts }: { posts: BlogPostSummary[] }) {
                     {post.description}
                   </Text>
                   <HStack space="xs" className="items-center pt-1">
-                    <Text size="sm" className="font-medium text-primary">
+                    <Text size="sm" className="font-medium text-secondary">
                       {t("blog.readArticle")}
                     </Text>
                     <ArrowRight size={16} color={landingColors.cornflower} />
@@ -162,7 +162,7 @@ export function BlogArticleScreen({
             >
               <HStack space="sm" className="items-center">
                 <ArrowLeft size={18} color={landingColors.cornflower} />
-                <Text className="font-medium text-primary">{t("blog.allArticles")}</Text>
+                <Text className="font-medium text-secondary">{t("blog.allArticles")}</Text>
               </HStack>
             </Pressable>
               <Pressable
@@ -178,7 +178,7 @@ export function BlogArticleScreen({
         <Box className="mx-auto w-full max-w-[760px] px-4 py-10 md:px-8 md:py-14">
           <VStack space="lg">
             <VStack space="sm">
-              <Text className={`${landingDisplayType.kicker} text-primary`}>
+              <Text className={`${landingDisplayType.kicker} text-secondary`}>
                 {t("blog.eyebrow")}
               </Text>
               <Box testID="blog-article-title">
