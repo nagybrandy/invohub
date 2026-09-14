@@ -36,7 +36,24 @@ before or alongside Phase 1 items that depend on it.
       every screen still missing translation coverage and file the gaps as
       sub-items here once the sweep names them (a prior audit flagged ~11
       screens with gaps but they need re-confirming against current code
-      before being listed individually)
+      before being listed individually). Update 2026-09-14: a
+      continuous-audit pass named 9 specific screens (InvoiceCard,
+      invoices list/detail, clients/[id]/edit, app/receipts/view,
+      settings/api-keys, settings/pdf, products/index,
+      products/[id]/edit, import/index, settings/templates) and all were
+      fixed in the platform-overhaul branch — re-run the sweep fresh
+      rather than assuming full coverage elsewhere.
+- [ ] API key secret verification (`lib/api-keys/crypto.ts`'s
+      `verifySecretKey`) compares hashes with plain `===` instead of
+      `crypto.timingSafeEqual` — low practical risk since both sides are
+      hashes compared over an HTTP round trip, but a real departure from
+      constant-time comparison discipline in the `app/api/v1/*` auth path
+      (2026-09-14 audit, security)
+- [ ] Dashboard "Customer service" button (`app/(app)/dashboard/index.tsx`)
+      has no `onPress` handler, unlike the neighboring incoming-invoices
+      button — wire it to a support contact flow (mailto, chat widget,
+      help page) or remove it until one exists (2026-09-14 audit,
+      ux-desktop)
 
 ## Phase 1 — Core invoicing, NAV-compliant
 
@@ -76,6 +93,50 @@ Remaining for the launch gate:
       submit and surface rejection reasons, not just a boolean
 - [ ] Company lookup via NAV `queryTaxpayer` to auto-fill buyer/company
       details instead of manual entry only
+- [ ] NAV `invoiceReferenceData` block missing for STORNO/MODIFY
+      submissions — `lib/nav/invoice-xml.ts`'s `buildNavInvoiceXml` still
+      emits a plain CREATE-shaped `InvoiceData` for `documentType`
+      storno/modify, with no `<invoiceReferenceData>`
+      (originalInvoiceNumber/modifyWithoutMaster/modificationIndex); the
+      file's own header comment already tracks this as an open issue.
+      Deliberately NOT force-fixed in the 2026-09-14 fixer pass: this
+      environment has no live NAV connection to validate the exact element
+      order against the real OSA 3.0 XSD, and shipping an unverified guess
+      for a tax-compliance XML submission is worse than leaving it
+      flagged — needs a NAV-XSD-literate follow-up (or test-account
+      verification) before storno/modify submissions will pass NAV
+      validation. Related to the "Storno / helyesbítő correction linkage"
+      item above.
+- [ ] Invoice creation (`app/(app)/invoices/new.tsx`) is one long, flat
+      scroll with ~16 fields and no sectioned/step flow on mobile —
+      consider a step/accordion flow (Recipient → Dates/Payment → Line
+      items) or collapsing less-common fields behind "more options" to
+      shorten the pre-line-items scroll distance. Deferred here as a
+      product/design decision rather than restructured unilaterally in the
+      2026-09-14 fixer pass. (ux-mobile)
+- [ ] Notification bell tap target (`components/navigation/
+      MobileAppHeader.tsx`) is ~42px, just under the 44px minimum — bump
+      padding to p-3 or add hitSlop (2026-09-14 audit, ux-mobile)
+- [ ] Multiple inline-choice pill buttons across the invoice flow are
+      under the 44px tap-target minimum: VAT category/rate pills
+      (`components/invoices/LineItemEditor.tsx`), payment-method/currency/
+      deadline pills (`app/(app)/invoices/new.tsx`), and filter pills
+      (`app/(app)/invoices/index.tsx`) — establish a shared "choice pill"
+      component with a minimum 44px height instead of ad hoc
+      Pressable+className (2026-09-14 audit, ux-mobile)
+- [ ] "Load demo data" empty-state CTA (`app/(app)/invoices/index.tsx`)
+      routes unconditionally to Settings, but the demo-seed control there
+      is hidden unless `EXPO_PUBLIC_ALLOW_DEV_SEED` is set (default off) —
+      hide the CTA when the flag is off, or route straight to the seed
+      control when it's on (2026-09-14 audit, ux-desktop)
+- [ ] A partially-paid invoice past its due date never surfaces as
+      overdue in its own status — `deriveInvoiceStatusFromPayment`
+      (`lib/invoices/payment-status.ts`) only compares against `dueDate`
+      in the `paidAmount <= 0` branch; once partially paid it
+      unconditionally returns "partially_paid" regardless of due date.
+      Introduce a combined status or an additional overdue flag the UI can
+      badge; add a test for paidAmount between 0 and total with a past due
+      date. (2026-09-14 audit, feature)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
