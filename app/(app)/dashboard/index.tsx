@@ -1,5 +1,4 @@
 // app/(app)/dashboard/index.tsx
-import { useMemo } from "react";
 import { useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -24,9 +23,8 @@ import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { useSession } from "@/lib/auth-client";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { formatCurrency, calculateInvoiceTotals } from "@/lib/invoices/calculations";
-import { computeDashboardSummary } from "@/lib/dashboard/summary";
 import { routes } from "@/lib/navigation";
-import { useInvoices } from "@/hooks/useInvoices";
+import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 import type { Invoice } from "@/lib/invoices/types";
 
 function getInvoiceGross(invoice: Invoice): number {
@@ -37,11 +35,9 @@ export default function DashboardScreen() {
   const { t } = useTranslation();
   const icons = useIconColors();
   const { data: session } = useSession();
-  const { invoices, loading } = useInvoices();
+  const { summary: computed, loading } = useDashboardSummary();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-
-  const computed = useMemo(() => computeDashboardSummary(invoices), [invoices]);
 
   const currency: Invoice["currency"] = "HUF";
 
@@ -508,6 +504,10 @@ function getStatusI18nKey(status: Invoice["status"]): string {
   switch (status) {
     case "paid":
       return "dashboard.table.statusPaid";
+    case "partially_paid":
+      return "invoices.status.partiallyPaid";
+    case "unpaid":
+      return "invoices.status.unpaid";
     case "overdue":
       return "dashboard.table.statusOverdue";
     case "sent":
@@ -529,6 +529,10 @@ function getStatusColor(status: Invoice["status"]): string {
   switch (status) {
     case "paid":
       return "border-green-500 text-green-700";
+    case "partially_paid":
+      return "border-amber-500 text-amber-600";
+    case "unpaid":
+      return "border-blue-400 text-blue-500";
     case "overdue":
       return "border-red-500 text-red-600";
     case "sent":

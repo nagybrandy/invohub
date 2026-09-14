@@ -58,6 +58,7 @@ describe("upsertCompany", () => {
             navTechnicalPassword: null,
             navXmlSignKey: null,
             navEnvironment: "production",
+            vatExempt: true,
             createdAt: new Date("2026-01-01"),
             updatedAt: new Date("2026-01-01"),
           },
@@ -68,10 +69,34 @@ describe("upsertCompany", () => {
     const company = await upsertCompany("user-1", {
       name: "Demo Kft.",
       navEnvironment: "production",
+      vatExempt: true,
     });
 
     expect(company.navEnvironment).toBe("production");
+    expect(company.vatExempt).toBe(true);
     expect(mockDb.insert).toHaveBeenCalled();
+  });
+
+  it("defaults vatExempt to false when the row has no value (legacy rows)", async () => {
+    mockCompanySelect(null);
+    mockDb.insert.mockReturnValue({
+      values: jest.fn(() => ({
+        returning: jest.fn().mockResolvedValue([
+          {
+            id: "c1",
+            userId: "user-1",
+            name: "Demo Kft.",
+            country: "HU",
+            navEnvironment: "test",
+            createdAt: new Date("2026-01-01"),
+            updatedAt: new Date("2026-01-01"),
+          },
+        ]),
+      })),
+    });
+
+    const company = await upsertCompany("user-1", { name: "Demo Kft." });
+    expect(company.vatExempt).toBe(false);
   });
 });
 

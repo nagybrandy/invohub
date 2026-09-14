@@ -24,6 +24,8 @@ export type CompanyInput = {
   navTechnicalPassword?: string;
   navXmlSignKey?: string;
   navEnvironment?: NavEnvironment;
+  /** Alanyi adómentes (VAT-exempt sole trader) — new invoice lines default to AAM/0% VAT. */
+  vatExempt?: boolean;
 };
 
 export type CompanyPatchInput = Partial<CompanyInput> & { name?: string };
@@ -63,6 +65,7 @@ function mapRow(row: typeof company.$inferSelect): Company {
     navTechnicalPassword: row.navTechnicalPassword ?? undefined,
     navXmlSignKey: row.navXmlSignKey ?? undefined,
     navEnvironment: parseNavEnvironment(row.navEnvironment),
+    vatExempt: row.vatExempt ?? false,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -90,6 +93,7 @@ function buildCompanyValues(
       existing?.navTechnicalPassword
     ),
     navXmlSignKey: patchOptionalField(input.navXmlSignKey, existing?.navXmlSignKey),
+    vatExempt: input.vatExempt !== undefined ? input.vatExempt : existing?.vatExempt ?? false,
     navEnvironment:
       input.navEnvironment !== undefined
         ? isNavEnvironment(input.navEnvironment)

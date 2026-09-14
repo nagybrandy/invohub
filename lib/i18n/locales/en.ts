@@ -115,6 +115,10 @@ export default {
       sent: "Sent",
       draft: "Draft",
       cancelled: "Cancelled",
+      paid: "Paid",
+      partiallyPaid: "Partially paid",
+      unpaid: "Unpaid",
+      overdue: "Overdue",
     },
     screenModes: {
       edit: "Edit",
@@ -125,6 +129,8 @@ export default {
       proforma: "Proforma",
       advance: "Advance invoice",
       receipt: "Receipt",
+      storno: "Storno",
+      modify: "Correction invoice",
     },
     sections: {
       recipient: "Who is this document for?",
@@ -150,6 +156,9 @@ export default {
       paymentDeadline: "Payment deadline",
       calculatedDeadline: "Calculated deadline: {{date}}",
       bankAccount: "Bank account",
+      exchangeRate: "Exchange rate (to HUF)",
+      exchangeRateHint:
+        "Manual entry for now — automatic MNB rate lookup is planned.",
       productName: "Product name",
       netUnitPrice: "Net unit price",
       vat: "VAT",
@@ -182,6 +191,7 @@ export default {
       transfer: "Bank transfer",
       cash: "Cash",
       card: "Card",
+      other: "Other",
     },
     placeholders: {
       searchPartner: "Search by name or tax number...",
@@ -202,6 +212,62 @@ export default {
     },
     autoSaved: "Auto-saved as draft",
     autoSavedAt: "Auto-saved as draft at {{time}}",
+    vat: {
+      categoryLabel: "VAT treatment",
+      category: {
+        normal: "Taxed",
+        AAM: "AAM — VAT-exempt (alanyi adómentes)",
+        TAM: "TAM — subject-matter exempt",
+        KBAET: "KBAET — EU exempt (new vehicle)",
+        AHK: "AHK — EU exempt (excise goods)",
+        FAD: "FAD — reverse charge",
+        ATK: "ATK — outside VAT scope",
+      },
+      reasonLabel: "Exemption/reverse-charge reason",
+      reasonPlaceholder: "Leave blank to use the standard NAV wording",
+      exemptNotice: "Alanyi adómentes",
+      reverseChargeNotice: "Fordított adózás",
+    },
+    lineItemEditor: {
+      lineLabel: "Line {{index}}",
+      description: "Description",
+      descriptionPlaceholder: "Service or product",
+      quantity: "Qty",
+      unitPrice: "Unit price",
+      vatRate: "VAT rate",
+      lineTotal: "Line total",
+      addLineItem: "Add line item",
+    },
+    markPaid: {
+      action: "Mark as paid",
+      title: "Mark as paid",
+      paidAt: "Payment date",
+      paidAmount: "Amount received",
+      confirm: "Save payment",
+      cancel: "Cancel",
+      success: "Invoice marked as {{status}}.",
+    },
+    correction: {
+      action: "Correction invoice",
+      confirmTitle: "Create a correction invoice",
+      confirmMessage:
+        "Starts a helyesbítő draft prefilled with this invoice's lines, for you to adjust and finalize.",
+      confirm: "Create draft",
+    },
+    links: {
+      originalInvoice: "Original document",
+      stornoOf: "Storno of {{number}}",
+      stornoDocument: "Storno document",
+      modifiesOf: "Corrects {{number}}",
+      modifiedBy: "Corrected by",
+    },
+    edit: {
+      title: "Edit invoice",
+      readOnlyTitle: "This document is finalized",
+      readOnlyHint:
+        "A finalized document can't be edited directly. Use storno or a correction invoice to change it.",
+      saveChanges: "Save changes",
+    },
   },
   receipts: {
     title: "Receipt",
@@ -356,6 +422,9 @@ export default {
     navTechnicalUser: "NAV technical user",
     navTechnicalPassword: "Technical user password",
     navXmlSignKey: "XML sign key",
+    vatExempt: "Alanyi adómentes (VAT-exempt sole trader)",
+    vatExemptHint:
+      "New invoice lines default to AAM/0% VAT with the standard NAV wording.",
     onboarding: {
       title: "Company details",
       subtitle: "Enter your business details for invoicing.",

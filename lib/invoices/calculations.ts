@@ -1,14 +1,19 @@
 // lib/invoices/calculations.ts
 // Invoice line-item and document total calculations.
 
+import { resolveVatRate } from "@/lib/invoices/vat";
 import type { Invoice, InvoiceLineItem, InvoiceTotals } from "@/lib/invoices/types";
 
 export function lineItemNetTotal(item: InvoiceLineItem): number {
   return item.quantity * item.unitPrice;
 }
 
+export function lineItemEffectiveVatRate(item: InvoiceLineItem): number {
+  return resolveVatRate(item.vatCategory, item.vatRate);
+}
+
 export function lineItemVatAmount(item: InvoiceLineItem): number {
-  return lineItemNetTotal(item) * (item.vatRate / 100);
+  return lineItemNetTotal(item) * (lineItemEffectiveVatRate(item) / 100);
 }
 
 export function lineItemGrossTotal(item: InvoiceLineItem): number {
@@ -34,21 +39,31 @@ export function formatCurrency(amount: number, currency: Invoice["currency"]): s
   return currency === "EUR" ? `${symbol}${formatted}` : `${formatted} ${symbol}`;
 }
 
-export function generateInvoiceNumber(existing: Invoice[]): string {
-  const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
-  const sameYear = existing.filter((inv) => inv.invoiceNumber.startsWith(prefix));
-  const next = sameYear.length + 1;
-  return `${prefix}${String(next).padStart(3, "0")}`;
-}
+export type CreateEmptyLineItemOptions = {
+  /** Company is alanyi adómentes (VAT-exempt) — default new lines to AAM/0% instead of 27%. */
+  vatExempt?: boolean;
+};
 
-export function createEmptyLineItem(): InvoiceLineItem {
+export function createEmptyLineItem(
+  options: CreateEmptyLineItemOptions = {}
+): InvoiceLineItem {
+  if (options.vatExempt) {
+    return {
+      id: createId(),
+      description: "",
+      quantity: 1,
+      unitPrice: 0,
+      vatRate: 0,
+      vatCategory: "AAM",
+    };
+  }
   return {
     id: createId(),
     description: "",
     quantity: 1,
     unitPrice: 0,
     vatRate: 27,
+    vatCategory: "normal",
   };
 }
 

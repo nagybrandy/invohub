@@ -1,7 +1,12 @@
 // lib/invoices/build-draft-invoice.ts
 // Builds an in-memory invoice from new-invoice form fields for preview.
 import { createId } from "@/lib/invoices/calculations";
-import type { Invoice, InvoiceCurrency, InvoiceStatus } from "@/lib/invoices/types";
+import type {
+  Invoice,
+  InvoiceCurrency,
+  InvoiceDocumentType,
+  InvoiceStatus,
+} from "@/lib/invoices/types";
 
 export type DraftInvoiceInput = {
   invoiceNumber: string;
@@ -13,6 +18,7 @@ export type DraftInvoiceInput = {
   notes?: string;
   lineItems: Invoice["lineItems"];
   status?: InvoiceStatus;
+  documentType?: InvoiceDocumentType;
 };
 
 export function buildDraftInvoice(input: DraftInvoiceInput): Invoice {
@@ -20,6 +26,7 @@ export function buildDraftInvoice(input: DraftInvoiceInput): Invoice {
   return {
     id: "draft-preview",
     invoiceNumber: input.invoiceNumber.trim() || "DRAFT",
+    documentType: input.documentType ?? "invoice",
     clientName: input.clientName.trim() || "—",
     clientTaxNumber: input.clientTaxNumber?.trim() || undefined,
     issueDate: input.issueDate,
@@ -42,6 +49,7 @@ export function ensureDraftLineItems(lineItems: Invoice["lineItems"]): Invoice["
       quantity: 1,
       unitPrice: 0,
       vatRate: 27,
+      vatCategory: "normal",
     },
   ];
 }

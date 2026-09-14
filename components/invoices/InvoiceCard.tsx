@@ -20,6 +20,8 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
   proforma: "Proforma",
   sent: "Sent",
   paid: "Paid",
+  partially_paid: "Partially paid",
+  unpaid: "Unpaid",
   overdue: "Overdue",
   cancelled: "Storno",
 };
@@ -32,6 +34,8 @@ const STATUS_VARIANT: Record<
   proforma: "outline",
   sent: "default",
   paid: "outline",
+  partially_paid: "outline",
+  unpaid: "secondary",
   overdue: "destructive",
   cancelled: "destructive",
 };

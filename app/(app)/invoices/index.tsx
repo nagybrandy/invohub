@@ -25,6 +25,8 @@ const FILTERS: Array<InvoiceStatus | "all"> = [
   "proforma",
   "sent",
   "paid",
+  "partially_paid",
+  "unpaid",
   "overdue",
   "cancelled",
 ];

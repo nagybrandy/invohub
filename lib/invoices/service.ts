@@ -1,6 +1,6 @@
 // lib/invoices/service.ts
 // Server-side invoice CRUD against Neon via Drizzle.
-import { and, count, desc, eq, gte, ilike, inArray, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lt, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { createId } from "@/lib/id";
@@ -15,8 +15,16 @@ import {
   mapInvoiceToDb,
   mapLineItemToDb,
 } from "@/lib/invoices/mappers";
+import { generateNextInvoiceNumber } from "@/lib/invoices/numbering";
+import { deriveInvoiceStatusFromPayment } from "@/lib/invoices/payment-status";
 import type { InvoiceListFilters } from "@/lib/invoices/list-query";
-import type { Invoice, InvoiceLineItem } from "@/lib/invoices/types";
+import type {
+  Invoice,
+  InvoiceLineItem,
+  InvoiceDocumentType,
+  PaymentMethod,
+} from "@/lib/invoices/types";
+import { hasInvoiceNumber } from "@/lib/invoices/types";
 
 export type InvoiceListOptions = {
   limit?: number;
@@ -162,6 +170,49 @@ export async function listAllInvoices(userId: string): Promise<Invoice[]> {
   return invoices;
 }
 
+/**
+ * Fetches every invoice with issueDate in [from, to] by paginating the SQL
+ * query (date range pushed into WHERE, not filtered in JS afterwards), so
+ * exports are never silently truncated at the list page cap.
+ */
+export async function listInvoicesInDateRange(
+  userId: string,
+  from: string,
+  to: string
+): Promise<Invoice[]> {
+  const where = and(
+    eq(invoice.userId, userId),
+    gte(invoice.issueDate, from),
+    lte(invoice.issueDate, to)
+  );
+
+  const pageSize = 500;
+  const all: Invoice[] = [];
+  let offset = 0;
+
+  for (;;) {
+    const rows = await db
+      .select()
+      .from(invoice)
+      .where(where)
+      .orderBy(desc(invoice.issueDate))
+      .limit(pageSize)
+      .offset(offset);
+
+    if (rows.length === 0) break;
+
+    const itemsByInvoice = await loadLineItemsForInvoices(rows.map((row) => row.id));
+    for (const row of rows) {
+      all.push(mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? []));
+    }
+
+    if (rows.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return all;
+}
+
 async function loadLineItems(invoiceId: string) {
   return db
     .select()
@@ -183,16 +234,43 @@ export async function getInvoiceById(
   return mapInvoiceFromDb(row, items);
 }
 
+function issueYearOf(isoDate: string): number {
+  const year = new Date(isoDate).getFullYear();
+  return Number.isNaN(year) ? new Date().getFullYear() : year;
+}
+
+/**
+ * Numbers are assigned at finalize time: a draft keeps invoiceNumber == "" so
+ * duplicating/editing it never burns a sequence slot. The moment status
+ * moves off "draft", allocate the next number atomically (see
+ * lib/invoices/numbering.ts) unless one is already set.
+ */
+async function assignInvoiceNumberIfNeeded(
+  userId: string,
+  data: Invoice
+): Promise<Invoice> {
+  if (data.status === "draft" || hasInvoiceNumber(data)) {
+    return data;
+  }
+  const invoiceNumber = await generateNextInvoiceNumber(
+    userId,
+    data.documentType,
+    issueYearOf(data.issueDate)
+  );
+  return { ...data, invoiceNumber };
+}
+
 export async function upsertInvoice(
   userId: string,
   data: Invoice
 ): Promise<Invoice> {
   const now = new Date();
   const existing = await getInvoiceById(userId, data.id);
+  const withNumber = await assignInvoiceNumberIfNeeded(userId, data);
   const row = mapInvoiceToDb(
     {
-      ...data,
-      createdAt: existing?.createdAt ?? data.createdAt,
+      ...withNumber,
+      createdAt: existing?.createdAt ?? withNumber.createdAt,
       updatedAt: now.toISOString(),
     },
     userId
@@ -209,9 +287,9 @@ export async function upsertInvoice(
     });
   }
 
-  if (data.lineItems.length > 0) {
+  if (withNumber.lineItems.length > 0) {
     await db.insert(invoiceLineItem).values(
-      data.lineItems.map((item, index) => ({
+      withNumber.lineItems.map((item, index) => ({
         ...mapLineItemToDb(item, data.id, index),
         createdAt: now,
         updatedAt: now,
@@ -236,13 +314,25 @@ export async function deleteInvoiceById(
   return true;
 }
 
+/** Draft copy with a blank number — it only gets one once finalized (never "-COPY"). */
 export function duplicateInvoice(source: Invoice): Invoice {
   const now = new Date().toISOString();
+  const docType: InvoiceDocumentType =
+    source.documentType === "storno" || source.documentType === "modify"
+      ? "invoice"
+      : source.documentType;
   return {
     ...source,
     id: createId(),
-    invoiceNumber: `${source.invoiceNumber}-COPY`,
+    invoiceNumber: "",
+    documentType: docType,
     status: "draft",
+    originalInvoiceId: undefined,
+    modifiesInvoiceId: undefined,
+    modificationIndex: undefined,
+    paymentMethod: undefined,
+    paidAt: undefined,
+    paidAmount: undefined,
     lineItems: source.lineItems.map((item) => ({
       ...item,
       id: createId(),
@@ -252,21 +342,138 @@ export function duplicateInvoice(source: Invoice): Invoice {
   };
 }
 
-export function stornoInvoice(source: Invoice): Invoice {
-  const now = new Date().toISOString();
-  const negatedItems: InvoiceLineItem[] = source.lineItems.map((item) => ({
+/** Negated line items for a storno document (pure — used by createStornoInvoice). */
+export function buildStornoLineItems(source: Invoice): InvoiceLineItem[] {
+  return source.lineItems.map((item) => ({
     ...item,
     id: createId(),
     quantity: -Math.abs(item.quantity),
   }));
-  return {
+}
+
+/**
+ * Creates the storno document (its own number, via the shared invoice
+ * sequence) and flips the original invoice to status "cancelled". Both
+ * directions of the link are then queryable: storno.originalInvoiceId, and
+ * `listInvoices({ ... })`/getInvoiceById callers can look up storno docs by
+ * originalInvoiceId == original.id for the reverse link in the detail UI.
+ */
+export async function createStornoInvoice(
+  userId: string,
+  source: Invoice
+): Promise<Invoice> {
+  const now = new Date().toISOString();
+  const storno: Invoice = {
     ...source,
     id: createId(),
-    invoiceNumber: `${source.invoiceNumber}-STORNO`,
-    status: "cancelled",
-    lineItems: negatedItems,
-    notes: `Storno of ${source.invoiceNumber}`,
+    invoiceNumber: "",
+    documentType: "storno",
+    status: "sent",
+    lineItems: buildStornoLineItems(source),
+    notes: `Sztornó – eredeti bizonylat: ${source.invoiceNumber || source.id}`,
+    originalInvoiceId: source.id,
+    modifiesInvoiceId: undefined,
+    modificationIndex: undefined,
+    paymentMethod: undefined,
+    paidAt: undefined,
+    paidAmount: undefined,
     createdAt: now,
     updatedAt: now,
   };
+
+  const saved = await upsertInvoice(userId, storno);
+  await db
+    .update(invoice)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(and(eq(invoice.id, source.id), eq(invoice.userId, userId)));
+
+  return saved;
+}
+
+/** Invoices whose modifiesInvoiceId points at sourceId (storno docs are excluded by caller). */
+export async function findInvoicesReferencing(
+  userId: string,
+  field: "originalInvoiceId" | "modifiesInvoiceId",
+  sourceId: string
+): Promise<Invoice[]> {
+  const column = field === "originalInvoiceId" ? invoice.originalInvoiceId : invoice.modifiesInvoiceId;
+  const rows = await db
+    .select()
+    .from(invoice)
+    .where(and(eq(invoice.userId, userId), eq(column, sourceId)));
+  const itemsByInvoice = await loadLineItemsForInvoices(rows.map((row) => row.id));
+  return rows.map((row) => mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? []));
+}
+
+/**
+ * Starts a helyesbítő (correction) document as a minimal draft prefilled
+ * with the original's lines. modificationIndex counts prior corrections
+ * against the same original so NAV XML can report which correction this is.
+ */
+export async function createModificationDraft(
+  userId: string,
+  source: Invoice
+): Promise<Invoice> {
+  const now = new Date().toISOString();
+  const priorModifications = await findInvoicesReferencing(
+    userId,
+    "modifiesInvoiceId",
+    source.id
+  );
+  const draft: Invoice = {
+    ...source,
+    id: createId(),
+    invoiceNumber: "",
+    documentType: "modify",
+    status: "draft",
+    lineItems: source.lineItems.map((item) => ({ ...item, id: createId() })),
+    notes: `Helyesbítő – eredeti bizonylat: ${source.invoiceNumber || source.id}`,
+    originalInvoiceId: undefined,
+    modifiesInvoiceId: source.id,
+    modificationIndex: priorModifications.length + 1,
+    paymentMethod: undefined,
+    paidAt: undefined,
+    paidAmount: undefined,
+    createdAt: now,
+    updatedAt: now,
+  };
+  return upsertInvoice(userId, draft);
+}
+
+export type MarkInvoicePaidInput = {
+  paymentMethod?: PaymentMethod;
+  /** ISO date/time; defaults to now. */
+  paidAt?: string;
+  /** Defaults to the invoice's full gross total. */
+  paidAmount?: number;
+};
+
+/** "Fizetettnek jelölés" — records payment and derives paid/partially_paid/unpaid/overdue. */
+export async function markInvoicePaid(
+  userId: string,
+  id: string,
+  input: MarkInvoicePaidInput = {}
+): Promise<Invoice | null> {
+  const existing = await getInvoiceById(userId, id);
+  if (!existing) return null;
+
+  const totals = calculateInvoiceTotals(existing.lineItems);
+  const paidAt = input.paidAt ?? new Date().toISOString();
+  const paidAmount = input.paidAmount ?? totals.totalAmount;
+  const status = deriveInvoiceStatusFromPayment(
+    totals.totalAmount,
+    paidAmount,
+    existing.dueDate,
+    new Date(paidAt)
+  );
+
+  const updated: Invoice = {
+    ...existing,
+    paymentMethod: input.paymentMethod ?? existing.paymentMethod,
+    paidAt,
+    paidAmount,
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  return upsertInvoice(userId, updated);
 }

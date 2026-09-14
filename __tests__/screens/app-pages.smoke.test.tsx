@@ -163,6 +163,24 @@ jest.mock("@/hooks/useCompany", () => ({
   }),
 }));
 
+jest.mock("@/hooks/useDashboardSummary", () => ({
+  useDashboardSummary: () => ({
+    summary: {
+      revenue: 0,
+      outstanding: 0,
+      overdueTotal: 0,
+      issuedTotal: 0,
+      estimatedVat: 0,
+      overdueCount: 0,
+      oldestOverdueDays: 0,
+      recentInvoices: [],
+    },
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  }),
+}));
+
 const mockPdfTemplate = {
   titleText: "INVOICE",
   accentColor: "#4f46e5",

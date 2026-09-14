@@ -3,13 +3,12 @@ import {
   calculateInvoiceTotals,
   createEmptyLineItem,
   formatCurrency,
-  generateInvoiceNumber,
   isCurrentMonth,
   lineItemGrossTotal,
   lineItemNetTotal,
   lineItemVatAmount,
 } from "@/lib/invoices/calculations";
-import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
+import { makeLineItem } from "@/__tests__/fixtures/invoices";
 
 describe("lineItemNetTotal", () => {
   it("multiplies quantity by unit price", () => {
@@ -24,6 +23,15 @@ describe("lineItemVatAmount", () => {
 
   it("handles 0% VAT", () => {
     expect(lineItemVatAmount(makeLineItem({ vatRate: 0 }))).toBe(0);
+  });
+
+  it("forces 0 for an exempt category even if vatRate wasn't zeroed", () => {
+    expect(
+      lineItemVatAmount(makeLineItem({ vatRate: 27, vatCategory: "AAM" }))
+    ).toBe(0);
+    expect(
+      lineItemVatAmount(makeLineItem({ vatRate: 27, vatCategory: "FAD" }))
+    ).toBe(0);
   });
 });
 
@@ -64,17 +72,6 @@ describe("formatCurrency", () => {
   });
 });
 
-describe("generateInvoiceNumber", () => {
-  it("increments sequence for current year", () => {
-    const year = new Date().getFullYear();
-    const existing = [
-      makeInvoice({ invoiceNumber: `INV-${year}-001` }),
-      makeInvoice({ id: "inv-2", invoiceNumber: `INV-${year}-002` }),
-    ];
-    expect(generateInvoiceNumber(existing)).toBe(`INV-${year}-003`);
-  });
-});
-
 describe("createEmptyLineItem", () => {
   it("returns defaults", () => {
     const item = createEmptyLineItem();
@@ -82,7 +79,14 @@ describe("createEmptyLineItem", () => {
     expect(item.quantity).toBe(1);
     expect(item.unitPrice).toBe(0);
     expect(item.vatRate).toBe(27);
+    expect(item.vatCategory).toBe("normal");
     expect(item.id).toBeTruthy();
+  });
+
+  it("defaults to AAM/0% when the company is VAT-exempt", () => {
+    const item = createEmptyLineItem({ vatExempt: true });
+    expect(item.vatCategory).toBe("AAM");
+    expect(item.vatRate).toBe(0);
   });
 });
 

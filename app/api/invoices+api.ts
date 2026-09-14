@@ -60,15 +60,18 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const invoice: Invoice = {
     id: body.id ?? createId(),
-    invoiceNumber: body.invoiceNumber ?? `INV-${Date.now()}`,
+    // Left blank when not explicit — assigned atomically at finalize (see lib/invoices/service.ts).
+    invoiceNumber: body.invoiceNumber ?? "",
+    documentType: body.documentType ?? "invoice",
     clientName: body.clientName ?? "",
     clientTaxNumber: body.clientTaxNumber,
     issueDate: body.issueDate ?? now.slice(0, 10),
     dueDate: body.dueDate ?? now.slice(0, 10),
     status: body.status ?? "draft",
-    currency: body.currency ?? "EUR",
+    currency: body.currency ?? "HUF",
     lineItems: body.lineItems ?? [],
     notes: body.notes,
+    paymentMethod: body.paymentMethod,
     createdAt: body.createdAt ?? now,
     updatedAt: now,
   };

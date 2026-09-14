@@ -23,15 +23,17 @@ export function parseInvoiceSpreadsheet(buffer: ArrayBuffer): ParsedInvoiceDraft
       description,
       quantity: Number.isFinite(quantity) ? quantity : 1,
       unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
-      vatRate: ([0, 5, 27] as const).includes(vatRate as 0 | 5 | 27)
+      vatRate: ([0, 5, 18, 27] as const).includes(vatRate as 0 | 5 | 18 | 27)
         ? (vatRate as InvoiceLineItem["vatRate"])
         : 27,
+      vatCategory: "normal",
     };
 
     const now = new Date().toISOString();
     return {
       id: createId(),
       invoiceNumber: String(row.invoice_number ?? `IMPORT-${index + 1}`),
+      documentType: "invoice",
       clientName,
       clientTaxNumber: row.client_tax_number
         ? String(row.client_tax_number)
