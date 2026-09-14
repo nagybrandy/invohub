@@ -44,10 +44,12 @@ in `*.web.tsx`, early-return for empty FlatList states). Add i18n keys to
 **both** `lib/i18n/locales/hu.ts` and `lib/i18n/locales/en.ts` for any new
 user-facing string.
 
-If the item touches `db/schema.ts`: edit the schema file only. Do **not**
-run `npm run db:generate` or `npm run db:push` — there is no local database
-and no `.env`; a human/integrator runs the migration later. List the schema
-change explicitly in your result instead.
+If the item touches `db/schema.ts`: edit the schema file and run
+`npx drizzle-kit generate --name <slug>` to record the migration. Do **not**
+run `npm run db:push` yourself — the dev-loop's Ship phase applies additive
+changes to the live database after review; destructive changes (DROP,
+rename, data loss) are never auto-applied. List the schema change
+explicitly (ADDITIVE / DESTRUCTIVE) in your result.
 
 ## 5. Verify
 

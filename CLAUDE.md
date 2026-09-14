@@ -45,17 +45,30 @@ present-tense claim.
 - **TDD.** Write a failing test first, then the smallest implementation that
   passes it. Every change ships with tests (see AGENTS.md §9).
 - **Reviewer agents are read-only.** They report findings; they never edit
-  app code. Only `implementer` writes code, and only on its own branch.
-- **Humans merge.** No agent merges or pushes to a remote. No agent pushes
-  to any git remote, period.
+  app code. Only `implementer` (and the dev-loop's fix/ship agents) write
+  code, and only on their own `slice/*` branch until the Ship phase.
+- **Merging and deploying is done by the dev-loop's Ship phase, not by
+  reviewers or the implementer.** Ship may merge to `main`, push, and run
+  `vercel --prod` only when typecheck + unit tests are green, no confirmed
+  high/medium finding remains, and the item is not tax/legal/NAV-production
+  gated. Anything gated becomes a pull request for human sign-off instead.
+  The owner has explicitly allowed continuous production deploys while the
+  app has no external users; keep that guardrail order intact anyway.
 - **Tax and legal items need explicit human sign-off** before merge — this
-  includes anything under `lib/tax/`, `lib/nav/`, `lib/m2m/`, and any
-  marketing copy about compliance, tax figures, or "replacing the
-  accountant." Reviewer agents must flag these; they cannot approve them.
-- No local `.env` and no live database exist in this environment. Never run
-  `db:push`. Tests mock `@/db` — never require a live Postgres connection.
-  Never call NAV production endpoints; use `demo`/`test` NAV modes only.
-  Never invent or commit credentials.
+  includes anything under `lib/tax/`, `lib/nav/` production behaviour,
+  `lib/m2m/`, and any marketing copy about compliance, tax figures, or
+  "replacing the accountant." Reviewer agents must flag these; they cannot
+  approve them, and Ship must not auto-merge them.
+- **Database:** a local `.env` with the production Neon `DATABASE_URL` exists
+  in the owner's main checkout only. Tests still mock `@/db` — never require
+  a live Postgres connection in tests. `db:push` is run only by the Ship
+  phase, only for additive changes (new tables/columns/indexes with defaults
+  or nullable); any DROP/rename/data-loss statement aborts the ship.
+  Implementer/fix agents edit `db/schema.ts` and run `drizzle-kit generate`
+  only. Never call NAV production endpoints; use `demo`/`test` NAV modes
+  only. Never invent or commit credentials.
+- **Model roles:** loop design → Fable; per-item research/planning → Opus;
+  build/test/fix/ship → Sonnet (see `.claude/workflows/dev-loop.js`).
 
 ## Where state lives
 
