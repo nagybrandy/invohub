@@ -1,14 +1,16 @@
 <!-- marketing/assets/mark-inverse.svg -->
-<!-- InvoHub brand mark for dark surfaces: no plate, white brackets + cornflower stripe. -->
-<!-- Geometry: assets/brand/mark.svg — currently direction "rounded". -->
+<!-- InvoHub brand mark for dark surfaces: no plate, white figures + cornflower stripe. -->
+<!-- Geometry: assets/brand/mark.svg — direction "rounded" (chosen). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none" role="img" aria-label="InvoHub">
   <title>InvoHub</title>
-  <g transform="translate(0 0)" fill="none">
+  <g fill="none">
     <g fill="#ffffff">
-      <path d="M30 6H18A12 12 0 0 0 6 18V30L13 23V18A5 5 0 0 1 18 13H23Z"/>
-      <path d="M18 42H30A12 12 0 0 0 42 30V18L35 25V30A5 5 0 0 1 30 35H25Z"/>
+      <path d="M30 4H18A14 14 0 0 0 4 18V30L11 23V18A7 7 0 0 1 18 11H23Z"/>
+      <path d="M18 44H30A14 14 0 0 0 44 30V18L37 25V30A7 7 0 0 1 30 37H25Z"/>
+      <circle cx="17.5" cy="17.5" r="4.4"/>
+      <circle cx="30.5" cy="30.5" r="4.4"/>
     </g>
-    <path d="M9.5 38.5L38.5 9.5" stroke="#6495ed" stroke-width="7" stroke-linecap="round"/>
+    <path d="M7 41L41 7" stroke="#6495ed" stroke-width="6.5" stroke-linecap="round"/>
     <circle cx="24" cy="24" r="5.5" fill="#6495ed"/>
   </g>
 </svg>

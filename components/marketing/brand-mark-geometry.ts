@@ -4,26 +4,30 @@
 // CONCEPT (shared by both directions) — "the open ledger hub".
 // Two mirrored corner brackets describe a square frame: the ledger page. The
 // two corners on the 45° axis are left OPEN, so the frame reads as a gateway
-// rather than a closed box. A hub sits at the centre, and two links spring from
-// it out through both gates — value enters through one gate, is recorded at the
-// hub, and leaves through the other.
+// rather than a closed box. One flow stripe runs the whole diagonal through both
+// gates — value enters through one gate, is recorded at the hub in the middle,
+// and leaves through the other.
 //
-// The letterform reading: the brackets' two upright arms are the stems of an
-// **H**, the link stroke crossing between them is its crossbar, and that same
-// stroke running through the hub is the **I** — I and H sharing one diagonal.
+// TWO READINGS, both deliberate:
+//   Two figures — each bracket is a curled body carrying its own round head, so
+//     the pair reads as two people either side of the flow. (Chosen direction
+//     only; the heads are what make this legible at a glance.)
+//   H and I — the two bracket uprights, at the far left and far right, are the
+//     stems of an H and the stripe crossing between them is its crossbar; that
+//     same stripe, with the hub button on it, is the I.
 //
 // The whole composition sits on the single diagonal x + y = 48, which is also
-// what lets the mark tile: repeated, neighbouring links meet end to end and
+// what lets the mark tile: repeated, neighbouring stripes meet end to end and
 // form continuous diagonal chains with no visible seam.
 //
 // Both directions share the same edge treatment: each bracket end is cut along
 // a line PARALLEL to the flow stripe, so the two walls run flush alongside it.
 //
-// TWO DIRECTIONS, pending the brand owner's choice:
-//   angular — sharp corners, square-cut stripe. Technical and precise.
-//   rounded — the same composition softened: generously rounded bracket corners,
-//             a round-capped stripe, and a round hub swelling at the centre —
-//             the "button" that gives the mark its figure-like impression.
+//   rounded — THE CHOSEN DIRECTION. Rounded bracket corners, each carrying its
+//             own round head so the mark reads as two figures; a round-capped
+//             stripe with a hub button at the centre.
+//   angular — archived alternative. Sharp corners, square-cut stripe, no heads.
+//             Kept on disk and buildable, but no longer the default.
 //
 // Both are kept on disk so they can be compared:
 //   assets/brand/directions/angular/*  ·  assets/brand/directions/rounded/*
@@ -38,7 +42,10 @@ export const BRAND_TILE_VIEWBOX = 96;
 
 export type BrandMarkVariant = "angular" | "rounded";
 
-/** Wired into the app and the marketing site until the direction is chosen. */
+/**
+ * The chosen brand direction, wired into the app and the marketing site.
+ * `angular` remains available as an archived alternative.
+ */
 export const BRAND_MARK_DEFAULT: BrandMarkVariant = "rounded";
 
 /**
@@ -100,40 +107,52 @@ const ANGULAR_TILE: BrandTileGeometry = {
 
 /* ------------------------------------------------------------------ rounded */
 
-// Brackets: filled L-walls on the outer box 6..42 with a 7-unit wall, a 12-unit
-// outer corner radius and a concentric 5-unit inner radius. Both ends are cut
-// along `x + y = 36` (mirror: 60) — lines PARALLEL to the flow stripe's own axis
-// (x + y = 48) — so each wall runs flush alongside the stripe instead of meeting
-// it at a mismatched angle. The cut sits two units further out than direction
-// A's so the hub below has room to swell without pinching the channel.
+// THE SELECTED DIRECTION.
 //
-// Flow: one uniform round-capped stripe of the same 7-unit weight on x + y = 48,
-// with a round hub swelling at the centre. The hub is the "button" that keeps
-// the mark from reading as a plain rounded slash, and it is what gives the mark
-// its head-and-body, figure-like impression.
+// Two figures, one stripe. Each bracket is a filled L-wall carrying its own
+// round head in the crook — head plus curled body, so the mark reads as two
+// small figures facing each other across the stripe rather than as one abstract
+// frame. Because the heads are in the FRAME ink and the stripe is in the ACCENT
+// ink, the two readings separate at a glance even at small sizes.
+//
+// Geometry: outer box 4..44 (larger than direction A's, so the parts stay
+// legible small), 7-unit wall, 14-unit outer corner radius with a concentric
+// 7-unit inner radius. Both bracket ends are cut along `x + y = 34`
+// (mirror: 62) — lines PARALLEL to the flow stripe's own axis (x + y = 48) — so
+// each wall runs flush alongside the stripe. The channel is wide (6.7 units) so
+// walls, heads and stripe never merge into one blob.
+//
+// Flow: a 6.5-unit round-capped stripe on x + y = 48, swelling into a 5.5-unit
+// hub button at the centre. Stripe plus button is the I; the two bracket
+// uprights at the far left and far right are the stems of the H, with the
+// stripe crossing between them as its crossbar.
 const ROUNDED_MARK: BrandMarkGeometry = {
   rounded: true,
   frame: [
-    { kind: "path", d: "M30 6H18A12 12 0 0 0 6 18V30L13 23V18A5 5 0 0 1 18 13H23Z" },
-    { kind: "path", d: "M18 42H30A12 12 0 0 0 42 30V18L35 25V30A5 5 0 0 1 30 35H25Z" },
+    { kind: "path", d: "M30 4H18A14 14 0 0 0 4 18V30L11 23V18A7 7 0 0 1 18 11H23Z" },
+    { kind: "path", d: "M18 44H30A14 14 0 0 0 44 30V18L37 25V30A7 7 0 0 1 30 37H25Z" },
+    // The two heads.
+    { kind: "circle", cx: 17.5, cy: 17.5, r: 4.4 },
+    { kind: "circle", cx: 30.5, cy: 30.5, r: 4.4 },
   ],
   flow: [
-    { kind: "path", d: "M9.5 38.5L38.5 9.5", stroke: 7 },
+    { kind: "path", d: "M7 41L41 7", stroke: 6.5 },
     { kind: "circle", cx: 24, cy: 24, r: 5.5 },
   ],
 };
 
-// Texture weight: the brackets collapse to their centrelines (box 9.5..38.5,
-// corner radius 8.5, cut at x + y = 36) and the flow stripe becomes the chain.
-// The hubs stay as dots, echoing the mark's own centre button.
+// Texture weight: the brackets collapse to their centrelines (box 7.5..40.5,
+// corner radius 10.5, cut at x + y = 34) and the flow stripe becomes the chain.
+// The heads are dropped — at hairline weight they would read as noise — and the
+// hub dots carry the motif.
 const ROUNDED_TILE: BrandTileGeometry = {
   rounded: true,
   shapes: [
     { kind: "path", d: "M0 48L48 0M0 96L96 0M48 96L96 48", stroke: 2, cap: "butt" },
-    { kind: "path", d: "M26.5 9.5H18A8.5 8.5 0 0 0 9.5 18V26.5", stroke: 2 },
-    { kind: "path", d: "M21.5 38.5H30A8.5 8.5 0 0 0 38.5 30V21.5", stroke: 2 },
-    { kind: "path", d: "M74.5 57.5H66A8.5 8.5 0 0 0 57.5 66V74.5", stroke: 2 },
-    { kind: "path", d: "M69.5 86.5H78A8.5 8.5 0 0 0 86.5 78V69.5", stroke: 2 },
+    { kind: "path", d: "M26.5 7.5H18A10.5 10.5 0 0 0 7.5 18V26.5", stroke: 2 },
+    { kind: "path", d: "M21.5 40.5H30A10.5 10.5 0 0 0 40.5 30V21.5", stroke: 2 },
+    { kind: "path", d: "M74.5 55.5H66A10.5 10.5 0 0 0 55.5 66V74.5", stroke: 2 },
+    { kind: "path", d: "M69.5 88.5H78A10.5 10.5 0 0 0 88.5 78V69.5", stroke: 2 },
     { kind: "circle", cx: 24, cy: 24, r: 3 },
     { kind: "circle", cx: 72, cy: 72, r: 3 },
     { kind: "circle", cx: 24, cy: 72, r: 3 },

@@ -1,33 +1,40 @@
 <!-- assets/brand/directions/rounded/mark.svg -->
 <!--
-  InvoHub mark — DIRECTION B "rounded".
+  InvoHub mark — DIRECTION B "rounded". THE CHOSEN DIRECTION.
 
-  The same composition and the same edge treatment as direction A, softened.
-  Two mirrored corner brackets describe a square frame (the ledger page) whose
-  two corners on the 45 degree axis are left OPEN as gateways. One flow stripe
-  runs the whole diagonal through both gates, swelling into a round hub at the
-  centre: value enters through one gate, is recorded at the hub, and leaves
-  through the other. The brackets' upright arms read as the stems of an H; the
-  stripe through the middle is the I. The hub button also gives the mark its
-  head-and-body, figure-like impression.
+  Two figures, one stripe. Two mirrored corner brackets describe a square frame
+  (the ledger page) whose two corners on the 45 degree axis are left OPEN as
+  gateways. Each bracket carries its own round head in the crook, so it reads as
+  a curled body with a head — two small figures facing each other across the
+  flow. One stripe runs the whole diagonal through both gates and swells into a
+  hub button at the centre.
+
+  Two readings, both deliberate:
+  - Two figures: the heads are in the FRAME ink and the stripe in the ACCENT
+    ink, so figures and flow separate at a glance even at small sizes.
+  - H and I: the two bracket uprights, at the far left and far right, are the
+    stems of an H and the stripe crossing between them is its crossbar; that
+    same stripe, with the hub button on it, is the I.
 
   Geometry:
-  - Brackets: filled L-walls on the outer box 6..42, 7-unit wall, 12-unit outer
-    corner radius with a concentric 5-unit inner radius.
-  - Both bracket ends are cut along x + y = 36 (and x + y = 60 for the mirror) —
+  - Outer box 4..44, 7-unit wall, 14-unit outer corner radius with a concentric
+    7-unit inner radius.
+  - Both bracket ends are cut along x + y = 34 (and x + y = 62 for the mirror) —
     lines PARALLEL to the stripe's own axis x + y = 48 — so each wall runs flush
-    alongside the stripe. The cut sits two units further out than direction A's
-    so the hub can swell without pinching the channel.
-  - Flow: one uniform round-capped stripe of the same 7-unit weight on
-    x + y = 48, with a round hub of radius 5.5 at the centre.
+    alongside the stripe, with a wide 6.7-unit channel so walls, heads and
+    stripe never merge into one blob.
+  - Heads: radius 4.4 at (17.5, 17.5) and (30.5, 30.5).
+  - Flow: a 6.5-unit round-capped stripe on x + y = 48, with a 5.5-unit hub
+    button at the centre.
 
   Sitting on that single diagonal is also what lets the mark tile: repeated,
   neighbouring stripes meet end to end and form continuous diagonal chains.
 
-  Colour: `currentColor` recolours the whole mark; the stripe and hub also read
-  `--ih-mark-accent` for the two-tone lockup.
+  Colour: `currentColor` recolours the whole mark; the stripe and hub button
+  also read `--ih-mark-accent` for the two-tone lockup.
 
-  Compare with ../angular/mark.svg — see marketing/brand-directions.html.
+  The archived alternative is ../angular/mark.svg — see
+  marketing/brand-directions.html.
 -->
 <svg
   xmlns="http://www.w3.org/2000/svg"
@@ -39,16 +46,18 @@
   aria-label="InvoHub"
 >
   <title>InvoHub</title>
-  <!-- Corner brackets, open on the top-right / bottom-left diagonal. -->
+  <!-- The two figures: curled bodies, each with its own head. -->
   <g fill="currentColor">
-    <path d="M30 6H18A12 12 0 0 0 6 18V30L13 23V18A5 5 0 0 1 18 13H23Z" />
-    <path d="M18 42H30A12 12 0 0 0 42 30V18L35 25V30A5 5 0 0 1 30 35H25Z" />
+    <path d="M30 4H18A14 14 0 0 0 4 18V30L11 23V18A7 7 0 0 1 18 11H23Z" />
+    <path d="M18 44H30A14 14 0 0 0 44 30V18L37 25V30A7 7 0 0 1 30 37H25Z" />
+    <circle cx="17.5" cy="17.5" r="4.4" />
+    <circle cx="30.5" cy="30.5" r="4.4" />
   </g>
   <!-- The flow stripe. -->
   <path
-    d="M9.5 38.5L38.5 9.5"
+    d="M7 41L41 7"
     stroke="var(--ih-mark-accent, currentColor)"
-    stroke-width="7"
+    stroke-width="6.5"
     stroke-linecap="round"
   />
   <!-- The hub button. -->
