@@ -9,6 +9,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
 import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
 import type { NavReceiptCredentials, NavReceiptEnvironment } from "@/lib/nav-receipt/types";
+import type { NavReceiptSubmissionResult } from "@/lib/nav-receipt/types";
 import { getDailyVatAggregation, getReceiptById } from "@/lib/receipts/service";
 
 type Params = { id: string };
@@ -34,12 +35,17 @@ export async function POST(
     }
 
     const comp = await getCompanyByUserId(session.user.id);
-    if (
-      !comp?.navTechnicalUser ||
-      !comp.navTechnicalPassword ||
-      !comp.navXmlSignKey ||
-      !comp.taxNumber
-    ) {
+    if (!comp) {
+      return jsonResponse({ error: "Company profile required. Update company settings." }, 400);
+    }
+    const navMode = comp.navEnvironment ?? "demo";
+
+    // Demo mode (the default) never calls the real receipt-if/v1 endpoint —
+    // its request/response shape is not verified against an official NAV
+    // schema/sample (unlike lib/nav/, this predates that verification pass).
+    // See docs/nav-test-setup.md openIssues. Test/production mode keeps the
+    // existing (unverified) real call for owners who explicitly opt in.
+    if (navMode !== "demo" && (!comp.navTechnicalUser || !comp.navTechnicalPassword || !comp.navXmlSignKey || !comp.taxNumber)) {
       return jsonResponse(
         { error: "NAV credentials not configured. Update company settings." },
         400
@@ -69,36 +75,41 @@ export async function POST(
         updatedAt: now,
       });
 
-    const credentials: NavReceiptCredentials = {
-      technicalUser: comp.navTechnicalUser!,
-      technicalPassword: comp.navTechnicalPassword!,
-      signingKey: comp.navXmlSignKey!,
-      taxNumber: comp.taxNumber!,
-    };
-    const env: NavReceiptEnvironment =
-      ((comp as any).navEnvironment as NavReceiptEnvironment) ?? "test";
+    let navResult: NavReceiptSubmissionResult;
+    if (navMode === "demo") {
+      // Demo mode: simulate acceptance, no network call to the unverified endpoint.
+      navResult = { ok: true, transactionId: `RECEIPT-DEMO-${Date.now()}` };
+    } else {
+      const credentials: NavReceiptCredentials = {
+        technicalUser: comp!.navTechnicalUser!,
+        technicalPassword: comp!.navTechnicalPassword!,
+        signingKey: comp!.navXmlSignKey!,
+        taxNumber: comp!.taxNumber!,
+      };
+      const env: NavReceiptEnvironment = navMode === "production" ? "production" : "test";
 
-    const navResult = await submitDailyReceiptReport(
-      {
-        taxNumber: comp.taxNumber!,
-        softwareId: (comp as any).navReceiptSoftwareId ?? "INVOHUB-DEFAULT",
-        reportDate,
-        startReceiptNumber: aggregation.startReceiptNumber ?? "",
-        endReceiptNumber: aggregation.endReceiptNumber ?? "",
-        receiptCount: aggregation.receiptCount,
-        cancelledCount: 0,
-        vatAggregations: aggregation.vatBreakdown.map((v) => ({
-          vatRateCode: `${v.vatRate}%`,
-          vatRate: v.vatRate,
-          netAmount: v.netAmount,
-          vatAmount: v.vatAmount,
-          grossAmount: v.grossAmount,
-          receiptCount: v.itemCount,
-        })),
-      },
-      credentials,
-      env
-    );
+      navResult = await submitDailyReceiptReport(
+        {
+          taxNumber: comp!.taxNumber!,
+          softwareId: (comp as any).navReceiptSoftwareId ?? "INVOHUB-DEFAULT",
+          reportDate,
+          startReceiptNumber: aggregation.startReceiptNumber ?? "",
+          endReceiptNumber: aggregation.endReceiptNumber ?? "",
+          receiptCount: aggregation.receiptCount,
+          cancelledCount: 0,
+          vatAggregations: aggregation.vatBreakdown.map((v) => ({
+            vatRateCode: `${v.vatRate}%`,
+            vatRate: v.vatRate,
+            netAmount: v.netAmount,
+            vatAmount: v.vatAmount,
+            grossAmount: v.grossAmount,
+            receiptCount: v.itemCount,
+          })),
+        },
+        credentials,
+        env
+      );
+    }
 
     const finalStatus = navResult.ok ? "submitted" : "failed";
 

@@ -88,6 +88,8 @@
     "test:ci": "npm run typecheck && npm run test:unit && npm run test:e2e:web",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "nav:check": "node scripts/nav-check.mjs",
+    "m2m:check": "node scripts/m2m-check.mjs",
     "auth:generate": "npx @better-auth/cli generate",
     "promote-admin": "node scripts/promote-admin.mjs",
     "create-test-user": "node scripts/create-test-user.mjs",

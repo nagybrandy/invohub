@@ -14,10 +14,15 @@ import { Input, InputField } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { Badge, BadgeText } from "@/components/ui/badge";
 import { FormScreen } from "@/components/layout/FormScreen";
 import { NavEnvironmentPicker } from "@/components/settings/NavEnvironmentPicker";
 import { useCompany } from "@/hooks/useCompany";
+import { apiFetch } from "@/lib/api/client";
 import { NAV_API_BASE_URL, type NavEnvironment } from "@/lib/nav/environment";
+
+type NavConfig = { sharedTestAvailable: boolean; productionEnabled: boolean; encryptionConfigured: boolean };
+type NavCheckResult = { ok: boolean; message?: string; error?: string; source?: "own" | "shared" };
 
 export default function CompanySettingsScreen() {
   const { t } = useTranslation();
@@ -34,12 +39,35 @@ export default function CompanySettingsScreen() {
   const [navTechnicalUser, setNavTechnicalUser] = React.useState("");
   const [navTechnicalPassword, setNavTechnicalPassword] = React.useState("");
   const [navXmlSignKey, setNavXmlSignKey] = React.useState("");
-  const [navEnvironment, setNavEnvironment] = React.useState<NavEnvironment>("test");
+  const [navXmlChangeKey, setNavXmlChangeKey] = React.useState("");
+  const [navEnvironment, setNavEnvironment] = React.useState<NavEnvironment>("demo");
   const [showNavSecrets, setShowNavSecrets] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [lookingUp, setLookingUp] = React.useState(false);
+  const [navConfig, setNavConfig] = React.useState<NavConfig | null>(null);
+  const [checkingNav, setCheckingNav] = React.useState(false);
+  const [navCheckResult, setNavCheckResult] = React.useState<NavCheckResult | null>(null);
+
+  React.useEffect(() => {
+    apiFetch<NavConfig>("/api/nav/config")
+      .then(setNavConfig)
+      .catch(() => setNavConfig(null));
+  }, []);
+
+  async function handleCheckNavConnection() {
+    setCheckingNav(true);
+    setNavCheckResult(null);
+    try {
+      const result = await apiFetch<NavCheckResult>("/api/nav/check");
+      setNavCheckResult(result);
+    } catch (e) {
+      setNavCheckResult({ ok: false, error: e instanceof Error ? e.message : t("common.error") });
+    } finally {
+      setCheckingNav(false);
+    }
+  }
 
   React.useEffect(() => {
     if (company) {
@@ -55,7 +83,8 @@ export default function CompanySettingsScreen() {
       setNavTechnicalUser(company.navTechnicalUser ?? "");
       setNavTechnicalPassword(company.navTechnicalPassword ?? "");
       setNavXmlSignKey(company.navXmlSignKey ?? "");
-      setNavEnvironment(company.navEnvironment ?? "test");
+      setNavXmlChangeKey(company.navXmlChangeKey ?? "");
+      setNavEnvironment(company.navEnvironment ?? "demo");
     }
   }, [company]);
 
@@ -101,9 +130,11 @@ export default function CompanySettingsScreen() {
         navTechnicalUser: navTechnicalUser.trim() || undefined,
         navTechnicalPassword: navTechnicalPassword.trim() || undefined,
         navXmlSignKey: navXmlSignKey.trim() || undefined,
+        navXmlChangeKey: navXmlChangeKey.trim() || undefined,
         navEnvironment,
       });
       setSuccess(t("settings.companySettings.saved"));
+      setNavCheckResult(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("settings.companySettings.saveFailed"));
     } finally {
@@ -239,8 +270,17 @@ export default function CompanySettingsScreen() {
 
         <VStack space="md">
           <HStack className="items-center justify-between">
-            <Text className="font-semibold text-foreground">{t("settings.companySettings.navSection")}</Text>
-            {Platform.OS !== "web" ? (
+            <HStack space="xs" className="items-center flex-wrap">
+              <Text className="font-semibold text-foreground">{t("company.navTestSection.title")}</Text>
+              {navEnvironment === "demo" ? (
+                <Badge variant="outline" className="border-primary/40">
+                  <BadgeText className="text-[10px] text-primary">
+                    {t("company.navTestSection.demoBadge")}
+                  </BadgeText>
+                </Badge>
+              ) : null}
+            </HStack>
+            {Platform.OS !== "web" && navEnvironment !== "demo" ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -251,61 +291,107 @@ export default function CompanySettingsScreen() {
             ) : null}
           </HStack>
           <Text size="sm" className="text-muted-foreground">
-            {t("settings.companySettings.navDesc")}
+            {t("company.navTestSection.description")}
           </Text>
           <FormControl>
             <FormControlLabel>
               <FormControlLabelText>{t("company.navEnvironment")}</FormControlLabelText>
             </FormControlLabel>
             <NavEnvironmentPicker value={navEnvironment} onChange={setNavEnvironment} />
-            <Text size="xs" className="mt-2 text-muted-foreground">
-              API: {NAV_API_BASE_URL[navEnvironment]}
+            {navEnvironment !== "demo" ? (
+              <Text size="xs" className="mt-2 text-muted-foreground">
+                API: {NAV_API_BASE_URL[navEnvironment]}
+              </Text>
+            ) : null}
+          </FormControl>
+
+          {navEnvironment === "test" && navConfig?.sharedTestAvailable && !navTechnicalUser.trim() ? (
+            <Text size="sm" className="text-muted-foreground">
+              {t("company.navTestSection.sharedAccount")} — {t("company.navTestSection.sharedAccountHint")}
             </Text>
-          </FormControl>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.navTechnicalUser")}</FormControlLabelText>
-            </FormControlLabel>
-            <Input>
-              <InputField
-                value={navTechnicalUser}
-                onChangeText={setNavTechnicalUser}
-                placeholder="nav_technical_user"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </Input>
-          </FormControl>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.navTechnicalPassword")}</FormControlLabelText>
-            </FormControlLabel>
-            <Input>
-              <InputField
-                value={navTechnicalPassword}
-                onChangeText={setNavTechnicalPassword}
-                placeholder="••••••••"
-                secureTextEntry={maskSecrets}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </Input>
-          </FormControl>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.navXmlSignKey")}</FormControlLabelText>
-            </FormControlLabel>
-            <Input>
-              <InputField
-                value={navXmlSignKey}
-                onChangeText={setNavXmlSignKey}
-                placeholder="••••••••"
-                secureTextEntry={maskSecrets}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </Input>
-          </FormControl>
+          ) : null}
+
+          {navEnvironment !== "demo" ? (
+            <>
+              <Text size="sm" className="font-medium text-foreground">
+                {t("company.navTestSection.ownAccount")}
+              </Text>
+              <FormControl>
+                <FormControlLabel>
+                  <FormControlLabelText>{t("company.navTechnicalUser")}</FormControlLabelText>
+                </FormControlLabel>
+                <Input>
+                  <InputField
+                    value={navTechnicalUser}
+                    onChangeText={setNavTechnicalUser}
+                    placeholder="nav_technical_user"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </Input>
+              </FormControl>
+              <FormControl>
+                <FormControlLabel>
+                  <FormControlLabelText>{t("company.navTechnicalPassword")}</FormControlLabelText>
+                </FormControlLabel>
+                <Input>
+                  <InputField
+                    value={navTechnicalPassword}
+                    onChangeText={setNavTechnicalPassword}
+                    placeholder="••••••••"
+                    secureTextEntry={maskSecrets}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </Input>
+              </FormControl>
+              <FormControl>
+                <FormControlLabel>
+                  <FormControlLabelText>{t("company.navXmlSignKey")}</FormControlLabelText>
+                </FormControlLabel>
+                <Input>
+                  <InputField
+                    value={navXmlSignKey}
+                    onChangeText={setNavXmlSignKey}
+                    placeholder="••••••••"
+                    secureTextEntry={maskSecrets}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </Input>
+              </FormControl>
+              <FormControl>
+                <FormControlLabel>
+                  <FormControlLabelText>{t("company.navXmlChangeKey")}</FormControlLabelText>
+                </FormControlLabel>
+                <Input>
+                  <InputField
+                    value={navXmlChangeKey}
+                    onChangeText={setNavXmlChangeKey}
+                    placeholder="••••••••"
+                    secureTextEntry={maskSecrets}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </Input>
+              </FormControl>
+
+              <HStack space="sm" className="items-center flex-wrap">
+                <Button size="sm" variant="outline" onPress={handleCheckNavConnection} disabled={checkingNav}>
+                  <ButtonText>
+                    {checkingNav ? t("company.navTestSection.checking") : t("company.navTestSection.checkConnection")}
+                  </ButtonText>
+                </Button>
+                {navCheckResult ? (
+                  <Text size="sm" className={navCheckResult.ok ? "text-green-600" : "text-destructive"}>
+                    {navCheckResult.ok
+                      ? navCheckResult.message ?? t("company.navTestSection.checkSuccess")
+                      : navCheckResult.error ?? t("company.navTestSection.checkFailed")}
+                  </Text>
+                ) : null}
+              </HStack>
+            </>
+          ) : null}
         </VStack>
 
         {success ? <Text className="text-primary">{success}</Text> : null}

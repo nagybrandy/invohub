@@ -17,8 +17,10 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { NavEnvironmentPicker } from "@/components/settings/NavEnvironmentPicker";
 import { useCompany } from "@/hooks/useCompany";
 import { routes } from "@/lib/navigation";
+import type { NavEnvironment } from "@/lib/nav/environment";
 
 type Step = "company" | "nav";
 
@@ -40,7 +42,8 @@ export default function OnboardingScreen() {
   const [navTechUser, setNavTechUser] = React.useState("");
   const [navTechPass, setNavTechPass] = React.useState("");
   const [navSignKey, setNavSignKey] = React.useState("");
-  const [navEnv, setNavEnv] = React.useState<"test" | "production">("test");
+  const [navChangeKey, setNavChangeKey] = React.useState("");
+  const [navEnv, setNavEnv] = React.useState<NavEnvironment>("demo");
 
   React.useEffect(() => {
     if (company) {
@@ -54,7 +57,8 @@ export default function OnboardingScreen() {
       setNavTechUser(company.navTechnicalUser ?? "");
       setNavTechPass(company.navTechnicalPassword ?? "");
       setNavSignKey(company.navXmlSignKey ?? "");
-      setNavEnv((company.navEnvironment as "test" | "production") ?? "test");
+      setNavChangeKey(company.navXmlChangeKey ?? "");
+      setNavEnv(company.navEnvironment ?? "demo");
     }
   }, [company]);
 
@@ -92,6 +96,7 @@ export default function OnboardingScreen() {
         navTechnicalUser: navTechUser.trim() || undefined,
         navTechnicalPassword: navTechPass.trim() || undefined,
         navXmlSignKey: navSignKey.trim() || undefined,
+        navXmlChangeKey: navChangeKey.trim() || undefined,
         navEnvironment: navEnv,
       });
       router.replace(routes.dashboard);
@@ -267,73 +272,94 @@ export default function OnboardingScreen() {
             <FormControl>
               <FormControlLabel>
                 <FormControlLabelText>
-                  {t("company.onboarding.navTechUser")}
-                </FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField
-                  value={navTechUser}
-                  onChangeText={setNavTechUser}
-                  className="font-light"
-                />
-              </Input>
-            </FormControl>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>
-                  {t("company.onboarding.navTechPassword")}
-                </FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField
-                  value={navTechPass}
-                  onChangeText={setNavTechPass}
-                  secureTextEntry
-                  className="font-light"
-                />
-              </Input>
-            </FormControl>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>
-                  {t("company.onboarding.navSignKey")}
-                </FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField
-                  value={navSignKey}
-                  onChangeText={setNavSignKey}
-                  secureTextEntry
-                  className="font-light"
-                />
-              </Input>
-            </FormControl>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>
                   {t("company.onboarding.navEnvironment")}
                 </FormControlLabelText>
               </FormControlLabel>
-              <HStack space="sm">
-                {(["test", "production"] as const).map((env) => (
-                  <Pressable key={env} onPress={() => setNavEnv(env)}>
-                    <Button
-                      size="sm"
-                      variant={navEnv === env ? "default" : "outline"}
-                    >
-                      <ButtonText>
-                        {env === "test"
-                          ? t("company.onboarding.navTest")
-                          : t("company.onboarding.navProduction")}
-                      </ButtonText>
-                    </Button>
-                  </Pressable>
-                ))}
-              </HStack>
+              <NavEnvironmentPicker value={navEnv} onChange={setNavEnv} />
             </FormControl>
+
+            {navEnv === "demo" ? (
+              <Text size="sm" className="font-light text-muted-foreground">
+                {t("company.onboarding.navDemoHint")}
+              </Text>
+            ) : (
+              <>
+                <FormControl>
+                  <FormControlLabel>
+                    <FormControlLabelText>
+                      {t("company.onboarding.navTechUser")}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <Input>
+                    <InputField
+                      value={navTechUser}
+                      onChangeText={setNavTechUser}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      className="font-light"
+                    />
+                  </Input>
+                </FormControl>
+
+                <FormControl>
+                  <FormControlLabel>
+                    <FormControlLabelText>
+                      {t("company.onboarding.navTechPassword")}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <Input>
+                    <InputField
+                      value={navTechPass}
+                      onChangeText={setNavTechPass}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      className="font-light"
+                    />
+                  </Input>
+                </FormControl>
+
+                <FormControl>
+                  <FormControlLabel>
+                    <FormControlLabelText>
+                      {t("company.onboarding.navSignKey")}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <Input>
+                    <InputField
+                      value={navSignKey}
+                      onChangeText={setNavSignKey}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      className="font-light"
+                    />
+                  </Input>
+                </FormControl>
+
+                <FormControl>
+                  <FormControlLabel>
+                    <FormControlLabelText>
+                      {t("company.onboarding.navChangeKey")}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <Input>
+                    <InputField
+                      value={navChangeKey}
+                      onChangeText={setNavChangeKey}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      className="font-light"
+                    />
+                  </Input>
+                </FormControl>
+
+                <Text size="xs" className="font-light text-muted-foreground">
+                  {t("company.onboarding.navOwnOrSharedHint")}
+                </Text>
+              </>
+            )}
 
             {error ? (
               <Text size="sm" className="text-destructive">

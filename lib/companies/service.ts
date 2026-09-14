@@ -6,6 +6,7 @@ import { company } from "@/db/schema";
 import { findClientByName } from "@/lib/clients/service";
 import { normalizeEmailList, type EmailRecipientsInput } from "@/lib/email/recipients";
 import { createId } from "@/lib/id";
+import { decryptNavSecretOrPassthrough, encryptNavSecret } from "@/lib/nav/credentials";
 import { isNavEnvironment, parseNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
 
 export type CompanyInput = {
@@ -23,6 +24,7 @@ export type CompanyInput = {
   navTechnicalUser?: string;
   navTechnicalPassword?: string;
   navXmlSignKey?: string;
+  navXmlChangeKey?: string;
   navEnvironment?: NavEnvironment;
   /** Alanyi adómentes (VAT-exempt sole trader) — new invoice lines default to AAM/0% VAT. */
   vatExempt?: boolean;
@@ -46,6 +48,21 @@ function patchOptionalField(
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/**
+ * Like patchOptionalField, but for NAV secret columns: `previousRaw` is the
+ * value exactly as stored (possibly AES-256-GCM encrypted, possibly legacy
+ * plaintext) and is carried over unchanged when the caller isn't setting a
+ * new value. A newly provided plaintext value is always encrypted before
+ * storage — this throws NavCredentialsConfigError when NAV_CREDENTIALS_KEY
+ * isn't configured, which is the "refuse to save without a key" behavior.
+ */
+function patchSecretField(next: string | undefined, previousRaw: string | null | undefined): string | null {
+  if (next === undefined) return previousRaw ?? null;
+  const trimmed = next.trim();
+  if (!trimmed) return null;
+  return encryptNavSecret(trimmed);
+}
+
 function mapRow(row: typeof company.$inferSelect): Company {
   return {
     id: row.id,
@@ -62,8 +79,9 @@ function mapRow(row: typeof company.$inferSelect): Company {
     invoiceEmailTo: row.invoiceEmailTo ?? undefined,
     invoiceEmailCc: row.invoiceEmailCc ?? undefined,
     navTechnicalUser: row.navTechnicalUser ?? undefined,
-    navTechnicalPassword: row.navTechnicalPassword ?? undefined,
-    navXmlSignKey: row.navXmlSignKey ?? undefined,
+    navTechnicalPassword: decryptNavSecretOrPassthrough(row.navTechnicalPassword),
+    navXmlSignKey: decryptNavSecretOrPassthrough(row.navXmlSignKey),
+    navXmlChangeKey: decryptNavSecretOrPassthrough(row.navXmlChangeKey),
     navEnvironment: parseNavEnvironment(row.navEnvironment),
     vatExempt: row.vatExempt ?? false,
     createdAt: row.createdAt.toISOString(),
@@ -73,38 +91,41 @@ function mapRow(row: typeof company.$inferSelect): Company {
 
 function buildCompanyValues(
   input: Partial<CompanyInput> & { name: string },
-  existing: Company | null
+  existingRow: typeof company.$inferSelect | null
 ) {
   return {
     name: input.name.trim(),
-    taxNumber: patchOptionalField(input.taxNumber, existing?.taxNumber),
-    euVatNumber: patchOptionalField(input.euVatNumber, existing?.euVatNumber),
-    address: patchOptionalField(input.address, existing?.address),
-    city: patchOptionalField(input.city, existing?.city),
-    zipCode: patchOptionalField(input.zipCode, existing?.zipCode),
-    country: patchOptionalField(input.country, existing?.country) ?? "HU",
-    bankAccount: patchOptionalField(input.bankAccount, existing?.bankAccount),
-    logoUrl: patchOptionalField(input.logoUrl, existing?.logoUrl),
-    invoiceEmailTo: patchOptionalField(input.invoiceEmailTo, existing?.invoiceEmailTo),
-    invoiceEmailCc: patchOptionalField(input.invoiceEmailCc, existing?.invoiceEmailCc),
-    navTechnicalUser: patchOptionalField(input.navTechnicalUser, existing?.navTechnicalUser),
-    navTechnicalPassword: patchOptionalField(
-      input.navTechnicalPassword,
-      existing?.navTechnicalPassword
-    ),
-    navXmlSignKey: patchOptionalField(input.navXmlSignKey, existing?.navXmlSignKey),
-    vatExempt: input.vatExempt !== undefined ? input.vatExempt : existing?.vatExempt ?? false,
+    taxNumber: patchOptionalField(input.taxNumber, existingRow?.taxNumber ?? undefined),
+    euVatNumber: patchOptionalField(input.euVatNumber, existingRow?.euVatNumber ?? undefined),
+    address: patchOptionalField(input.address, existingRow?.address ?? undefined),
+    city: patchOptionalField(input.city, existingRow?.city ?? undefined),
+    zipCode: patchOptionalField(input.zipCode, existingRow?.zipCode ?? undefined),
+    country: patchOptionalField(input.country, existingRow?.country ?? undefined) ?? "HU",
+    bankAccount: patchOptionalField(input.bankAccount, existingRow?.bankAccount ?? undefined),
+    logoUrl: patchOptionalField(input.logoUrl, existingRow?.logoUrl ?? undefined),
+    invoiceEmailTo: patchOptionalField(input.invoiceEmailTo, existingRow?.invoiceEmailTo ?? undefined),
+    invoiceEmailCc: patchOptionalField(input.invoiceEmailCc, existingRow?.invoiceEmailCc ?? undefined),
+    navTechnicalUser: patchOptionalField(input.navTechnicalUser, existingRow?.navTechnicalUser ?? undefined),
+    navTechnicalPassword: patchSecretField(input.navTechnicalPassword, existingRow?.navTechnicalPassword),
+    navXmlSignKey: patchSecretField(input.navXmlSignKey, existingRow?.navXmlSignKey),
+    navXmlChangeKey: patchSecretField(input.navXmlChangeKey, existingRow?.navXmlChangeKey),
+    vatExempt: input.vatExempt !== undefined ? input.vatExempt : existingRow?.vatExempt ?? false,
     navEnvironment:
       input.navEnvironment !== undefined
         ? isNavEnvironment(input.navEnvironment)
           ? input.navEnvironment
-          : parseNavEnvironment(existing?.navEnvironment)
-        : parseNavEnvironment(existing?.navEnvironment),
+          : parseNavEnvironment(existingRow?.navEnvironment)
+        : parseNavEnvironment(existingRow?.navEnvironment),
   };
 }
 
-export async function getCompanyByUserId(userId: string): Promise<Company | null> {
+async function getCompanyRowByUserId(userId: string): Promise<typeof company.$inferSelect | null> {
   const [row] = await db.select().from(company).where(eq(company.userId, userId));
+  return row ?? null;
+}
+
+export async function getCompanyByUserId(userId: string): Promise<Company | null> {
+  const row = await getCompanyRowByUserId(userId);
   return row ? mapRow(row) : null;
 }
 
@@ -112,15 +133,15 @@ export async function upsertCompany(
   userId: string,
   input: Partial<CompanyInput> & { name: string }
 ): Promise<Company> {
-  const existing = await getCompanyByUserId(userId);
+  const existingRow = await getCompanyRowByUserId(userId);
   const now = new Date();
-  const values = buildCompanyValues(input, existing);
+  const values = buildCompanyValues(input, existingRow);
 
-  if (existing) {
+  if (existingRow) {
     const [row] = await db
       .update(company)
       .set({ ...values, updatedAt: now })
-      .where(eq(company.id, existing.id))
+      .where(eq(company.id, existingRow.id))
       .returning();
     return mapRow(row);
   }

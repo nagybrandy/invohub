@@ -72,6 +72,9 @@ const fakeCompany = {
   navTechnicalUser: "tech-user",
   navTechnicalPassword: "tech-pass",
   navXmlSignKey: "sign-key",
+  // Real submitDailyReceiptReport is only called outside demo mode — tests
+  // below that exercise the real-call path opt into "test" explicitly.
+  navEnvironment: "test",
 };
 
 const fakeReceipt = {
@@ -129,6 +132,33 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toContain("Already submitted");
+  });
+
+  it("returns 400 when company profile is missing", async () => {
+    mockGetCompany.mockResolvedValue(null);
+    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toContain("Company profile");
+  });
+
+  it("simulates acceptance in demo mode (the default) without calling the real NAV endpoint", async () => {
+    mockGetCompany.mockResolvedValue({
+      ...fakeCompany,
+      navEnvironment: "demo",
+      navTechnicalUser: null,
+      navTechnicalPassword: null,
+      navXmlSignKey: null,
+    } as never);
+
+    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.transactionId).toMatch(/^RECEIPT-DEMO-/);
+    expect(mockSubmit).not.toHaveBeenCalled();
   });
 
   it("returns 400 when NAV credentials missing", async () => {

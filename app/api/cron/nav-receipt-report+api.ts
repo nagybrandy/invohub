@@ -1,9 +1,15 @@
 // app/api/cron/nav-receipt-report+api.ts
+// Only processes companies with an explicitly-entered navTechnicalUser
+// (demo-mode companies, the default, have none and are excluded by the
+// WHERE clause below). See lib/nav-receipt openIssue: the receipt-if/v1
+// request/response shape here is not verified against an official NAV
+// schema/sample — unlike lib/nav/ (invoice reporting).
 import { eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { company, navReceiptSubmission } from "@/db/schema";
 import { createId } from "@/lib/id";
+import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
 import type { NavReceiptCredentials, NavReceiptEnvironment } from "@/lib/nav-receipt/types";
 import { getDailyVatAggregation } from "@/lib/receipts/service";
@@ -37,6 +43,7 @@ export async function GET(request: Request) {
       }
 
       if (
+        comp.navEnvironment === "demo" ||
         !comp.navTechnicalUser ||
         !comp.navTechnicalPassword ||
         !comp.navXmlSignKey ||
@@ -64,14 +71,16 @@ export async function GET(request: Request) {
         updatedAt: now,
       });
 
+      // navTechnicalPassword/navXmlSignKey are AES-256-GCM encrypted at rest
+      // (lib/nav/credentials.ts) — decrypt before use; legacy plaintext rows
+      // pass through unchanged.
       const credentials: NavReceiptCredentials = {
         technicalUser: comp.navTechnicalUser,
-        technicalPassword: comp.navTechnicalPassword,
-        signingKey: comp.navXmlSignKey!,
+        technicalPassword: decryptNavSecretOrPassthrough(comp.navTechnicalPassword) ?? comp.navTechnicalPassword,
+        signingKey: decryptNavSecretOrPassthrough(comp.navXmlSignKey) ?? comp.navXmlSignKey!,
         taxNumber: comp.taxNumber!,
       };
-      const env: NavReceiptEnvironment =
-        (comp.navEnvironment as NavReceiptEnvironment) ?? "test";
+      const env: NavReceiptEnvironment = comp.navEnvironment === "production" ? "production" : "test";
 
       const navResult = await submitDailyReceiptReport(
         {

@@ -13,6 +13,10 @@ module.exports = {
     "/e2e/",
     "/dist/",
     "/.expo/",
+    // Nested git worktrees for other concurrent Claude sessions live under
+    // .claude/worktrees/ inside this checkout — never run their tests as
+    // part of this repo's own suite.
+    "/.claude/worktrees/",
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
