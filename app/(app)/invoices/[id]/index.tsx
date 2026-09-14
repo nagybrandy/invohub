@@ -1,10 +1,14 @@
 // app/(app)/invoices/[id]/index.tsx
-// Invoice detail with inline HTML/PDF preview and actions.
+// Invoice detail: a money header that says the money (D2/D3), a status
+// timeline + NAV state above the document preview (D6), exactly one solid
+// action chosen by status with secondaries in a "Továbbiak" menu, and
+// Sztornó/Törlés collapsed in a DangerZone (D1) — replacing the previous
+// row of 11 identical outline buttons.
 import * as React from "react";
-import { ActivityIndicator } from "react-native";
+import { ActivityIndicator, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Badge, BadgeText } from "@/components/ui/badge";
+import { Copy, Download, FileEdit, Mail, Wallet, CheckCircle2 } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -18,22 +22,19 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
-import { NavStatusCard } from "@/components/invoices/NavStatusCard";
+import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
+import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/InvoiceTimeline";
+import { DangerZone } from "@/components/layout/DangerZone";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
-import { apiFetch } from "@/lib/api/client";
-import {
-  calculateInvoiceTotals,
-  formatCurrency,
-} from "@/lib/invoices/calculations";
+import { apiFetch, invoicePdfUrl } from "@/lib/api/client";
+import { formatCurrency } from "@/lib/invoices/calculations";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
+import { isOverdue } from "@/lib/invoices/status-visuals";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
-import {
-  formatInvoiceDueDate,
-  formatInvoiceIssueDateTime,
-} from "@/lib/dates/format";
 import { confirmAsync } from "@/lib/ui/confirm";
 
 type InvoiceLinks = {
@@ -41,6 +42,11 @@ type InvoiceLinks = {
   modifiesInvoice: Invoice | null;
   stornoDocuments: Invoice[];
   correctionDocuments: Invoice[];
+};
+
+type NavSubmissionRow = {
+  status: string;
+  transactionId: string | null;
 };
 
 const MARK_PAID_METHODS: { value: PaymentMethod; i18nKey: string }[] = [
@@ -60,6 +66,7 @@ export default function InvoiceDetailScreen() {
   const { t } = useTranslation();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [links, setLinks] = React.useState<InvoiceLinks | null>(null);
+  const [navSubmission, setNavSubmission] = React.useState<NavSubmissionRow | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -74,13 +81,20 @@ export default function InvoiceDetailScreen() {
     if (!id) return;
     setLoadError(null);
     try {
-      const [invoiceData, linksData] = await Promise.all([
+      const [invoiceData, linksData, navData] = await Promise.all([
         apiFetch<{ invoice: Invoice }>(`/api/invoices/${id}`),
         apiFetch<InvoiceLinks>(`/api/invoices/${id}/links`),
+        apiFetch<{ submissions: NavSubmissionRow[] }>(
+          `/api/nav/status?invoiceId=${encodeURIComponent(id)}`
+        ).catch(() => ({ submissions: [] })),
       ]);
       setInvoice(invoiceData.invoice);
       setLinks(linksData);
-      const totalAmount = calculateInvoiceTotals(invoiceData.invoice.lineItems).totalAmount;
+      setNavSubmission(navData.submissions[0] ?? null);
+      const totalAmount = invoiceData.invoice.lineItems.reduce(
+        (sum, li) => sum + li.quantity * li.unitPrice * (1 + li.vatRate / 100),
+        0
+      );
       const alreadyPaid = invoiceData.invoice.paidAmount ?? 0;
       const outstanding = Math.max(0, totalAmount - alreadyPaid);
       setPaidAmount(String(outstanding));
@@ -211,6 +225,16 @@ export default function InvoiceDetailScreen() {
     });
   }
 
+  async function handleDownloadPdf() {
+    if (!id) return;
+    const url = invoicePdfUrl(id);
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    await Linking.openURL(url);
+  }
+
   async function handlePaymentLink(provider: "revolut" | "barion") {
     if (!id) return;
     await runAction(provider, async () => {
@@ -247,47 +271,100 @@ export default function InvoiceDetailScreen() {
     );
   }
 
-  const totals = calculateInvoiceTotals(invoice.lineItems);
+  const overdue = isOverdue(invoice, new Date());
+  const finalized = invoice.status !== "draft";
+
+  // Exactly one solid primary action, chosen by status (D1, spec §3.2).
+  let primaryLabel = t("invoices.detail.edit");
+  let primaryOnPress = () => router.push(routes.invoiceEdit(id!));
+  let primaryBusyKey: string | null = null;
+  if (invoice.status === "sent" || invoice.status === "unpaid" || invoice.status === "overdue") {
+    primaryLabel = t("invoices.detail.emailReminder");
+    primaryOnPress = () => void runAction("send", handleSend);
+    primaryBusyKey = "send";
+  } else if (invoice.status === "partially_paid") {
+    primaryLabel = t("invoices.markPaid.action");
+    primaryOnPress = () => setShowMarkPaid((v) => !v);
+  } else if (invoice.status === "paid") {
+    primaryLabel = t("invoices.list.pdfAction");
+    primaryOnPress = () => void handleDownloadPdf();
+  } else if (invoice.status === "cancelled") {
+    primaryLabel = t("invoices.list.duplicateAction");
+    primaryOnPress = () => void handleDuplicate();
+  }
+
+  const markPaidDisabled = invoice.status === "draft" || invoice.status === "cancelled" || invoice.status === "paid";
+
+  const overflowItems: OverflowMenuItem[] = [
+    { label: t("invoices.list.duplicateAction"), icon: Copy, onPress: () => void handleDuplicate() },
+    {
+      label: t("invoices.correction.action"),
+      icon: FileEdit,
+      disabled: invoice.status === "draft" || invoice.status === "cancelled",
+      onPress: () => void handleCorrection(),
+    },
+    { label: t("invoices.list.pdfAction"), icon: Download, onPress: () => router.push(routes.invoiceDetail(id!)) },
+    {
+      label: t("invoices.detail.revolut"),
+      icon: Wallet,
+      onPress: () => void handlePaymentLink("revolut"),
+    },
+    {
+      label: t("invoices.detail.barion"),
+      icon: Wallet,
+      onPress: () => void handlePaymentLink("barion"),
+    },
+  ];
+
+  const nav: NavTimelineState | null = navSubmission
+    ? {
+        status: navSubmission.status,
+        label: t(`invoices.nav.statusValues.${navSubmission.status.toLowerCase()}`, {
+          defaultValue: navSubmission.status,
+        }),
+        transactionId: navSubmission.transactionId,
+      }
+    : null;
 
   return (
     <ScreenLayout
       header={
         <PageHeader
           title={invoice.invoiceNumber || t("invoices.status.draft")}
-          subtitle={invoice.clientName}
-          actions={
-            <Badge variant={invoice.status === "overdue" ? "destructive" : "outline"}>
-              <BadgeText>{t(STATUS_I18N_KEY[invoice.status])}</BadgeText>
-            </Badge>
-          }
+          breadcrumb={[{ label: t("invoices.title"), href: routes.invoices }, { label: invoice.invoiceNumber || t("invoices.status.draft") }]}
         />
       }
     >
       <VStack space="lg">
-        <Card className="p-4">
-          <VStack space="sm">
-            <HStack className="justify-between">
-              <Text size="sm" className="text-muted-foreground">
-                {t("invoices.detail.issueDate")}
-              </Text>
-              <Text>{formatInvoiceIssueDateTime(invoice)}</Text>
+        <InvoiceMoneyHeader
+          invoice={invoice}
+          primaryAction={
+            <Button
+              variant="default"
+              disabled={!!primaryBusyKey && busy === primaryBusyKey}
+              onPress={primaryOnPress}
+            >
+              <ButtonText>{primaryLabel}</ButtonText>
+            </Button>
+          }
+          secondaryAction={
+            <HStack space="xs" className="items-center">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={markPaidDisabled}
+                onPress={() => setShowMarkPaid((v) => !v)}
+                testID="invoice-detail-mark-paid-toggle"
+              >
+                <CheckCircle2 size={14} />
+                <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
+              </Button>
+              <OverflowMenu items={overflowItems} label={t("invoices.detail.overflowLabel")} />
             </HStack>
-            <HStack className="justify-between">
-              <Text size="sm" className="text-muted-foreground">
-                {t("invoices.detail.dueDate")}
-              </Text>
-              <Text>{formatInvoiceDueDate(invoice)}</Text>
-            </HStack>
-            <HStack className="justify-between">
-              <Text size="sm" className="text-muted-foreground">
-                {t("invoices.detail.total")}
-              </Text>
-              <Text className="text-lg font-bold">
-                {formatCurrency(totals.totalAmount, invoice.currency)}
-              </Text>
-            </HStack>
-          </VStack>
-        </Card>
+          }
+        />
+
+        <InvoiceTimeline invoice={invoice} nav={nav} />
 
         {links &&
         (links.originalInvoice ||
@@ -329,78 +406,7 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
-        <InvoiceDocumentPreview invoice={invoice} invoiceId={id} />
-
-        {id ? <NavStatusCard invoiceId={id} /> : null}
-
-        <VStack space="sm">
-          <Text className="font-semibold">{t("invoices.detail.actionsTitle")}</Text>
-          <HStack space="sm" className="flex-wrap">
-            <Button variant="outline" onPress={() => router.push(routes.invoiceEdit(id!))}>
-              <ButtonText>{t("invoices.detail.edit")}</ButtonText>
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy === "send"}
-              onPress={() => void runAction("send", handleSend)}
-            >
-              <ButtonText>{t("invoices.detail.sendEmail")}</ButtonText>
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy === "delete"}
-              onPress={() => void handleDelete()}
-            >
-              <ButtonText>{t("invoices.detail.deleteAction")}</ButtonText>
-            </Button>
-          </HStack>
-          <HStack space="sm" className="flex-wrap">
-            <Button
-              variant="outline"
-              disabled={busy === "duplicate"}
-              onPress={() => void handleDuplicate()}
-            >
-              <ButtonText>{t("invoices.duplicate")}</ButtonText>
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy === "storno" || invoice.status === "cancelled"}
-              onPress={() => void handleStorno()}
-            >
-              <ButtonText>{t("invoices.storno")}</ButtonText>
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy === "correction" || invoice.status === "draft" || invoice.status === "cancelled"}
-              onPress={() => void handleCorrection()}
-            >
-              <ButtonText>{t("invoices.correction.action")}</ButtonText>
-            </Button>
-          </HStack>
-          <HStack space="sm" className="flex-wrap">
-            <Button
-              variant="outline"
-              disabled={invoice.status === "draft" || invoice.status === "cancelled"}
-              onPress={() => setShowMarkPaid((v) => !v)}
-            >
-              <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy === "revolut"}
-              onPress={() => void handlePaymentLink("revolut")}
-            >
-              <ButtonText>Revolut</ButtonText>
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy === "barion"}
-              onPress={() => void handlePaymentLink("barion")}
-            >
-              <ButtonText>Barion</ButtonText>
-            </Button>
-          </HStack>
-        </VStack>
+        <InvoiceDocumentPreview invoice={invoice} invoiceId={id} layout="single" />
 
         {showMarkPaid ? (
           <Card className="p-4">
@@ -459,6 +465,7 @@ export default function InvoiceDetailScreen() {
                 <Button
                   disabled={busy === "markPaid"}
                   onPress={() => void handleMarkPaid()}
+                  testID="invoice-detail-mark-paid-confirm"
                 >
                   <ButtonText>{t("invoices.markPaid.confirm")}</ButtonText>
                 </Button>
@@ -475,6 +482,40 @@ export default function InvoiceDetailScreen() {
             <Text size="sm">{message}</Text>
           </Card>
         ) : null}
+
+        {finalized ? (
+          <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
+            <HStack space="sm" className="flex-wrap">
+              <Button
+                variant="outline"
+                className="border-destructive/40"
+                disabled={busy === "storno" || invoice.status === "cancelled"}
+                onPress={() => void handleStorno()}
+              >
+                <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
+              </Button>
+              <Button
+                variant="outline"
+                className="border-destructive/40"
+                disabled={busy === "delete"}
+                onPress={() => void handleDelete()}
+              >
+                <ButtonText className="text-destructive">{t("invoices.detail.deleteAction")}</ButtonText>
+              </Button>
+            </HStack>
+          </DangerZone>
+        ) : (
+          <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
+            <Button
+              variant="outline"
+              className="border-destructive/40 self-start"
+              disabled={busy === "delete"}
+              onPress={() => void handleDelete()}
+            >
+              <ButtonText className="text-destructive">{t("invoices.detail.deleteAction")}</ButtonText>
+            </Button>
+          </DangerZone>
+        )}
       </VStack>
     </ScreenLayout>
   );

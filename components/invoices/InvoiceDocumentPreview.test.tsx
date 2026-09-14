@@ -118,6 +118,76 @@ describe("InvoiceDocumentPreview", () => {
     expect(mockApiFetch).toHaveBeenCalledWith("/api/invoices/inv-99/preview");
   });
 
+  it("single layout: renders one view (no HTML|PDF tab pair) and never eagerly fetches the PDF", async () => {
+    const invoice = makeInvoice({ id: "inv-single" });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <InvoiceDocumentPreview invoice={invoice} invoiceId="inv-single" layout="single" />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Only the HTML preview endpoint is hit — no eager PDF fetch.
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/invoices/inv-single/preview");
+    expect(global.fetch).not.toHaveBeenCalled();
+    // A single preview view, not an HTML|PDF tab pair.
+    expect(tree!.root.findAllByType("iframe" as never)).toHaveLength(1);
+    expect(() => tree!.root.findByProps({ testID: "pdf-embed" })).toThrow();
+  });
+
+  it("single layout: shows a retryable error after 10s instead of spinning forever (INV-11)", async () => {
+    jest.useFakeTimers();
+    // Never resolves — simulates the eternally-spinning panel.
+    mockApiFetch.mockReturnValue(new Promise(() => {}));
+    const invoice = makeInvoice({ id: "inv-stuck" });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <InvoiceDocumentPreview invoice={invoice} invoiceId="inv-stuck" layout="single" />
+      );
+    });
+
+    expect(() => tree!.root.findByProps({ testID: "state-view-error" })).toThrow();
+
+    await act(async () => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(tree!.root.findByProps({ testID: "state-view-error" })).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it("single layout: the download-PDF button fetches on demand, not on mount", async () => {
+    const invoice = makeInvoice({ id: "inv-single-2" });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <InvoiceDocumentPreview invoice={invoice} invoiceId="inv-single-2" layout="single" />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    (window as unknown as { open: jest.Mock }).open = jest.fn();
+    const downloadButton = tree!.root.findByProps({ testID: "invoice-preview-download-pdf" });
+    await act(async () => {
+      await downloadButton.props.onPress?.();
+    });
+
+    expect(window.open).toHaveBeenCalledWith(
+      expect.stringContaining("inv-single-2/pdf"),
+      "_blank",
+      "noopener,noreferrer"
+    );
+  });
+
   it("fetches saved PDF bytes on native without using browser object URLs", async () => {
     mockIsWeb.mockReturnValue(false);
     const invoice = makeInvoice({ id: "inv-native" });

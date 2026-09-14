@@ -1,22 +1,24 @@
 // components/invoices/InvoiceCard.tsx
-// Summary card for a single invoice in the list view.
-import { Trash2 } from "lucide-react-native";
+// Mobile summary card for a single invoice in the list view. Carries the due
+// date + overdue subtext and the shared status chip (L3, L9), and keeps the
+// destructive delete out of the row — it lives at the bottom of the row's
+// "⋯" menu instead (L4), alongside quick preview.
+import { Eye, Trash2 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { Badge, BadgeText } from "@/components/ui/badge";
-import { Box } from "@/components/ui/box";
 import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { InvoiceStatusChip } from "@/components/invoices/InvoiceStatusChip";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import {
   calculateInvoiceTotals,
   formatCurrency,
 } from "@/lib/invoices/calculations";
-import { formatInvoiceIssueDateTime } from "@/lib/dates/format";
-import { STATUS_BADGE_VARIANT, STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
+import { formatInvoiceIssueDateTime, formatDateOnly } from "@/lib/dates/format";
+import { isOverdue, overdueDays } from "@/lib/invoices/status-visuals";
 import type { Invoice } from "@/lib/invoices/types";
-import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
 
 function formatDate(invoice: Invoice): string {
@@ -25,18 +27,21 @@ function formatDate(invoice: Invoice): string {
 
 export function InvoiceCard({
   invoice,
+  now = new Date(),
   onDelete,
   onPress,
   onPreview,
 }: {
   invoice: Invoice;
+  now?: Date;
   onDelete: (id: string) => void;
   onPress?: (invoice: Invoice) => void;
   onPreview?: (invoice: Invoice) => void;
 }) {
   const { t } = useTranslation();
-  const icons = useIconColors();
   const totals = calculateInvoiceTotals(invoice.lineItems);
+  const overdue = isOverdue(invoice, now);
+  const days = overdueDays(invoice, now);
 
   async function confirmDelete() {
     const confirmed = await confirmAsync({
@@ -51,55 +56,59 @@ export function InvoiceCard({
     }
   }
 
+  const menuItems: OverflowMenuItem[] = [];
+  if (onPreview) {
+    menuItems.push({
+      label: t("invoices.card.quickPreview"),
+      icon: Eye,
+      onPress: () => onPreview(invoice),
+    });
+  }
+  menuItems.push({
+    label: t("invoices.card.deleteAction"),
+    icon: Trash2,
+    destructive: true,
+    onPress: () => void confirmDelete(),
+  });
+
   return (
-    <Pressable
-      testID="invoice-card-press"
-      onPress={() => onPress?.(invoice)}
-      onLongPress={() => void confirmDelete()}
-    >
+    <Pressable testID="invoice-card-press" onPress={() => onPress?.(invoice)}>
       <Card className="p-4">
         <VStack space="sm">
           <HStack className="items-start justify-between">
             <VStack space="xs" className="flex-1 pr-3">
               <Text className="font-semibold text-foreground">
-                {invoice.invoiceNumber}
+                {invoice.invoiceNumber || t("invoices.status.draft")}
               </Text>
               <Text size="sm" className="text-muted-foreground">
                 {invoice.clientName}
               </Text>
             </VStack>
             <HStack space="xs" className="items-center">
-              <Badge variant={STATUS_BADGE_VARIANT[invoice.status]}>
-                <BadgeText>{t(STATUS_I18N_KEY[invoice.status])}</BadgeText>
-              </Badge>
-              <Pressable
-                onPress={() => void confirmDelete()}
-                accessibilityRole="button"
-                accessibilityLabel={t("invoices.card.deleteAction")}
-                hitSlop={8}
-                className="h-11 w-11 items-center justify-center rounded-full"
-              >
-                <Trash2 size={18} color={icons.destructive} />
-              </Pressable>
+              <InvoiceStatusChip status={overdue ? "overdue" : invoice.status} size="sm" />
+              <OverflowMenu items={menuItems} label={t("invoices.list.rowMenuLabel")} />
             </HStack>
           </HStack>
           <HStack className="items-center justify-between">
             <Text size="sm" className="text-muted-foreground">
               {t("invoices.card.issued", { date: formatDate(invoice) })}
             </Text>
-            <Text className="font-semibold text-foreground">
+            <Text className="font-semibold text-foreground" numeric>
               {formatCurrency(totals.totalAmount, invoice.currency)}
             </Text>
           </HStack>
-          {onPreview ? (
-            <Box>
-              <Pressable onPress={() => onPreview(invoice)}>
-                <Text size="xs" className="text-primary">
-                  {t("invoices.card.quickPreview")}
+          <HStack className="items-center justify-between">
+            <VStack space="xs">
+              <Text size="xs" className={overdue ? "font-medium text-destructive" : "text-muted-foreground"}>
+                {t("invoices.list.columnDue")}: {formatDateOnly(invoice.dueDate)}
+              </Text>
+              {overdue ? (
+                <Text size="xs" className="font-medium text-destructive" testID="invoice-card-overdue-label">
+                  {t("invoices.list.overdueBy", { days })}
                 </Text>
-              </Pressable>
-            </Box>
-          ) : null}
+              ) : null}
+            </VStack>
+          </HStack>
         </VStack>
       </Card>
     </Pressable>
