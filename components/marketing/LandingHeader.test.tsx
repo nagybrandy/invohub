@@ -28,6 +28,15 @@ function orderedTestIds(tree: TestRenderer.ReactTestRenderer, ids: string[]) {
   return ids.map((id) => ({ id, index: json.indexOf(`"${id}"`) }));
 }
 
+// react-test-renderer's findAllByProps matches every fiber that carries a
+// prop (composite + host instances through forwardRef/memo layers in the
+// gluestack mocks), so a single logical element can show up more than once.
+// Presence/absence is robust via a substring search on the serialized tree;
+// exact counts are not.
+function hasTestId(tree: TestRenderer.ReactTestRenderer, id: string) {
+  return JSON.stringify(tree.toJSON()).includes(`"${id}"`);
+}
+
 const baseProps = {
   isSignedIn: false,
   onNavigate: jest.fn(),
@@ -57,20 +66,26 @@ describe("LandingHeader", () => {
     tree.unmount();
   });
 
-  it("places the language switch immediately before the menu toggle on mobile", async () => {
+  it("keeps the mobile top bar down to just brand + hamburger, with the CTA and language switch inside the fullscreen menu instead", async () => {
     let tree!: TestRenderer.ReactTestRenderer;
     await act(() => {
       tree = TestRenderer.create(<LandingHeader {...baseProps} isDesktop={false} />);
     });
 
-    const positions = orderedTestIds(tree, [
-      "landing-header-cta",
-      "landing-language-switcher",
-      "landing-menu-toggle",
-    ]);
-    positions.forEach(({ id, index }) => expect(index).toBeGreaterThan(-1));
-    expect(positions[1].index).toBeGreaterThan(positions[0].index);
-    expect(positions[2].index).toBeGreaterThan(positions[1].index);
+    // Closed: no CTA, no language switch, no login button up top — only the
+    // brand mark and the hamburger toggle.
+    expect(hasTestId(tree, "landing-header-cta")).toBe(false);
+    expect(hasTestId(tree, "landing-language-switcher")).toBe(false);
+    expect(hasTestId(tree, "landing-login")).toBe(false);
+    expect(hasTestId(tree, "landing-menu-toggle")).toBe(true);
+
+    // Opened: the fullscreen menu carries the CTA and the language switch.
+    await act(() => {
+      tree.root.findAllByProps({ testID: "landing-menu-toggle" })[0].props.onPress();
+    });
+    expect(hasTestId(tree, "landing-mobile-cta")).toBe(true);
+    expect(hasTestId(tree, "landing-mobile-language-switcher")).toBe(true);
+
     tree.unmount();
   });
 });

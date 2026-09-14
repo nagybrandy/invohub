@@ -13,6 +13,7 @@ module.exports = {
         sans: ["Stack Sans Text", "Inter", "system-ui", "sans-serif"],
         body: ["Stack Sans Text", "Inter", "system-ui", "sans-serif"],
         heading: [
+          "Ranade",
           "Stack Sans Notch",
           "Stack Sans Text",
           "Inter",

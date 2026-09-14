@@ -72,6 +72,9 @@
           </div>
 
           <div class="header__right" data-testid="marketing-header-right">
+            <!-- Desktop only (see .header__right .lang-switch in site.css) —
+                 on mobile the switch lives inside the fullscreen menu instead,
+                 so the top bar stays down to just brand + hamburger. -->
             <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.label" aria-label="Nyelv" data-testid="marketing-lang-switcher">
               <button type="button" class="lang-switch__btn is-active" data-lang-btn="hu" aria-pressed="true">HU</button>
               <button type="button" class="lang-switch__btn" data-lang-btn="en" aria-pressed="false">EN</button>
@@ -90,19 +93,33 @@
             </button>
           </div>
         </div>
-
-        <nav class="mobile-menu" id="mobile-menu" data-i18n-attr="aria-label:nav.mobile" aria-label="Mobil navigáció" data-testid="marketing-mobile-menu" hidden>
-          <a href="#termek" data-i18n="nav.product">Termék</a>
-          <a href="#munkafolyamat" data-i18n="nav.workflow">Munkafolyamat</a>
-          <a href="#irany" data-i18n="nav.roadmap">EV-út</a>
-          <a href="#arazas" data-i18n="nav.pricing">Árazás</a>
-          <a href="#gyik" data-i18n="nav.faq">GYIK</a>
-          <a href="/blog" data-i18n="nav.blog">Blog</a>
-          <a href="/login" data-i18n="nav.login">Belépés</a>
-          <a class="btn btn--primary btn--block" href="/login" data-i18n="nav.cta">Ingyenes regisztráció</a>
-        </nav>
       </div>
     </header>
+
+    <!--
+      Rendered as a SIBLING of <header>, not nested inside it: .header has a
+      `transform: translateX(-50%)` (it's a floating pill), which establishes
+      a new containing block for any `position: fixed` descendant — nesting a
+      fullscreen menu inside it would clip the menu to the pill's own small
+      box instead of covering the viewport. As a sibling it's a true
+      fullscreen overlay. aria-controls links it to the toggle regardless of
+      DOM position.
+    -->
+    <nav class="mobile-menu" id="mobile-menu" data-i18n-attr="aria-label:nav.mobile" aria-label="Mobil navigáció" data-testid="marketing-mobile-menu" hidden>
+      <a href="#termek" data-i18n="nav.product">Termék</a>
+      <a href="#munkafolyamat" data-i18n="nav.workflow">Munkafolyamat</a>
+      <a href="#irany" data-i18n="nav.roadmap">EV-út</a>
+      <a href="#arazas" data-i18n="nav.pricing">Árazás</a>
+      <a href="#gyik" data-i18n="nav.faq">GYIK</a>
+      <a href="/blog" data-i18n="nav.blog">Blog</a>
+      <a href="/login" data-i18n="nav.login">Belépés</a>
+      <a class="btn btn--primary btn--block" href="/login" data-i18n="nav.cta">Ingyenes regisztráció</a>
+
+      <div class="mobile-menu__lang lang-switch" role="group" data-i18n-attr="aria-label:lang.label" aria-label="Nyelv" data-testid="marketing-mobile-lang-switcher">
+        <button type="button" class="lang-switch__btn is-active" data-lang-btn="hu" aria-pressed="true">HU</button>
+        <button type="button" class="lang-switch__btn" data-lang-btn="en" aria-pressed="false">EN</button>
+      </div>
+    </nav>
 
     <main id="main">
       <section class="hero" data-testid="marketing-hero">

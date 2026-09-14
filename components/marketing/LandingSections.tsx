@@ -29,11 +29,6 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { BrandLogo } from "@/components/marketing/BrandLogo";
 import { type LandingSectionId } from "@/components/marketing/LandingHeader";
-import {
-  MarketingInfographic,
-  bentoInfographic,
-  workflowInfographic,
-} from "@/components/marketing/MarketingInfographic";
 import { ProductShowcase } from "@/components/marketing/ProductShowcase";
 import { landingColors, landingDisplayType } from "@/components/marketing/landing-theme";
 import { listBlogPosts } from "@/lib/blog";
@@ -145,12 +140,6 @@ export function LandingHero({
           </HStack>
         </VStack>
         <VStack space="lg" className={`min-w-0 ${isDesktop ? "flex-1" : "w-full"}`}>
-          <MarketingInfographic
-            source={workflowInfographic}
-            alt={t("landing.hero.infographicAlt")}
-            testID="landing-hero-infographic"
-            className="border-white/15 web:transition-transform web:duration-500 web:hover:scale-[1.01]"
-          />
           {isDesktop ? <ProductShowcase compact={false} /> : null}
         </VStack>
       </Box>
@@ -241,13 +230,6 @@ export function CapabilityBento({
             {t("landing.capabilities.subtitle")}
           </Text>
         </VStack>
-
-        <MarketingInfographic
-          source={bentoInfographic}
-          alt={t("landing.capabilities.infographicAlt")}
-          testID="landing-bento-infographic"
-          className="mb-8 border-[#dce3ef] bg-white md:mb-12"
-        />
 
         <Box className={`min-w-0 ${isDesktop ? "flex-row gap-4" : "gap-4"}`}>
           <CapabilityCard

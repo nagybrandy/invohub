@@ -52,7 +52,7 @@ export function LanguageSwitcher({
             accessibilityLabel={language.label}
             testID={`${testID}-${language.code}`}
             hitSlop={8}
-            className={`min-h-11 min-w-8 items-center justify-center rounded-md px-2.5 py-1.5 ${
+            className={`min-h-9 min-w-8 items-center justify-center rounded-md px-2.5 py-1.5 ${
               selected
                 ? onDark
                   ? "bg-white"

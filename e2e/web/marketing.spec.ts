@@ -121,15 +121,29 @@ test.describe("Static marketing homepage", () => {
     await expect(header).toHaveClass(/is-solid/);
   });
 
-  test("switches marketing copy between HU and EN", async ({ page }) => {
+  test("switches marketing copy between HU and EN", async ({ page }, testInfo) => {
     await seedDismissedConsent(page);
     await page.goto("/");
 
-    await page.getByTestId("marketing-lang-switcher").getByRole("button", { name: "EN" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("tax return");
-    await expect(page.getByTestId("marketing-header-cta")).toHaveText("Start for free");
+    // On mobile the switch lives inside the fullscreen menu, not the top bar.
+    if (isMobile(testInfo.project.name)) {
+      await page.getByTestId("marketing-menu-toggle").click();
+    }
+    const switcher = isMobile(testInfo.project.name)
+      ? page.getByTestId("marketing-mobile-lang-switcher")
+      : page.getByTestId("marketing-lang-switcher");
 
-    await page.getByTestId("marketing-lang-switcher").getByRole("button", { name: "HU" }).click();
+    await switcher.getByRole("button", { name: "EN" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("tax return");
+
+    if (isMobile(testInfo.project.name)) {
+      // The header CTA isn't in the top bar on mobile — check the menu's CTA.
+      await expect(page.getByTestId("marketing-mobile-menu")).toContainText("Start for free");
+      await switcher.getByRole("button", { name: "HU" }).click();
+    } else {
+      await expect(page.getByTestId("marketing-header-cta")).toHaveText("Start for free");
+      await switcher.getByRole("button", { name: "HU" }).click();
+    }
     await expect(page.getByRole("heading", { level: 1 })).toContainText("bevallásig");
   });
 
@@ -166,33 +180,35 @@ test.describe("Static marketing homepage", () => {
     await expect(roadmap).not.toContainText(/202[5-9]\s*(Q[1-4])?/i);
   });
 
-  test("keeps the language switcher as the right-most header control", async ({
+  test("keeps the language switcher as the right-most header control on desktop, and inside the fullscreen menu (not the top bar) on mobile", async ({
     page,
   }, testInfo) => {
     await seedDismissedConsent(page);
     await page.goto("/");
 
-    const switcher = page.getByTestId("marketing-lang-switcher");
-    const switcherBox = await switcher.boundingBox();
-    expect(switcherBox).not.toBeNull();
-
     if (isMobile(testInfo.project.name)) {
+      // Top bar stays down to just brand + hamburger — no CTA, no language
+      // switch cluttering it.
+      await expect(page.getByTestId("marketing-lang-switcher")).toBeHidden();
+
       const toggle = page.getByTestId("marketing-menu-toggle");
       const toggleBox = await toggle.boundingBox();
       expect(toggleBox).not.toBeNull();
-
-      // The switcher sits immediately left of the burger — not centered in the bar.
-      expect(toggleBox!.x).toBeGreaterThan(switcherBox!.x);
-      expect(toggleBox!.x - (switcherBox!.x + switcherBox!.width)).toBeLessThan(24);
-
       const brand = page.getByTestId("marketing-brand");
       const brandBox = await brand.boundingBox();
       expect(brandBox).not.toBeNull();
-      // Right-aligned, not centered between brand and the edge.
       const viewport = page.viewportSize();
       expect(viewport).not.toBeNull();
+      // Right-aligned, not centered between brand and the edge.
       expect(toggleBox!.x + toggleBox!.width).toBeGreaterThan(viewport!.width * 0.75);
+
+      await toggle.click();
+      await expect(page.getByTestId("marketing-mobile-lang-switcher")).toBeVisible();
     } else {
+      const switcher = page.getByTestId("marketing-lang-switcher");
+      const switcherBox = await switcher.boundingBox();
+      expect(switcherBox).not.toBeNull();
+
       const cta = page.getByTestId("marketing-header-cta");
       const ctaBox = await cta.boundingBox();
       expect(ctaBox).not.toBeNull();

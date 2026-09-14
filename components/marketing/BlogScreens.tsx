@@ -2,11 +2,10 @@
 // Blog index and article layouts with semantic headings and internal links.
 import { router } from "expo-router";
 import { ArrowLeft, ArrowRight, Clock3 } from "lucide-react-native";
-import { ScrollView } from "react-native";
+import { ScrollView, useWindowDimensions } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BrandLogo } from "@/components/marketing/BrandLogo";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { LandingHeader } from "@/components/marketing/LandingHeader";
 import { landingColors, landingDisplayType } from "@/components/marketing/landing-theme";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
@@ -15,8 +14,34 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { useSession } from "@/lib/auth-client";
 import type { BlogPost, BlogPostSummary } from "@/lib/blog/types";
 import { routes } from "@/lib/navigation";
+
+/**
+ * Full marketing nav (same component as the homepage) reused on the blog so
+ * articles never ship with a stripped-down header. `onNavigate` (the
+ * section-scroll callback) can't scroll a section on the CURRENT page from
+ * here — there is none — so it takes the reader home instead; landing on
+ * the top of the homepage from any blog nav link is a reasonable fallback
+ * on this screen, not a bug.
+ */
+function useBlogHeaderProps() {
+  const { width } = useWindowDimensions();
+  const { data: session } = useSession();
+  const isDesktop = width >= 768;
+  const isSignedIn = Boolean(session);
+
+  return {
+    isDesktop,
+    isSignedIn,
+    forceSolid: true,
+    onNavigate: () => router.push(routes.home),
+    onLogin: () => router.push(routes.login),
+    onPrimaryAction: () => router.push(isSignedIn ? routes.dashboard : routes.login),
+    onOpenBlog: () => router.push(routes.blog),
+  };
+}
 
 function formatDate(value: string, locale: string) {
   const date = new Date(`${value}T00:00:00Z`);
@@ -29,34 +54,17 @@ function formatDate(value: string, locale: string) {
 
 export function BlogIndexScreen({ posts }: { posts: BlogPostSummary[] }) {
   const { t, i18n } = useTranslation();
+  const headerProps = useBlogHeaderProps();
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      <LandingHeader {...headerProps} />
       <ScrollView
         className="flex-1"
         contentContainerClassName="pb-16"
         testID="blog-index-page"
       >
-        <Box className="border-b border-white/10 bg-secondary px-4 py-4 md:px-8">
-          <HStack className="mx-auto w-full max-w-[960px] items-center justify-between gap-3">
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel={t("blog.backHome")}
-              onPress={() => router.replace(routes.home)}
-              testID="blog-home-link"
-            >
-              <BrandLogo tone="onDark" height={32} />
-            </Pressable>
-            <HStack space="sm" className="items-center">
-              <LanguageSwitcher tone="onDark" testID="blog-language-switcher" />
-              <Button size="sm" onPress={() => router.push(routes.login)}>
-                <ButtonText>{t("landing.getStarted")}</ButtonText>
-              </Button>
-            </HStack>
-          </HStack>
-        </Box>
-
-        <Box className="bg-secondary px-4 pb-14 pt-10 md:px-8 md:pb-20 md:pt-16">
+        <Box className="bg-secondary px-4 pb-14 pt-28 md:px-8 md:pb-20 md:pt-32">
           <VStack className="mx-auto w-full max-w-[960px]" space="md">
             <Text className={`${landingDisplayType.kicker} text-[#b9c9e8]`}>
               {t("blog.eyebrow")}
@@ -145,38 +153,30 @@ export function BlogArticleScreen({
   related: BlogPostSummary[];
 }) {
   const { t, i18n } = useTranslation();
+  const headerProps = useBlogHeaderProps();
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      <LandingHeader {...headerProps} />
       <ScrollView
         className="flex-1"
         contentContainerClassName="pb-16"
         testID="blog-article-page"
       >
-        <Box className="border-b border-[#dce3ef] bg-white px-4 py-4 md:px-8">
-          <HStack className="mx-auto w-full max-w-[760px] items-center justify-between">
+        <Box className="mx-auto w-full max-w-[760px] px-4 pb-10 pt-28 md:px-8 md:pb-14 md:pt-32">
+          <VStack space="lg">
             <Pressable
               accessibilityRole="link"
               onPress={() => router.push(routes.blog)}
               testID="blog-back-to-index"
+              className="self-start"
             >
               <HStack space="sm" className="items-center">
                 <ArrowLeft size={18} color={landingColors.cornflower} />
                 <Text className="font-medium text-secondary">{t("blog.allArticles")}</Text>
               </HStack>
             </Pressable>
-              <Pressable
-              accessibilityRole="link"
-              onPress={() => router.replace(routes.home)}
-              testID="blog-article-home-link"
-            >
-              <BrandLogo tone="onLight" height={28} />
-            </Pressable>
-          </HStack>
-        </Box>
 
-        <Box className="mx-auto w-full max-w-[760px] px-4 py-10 md:px-8 md:py-14">
-          <VStack space="lg">
             <VStack space="sm">
               <Text className={`${landingDisplayType.kicker} text-secondary`}>
                 {t("blog.eyebrow")}

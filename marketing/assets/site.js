@@ -126,6 +126,8 @@
     if (header) {
       header.classList.toggle("is-menu-open", open);
     }
+    // Lock background scroll behind the fullscreen overlay.
+    document.body.style.overflow = open ? "hidden" : "";
   }
 
   if (toggle && menu) {

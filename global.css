@@ -52,6 +52,27 @@
   }
 }
 
+/* Display font for headings — self-hosted Ranade (Fontshare), already vendored
+   for the static marketing site (marketing/assets/fonts/). Served at
+   /marketing/assets/fonts/... in production (see docs/domain-architecture.md);
+   404s harmlessly to the Inter/system-ui fallback in local Expo dev, where the
+   marketing static build isn't layered onto the app's own dev server. */
+@font-face {
+  font-family: "Ranade";
+  src: url("/marketing/assets/fonts/ranade-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Ranade";
+  src: url("/marketing/assets/fonts/ranade-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   * {
     @apply border-border;
