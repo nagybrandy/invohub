@@ -1,0 +1,40 @@
+<!-- assets/brand/directions/angular/mark.svg -->
+<!--
+  InvoHub mark — DIRECTION A "angular".
+
+  Concept: two mirrored corner brackets describe a chamfered square (the ledger
+  page), with the two corners on the 45 degree axis left OPEN as gateways. A
+  self-similar chamfered hub sits at the centre, and two mitred links spring
+  from the hub's own chamfered faces out through both gates — value enters
+  through one gate, is recorded at the hub, and leaves through the other. The
+  bracket uprights read as the stems of an H; the link stroke through the hub is
+  the I.
+
+  Character: sharp, technical, drawn entirely with filled paths and mitred
+  joins. Everything sits on the diagonal x + y = 48, which is what lets it tile.
+
+  Colour: `currentColor` recolours the whole mark; the hub and links also read
+  `--ih-mark-accent` for the two-tone lockup.
+
+  Compare with ../rounded/mark.svg — see marketing/brand-directions.html.
+-->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 48 48"
+  width="48"
+  height="48"
+  fill="currentColor"
+  role="img"
+  aria-label="InvoHub"
+>
+  <title>InvoHub</title>
+  <!-- Corner brackets, open on the top-right / bottom-left diagonal. -->
+  <path d="M30 6H6V30L13 27.1V13H27.1Z" />
+  <path d="M18 42H42V18L35 20.9V35H20.9Z" />
+  <!-- Hub + the two links. -->
+  <g fill="var(--ih-mark-accent, currentColor)">
+    <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
+    <path d="M25.5 19L37.25 7.25L40.75 10.75L29 22.5Z" />
+    <path d="M22.5 29L10.75 40.75L7.25 37.25L19 25.5Z" />
+  </g>
+</svg>

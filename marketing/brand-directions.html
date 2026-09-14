@@ -1,0 +1,878 @@
+<!-- marketing/brand-directions.html -->
+<!--
+  Two complete InvoHub brand directions, side by side, for the owner to choose
+  between. Internal review page — not linked from the public site.
+
+  Open locally with `npm run marketing` -> http://localhost:4321/brand-directions
+  or, on a deploy, /marketing/brand-directions.html
+
+  Geometry source of truth:
+    components/marketing/brand-mark-geometry.ts
+    assets/brand/directions/{angular,rounded}/
+  Once a direction is picked, set BRAND_MARK_DEFAULT in brand-mark-geometry.ts
+  and mirror the chosen SVGs into assets/brand/ and marketing/assets/.
+-->
+<!DOCTYPE html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>InvoHub — két márkairány</title>
+    <link rel="icon" href="/marketing/assets/favicon.svg" type="image/svg+xml" />
+    <style>
+      @font-face {
+        font-family: "Ranade";
+        src: url("/marketing/assets/fonts/ranade-700.woff2") format("woff2");
+        font-weight: 700;
+        font-display: swap;
+      }
+
+      :root {
+        --navy: #111f4a;
+        --depth: #1f305e;
+        --blue: #6495ed;
+        --blue-400: #82aaf2;
+        --pale: #d9e7ff;
+        --mist: #edf2fa;
+        --ink: #12151c;
+        --muted: #5b6373;
+        --line: #e3e7ef;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f6f7fb;
+        color: var(--ink);
+        font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .page {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 40px 24px 96px;
+      }
+
+      .page__intro {
+        max-width: 760px;
+        margin-bottom: 40px;
+      }
+
+      h1 {
+        font-family: "Ranade", sans-serif;
+        font-size: clamp(1.9rem, 4vw, 2.6rem);
+        letter-spacing: -0.028em;
+        margin: 0 0 12px;
+      }
+
+      .page__intro p {
+        margin: 0 0 8px;
+        color: var(--muted);
+      }
+
+      .cols {
+        display: grid;
+        gap: 28px;
+        grid-template-columns: 1fr;
+      }
+
+      @media (min-width: 1000px) {
+        .cols {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .dir {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        overflow: hidden;
+      }
+
+      .dir__head {
+        padding: 22px 24px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .dir__label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+
+      .dir__name {
+        font-family: "Ranade", sans-serif;
+        font-size: 1.6rem;
+        letter-spacing: -0.02em;
+        margin: 4px 0 6px;
+      }
+
+      .dir__note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .band {
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .band:last-child {
+        border-bottom: 0;
+      }
+
+      .band--navy {
+        background: var(--navy);
+        color: #fff;
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .band--mist {
+        background: var(--mist);
+      }
+
+      .band__title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+
+      .band--navy .band__title {
+        color: rgba(217, 231, 255, 0.6);
+      }
+
+      .strip {
+        display: flex;
+        align-items: flex-end;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .sizes {
+        display: flex;
+        align-items: flex-end;
+        gap: 16px;
+      }
+
+      .sizes figure {
+        margin: 0;
+        display: grid;
+        justify-items: center;
+        gap: 6px;
+      }
+
+      .sizes figcaption {
+        font-size: 10px;
+        color: var(--muted);
+      }
+
+      .band--navy .sizes figcaption {
+        color: rgba(217, 231, 255, 0.5);
+      }
+
+      .lockup {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+      }
+
+      .lockup__word {
+        font-family: "Ranade", sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+
+      .lockup__hub {
+        color: var(--blue);
+      }
+
+      .band--navy .lockup__hub {
+        color: var(--blue-400);
+      }
+
+      /* Mock surfaces ------------------------------------------------------ */
+      .mock {
+        position: relative;
+        overflow: hidden;
+        border-radius: 16px;
+        padding: 26px 24px 30px;
+      }
+
+      .mock--hero {
+        background: linear-gradient(160deg, #111f4a 0%, #1f305e 58%, #111f4a 100%);
+        color: #fff;
+        min-height: 190px;
+      }
+
+      .mock--cta {
+        background: var(--navy);
+        color: #fff;
+        min-height: 150px;
+      }
+
+      .mock--soft {
+        background: var(--mist);
+        min-height: 150px;
+      }
+
+      .mock__layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .mock__body {
+        position: relative;
+      }
+
+      .mock__kicker {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--blue-400);
+      }
+
+      .mock--soft .mock__kicker {
+        color: var(--navy);
+      }
+
+      .mock__title {
+        font-family: "Ranade", sans-serif;
+        font-size: 1.55rem;
+        line-height: 1.12;
+        letter-spacing: -0.024em;
+        margin: 8px 0 8px;
+      }
+
+      .mock__lede {
+        margin: 0;
+        max-width: 42ch;
+        font-size: 14px;
+        color: rgba(217, 231, 255, 0.82);
+      }
+
+      .mock--soft .mock__lede {
+        color: var(--muted);
+      }
+
+      .mock__watermark {
+        position: absolute;
+        right: -46px;
+        bottom: -86px;
+        width: 250px;
+        height: 250px;
+        transform: rotate(-16deg);
+        opacity: 0.08;
+        color: #fff;
+        pointer-events: none;
+      }
+
+      .blogbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 18px;
+        border-radius: 999px;
+        background: var(--navy);
+        color: #fff;
+      }
+
+      .blogbar__nav {
+        display: flex;
+        gap: 14px;
+        font-size: 13px;
+        color: rgba(217, 231, 255, 0.75);
+      }
+
+      .favrow {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .tabmock {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 14px 7px 10px;
+        border-radius: 9px 9px 0 0;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-bottom: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Shared symbol defs: each direction's mark, once. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <!-- DIRECTION A — angular -->
+      <symbol id="mark-angular" viewBox="0 0 48 48">
+        <g fill="currentColor">
+          <path d="M30 6H6V30L13 27.1V13H27.1Z" />
+          <path d="M18 42H42V18L35 20.9V35H20.9Z" />
+        </g>
+        <g fill="var(--ih-mark-accent, currentColor)">
+          <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
+          <path d="M25.5 19L37.25 7.25L40.75 10.75L29 22.5Z" />
+          <path d="M22.5 29L10.75 40.75L7.25 37.25L19 25.5Z" />
+        </g>
+      </symbol>
+
+      <!-- DIRECTION B — rounded -->
+      <symbol id="mark-rounded" viewBox="0 0 48 48">
+        <g fill="currentColor">
+          <path d="M32 6H18A12 12 0 0 0 6 18V32L13 25V18A5 5 0 0 1 18 13H25Z" />
+          <path d="M16 42H30A12 12 0 0 0 42 30V16L35 23V30A5 5 0 0 1 30 35H23Z" />
+        </g>
+        <path
+          d="M9.5 38.5L38.5 9.5"
+          fill="none"
+          stroke="var(--ih-mark-accent, currentColor)"
+          stroke-width="7"
+          stroke-linecap="round"
+        />
+      </symbol>
+
+      <!-- Texture tiles -->
+      <symbol id="tile-angular" viewBox="0 0 96 96">
+        <g fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M0 48L48 0M0 96L96 0M48 96L96 48" />
+          <path d="M30 6H6V30M18 42H42V18" />
+          <path d="M78 54H54V78M66 90H90V66" />
+        </g>
+        <g fill="currentColor">
+          <path d="M19 19H25.5L29 22.5V29H22.5L19 25.5Z" />
+          <path d="M67 67H73.5L77 70.5V77H70.5L67 73.5Z" />
+          <path d="M19 67H25.5L29 70.5V77H22.5L19 73.5Z" />
+          <path d="M67 19H73.5L77 22.5V29H70.5L67 25.5Z" />
+        </g>
+      </symbol>
+
+      <symbol id="tile-rounded" viewBox="0 0 96 96">
+        <g
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path stroke-linecap="butt" d="M0 48L48 0M0 96L96 0M48 96L96 48" />
+          <path d="M28.5 9.5H18A8.5 8.5 0 0 0 9.5 18V28.5" />
+          <path d="M19.5 38.5H30A8.5 8.5 0 0 0 38.5 30V19.5" />
+          <path d="M76.5 57.5H66A8.5 8.5 0 0 0 57.5 66V76.5" />
+          <path d="M67.5 86.5H78A8.5 8.5 0 0 0 86.5 78V67.5" />
+        </g>
+        <g fill="currentColor">
+          <circle cx="24" cy="24" r="3" />
+          <circle cx="72" cy="72" r="3" />
+          <circle cx="24" cy="72" r="3" />
+          <circle cx="72" cy="24" r="3" />
+        </g>
+      </symbol>
+
+      <!-- Texture patterns, one per direction per surface, so ids never clash. -->
+      <defs>
+        <pattern
+          id="tex-angular-dark"
+          width="132"
+          height="132"
+          patternUnits="userSpaceOnUse"
+          viewBox="0 0 96 96"
+          patternTransform="rotate(12)"
+        >
+          <use href="#tile-angular" width="96" height="96" color="#ffffff" />
+        </pattern>
+        <pattern
+          id="tex-angular-light"
+          width="132"
+          height="132"
+          patternUnits="userSpaceOnUse"
+          viewBox="0 0 96 96"
+          patternTransform="rotate(12)"
+        >
+          <use href="#tile-angular" width="96" height="96" color="#111f4a" />
+        </pattern>
+        <pattern
+          id="tex-rounded-dark"
+          width="132"
+          height="132"
+          patternUnits="userSpaceOnUse"
+          viewBox="0 0 96 96"
+          patternTransform="rotate(12)"
+        >
+          <use href="#tile-rounded" width="96" height="96" color="#ffffff" />
+        </pattern>
+        <pattern
+          id="tex-rounded-light"
+          width="132"
+          height="132"
+          patternUnits="userSpaceOnUse"
+          viewBox="0 0 96 96"
+          patternTransform="rotate(12)"
+        >
+          <use href="#tile-rounded" width="96" height="96" color="#111f4a" />
+        </pattern>
+      </defs>
+    </svg>
+
+    <main class="page">
+      <div class="page__intro">
+        <h1>Két márkairány — válassz</h1>
+        <p>
+          Ugyanaz a gondolat mindkettőben: két nyitott sarokkonzol adja a bizonylat
+          keretét, a 45°-os sarkokon kapuval; középen a hub, rajta átfutó
+          összekötővel. A konzolok függőleges szárai a <strong>H</strong> szárai, a
+          hubon átfutó átló az <strong>I</strong> — egy átlóra fűzve.
+        </p>
+        <p>
+          A különbség csak a karakter: <strong>A</strong> szögletes, mérnöki;
+          <strong>B</strong> ugyanaz lekerekítve. Minden más — szín, arány,
+          háttértextúra, elhelyezés — azonos, hogy tényleg csak a formát kelljen
+          eldönteni.
+        </p>
+      </div>
+
+      <div class="cols">
+        <!-- ================================================== DIRECTION A -->
+        <section class="dir">
+          <header class="dir__head">
+            <div class="dir__label">A irány</div>
+            <h2 class="dir__name">Angular — szögletes</h2>
+            <p class="dir__note">
+              Letört sarkok, gérvágott csatlakozások, csupa kitöltött forma. Éles,
+              mérnöki, „bizonylat” karakter.
+            </p>
+          </header>
+
+          <div class="band band--navy">
+            <div class="band__title">Ikon sötéten — egyszínű</div>
+            <div class="strip">
+              <div class="sizes">
+                <figure>
+                  <svg width="16" height="16" style="color: #fff">
+                    <use href="#mark-angular" width="16" height="16" />
+                  </svg>
+                  <figcaption>16</figcaption>
+                </figure>
+                <figure>
+                  <svg width="24" height="24" style="color: #fff">
+                    <use href="#mark-angular" width="24" height="24" />
+                  </svg>
+                  <figcaption>24</figcaption>
+                </figure>
+                <figure>
+                  <svg width="32" height="32" style="color: #fff">
+                    <use href="#mark-angular" width="32" height="32" />
+                  </svg>
+                  <figcaption>32</figcaption>
+                </figure>
+                <figure>
+                  <svg width="48" height="48" style="color: #fff">
+                    <use href="#mark-angular" width="48" height="48" />
+                  </svg>
+                  <figcaption>48</figcaption>
+                </figure>
+                <figure>
+                  <svg width="96" height="96" style="color: #fff">
+                    <use href="#mark-angular" width="96" height="96" />
+                  </svg>
+                  <figcaption>96</figcaption>
+                </figure>
+              </div>
+              <div class="sizes">
+                <figure>
+                  <svg
+                    width="96"
+                    height="96"
+                    style="color: #fff; --ih-mark-accent: #6495ed"
+                  >
+                    <use href="#mark-angular" width="96" height="96" />
+                  </svg>
+                  <figcaption>kétszínű</figcaption>
+                </figure>
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">Ikon világoson</div>
+            <div class="strip">
+              <div class="sizes">
+                <figure>
+                  <svg width="16" height="16" style="color: #111f4a">
+                    <use href="#mark-angular" width="16" height="16" />
+                  </svg>
+                  <figcaption>16</figcaption>
+                </figure>
+                <figure>
+                  <svg width="24" height="24" style="color: #111f4a">
+                    <use href="#mark-angular" width="24" height="24" />
+                  </svg>
+                  <figcaption>24</figcaption>
+                </figure>
+                <figure>
+                  <svg width="48" height="48" style="color: #111f4a">
+                    <use href="#mark-angular" width="48" height="48" />
+                  </svg>
+                  <figcaption>48</figcaption>
+                </figure>
+                <figure>
+                  <svg
+                    width="96"
+                    height="96"
+                    style="color: #111f4a; --ih-mark-accent: #6495ed"
+                  >
+                    <use href="#mark-angular" width="96" height="96" />
+                  </svg>
+                  <figcaption>kétszínű</figcaption>
+                </figure>
+              </div>
+              <div class="favrow">
+                <svg width="72" height="72" viewBox="0 0 48 48" aria-hidden="true">
+                  <rect width="48" height="48" rx="12" fill="#111f4a" />
+                  <svg
+                    x="4.8"
+                    y="4.8"
+                    width="38.4"
+                    height="38.4"
+                    viewBox="0 0 48 48"
+                    style="color: #fff; --ih-mark-accent: #6495ed"
+                  >
+                    <use href="#mark-angular" width="48" height="48" />
+                  </svg>
+                </svg>
+                <div class="tabmock">
+                  <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+                    <rect width="48" height="48" rx="10" fill="#111f4a" />
+                    <svg
+                      x="3.6"
+                      y="3.6"
+                      width="40.8"
+                      height="40.8"
+                      viewBox="0 0 48 48"
+                      style="color: #fff; --ih-mark-accent: #82aaf2"
+                    >
+                      <use href="#mark-angular" width="48" height="48" />
+                    </svg>
+                  </svg>
+                  InvoHub — számlázástól a bevallásig
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="band band--navy">
+            <div class="band__title">Szóvédjegy + jel</div>
+            <div class="strip" style="gap: 32px">
+              <div class="lockup">
+                <svg width="24" height="24" style="color: #fff; --ih-mark-accent: #82aaf2">
+                  <use href="#mark-angular" width="24" height="24" />
+                </svg>
+                <span class="lockup__word" style="font-size: 22px"
+                  >Invo<span class="lockup__hub">Hub</span></span
+                >
+              </div>
+              <div class="lockup">
+                <svg width="40" height="40" style="color: #fff; --ih-mark-accent: #82aaf2">
+                  <use href="#mark-angular" width="40" height="40" />
+                </svg>
+                <span class="lockup__word" style="font-size: 38px"
+                  >Invo<span class="lockup__hub">Hub</span></span
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">Blog fejléc</div>
+            <div class="blogbar">
+              <div class="lockup">
+                <svg width="22" height="22" style="color: #fff; --ih-mark-accent: #82aaf2">
+                  <use href="#mark-angular" width="22" height="22" />
+                </svg>
+                <span class="lockup__word" style="font-size: 19px"
+                  >Invo<span class="lockup__hub">Hub</span></span
+                >
+              </div>
+              <nav class="blogbar__nav"><span>Termék</span><span>Blog</span><span>Belépés</span></nav>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">Hero — textúra 8%</div>
+            <div class="mock mock--hero">
+              <svg class="mock__layer" style="opacity: 0.08" aria-hidden="true">
+                <rect width="100%" height="100%" fill="url(#tex-angular-dark)" />
+              </svg>
+              <div class="mock__body">
+                <div class="mock__kicker">Egyéni vállalkozóknak</div>
+                <div class="mock__title">Számlázástól a bevallásig.</div>
+                <p class="mock__lede">
+                  Rendezett számlázási munkafolyamat ma, banki párosítás és
+                  NAV-bevallás holnap.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="band band--mist">
+            <div class="band__title">Világos sáv — textúra 6%</div>
+            <div class="mock mock--soft">
+              <svg class="mock__layer" style="opacity: 0.06" aria-hidden="true">
+                <rect width="100%" height="100%" fill="url(#tex-angular-light)" />
+              </svg>
+              <div class="mock__body">
+                <div class="mock__kicker">Képességek</div>
+                <div class="mock__title">Egy rendszer, végig.</div>
+                <p class="mock__lede">Bizonylat, PDF, e-mail, törzsadat, emlékeztető.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">CTA — elforgatott vízjel 8%</div>
+            <div class="mock mock--cta">
+              <svg class="mock__watermark" aria-hidden="true">
+                <use href="#mark-angular" width="250" height="250" />
+              </svg>
+              <div class="mock__body">
+                <div class="mock__kicker">Kezdés</div>
+                <div class="mock__title">Vidd rendszerbe a számlázást</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================== DIRECTION B -->
+        <section class="dir">
+          <header class="dir__head">
+            <div class="dir__label">B irány</div>
+            <h2 class="dir__name">Rounded — lekerekített</h2>
+            <p class="dir__note">
+              Ugyanaz a szerkezet lágyítva: nagy sugarú lekerekített sarkok, és
+              egyetlen egyenletes átlós csík, amellyel a két fehér fal
+              párhuzamosan, végig azonos résszel fut. Barátságosabb, nem dobozos.
+            </p>
+          </header>
+
+          <div class="band band--navy">
+            <div class="band__title">Ikon sötéten — egyszínű</div>
+            <div class="strip">
+              <div class="sizes">
+                <figure>
+                  <svg width="16" height="16" style="color: #fff">
+                    <use href="#mark-rounded" width="16" height="16" />
+                  </svg>
+                  <figcaption>16</figcaption>
+                </figure>
+                <figure>
+                  <svg width="24" height="24" style="color: #fff">
+                    <use href="#mark-rounded" width="24" height="24" />
+                  </svg>
+                  <figcaption>24</figcaption>
+                </figure>
+                <figure>
+                  <svg width="32" height="32" style="color: #fff">
+                    <use href="#mark-rounded" width="32" height="32" />
+                  </svg>
+                  <figcaption>32</figcaption>
+                </figure>
+                <figure>
+                  <svg width="48" height="48" style="color: #fff">
+                    <use href="#mark-rounded" width="48" height="48" />
+                  </svg>
+                  <figcaption>48</figcaption>
+                </figure>
+                <figure>
+                  <svg width="96" height="96" style="color: #fff">
+                    <use href="#mark-rounded" width="96" height="96" />
+                  </svg>
+                  <figcaption>96</figcaption>
+                </figure>
+              </div>
+              <div class="sizes">
+                <figure>
+                  <svg
+                    width="96"
+                    height="96"
+                    style="color: #fff; --ih-mark-accent: #6495ed"
+                  >
+                    <use href="#mark-rounded" width="96" height="96" />
+                  </svg>
+                  <figcaption>kétszínű</figcaption>
+                </figure>
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">Ikon világoson</div>
+            <div class="strip">
+              <div class="sizes">
+                <figure>
+                  <svg width="16" height="16" style="color: #111f4a">
+                    <use href="#mark-rounded" width="16" height="16" />
+                  </svg>
+                  <figcaption>16</figcaption>
+                </figure>
+                <figure>
+                  <svg width="24" height="24" style="color: #111f4a">
+                    <use href="#mark-rounded" width="24" height="24" />
+                  </svg>
+                  <figcaption>24</figcaption>
+                </figure>
+                <figure>
+                  <svg width="48" height="48" style="color: #111f4a">
+                    <use href="#mark-rounded" width="48" height="48" />
+                  </svg>
+                  <figcaption>48</figcaption>
+                </figure>
+                <figure>
+                  <svg
+                    width="96"
+                    height="96"
+                    style="color: #111f4a; --ih-mark-accent: #6495ed"
+                  >
+                    <use href="#mark-rounded" width="96" height="96" />
+                  </svg>
+                  <figcaption>kétszínű</figcaption>
+                </figure>
+              </div>
+              <div class="favrow">
+                <svg width="72" height="72" viewBox="0 0 48 48" aria-hidden="true">
+                  <rect width="48" height="48" rx="12" fill="#111f4a" />
+                  <svg
+                    x="4.8"
+                    y="4.8"
+                    width="38.4"
+                    height="38.4"
+                    viewBox="0 0 48 48"
+                    style="color: #fff; --ih-mark-accent: #6495ed"
+                  >
+                    <use href="#mark-rounded" width="48" height="48" />
+                  </svg>
+                </svg>
+                <div class="tabmock">
+                  <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+                    <rect width="48" height="48" rx="10" fill="#111f4a" />
+                    <svg
+                      x="3.6"
+                      y="3.6"
+                      width="40.8"
+                      height="40.8"
+                      viewBox="0 0 48 48"
+                      style="color: #fff; --ih-mark-accent: #82aaf2"
+                    >
+                      <use href="#mark-rounded" width="48" height="48" />
+                    </svg>
+                  </svg>
+                  InvoHub — számlázástól a bevallásig
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="band band--navy">
+            <div class="band__title">Szóvédjegy + jel</div>
+            <div class="strip" style="gap: 32px">
+              <div class="lockup">
+                <svg width="24" height="24" style="color: #fff; --ih-mark-accent: #82aaf2">
+                  <use href="#mark-rounded" width="24" height="24" />
+                </svg>
+                <span class="lockup__word" style="font-size: 22px"
+                  >Invo<span class="lockup__hub">Hub</span></span
+                >
+              </div>
+              <div class="lockup">
+                <svg width="40" height="40" style="color: #fff; --ih-mark-accent: #82aaf2">
+                  <use href="#mark-rounded" width="40" height="40" />
+                </svg>
+                <span class="lockup__word" style="font-size: 38px"
+                  >Invo<span class="lockup__hub">Hub</span></span
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">Blog fejléc</div>
+            <div class="blogbar">
+              <div class="lockup">
+                <svg width="22" height="22" style="color: #fff; --ih-mark-accent: #82aaf2">
+                  <use href="#mark-rounded" width="22" height="22" />
+                </svg>
+                <span class="lockup__word" style="font-size: 19px"
+                  >Invo<span class="lockup__hub">Hub</span></span
+                >
+              </div>
+              <nav class="blogbar__nav"><span>Termék</span><span>Blog</span><span>Belépés</span></nav>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">Hero — textúra 8%</div>
+            <div class="mock mock--hero">
+              <svg class="mock__layer" style="opacity: 0.08" aria-hidden="true">
+                <rect width="100%" height="100%" fill="url(#tex-rounded-dark)" />
+              </svg>
+              <div class="mock__body">
+                <div class="mock__kicker">Egyéni vállalkozóknak</div>
+                <div class="mock__title">Számlázástól a bevallásig.</div>
+                <p class="mock__lede">
+                  Rendezett számlázási munkafolyamat ma, banki párosítás és
+                  NAV-bevallás holnap.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="band band--mist">
+            <div class="band__title">Világos sáv — textúra 6%</div>
+            <div class="mock mock--soft">
+              <svg class="mock__layer" style="opacity: 0.06" aria-hidden="true">
+                <rect width="100%" height="100%" fill="url(#tex-rounded-light)" />
+              </svg>
+              <div class="mock__body">
+                <div class="mock__kicker">Képességek</div>
+                <div class="mock__title">Egy rendszer, végig.</div>
+                <p class="mock__lede">Bizonylat, PDF, e-mail, törzsadat, emlékeztető.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="band__title">CTA — elforgatott vízjel 8%</div>
+            <div class="mock mock--cta">
+              <svg class="mock__watermark" aria-hidden="true">
+                <use href="#mark-rounded" width="250" height="250" />
+              </svg>
+              <div class="mock__body">
+                <div class="mock__kicker">Kezdés</div>
+                <div class="mock__title">Vidd rendszerbe a számlázást</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

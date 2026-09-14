@@ -1,9 +1,4 @@
-<!-- assets/brand/mark-pattern.svg -->
-<!--
-  THE CURRENTLY SELECTED DIRECTION (today: "rounded"). Both directions live in
-  assets/brand/directions/{angular,rounded}/mark-pattern.svg; compare them at
-  marketing/brand-directions.html.
--->
+<!-- assets/brand/directions/rounded/mark-pattern.svg -->
 <!--
   InvoHub brand texture — DIRECTION B "rounded". Seamless 96x96 tile.
 

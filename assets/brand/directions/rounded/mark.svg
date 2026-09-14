@@ -1,13 +1,4 @@
-<!-- assets/brand/mark.svg -->
-<!--
-  THE CURRENTLY SELECTED DIRECTION. The mark exists in two directions pending
-  the brand owner's choice; this file mirrors whichever one BRAND_MARK_DEFAULT
-  in components/marketing/brand-mark-geometry.ts points at (today: "rounded").
-
-      Direction A "angular"  ->  assets/brand/directions/angular/
-      Direction B "rounded"  ->  assets/brand/directions/rounded/
-      Side by side           ->  marketing/brand-directions.html
--->
+<!-- assets/brand/directions/rounded/mark.svg -->
 <!--
   InvoHub mark — DIRECTION B "rounded".
 

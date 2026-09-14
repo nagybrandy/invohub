@@ -1,15 +1,14 @@
 <!-- marketing/assets/favicon.svg -->
-<!-- Interim typography favicon: IH letterforms on navy. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
-  <rect width="40" height="40" rx="10" fill="#111f4a"/>
-  <text
-    x="20"
-    y="26.5"
-    text-anchor="middle"
-    font-family="Ranade, Avenir Next, Segoe UI, sans-serif"
-    font-size="15"
-    font-weight="700"
-    letter-spacing="-0.8"
-    fill="#ffffff"
-  >IH</text>
+<!-- InvoHub favicon: the brand mark on a navy tile, tuned for 16-32px. -->
+<!-- Geometry: assets/brand/mark.svg — currently direction "rounded". -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="InvoHub">
+  <title>InvoHub</title>
+  <rect width="48" height="48" rx="10" fill="#111f4a"/>
+  <g transform="translate(3.6 3.6) scale(0.85)" fill="none">
+    <g fill="#ffffff">
+      <path d="M32 6H18A12 12 0 0 0 6 18V32L13 25V18A5 5 0 0 1 18 13H25Z"/>
+      <path d="M16 42H30A12 12 0 0 0 42 30V16L35 23V30A5 5 0 0 1 30 35H23Z"/>
+    </g>
+    <path d="M9.5 38.5L38.5 9.5" stroke="#82aaf2" stroke-width="7" stroke-linecap="round"/>
+  </g>
 </svg>

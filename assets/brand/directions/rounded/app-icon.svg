@@ -1,7 +1,6 @@
-<!-- marketing/assets/mark.svg -->
-<!-- InvoHub brand mark on a navy tile (app icon / avatar lockup). -->
-<!-- Geometry: assets/brand/mark.svg — currently direction "rounded". -->
-<!-- Both directions: assets/brand/directions/ · compare at marketing/brand-directions.html -->
+<!-- assets/brand/directions/rounded/app-icon.svg -->
+<!-- InvoHub app icon / avatar / favicon source — DIRECTION B "rounded". -->
+<!-- Navy plate, white brackets, cornflower flow stripe. Geometry: ./mark.svg -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="InvoHub">
   <title>InvoHub</title>
   <rect width="48" height="48" rx="12" fill="#111f4a"/>

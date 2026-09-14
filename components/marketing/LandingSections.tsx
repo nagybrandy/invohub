@@ -28,6 +28,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { BrandLogo } from "@/components/marketing/BrandLogo";
+import { BrandTexture } from "@/components/marketing/BrandTexture";
 import { type LandingSectionId } from "@/components/marketing/LandingHeader";
 import { ProductShowcase } from "@/components/marketing/ProductShowcase";
 import { landingColors, landingDisplayType } from "@/components/marketing/landing-theme";
@@ -61,6 +62,9 @@ export function LandingHero({
       <Box className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(100,149,237,0.28),transparent_42%),radial-gradient(circle_at_88%_12%,rgba(217,231,255,0.16),transparent_36%),linear-gradient(160deg,#111f4a_0%,#1f305e_58%,#111f4a_100%)]" />
       <Box className="pointer-events-none absolute -right-10 top-4 h-72 w-72 rounded-full bg-primary/25 blur-3xl web:animate-pulse md:h-[28rem] md:w-[28rem]" />
       <Box className="pointer-events-none absolute -left-8 bottom-0 h-56 w-56 rounded-full bg-[#6495ed]/15 blur-2xl" />
+      {/* No brand texture here on purpose — it was tried and rejected for
+          competing with the hero copy. The mark appears further down the page,
+          on the final CTA and in the footer lockup. */}
       <Box
         className={`relative z-[1] mx-auto w-full max-w-[1280px] gap-10 ${
           isDesktop ? "flex-row items-center" : ""
@@ -550,6 +554,15 @@ export function FinalCta({
     <Box className="bg-background px-4 py-16 md:px-8 md:py-24">
       <Box className="relative mx-auto w-full max-w-[1120px] overflow-hidden rounded-[24px] bg-secondary p-6 md:p-12">
         <Box className="pointer-events-none absolute -right-8 top-0 h-40 w-40 rounded-full bg-primary/25 blur-2xl" />
+        <BrandTexture
+          variant="mark"
+          tone="onDark"
+          size={320}
+          rotate={-16}
+          opacity={0.07}
+          className="-bottom-28 -right-20"
+          testID="landing-final-cta-texture"
+        />
         <Box className="relative gap-8 md:flex-row md:items-end md:justify-between">
           <VStack className="max-w-[680px]" space="md">
             <Text className="text-xs font-semibold uppercase tracking-[2px] text-primary">
@@ -611,7 +624,7 @@ export function LandingFooter({
       <Box className="mx-auto w-full max-w-[1120px]">
         <Box className="gap-8 md:flex-row md:justify-between">
           <VStack className="max-w-[330px]" space="md">
-            <BrandLogo tone="onDark" height={36} testID="landing-footer-logo" />
+            <BrandLogo tone="onDark" height={36} withMark testID="landing-footer-logo" />
             <Text size="sm" className="font-light leading-6 text-[#aebbd3]">
               {t("landing.footer.description")}
             </Text>
