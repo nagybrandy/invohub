@@ -1,6 +1,7 @@
 // e2e/web/invoices.spec.ts
 // Invoice management E2E tests.
 import { test, expect } from "@playwright/test";
+import { test as authTest, hasE2ECredentials } from "./fixtures/auth";
 
 test.describe("Invoice management", () => {
   test.describe("Auth guard", () => {
@@ -35,11 +36,13 @@ test.describe("Invoice management", () => {
   });
 });
 
-test.describe("Invoice form UI (authenticated)", () => {
-  // TODO: Requires test user authentication setup
-  // These tests document expected behavior once auth is configured.
+authTest.describe("Invoice form UI (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
 
-  test.skip("new invoice form renders document type tabs", async ({
+  authTest("new invoice form renders document type tabs", async ({
     page,
   }) => {
     await page.goto("/invoices/new");
@@ -53,7 +56,7 @@ test.describe("Invoice form UI (authenticated)", () => {
     await expect(page.getByText("Nyugta")).toBeVisible();
   });
 
-  test.skip("document type tabs switch correctly", async ({ page }) => {
+  authTest("document type tabs switch correctly", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 
@@ -71,7 +74,7 @@ test.describe("Invoice form UI (authenticated)", () => {
     await expect(szamlaTab).toHaveClass(/bg-primary/);
   });
 
-  test.skip("screen mode tabs are visible", async ({ page }) => {
+  authTest("screen mode tabs are visible", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 
@@ -79,7 +82,7 @@ test.describe("Invoice form UI (authenticated)", () => {
     await expect(page.getByText("Előnézet")).toBeVisible();
   });
 
-  test.skip("recipient section shows all form fields", async ({ page }) => {
+  authTest("recipient section shows all form fields", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 
@@ -95,7 +98,7 @@ test.describe("Invoice form UI (authenticated)", () => {
     await expect(page.getByText("Város")).toBeVisible();
   });
 
-  test.skip("dates and payment section renders", async ({ page }) => {
+  authTest("dates and payment section renders", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 
@@ -106,7 +109,7 @@ test.describe("Invoice form UI (authenticated)", () => {
     await expect(page.getByText("Fizetési határidő")).toBeVisible();
   });
 
-  test.skip("payment method buttons are interactive", async ({ page }) => {
+  authTest("payment method buttons are interactive", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 
@@ -115,7 +118,7 @@ test.describe("Invoice form UI (authenticated)", () => {
     await expect(page.getByText("Bankkártya")).toBeVisible();
   });
 
-  test.skip("currency selector shows HUF and EUR", async ({ page }) => {
+  authTest("currency selector shows HUF and EUR", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 
@@ -123,14 +126,14 @@ test.describe("Invoice form UI (authenticated)", () => {
     await expect(page.getByText("EUR")).toBeVisible();
   });
 
-  test.skip("line items section renders", async ({ page }) => {
+  authTest("line items section renders", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Mit számlázol?")).toBeVisible();
   });
 
-  test.skip("action buttons are visible", async ({ page }) => {
+  authTest("action buttons are visible", async ({ page }) => {
     await page.goto("/invoices/new");
     await page.waitForLoadState("networkidle");
 

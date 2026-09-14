@@ -43,6 +43,7 @@ playwright-report/
 playwright/.cache/
 test-results/
 .maestro/
+e2e/web/fixtures/.auth/
 
 # generated native folders
 /ios

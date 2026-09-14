@@ -17,6 +17,10 @@
     {
       "path": "/api/reminders/run",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/nav-receipt-report",
+      "schedule": "0 6 * * *"
     }
   ]
 }

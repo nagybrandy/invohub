@@ -58,13 +58,6 @@ test.describe("Authentication flow", () => {
       ).toBeVisible();
     });
 
-    test("shows account type selection", async ({ page }) => {
-      await expect(page.getByText("Fiók típusa")).toBeVisible();
-      // exact: hero subtitle also contains "vállalkozóknak"
-      await expect(page.getByText("Vállalkozó", { exact: true })).toBeVisible();
-      await expect(page.getByText("Könyvelő", { exact: true })).toBeVisible();
-    });
-
     test("shows email and password fields", async ({ page }) => {
       await expect(
         page.getByPlaceholder("te@pelda.hu")

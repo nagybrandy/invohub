@@ -1,6 +1,7 @@
 // e2e/web/dashboard.spec.ts
 // Dashboard E2E tests.
 import { test, expect } from "@playwright/test";
+import { test as authTest, hasE2ECredentials } from "./fixtures/auth";
 
 test.describe("Dashboard", () => {
   test.describe("Auth guard", () => {
@@ -14,10 +15,13 @@ test.describe("Dashboard", () => {
   });
 });
 
-test.describe("Dashboard UI (authenticated)", () => {
-  // TODO: Requires test user authentication setup
+authTest.describe("Dashboard UI (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
 
-  test.skip("dashboard page loads with title", async ({ page }) => {
+  authTest("dashboard page loads with title", async ({ page }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
@@ -27,7 +31,7 @@ test.describe("Dashboard UI (authenticated)", () => {
     ).toBeVisible();
   });
 
-  test.skip("revenue stat card renders", async ({ page }) => {
+  authTest("revenue stat card renders", async ({ page }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
@@ -37,21 +41,21 @@ test.describe("Dashboard UI (authenticated)", () => {
     await expect(page.getByText("Kintlévő")).toBeVisible();
   });
 
-  test.skip("VAT estimate card renders", async ({ page }) => {
+  authTest("VAT estimate card renders", async ({ page }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Becsült fizetendő ÁFA")).toBeVisible();
   });
 
-  test.skip("overdue debt card renders", async ({ page }) => {
+  authTest("overdue debt card renders", async ({ page }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Lejárt tartozás")).toBeVisible();
   });
 
-  test.skip("recent invoices section renders", async ({ page }) => {
+  authTest("recent invoices section renders", async ({ page }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
@@ -59,7 +63,7 @@ test.describe("Dashboard UI (authenticated)", () => {
     await expect(page.getByText("Minden kimenő számla")).toBeVisible();
   });
 
-  test.skip("recent invoices table shows column headers on desktop", async ({
+  authTest("recent invoices table shows column headers on desktop", async ({
     page,
   }) => {
     await page.goto("/dashboard");
@@ -72,14 +76,14 @@ test.describe("Dashboard UI (authenticated)", () => {
     await expect(page.getByText("Bruttó összeg")).toBeVisible();
   });
 
-  test.skip("feature link grid renders", async ({ page }) => {
+  authTest("feature link grid renders", async ({ page }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Összes funkció")).toBeVisible();
   });
 
-  test.skip("header actions show incoming invoices button", async ({
+  authTest("header actions show incoming invoices button", async ({
     page,
   }) => {
     await page.goto("/dashboard");
@@ -90,7 +94,7 @@ test.describe("Dashboard UI (authenticated)", () => {
     ).toBeVisible();
   });
 
-  test.skip("header actions show customer service button", async ({
+  authTest("header actions show customer service button", async ({
     page,
   }) => {
     await page.goto("/dashboard");
