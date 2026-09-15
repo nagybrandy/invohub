@@ -172,7 +172,11 @@ function DataRow<T>({
       <Pressable
         testID="data-table-row"
         onPress={() => onRowPress(row)}
-        accessibilityRole="button"
+        // No accessibilityRole="button" here: on web that renders a real
+        // <button>, and a row can carry its own interactive rowActions
+        // (an OverflowMenu trigger, itself a button) — a <button> can never
+        // legally contain another <button> (invalid HTML, and the nested
+        // one gets silently hoisted out of the DOM by the browser).
         className="web:cursor-pointer flex-row border-b border-subtle data-[hover=true]:bg-muted/40"
       >
         {cells}
