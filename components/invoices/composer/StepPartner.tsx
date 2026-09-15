@@ -77,13 +77,31 @@ export function StepPartner(composer: InvoiceComposerState) {
   const selectedClient: Client | undefined = clients.find((c) => c.id === clientId);
   const recentClients = React.useMemo(() => clients.slice(0, 4), [clients]);
   const nameInputRef = React.useRef<{ focus: () => void } | null>(null);
+  // `as never` at the ref site below matches PartnerPicker's own inputRef
+  // pattern — Gluestack's InputField forwards a ref typed against its own
+  // props instead of the underlying TextInput instance, so a plain
+  // { focus } ref type doesn't structurally match without the cast.
+  const exchangeRateInputRef = React.useRef<{ focus: () => void } | null>(null);
 
   React.useEffect(() => {
     if (focusField === "clientName") {
       nameInputRef.current?.focus?.();
       clearFocusField();
+      return;
     }
-  }, [focusField, clearFocusField]);
+    if (focusField === "exchangeRate") {
+      // The field lives inside the collapsed-by-default "Dates/Payment"
+      // section — expand it first and wait for the re-render that mounts
+      // the input (this effect re-runs on the showDatesPayment dependency
+      // below) before trying to focus it, otherwise the ref is still null.
+      if (!showDatesPayment) {
+        setShowDatesPayment(true);
+        return;
+      }
+      exchangeRateInputRef.current?.focus?.();
+      clearFocusField();
+    }
+  }, [focusField, clearFocusField, showDatesPayment, setShowDatesPayment]);
 
   async function handleCreateNewClient(input: { name: string; email: string; taxNumber: string }) {
     // Composer-local partner: not persisted to /api/clients from here —
@@ -284,6 +302,7 @@ export function StepPartner(composer: InvoiceComposerState) {
                 </Text>
                 <Input>
                   <InputField
+                    ref={exchangeRateInputRef as never}
                     value={exchangeRate}
                     onChangeText={setExchangeRate}
                     keyboardType="decimal-pad"

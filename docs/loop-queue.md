@@ -657,7 +657,7 @@ Remaining for the launch gate:
       `getPdfTemplate` normalizes a malformed value read back from the
       DB. `npm run typecheck` and `npm run test:unit` green (197 suites /
       1115 tests).
-- [ ] `focusField: "exchangeRate"` (set on a failed save by
+- [x] `focusField: "exchangeRate"` (set on a failed save by
       `composer-logic.ts`'s `validateExchangeRateInput`, applied via
       `setFocusField` in `useInvoiceComposer.ts`) is never consumed or
       cleared — `StepPartner.tsx` only has a ref/focus effect for
@@ -670,6 +670,25 @@ Remaining for the launch gate:
       `clearFocusField()` the same way the clientName branch does.
       (2026-09-15 ship review of slice/non-huf-invoice-exchange-rate-nav-xml,
       acceptance)
+      **Fixed 2026-09-15** on `slice/composer-exchange-rate-focus`. Also
+      found and handled a wrinkle the item's text didn't call out: the
+      exchange-rate field lives inside the "Dates/Payment" section, which
+      is **collapsed by default** (`showDatesPayment`) — a naive
+      copy-paste of the clientName branch would call `.focus()` on a ref
+      to an unmounted input and silently do nothing. The effect now
+      expands that section first when `focusField === "exchangeRate"` and
+      `!showDatesPayment`, lets the re-render mount the field (the effect
+      re-runs on the `showDatesPayment` dependency), then focuses it and
+      calls `clearFocusField()`. The ref itself uses the same `as never`
+      cast `PartnerPicker.tsx` already uses for its own `inputRef` —
+      Gluestack's `InputField` forwards a ref typed against its own props
+      instead of the underlying `TextInput` instance. New
+      `StepPartner.test.tsx` drives `focusField` through real React state
+      (mirroring how `useInvoiceComposer` owns it) and asserts the section
+      auto-expands, the input receives focus, and the sequence isn't a
+      one-shot — verified the test actually catches the bug by confirming
+      it fails against the pre-fix code. `npm run typecheck` and `npm run
+      test:unit` green (198 suites / 1116 tests).
 - [ ] The new exchange-rate `Input` and currency pills in
       `StepPartner.tsx` are ~34px tall on mobile, below the 44px
       tap-target guideline — matches the sizing every other composer
