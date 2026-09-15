@@ -1,15 +1,12 @@
 // components/navigation/AppSidebar.tsx
 // Persistent desktop navy left sidebar (N1/N5 fix): the only place on desktop
 // that carries a real, complete nav — every primary section is one click away.
+// Collapse/expand is controlled from outside (the toggle icon lives in
+// AppTopStrip — see useSidebarCollapsed) so this component just renders
+// narrow or wide for whatever `collapsed` it's given.
 import * as React from "react";
-import { useWindowDimensions } from "react-native";
 import { useTranslation } from "react-i18next";
-import {
-  Building2,
-  LogOut,
-  PanelLeft,
-  Plus,
-} from "lucide-react-native";
+import { Building2, LogOut, Plus } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -25,41 +22,12 @@ import {
 import { isWeb } from "@/lib/platform";
 import type { AppRoute } from "@/lib/navigation";
 
-const SIDEBAR_COLLAPSE_STORAGE_KEY = "invohub.sidebar.collapsed";
-const COLLAPSED_DEFAULT_MIN_WIDTH = 1024;
-const COLLAPSED_DEFAULT_MAX_WIDTH = 1280;
-
 // Fixed on-navy ink — the sidebar surface is always the navy `bg-secondary`
 // token regardless of app theme, so its icon/text ink stays a constant
 // white/near-white rather than following light/dark foreground tokens
 // (react-native-svg icons need a literal color, not a CSS var).
 const ON_DARK_ACTIVE = "#ffffff";
 const ON_DARK_MUTED = "#aab0c6";
-
-function readStoredCollapsed(): boolean | null {
-  if (!isWeb() || typeof window === "undefined" || !window.localStorage) return null;
-  try {
-    const raw = window.localStorage.getItem(SIDEBAR_COLLAPSE_STORAGE_KEY);
-    if (raw === "1") return true;
-    if (raw === "0") return false;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredCollapsed(value: boolean) {
-  if (!isWeb() || typeof window === "undefined" || !window.localStorage) return;
-  try {
-    window.localStorage.setItem(SIDEBAR_COLLAPSE_STORAGE_KEY, value ? "1" : "0");
-  } catch {
-    // Private browsing / quota exceeded — collapse state just won't persist.
-  }
-}
-
-function defaultCollapsedForWidth(width: number): boolean {
-  return width >= COLLAPSED_DEFAULT_MIN_WIDTH && width < COLLAPSED_DEFAULT_MAX_WIDTH;
-}
 
 function SidebarNavRow({
   item,
@@ -104,13 +72,11 @@ export type AppSidebarProps = {
   role?: string;
   companyName?: string;
   companyTaxId?: string;
+  collapsed: boolean;
   onNavigate: (href: AppRoute) => void;
   onNewInvoice: () => void;
   onOpenCompanySettings: () => void;
   onSignOut: () => void;
-  /** Test-only override for the measured window width, so collapse-default
-   * behavior is testable without mocking react-native's Dimensions module. */
-  viewportWidthForTest?: number;
 };
 
 export function AppSidebar({
@@ -118,39 +84,13 @@ export function AppSidebar({
   role,
   companyName,
   companyTaxId,
+  collapsed,
   onNavigate,
   onNewInvoice,
   onOpenCompanySettings,
   onSignOut,
-  viewportWidthForTest,
 }: AppSidebarProps) {
   const { t } = useTranslation();
-  const { width: measuredWidth } = useWindowDimensions();
-  const width = viewportWidthForTest ?? measuredWidth;
-
-  const hasStoredPreference = React.useRef(readStoredCollapsed() !== null);
-  const [collapsed, setCollapsed] = React.useState<boolean>(() => {
-    const stored = readStoredCollapsed();
-    return stored ?? defaultCollapsedForWidth(width);
-  });
-
-  React.useEffect(() => {
-    if (hasStoredPreference.current) return;
-    setCollapsed(defaultCollapsedForWidth(width));
-    // Only the width dependency should re-derive the default; once the user
-    // makes an explicit choice, `hasStoredPreference` takes over instead.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [width]);
-
-  function toggleCollapsed() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      hasStoredPreference.current = true;
-      writeStoredCollapsed(next);
-      return next;
-    });
-  }
-
   const secondaryNav = getSidebarSecondaryNav(role);
   // w-72px/w-248px are Tailwind arbitrary-value classes NativeWind resolves
   // to a real `width`, so a plain CSS `transition-[width]` (web-only utility
@@ -166,40 +106,17 @@ export function AppSidebar({
       <VStack className="h-full justify-between px-3 py-4">
         <VStack space="lg">
           {/* Collapsed: only the mark (no wordmark — it has no room in a
-              72px rail and would clip). The collapse toggle lives up here
-              too, right next to the logo, instead of buried at the bottom —
-              a single, consistent icon (PanelLeft, the same one shadcn/ui's
-              own sidebar trigger uses) rather than swapping chevron
-              direction, so it stays visually stable and easy to spot. */}
+              72px rail and would clip). The collapse/expand toggle itself
+              lives in AppTopStrip, not here — see useSidebarCollapsed. */}
           <HStack
-            className={`items-center px-1 py-1 ${collapsed ? "justify-center" : "justify-between"}`}
+            className={`items-center px-1 py-1 ${collapsed ? "justify-center" : "justify-start"}`}
           >
             {collapsed ? (
               <BrandMark tone="onDark" size={24} />
             ) : (
               <BrandLogo tone="onDark" withMark height={24} />
             )}
-            {!collapsed ? (
-              <Pressable
-                onPress={toggleCollapsed}
-                accessibilityRole="button"
-                accessibilityLabel={t("nav.collapseSidebar")}
-                className="h-8 w-8 items-center justify-center rounded-lg hover:bg-white/8"
-              >
-                <PanelLeft size={18} color={ON_DARK_MUTED} />
-              </Pressable>
-            ) : null}
           </HStack>
-          {collapsed ? (
-            <Pressable
-              onPress={toggleCollapsed}
-              accessibilityRole="button"
-              accessibilityLabel={t("nav.expandSidebar")}
-              className="h-8 w-8 items-center justify-center self-center rounded-lg hover:bg-white/8"
-            >
-              <PanelLeft size={18} color={ON_DARK_MUTED} />
-            </Pressable>
-          ) : null}
 
           <Pressable
             onPress={onNewInvoice}

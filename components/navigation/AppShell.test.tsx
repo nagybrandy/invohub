@@ -71,6 +71,7 @@ jest.mock("@/components/navigation/AppSidebar", () => ({
       <Pressable testID="app-sidebar" onPress={props.onNewInvoice}>
         <Text testID="sidebar-active">{props.activePathname}</Text>
         <Text testID="sidebar-role">{props.role}</Text>
+        <Text testID="sidebar-collapsed">{String(props.collapsed)}</Text>
         <Pressable testID="sidebar-sign-out" onPress={props.onSignOut}>
           <Text>signOut</Text>
         </Pressable>
@@ -87,6 +88,11 @@ jest.mock("@/components/navigation/AppTopStrip", () => ({
         <Text testID="topstrip-breadcrumb">
           {props.breadcrumb ? props.breadcrumb.map((i: any) => i.label).join(" / ") : ""}
         </Text>
+        <Text testID="topstrip-page-title">{props.pageTitleLabelKey ?? ""}</Text>
+        <Text testID="topstrip-collapsed">{String(props.collapsed)}</Text>
+        <Pressable testID="topstrip-toggle-collapsed" onPress={props.onToggleCollapsed}>
+          <Text>toggle</Text>
+        </Pressable>
       </Pressable>
     );
   },
@@ -217,6 +223,26 @@ describe("AppShell", () => {
     const hubJson = JSON.stringify(hubTree.toJSON());
     expect(hubJson).not.toContain("nav.settings / ");
     act(() => hubTree.unmount());
+  });
+
+  it("shows a page title on a top-level screen and toggles collapse from the top strip", async () => {
+    mockPathname = "/invoices";
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(<AppShell viewportWidthForTest={1440} />);
+    });
+    expect(tree.root.findByProps({ testID: "topstrip-page-title" }).props.children).toBe(
+      "nav.invoices",
+    );
+    const collapsedBefore = tree.root.findByProps({ testID: "sidebar-collapsed" }).props.children;
+    const toggle = tree.root.findByProps({ testID: "topstrip-toggle-collapsed" });
+    act(() => toggle.props.onPress());
+    const collapsedAfter = tree.root.findByProps({ testID: "sidebar-collapsed" }).props.children;
+    expect(collapsedAfter).not.toBe(collapsedBefore);
+    expect(tree.root.findByProps({ testID: "topstrip-collapsed" }).props.children).toBe(
+      collapsedAfter,
+    );
+    act(() => tree.unmount());
   });
 
   it("opens the Továbbiak sheet from the mobile tab bar and signs out from it", async () => {

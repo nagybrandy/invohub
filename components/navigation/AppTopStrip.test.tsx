@@ -46,15 +46,73 @@ const baseProps = {
   onOpenAccount: jest.fn(),
   onOpenCompany: jest.fn(),
   onSignOut: jest.fn(),
+  collapsed: false,
+  onToggleCollapsed: jest.fn(),
 };
 
 describe("AppTopStrip", () => {
-  it("shows no breadcrumb on a top-level screen", async () => {
+  it("shows no breadcrumb on a top-level screen without a page title", async () => {
     let tree!: TestRenderer.ReactTestRenderer;
     await act(() => {
       tree = TestRenderer.create(<AppTopStrip {...baseProps} breadcrumb={undefined} />);
     });
     expect(JSON.stringify(tree.toJSON())).not.toContain("topstrip-breadcrumb-stub");
+    act(() => tree.unmount());
+  });
+
+  it("shows the page title in place of the breadcrumb on a top-level screen", async () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(
+        <AppTopStrip {...baseProps} breadcrumb={undefined} pageTitleLabelKey="nav.invoices" />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain("nav.invoices");
+    act(() => tree.unmount());
+  });
+
+  it("prefers the breadcrumb over the page title when both are given", async () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(
+        <AppTopStrip
+          {...baseProps}
+          breadcrumb={[{ label: "Beállítások", href: "/settings" }, { label: "PDF" }]}
+          pageTitleLabelKey="nav.settings"
+        />,
+      );
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("topstrip-breadcrumb-stub");
+    expect(json).not.toContain('"nav.settings"');
+    act(() => tree.unmount());
+  });
+
+  it("renders a collapse-sidebar toggle and fires onToggleCollapsed", async () => {
+    const onToggleCollapsed = jest.fn();
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(
+        <AppTopStrip {...baseProps} collapsed={false} onToggleCollapsed={onToggleCollapsed} />,
+      );
+    });
+    const toggle = tree.root.find(
+      (node) => node.props?.accessibilityLabel === "nav.collapseSidebar",
+    );
+    act(() => toggle.props.onPress?.());
+    expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
+  });
+
+  it("labels the toggle as expand when the sidebar is collapsed", async () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(<AppTopStrip {...baseProps} collapsed />);
+    });
+    const toggle = tree.root.find(
+      (node) => node.props?.accessibilityLabel === "nav.expandSidebar",
+    );
+    expect(toggle).toBeTruthy();
     act(() => tree.unmount());
   });
 

@@ -4,6 +4,7 @@ import {
   DASHBOARD_FEATURE_NAV,
   getDashboardFeatures,
   getMobileMoreNav,
+  getPageTitleLabelKey,
   getSidebarSecondaryNav,
   isNavActive,
   MOBILE_MORE_NAV,
@@ -136,6 +137,29 @@ describe("DASHBOARD_FEATURE_NAV", () => {
     expect(DASHBOARD_FEATURE_NAV.every((item) => !("accountantOnly" in item))).toBe(
       true,
     );
+  });
+});
+
+describe("getPageTitleLabelKey", () => {
+  it("labels each top-level screen with its sidebar section", () => {
+    expect(getPageTitleLabelKey("/dashboard")).toBe("nav.dashboard");
+    expect(getPageTitleLabelKey("/invoices")).toBe("nav.invoices");
+    expect(getPageTitleLabelKey("/receipts")).toBe("nav.receipts");
+    expect(getPageTitleLabelKey("/clients")).toBe("nav.partners");
+    expect(getPageTitleLabelKey("/products")).toBe("nav.products");
+    expect(getPageTitleLabelKey("/settings")).toBe("nav.settings");
+    expect(getPageTitleLabelKey("/import")).toBe("nav.import");
+    expect(getPageTitleLabelKey("/admin")).toBe("nav.admin");
+  });
+
+  it("labels detail/sub-pages with their parent section", () => {
+    expect(getPageTitleLabelKey("/invoices/abc-123")).toBe("nav.invoices");
+    expect(getPageTitleLabelKey("/invoices/new")).toBe("nav.invoices");
+    expect(getPageTitleLabelKey("/settings/company")).toBe("nav.settings");
+  });
+
+  it("returns undefined for a route outside the sidebar nav", () => {
+    expect(getPageTitleLabelKey("/onboarding")).toBeUndefined();
   });
 });
 

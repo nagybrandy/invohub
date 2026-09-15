@@ -136,6 +136,18 @@ export function getSettingsBreadcrumbLabelKey(pathname: string): string | undefi
   return match?.labelKey;
 }
 
+/**
+ * Desktop top strip page title (fills the space to the left of the
+ * notifications/user menu on screens that don't get a breadcrumb — every
+ * top-level screen). Reuses the same sidebar labelKeys and active-match
+ * rules so the title always agrees with whichever sidebar row is lit up.
+ */
+const NAV_ITEMS_FOR_TITLE: AppNavItem[] = [...SIDEBAR_PRIMARY_NAV, ...SIDEBAR_SECONDARY_NAV, ADMIN_NAV];
+
+export function getPageTitleLabelKey(pathname: string): string | undefined {
+  return NAV_ITEMS_FOR_TITLE.find((item) => isNavActive(pathname, item.href as string))?.labelKey;
+}
+
 export function isNavActive(pathname: string, href: string): boolean {
   if (href === routes.dashboard) return pathname === "/dashboard";
   if (href === routes.settings) return pathname.startsWith("/settings");

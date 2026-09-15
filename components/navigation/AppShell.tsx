@@ -17,10 +17,11 @@ import { AppTopStrip } from "@/components/navigation/AppTopStrip";
 import { MobileAppHeader } from "@/components/navigation/MobileAppHeader";
 import { MobileTabBar } from "@/components/navigation/MobileTabBar";
 import { MoreSheet } from "@/components/navigation/MoreSheet";
+import { useSidebarCollapsed } from "@/components/navigation/useSidebarCollapsed";
 import { NotificationBanner } from "@/components/notifications/NotificationBanner";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { signOut, useSession } from "@/lib/auth-client";
-import { getSettingsBreadcrumbLabelKey } from "@/lib/app-navigation";
+import { getPageTitleLabelKey, getSettingsBreadcrumbLabelKey } from "@/lib/app-navigation";
 import { routes, type AppRoute } from "@/lib/navigation";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useCompany } from "@/hooks/useCompany";
@@ -49,6 +50,7 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const { company } = useCompany();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const { collapsed, toggleCollapsed } = useSidebarCollapsed(width);
 
   const {
     notifications,
@@ -73,6 +75,7 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
   const breadcrumb: BreadcrumbItem[] | undefined = settingsLabelKey
     ? [{ label: t("nav.settings"), href: routes.settings }, { label: t(settingsLabelKey) }]
     : undefined;
+  const pageTitleLabelKey = getPageTitleLabelKey(pathname);
 
   const notificationPanel = (
     <NotificationPanel
@@ -96,6 +99,7 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
             role={userRole}
             companyName={company?.name}
             companyTaxId={company?.taxNumber ?? undefined}
+            collapsed={collapsed}
             onNavigate={navigate}
             onNewInvoice={() => router.push(routes.newInvoice)}
             onOpenCompanySettings={() => router.push(routes.settingsCompany)}
@@ -104,6 +108,9 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
           <VStack className="flex-1">
             <AppTopStrip
               breadcrumb={breadcrumb}
+              pageTitleLabelKey={pageTitleLabelKey}
+              collapsed={collapsed}
+              onToggleCollapsed={toggleCollapsed}
               unreadCount={unreadCount}
               onOpenNotifications={() => setPanelOpen(true)}
               userName={session?.user?.name}

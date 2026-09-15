@@ -1,8 +1,12 @@
 // components/navigation/AppTopStrip.tsx
-// 56px top strip: breadcrumb on the left, notifications / language / user
-// menu on the right. The desktop shell's only other chrome besides the
-// sidebar — it never carries primary nav itself (spec §1.1).
-import { Bell } from "lucide-react-native";
+// 56px top strip: sidebar collapse toggle + breadcrumb (or page title) on
+// the left, notifications / language / user menu on the right. The desktop
+// shell's only other chrome besides the sidebar — it never carries primary
+// nav itself (spec §1.1). The collapse toggle lives here (not inside the
+// sidebar) so it's reachable and visible regardless of collapsed state, and
+// so this strip isn't left empty on the many top-level screens that don't
+// get a breadcrumb.
+import { Bell, PanelLeft } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -15,6 +19,12 @@ import { useIconColors } from "@/lib/theme/icon-colors";
 
 export type AppTopStripProps = {
   breadcrumb?: BreadcrumbItem[];
+  /** Translation key for the current section's title (e.g. "nav.invoices"),
+   * shown in place of the breadcrumb on top-level screens that don't have
+   * one, so the strip isn't left empty. */
+  pageTitleLabelKey?: string;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   unreadCount: number;
   onOpenNotifications: () => void;
   userName?: string;
@@ -26,6 +36,9 @@ export type AppTopStripProps = {
 
 export function AppTopStrip({
   breadcrumb,
+  pageTitleLabelKey,
+  collapsed,
+  onToggleCollapsed,
   unreadCount,
   onOpenNotifications,
   userName,
@@ -47,9 +60,26 @@ export function AppTopStrip({
       // popovers would paint UNDER the page content instead of over it.
     >
       <HStack className="h-14 items-center justify-between">
-        <Box testID="app-topstrip-breadcrumb">
-          {breadcrumb && breadcrumb.length > 0 ? <Breadcrumb items={breadcrumb} /> : null}
-        </Box>
+        <HStack space="sm" className="items-center">
+          <Pressable
+            onPress={onToggleCollapsed}
+            accessibilityRole="button"
+            accessibilityLabel={t(collapsed ? "nav.expandSidebar" : "nav.collapseSidebar")}
+            className="h-8 w-8 items-center justify-center rounded-lg hover:bg-muted"
+          >
+            <PanelLeft size={18} color={icons.muted} />
+          </Pressable>
+
+          <Box testID="app-topstrip-breadcrumb">
+            {breadcrumb && breadcrumb.length > 0 ? (
+              <Breadcrumb items={breadcrumb} />
+            ) : pageTitleLabelKey ? (
+              <Text className="text-base font-semibold text-foreground">
+                {t(pageTitleLabelKey)}
+              </Text>
+            ) : null}
+          </Box>
+        </HStack>
 
         <HStack space="md" className="items-center">
           <Pressable

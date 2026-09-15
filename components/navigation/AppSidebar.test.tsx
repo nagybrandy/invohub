@@ -23,21 +23,12 @@ jest.mock("@/components/marketing/BrandLogo", () => ({
   },
 }));
 
-function makeLocalStorage() {
-  const store = new Map<string, string>();
-  return {
-    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
-    setItem: (k: string, v: string) => void store.set(k, v),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-  };
-}
-
 const baseProps = {
   activePathname: "/dashboard",
   role: "entrepreneur" as string | undefined,
   companyName: "TestCorp Kft.",
   companyTaxId: "12345678-1-42",
+  collapsed: false,
   onNavigate: jest.fn(),
   onNewInvoice: jest.fn(),
   onOpenCompanySettings: jest.fn(),
@@ -46,18 +37,13 @@ const baseProps = {
 
 describe("AppSidebar", () => {
   const originalPlatform = Platform.OS;
-  const originalLocalStorage = (globalThis as any).localStorage;
 
   beforeEach(() => {
     Platform.OS = "web";
-    (globalThis as any).localStorage = makeLocalStorage();
-    (globalThis.window as any).localStorage = (globalThis as any).localStorage;
   });
 
   afterEach(() => {
     Platform.OS = originalPlatform;
-    (globalThis as any).localStorage = originalLocalStorage;
-    delete (globalThis.window as any).localStorage;
   });
 
   it("renders exactly the six primary sections in order, plus Importálás and Admin below a divider", async () => {
@@ -169,44 +155,32 @@ describe("AppSidebar", () => {
     act(() => tree.unmount());
   });
 
-  it("collapses by default between 1024 and 1279px and expands at 1280px+", async () => {
+  it("renders narrow (72px) when collapsed and wide (248px) when expanded", async () => {
     let narrowTree!: TestRenderer.ReactTestRenderer;
     await act(() => {
-      narrowTree = TestRenderer.create(
-        <AppSidebar {...baseProps} viewportWidthForTest={1100} />,
-      );
+      narrowTree = TestRenderer.create(<AppSidebar {...baseProps} collapsed />);
     });
     const narrowRoot = narrowTree.root.find((node) => node.props?.testID === "app-sidebar");
     expect(narrowRoot.props.className).toContain("w-[72px]");
     act(() => narrowTree.unmount());
 
-    (globalThis as any).localStorage.clear();
     let wideTree!: TestRenderer.ReactTestRenderer;
     await act(() => {
-      wideTree = TestRenderer.create(<AppSidebar {...baseProps} viewportWidthForTest={1400} />);
+      wideTree = TestRenderer.create(<AppSidebar {...baseProps} collapsed={false} />);
     });
     const wideRoot = wideTree.root.find((node) => node.props?.testID === "app-sidebar");
     expect(wideRoot.props.className).toContain("w-[248px]");
     act(() => wideTree.unmount());
   });
 
-  it("persists an explicit collapse toggle across remounts (localStorage)", async () => {
+  it("does not render its own collapse toggle — that lives in AppTopStrip now", async () => {
     let tree!: TestRenderer.ReactTestRenderer;
     await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} viewportWidthForTest={1400} />);
+      tree = TestRenderer.create(<AppSidebar {...baseProps} />);
     });
-    const toggle = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "nav.collapseSidebar",
-    );
-    act(() => toggle.props.onPress?.());
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("nav.collapseSidebar");
+    expect(json).not.toContain("nav.expandSidebar");
     act(() => tree.unmount());
-
-    let remounted!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      remounted = TestRenderer.create(<AppSidebar {...baseProps} viewportWidthForTest={1400} />);
-    });
-    const root = remounted.root.find((node) => node.props?.testID === "app-sidebar");
-    expect(root.props.className).toContain("w-[72px]");
-    act(() => remounted.unmount());
   });
 });
