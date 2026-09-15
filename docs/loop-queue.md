@@ -116,7 +116,7 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    status text) to match the app's own new visual system.
    Plan: `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship)
-3. [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
+3. [~] needs sign-off (PR) (slice/non-huf-invoice-exchange-rate-nav-xml)
    **Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF** (`lib/nav/invoice-xml.ts`,
    `lib/invoices/build-pdf-context.ts`) — implemented: a new
@@ -380,6 +380,41 @@ Remaining for the launch gate:
       notifications get the fix. Needs a data migration to backfill, not
       just a code change, if old rows must display correctly too.
       (2026-09-15 audit, i18n)
+- [ ] `focusField: "exchangeRate"` (set on a failed save by
+      `composer-logic.ts`'s `validateExchangeRateInput`, applied via
+      `setFocusField` in `useInvoiceComposer.ts`) is never consumed or
+      cleared — `StepPartner.tsx` only has a ref/focus effect for
+      `focusField === "clientName"` (`nameInputRef`), and the
+      exchange-rate `Input` has no ref at all, so after a failed save due
+      to a missing/invalid rate the state stays stuck at "exchangeRate"
+      with no visible effect. Add a ref to the exchange-rate `Input` and
+      extend `StepPartner`'s focus effect to also handle
+      `focusField === "exchangeRate"`, focusing it and calling
+      `clearFocusField()` the same way the clientName branch does.
+      (2026-09-15 ship review of slice/non-huf-invoice-exchange-rate-nav-xml,
+      acceptance)
+- [ ] The new exchange-rate `Input` and currency pills in
+      `StepPartner.tsx` are ~34px tall on mobile, below the 44px
+      tap-target guideline — matches the sizing every other composer
+      `Input` already uses, and the currency-selector tap-target work is
+      already filed separately (see item 8 above); listed here only so
+      the exchange-rate field isn't missed when that item is picked up.
+      (2026-09-15 ship review of slice/non-huf-invoice-exchange-rate-nav-xml,
+      ux)
+- [ ] The new `invoices.document.exchangeRate` /
+      `exchangeRateValue` / `vatInHuf` i18n keys
+      (`lib/i18n/locales/en.ts`, `hu.ts`) are unused by
+      `lib/invoices/preview-html.ts` / `generate-pdf.ts` today — **by
+      design**, not a bug: those renderers are still the pre-branding,
+      all-English versions (`slice/hungarianize-brand-invoice-preview-pdf`
+      has not landed on `main` yet), and the plan's own rebase note
+      (`docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`,
+      "Rebase note") directs using `formatCurrency` + hardcoded English to
+      match the file's current state, with the new keys wired in once
+      this slice is rebased onto the landed branding slice. No action
+      needed now; revisit when that rebase happens so the keys don't sit
+      unused indefinitely. (2026-09-15 ship review of
+      slice/non-huf-invoice-exchange-rate-nav-xml, i18n)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
