@@ -1,5 +1,6 @@
 // components/invoices/InvoiceMoneyHeader.test.tsx
 import TestRenderer, { act } from "react-test-renderer";
+import { Text as RNText } from "react-native";
 import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
@@ -56,5 +57,33 @@ describe("InvoiceMoneyHeader", () => {
     const tree = renderHeader({ invoice });
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("invoices.detail.outstanding");
+  });
+
+  it("renders primary and secondary actions in a single wrapping row, not a stacked column", () => {
+    // Two differently-sized buttons stacked in a tight items-end column
+    // (the pre-fix layout) reads as cramped/misaligned — the actions
+    // belong in one horizontal row that wraps and goes full-width on
+    // mobile, matching PageHeader's own action-row convention
+    // (components/layout/PageHeader.tsx).
+    const invoice = makeInvoice({ status: "sent" });
+    const tree = renderHeader({
+      invoice,
+      primaryAction: <RNText testID="primary-action">Primary</RNText>,
+      secondaryAction: <RNText testID="secondary-action">Secondary</RNText>,
+    });
+    const actions = tree.root.findByProps({ testID: "invoice-money-header-actions" });
+    expect(actions.props.className).toContain("flex-wrap");
+    expect(actions.props.className).toContain("justify-end");
+    expect(actions.props.className).not.toContain("items-end");
+    expect(() => tree.root.findByProps({ testID: "primary-action" })).not.toThrow();
+    expect(() => tree.root.findByProps({ testID: "secondary-action" })).not.toThrow();
+  });
+
+  it("renders no actions row when neither action is passed", () => {
+    const invoice = makeInvoice({ status: "sent" });
+    const tree = renderHeader({ invoice });
+    expect(() =>
+      tree.root.findByProps({ testID: "invoice-money-header-actions" })
+    ).toThrow();
   });
 });

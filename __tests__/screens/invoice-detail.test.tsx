@@ -3,6 +3,7 @@
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { Alert } from "react-native";
+import { CheckCircle2 } from "lucide-react-native";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 import { ApiError } from "@/lib/api/client";
 
@@ -179,6 +180,27 @@ describe("InvoiceDetailScreen", () => {
     const tree = await renderScreen();
     const toggleButton = findPressableWithText(tree.root, "invoices.markPaid.action");
     expect(toggleButton?.props.disabled).toBe(true);
+  });
+
+  it("themes the mark-paid button's icon instead of leaving it at the library default color", async () => {
+    // Every other icon-in-a-Button in the app (dashboard's Inbox icon,
+    // M2mDemoCard's RefreshCw, the composer's ChevronUp/Down) passes an
+    // explicit theme color — this one was the sole outlier, rendering
+    // whatever lucide-react-native's own default is instead of matching
+    // the button's text color.
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+    const icon = tree.root.findByType(CheckCircle2);
+    expect(icon.props.color).toBeTruthy();
   });
 
   it("correction action (in the Továbbiak menu) confirms via Alert then navigates to the new draft's edit screen", async () => {

@@ -35,6 +35,7 @@ import { isOverdue } from "@/lib/invoices/status-visuals";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
+import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
 
 type InvoiceLinks = {
@@ -77,6 +78,7 @@ export default function InvoiceDetailScreen() {
   const id = useRouteParam("id");
   const navError = useRouteParam("navError");
   const { t } = useTranslation();
+  const icons = useIconColors();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [links, setLinks] = React.useState<InvoiceLinks | null>(null);
   const [navSubmission, setNavSubmission] = React.useState<NavSubmissionRow | null>(null);
@@ -411,7 +413,7 @@ export default function InvoiceDetailScreen() {
                 onPress={() => setShowMarkPaid((v) => !v)}
                 testID="invoice-detail-mark-paid-toggle"
               >
-                <CheckCircle2 size={14} />
+                <CheckCircle2 size={14} color={icons.foreground} />
                 <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
               </Button>
               <OverflowMenu items={overflowItems} label={t("invoices.detail.overflowLabel")} />

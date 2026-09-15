@@ -68,10 +68,23 @@ export function InvoiceMoneyHeader({
             </Text>
           ) : null}
         </VStack>
-        <VStack space="xs" className="items-end">
-          {primaryAction ?? null}
-          {secondaryAction ?? null}
-        </VStack>
+        {primaryAction || secondaryAction ? (
+          // A single wrapping row — not a stacked column — so the action
+          // cluster reads as one hierarchy (secondary/overflow, then the
+          // solid primary last) instead of two differently-sized rows
+          // crammed together. `w-full` on mobile matches PageHeader's own
+          // primary/secondary/overflow action row (components/layout/
+          // PageHeader.tsx) so it wraps to a right-aligned full-width line
+          // instead of collapsing to its own intrinsic (left-pinned) width.
+          <HStack
+            space="sm"
+            className="w-full flex-wrap items-center justify-end gap-2 md:w-auto"
+            testID="invoice-money-header-actions"
+          >
+            {secondaryAction ?? null}
+            {primaryAction ?? null}
+          </HStack>
+        ) : null}
       </HStack>
     </VStack>
   );

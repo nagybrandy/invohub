@@ -125,13 +125,45 @@ screenshots before writing a fix plan:
   current/overdue color split, the connector fill, and the non-wrapping
   container class. `npm run typecheck` and `npm run test:unit` green (197
   suites / 1109 tests).
-- "a számla aloldalakon a gombok csúnyán helyezkednek el" — button layout
-  on invoice sub-pages is poor. Check `/invoices/[id]` (detail — action
-  buttons, `components/layout/DangerZone.tsx` +
-  `components/layout/OverflowMenu.tsx`), `/invoices/[id]/edit`, and the
-  composer's own action row (`components/invoices/composer/StepReview.tsx`,
-  `ComposerStepper.tsx`) at both 1440px and 375px — identify which
-  screen(s) and which specific buttons before fixing.
+- [x] "a számla aloldalakon a gombok csúnyán helyezkednek el" — button
+  layout on invoice sub-pages is poor. **Fixed 2026-09-15** on
+  `slice/invoice-subpage-button-layout` — again, no interactive
+  screenshot tool was available, so this was diagnosed structurally from
+  the className/JSX tree, cross-checked against `components/layout/
+  PageHeader.tsx` (the app's own established primary/secondary/overflow
+  action-row pattern) and every other icon-in-`Button` call site; **a
+  human visual check at 1440px/375px is still recommended** before the
+  next deploy. Findings, scoped to `/invoices/[id]` (detail):
+  `components/layout/DangerZone.tsx` and `components/layout/
+  OverflowMenu.tsx` were already fine (consistent sizing, proper
+  destructive-last ordering, sane wrap behavior) — the actual bug was one
+  level up, in `components/invoices/InvoiceMoneyHeader.tsx`'s action
+  slot, used only by the detail screen: primaryAction (a full default-size
+  `Button`) and secondaryAction (a `size="sm"` mark-paid `Button` +
+  `OverflowMenu` trigger) were stacked in a `VStack items-end` column —
+  two visually different-weight rows crammed together instead of one
+  coherent row, and on narrow screens the outer `HStack`'s
+  `justify-between` + `flex-wrap` left that column at its own intrinsic
+  (left-pinned) width once it wrapped onto its own line below the money
+  block, instead of spanning full-width and staying right-aligned.
+  Replaced it with a single horizontal, wrapping `HStack` (`w-full
+  flex-wrap items-center justify-end gap-2 md:w-auto`) — matching
+  `PageHeader`'s own action-row convention exactly instead of inventing a
+  second one — with the secondary/overflow items first and the solid
+  primary action last/rightmost. Also fixed the mark-paid button's
+  `CheckCircle2` icon, the only icon-in-a-`Button` in the codebase with no
+  explicit theme color (every other one — dashboard's `Inbox`,
+  `M2mDemoCard`'s `RefreshCw`, the composer's `ChevronUp`/`Down` — passes
+  `color` from `useIconColors()` or a variant-matched literal); it now
+  gets `icons.foreground`. `/invoices/[id]/edit` renders the same shared
+  `InvoiceComposer` as invoice creation — its own header/footer action
+  rows (desktop top bar, mobile sticky footer, and `ComposerStepper`) were
+  reviewed and are already consistent (matching sizes, sane wrap,
+  destructive/current color split already correct), so left unchanged.
+  New/updated tests: `InvoiceMoneyHeader.test.tsx` (single-row action
+  layout, no-actions case), `__tests__/screens/invoice-detail.test.tsx`
+  (icon color present). `npm run typecheck` and `npm run test:unit` green
+  (197 suites / 1112 tests).
 
 0. [x] **App UX/UI overhaul (desktop first, then mobile)** — owner, 2026-09-14
    evening: "the app has a lot of UX/UI problems on desktop: invoice creation
