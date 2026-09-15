@@ -121,7 +121,7 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
    Plan: `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship)
-4. [~] folyamatban (slice/nav-xml-payment-method-date)
+4. [~] needs sign-off (PR) (slice/nav-xml-payment-method-date)
    Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
    Plan: `docs/plans/2026-09-15-nav-xml-payment-method-date.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship). Planning
@@ -289,7 +289,7 @@ Remaining for the launch gate:
       created invoice — `PATCH` keeps it, which is why the field looks like
       it works when editing), and `lib/invoices/create-from-payload.ts`
       (`POST /api/v1/invoices`) has no `exchangeRate` field at all.
-- [~] folyamatban (slice/nav-xml-payment-method-date)
+- [~] needs sign-off (PR) (slice/nav-xml-payment-method-date)
       Payment method never reaches the NAV XML —
       `lib/nav/invoice-xml.ts` defers it as "schema placement not
       verified", but `invoiceDetail` in the published `invoiceData.xsd`
