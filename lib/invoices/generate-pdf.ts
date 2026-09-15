@@ -4,7 +4,9 @@ import {
   calculateInvoiceTotals,
   formatCurrency,
   lineItemGrossTotal,
+  lineItemVatAmount,
 } from "@/lib/invoices/calculations";
+import { requiresExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
   formatInvoiceDueDate,
@@ -242,6 +244,29 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           totalsY,
           { bold: true, accent, fontSize: fonts.subtitle }
         );
+
+        // AC14/AC15: a non-HUF invoice also shows the VAT amount in forint,
+        // right under the document-currency VAT/total block — same rule as
+        // the NAV XML builder (lib/nav/invoice-xml.ts): convert per line,
+        // then sum the rounded HUF values. See plan OQ-3 for wording status.
+        if (requiresExchangeRate(invoice.currency)) {
+          const rateResolution = resolveExchangeRate(invoice);
+          if (rateResolution.ok) {
+            const vatTotalHuf = invoice.lineItems.reduce(
+              (sum, item) => sum + toHufAmount(lineItemVatAmount(item), rateResolution.rate),
+              0
+            );
+            totalsY = drawTotalLine(
+              doc,
+              "VAT amount in HUF:",
+              formatCurrency(vatTotalHuf, "HUF"),
+              labelX,
+              valueX,
+              totalsY,
+              { fontSize: fonts.body }
+            );
+          }
+        }
         doc.y = totalsY + 8;
 
         if (exemptCategories.size > 0) {

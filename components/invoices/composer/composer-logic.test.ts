@@ -6,6 +6,7 @@ import {
   resolveStatusForAction,
   shouldSendOnAction,
   validateDueDate,
+  validateExchangeRateInput,
   validateLineItemsStep,
   validatePartnerStep,
 } from "@/components/invoices/composer/composer-logic";
@@ -81,6 +82,29 @@ describe("validateDueDate (INV-8)", () => {
 
   it("accepts a due date after the issue date", () => {
     expect(validateDueDate("2026-09-20", "2026-09-28").valid).toBe(true);
+  });
+});
+
+describe("validateExchangeRateInput (AC12)", () => {
+  it("rejects a blank rate for a non-HUF currency as required", () => {
+    const result = validateExchangeRateInput("", "EUR");
+    expect(result.valid).toBe(false);
+    expect(result.errorKey).toBe("invoices.errors.exchangeRateRequired");
+  });
+
+  it("rejects a zero rate for a non-HUF currency as invalid", () => {
+    const result = validateExchangeRateInput("0", "EUR");
+    expect(result.valid).toBe(false);
+    expect(result.errorKey).toBe("invoices.errors.exchangeRateInvalid");
+  });
+
+  it("accepts a comma-decimal rate for a non-HUF currency", () => {
+    expect(validateExchangeRateInput("390,5", "EUR").valid).toBe(true);
+  });
+
+  it("never requires a rate for HUF, blank or not", () => {
+    expect(validateExchangeRateInput("", "HUF").valid).toBe(true);
+    expect(validateExchangeRateInput("0", "HUF").valid).toBe(true);
   });
 });
 

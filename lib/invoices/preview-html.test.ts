@@ -1,5 +1,6 @@
 // lib/invoices/preview-html.test.ts
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
+import { formatCurrency } from "@/lib/invoices/calculations";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
 describe("generateInvoicePreviewHtml", () => {
@@ -52,5 +53,23 @@ describe("generateInvoicePreviewHtml", () => {
   it("falls back to DRAFT when invoiceNumber is blank", () => {
     const html = generateInvoicePreviewHtml(makeInvoice({ invoiceNumber: "" }));
     expect(html).toContain("DRAFT");
+  });
+
+  it("shows the exchange rate used and the VAT total in HUF for a EUR invoice (AC14)", () => {
+    const html = generateInvoicePreviewHtml(
+      makeInvoice({
+        currency: "EUR",
+        exchangeRate: 390.5,
+        lineItems: [makeLineItem({ quantity: 2, unitPrice: 100, vatRate: 27 })],
+      })
+    );
+    expect(html).toContain("390,5");
+    expect(html).toContain(formatCurrency(21087, "HUF"));
+  });
+
+  it("omits the exchange-rate/HUF-VAT block for a HUF invoice (AC14)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice({ currency: "HUF" }));
+    expect(html).not.toContain("390,5");
+    expect(html).not.toMatch(/HUF/);
   });
 });

@@ -212,6 +212,11 @@ export default {
       edit: "Edit",
       preview: "Preview",
     },
+    document: {
+      exchangeRate: "Exchange rate",
+      exchangeRateValue: "1 {{currency}} = {{rate}} HUF",
+      vatInHuf: "VAT amount in HUF",
+    },
     documentTypes: {
       invoice: "Invoice",
       proforma: "Proforma",
@@ -303,6 +308,9 @@ export default {
       navSubmitFailedWithReason:
         "The invoice was saved, but the NAV submission failed: {{reason}}",
       dueBeforeIssue: "The due date can't be before the issue date.",
+      exchangeRateRequired: "A non-HUF invoice requires an exchange rate.",
+      exchangeRateInvalid: "The exchange rate must be a number greater than zero.",
+      navExchangeRateMissing: "NAV submission cannot start: the invoice has no HUF exchange rate.",
     },
     autoSaved: "Auto-saved as draft",
     autoSavedAt: "Auto-saved as draft at {{time}}",

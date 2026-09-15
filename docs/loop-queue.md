@@ -116,8 +116,29 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    status text) to match the app's own new visual system.
    Plan: `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship)
-3. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
-   NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
+3. [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
+   **Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
+   NAV XML and on the PDF** (`lib/nav/invoice-xml.ts`,
+   `lib/invoices/build-pdf-context.ts`) — implemented: a new
+   `lib/invoices/exchange-rate.ts` resolves/validates the rate and converts
+   document-currency amounts to HUF (per line, then summed — never
+   converting an already-summed total, so NAV's cross-sum check holds);
+   `buildNavInvoiceXml` now emits the real `<exchangeRate>` and every
+   `…HUF` element from it, and **throws** (no `navSubmission` row written,
+   `client.manageInvoice` never called) for a non-HUF invoice with no usable
+   rate instead of silently reporting a false HUF VAT base. The create path
+   (`POST /api/invoices`, `POST /api/v1/invoices` via
+   `create-from-payload.ts`) now actually persists the rate it collects, and
+   the composer blocks save on a missing/invalid rate before it ever reaches
+   the API. The EUR document (HTML preview + PDF) now shows the rate used
+   and the VAT amount in forint next to the EUR VAT amount. All 16 plan
+   acceptance criteria pass; `npx tsc --noEmit` and `npm run test:unit`
+   (992 tests) are green.
+   Plan: `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship; the plan's
+   OQ-1/OQ-2/OQ-3 — which date's rate governs, whether the HUF VAT amount
+   must round to whole forint, and the document wording — are open
+   questions for that sign-off, not resolved in code)
 4. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
 5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
@@ -137,6 +158,17 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
    control.
+10. Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
+    (`slice/non-huf-invoice-exchange-rate-nav-xml`): before that slice,
+    `POST /api/invoices` silently dropped `body.exchangeRate` on create, so
+    any EUR/non-HUF invoice created before the fix was saved with no rate.
+    Such a row now can't be NAV-submitted (`buildNavInvoiceXml` correctly
+    refuses instead of reporting a false HUF base) until it's edited to add
+    one. Needs a listing (which existing invoices are affected) or an
+    in-app prompt on the invoice detail/edit screen — not a guessed rate.
+    Also out of scope for that slice, needs its own item: retro-correcting
+    any non-HUF invoice already reported to NAV with the old hardcoded
+    `exchangeRate=1` (a NAV MODIFY submission question, tax/legal-gated).
 
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules

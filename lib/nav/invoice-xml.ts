@@ -8,8 +8,14 @@
 // Known simplifications (see docs/nav-test-setup.md openIssues):
 //  - Only `simpleAddress` (country/postal/city) is emitted — we don't have
 //    structured street/house-number data, so `detailedAddress` isn't used.
-//  - `exchangeRate` is always "1" — a real EUR invoice needs the actual MNB
-//    rate on the delivery date, which InvoHub doesn't track yet.
+//  - `exchangeRate` reflects the invoice's own manually-entered
+//    `invoice.exchangeRate` (1 for HUF, always) — every `…HUF` element is
+//    derived from it via lib/invoices/exchange-rate.ts. Two open tax/legal
+//    questions this does NOT resolve (see the implementation plan's OQ-1/
+//    OQ-2, docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md):
+//    which date's rate governs (no MNB/ECB lookup, no rate-date column yet),
+//    and whether the HUF VAT amount must round to whole forint rather than
+//    keeping 2 decimals.
 //  - `invoiceAppearance` defaults to PAPER (can be overridden).
 //  - `electronicInvoiceHash` (seen in some real manageInvoice samples) is
 //    not emitted — unclear if/when it's required; flagged for XSD review.
@@ -35,6 +41,7 @@
 //  - invoice.paymentMethod/paidAt/paidAmount (lib/invoices/types.ts) are not
 //    yet reflected in the XML — same reason (schema placement not verified).
 import { lineItemGrossTotal, lineItemNetTotal, lineItemVatAmount } from "@/lib/invoices/calculations";
+import { formatExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
 import type { Invoice, InvoiceLineItem } from "@/lib/invoices/types";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import type { Company } from "@/lib/companies/service";
@@ -199,7 +206,12 @@ function isZeroVatTreatment(treatment: NavLineItemExtra): boolean {
   return !!(treatment.vatExemption || treatment.vatOutOfScope || treatment.reverseCharge);
 }
 
-function buildLineXml(line: InvoiceLineItem, lineNumber: number, extra: NavLineItemExtra): string {
+function buildLineXml(
+  line: InvoiceLineItem,
+  lineNumber: number,
+  extra: NavLineItemExtra,
+  rate: number
+): string {
   const net = lineItemNetTotal(line);
   const treatment = resolveLineNavTreatment(line, extra);
   const isExempt = isZeroVatTreatment(treatment);
@@ -220,18 +232,18 @@ function buildLineXml(line: InvoiceLineItem, lineNumber: number, extra: NavLineI
         <lineAmountsNormal>
           <lineNetAmountData>
             <lineNetAmount>${formatAmount(net)}</lineNetAmount>
-            <lineNetAmountHUF>${formatAmount(net)}</lineNetAmountHUF>
+            <lineNetAmountHUF>${formatAmount(toHufAmount(net, rate))}</lineNetAmountHUF>
           </lineNetAmountData>
           <lineVatRate>
             ${vatRateXml}
           </lineVatRate>
           <lineVatData>
             <lineVatAmount>${formatAmount(vat)}</lineVatAmount>
-            <lineVatAmountHUF>${formatAmount(vat)}</lineVatAmountHUF>
+            <lineVatAmountHUF>${formatAmount(toHufAmount(vat, rate))}</lineVatAmountHUF>
           </lineVatData>
           <lineGrossAmountData>
             <lineGrossAmountNormal>${formatAmount(gross)}</lineGrossAmountNormal>
-            <lineGrossAmountNormalHUF>${formatAmount(gross)}</lineGrossAmountNormalHUF>
+            <lineGrossAmountNormalHUF>${formatAmount(toHufAmount(gross, rate))}</lineGrossAmountNormalHUF>
           </lineGrossAmountData>
         </lineAmountsNormal>
       </line>`;
@@ -248,11 +260,21 @@ function vatRateGroupKey(line: InvoiceLineItem, treatment: NavLineItemExtra): Va
 
 function buildSummaryXml(
   lineItems: InvoiceLineItem[],
-  lineExtras: Record<string, NavLineItemExtra>
+  lineExtras: Record<string, NavLineItemExtra>,
+  rate: number
 ): string {
   const groups = new Map<
     VatRateGroupKey,
-    { extra: NavLineItemExtra; vatRate: number; net: number; vat: number; gross: number }
+    {
+      extra: NavLineItemExtra;
+      vatRate: number;
+      net: number;
+      vat: number;
+      gross: number;
+      netHuf: number;
+      vatHuf: number;
+      grossHuf: number;
+    }
   >();
 
   for (const line of lineItems) {
@@ -262,13 +284,23 @@ function buildSummaryXml(
     const isExempt = isZeroVatTreatment(treatment);
     const vat = isExempt ? 0 : lineItemVatAmount(line);
     const gross = isExempt ? net : lineItemGrossTotal(line);
+    // Convert per line, then sum the already-rounded HUF values — never
+    // convert an already-summed document-currency total. This is what keeps
+    // NAV's cross-sum validation (summaryByVatRate / invoice totals against
+    // the per-line amounts) consistent; see plan §2(b).
+    const netHuf = toHufAmount(net, rate);
+    const vatHuf = toHufAmount(vat, rate);
+    const grossHuf = toHufAmount(gross, rate);
     const existing = groups.get(key);
     if (existing) {
       existing.net += net;
       existing.vat += vat;
       existing.gross += gross;
+      existing.netHuf += netHuf;
+      existing.vatHuf += vatHuf;
+      existing.grossHuf += grossHuf;
     } else {
-      groups.set(key, { extra: treatment, vatRate: line.vatRate, net, vat, gross });
+      groups.set(key, { extra: treatment, vatRate: line.vatRate, net, vat, gross, netHuf, vatHuf, grossHuf });
     }
   }
 
@@ -281,15 +313,15 @@ function buildSummaryXml(
           </vatRate>
           <vatRateNetData>
             <vatRateNetAmount>${formatAmount(group.net)}</vatRateNetAmount>
-            <vatRateNetAmountHUF>${formatAmount(group.net)}</vatRateNetAmountHUF>
+            <vatRateNetAmountHUF>${formatAmount(group.netHuf)}</vatRateNetAmountHUF>
           </vatRateNetData>
           <vatRateVatData>
             <vatRateVatAmount>${formatAmount(group.vat)}</vatRateVatAmount>
-            <vatRateVatAmountHUF>${formatAmount(group.vat)}</vatRateVatAmountHUF>
+            <vatRateVatAmountHUF>${formatAmount(group.vatHuf)}</vatRateVatAmountHUF>
           </vatRateVatData>
           <vatRateGrossData>
             <vatRateGrossAmount>${formatAmount(group.gross)}</vatRateGrossAmount>
-            <vatRateGrossAmountHUF>${formatAmount(group.gross)}</vatRateGrossAmountHUF>
+            <vatRateGrossAmountHUF>${formatAmount(group.grossHuf)}</vatRateGrossAmountHUF>
           </vatRateGrossData>
         </summaryByVatRate>`;
     })
@@ -304,17 +336,28 @@ function buildSummaryXml(
   }, 0);
   const grossTotal = netTotal + vatTotal;
 
+  // Same per-line-then-sum rule for the invoice-level HUF totals — equal to
+  // the sum of the group HUF sums above, computed independently here so a
+  // future refactor of either block still has to keep both honest.
+  const netTotalHuf = lineItems.reduce((sum, line) => sum + toHufAmount(lineItemNetTotal(line), rate), 0);
+  const vatTotalHuf = lineItems.reduce((sum, line) => {
+    const treatment = resolveLineNavTreatment(line, lineExtras[line.id] ?? {});
+    const vat = isZeroVatTreatment(treatment) ? 0 : lineItemVatAmount(line);
+    return sum + toHufAmount(vat, rate);
+  }, 0);
+  const grossTotalHuf = netTotalHuf + vatTotalHuf;
+
   return `<invoiceSummary>
       <summaryNormal>
         ${byRateXml}
         <invoiceNetAmount>${formatAmount(netTotal)}</invoiceNetAmount>
-        <invoiceNetAmountHUF>${formatAmount(netTotal)}</invoiceNetAmountHUF>
+        <invoiceNetAmountHUF>${formatAmount(netTotalHuf)}</invoiceNetAmountHUF>
         <invoiceVatAmount>${formatAmount(vatTotal)}</invoiceVatAmount>
-        <invoiceVatAmountHUF>${formatAmount(vatTotal)}</invoiceVatAmountHUF>
+        <invoiceVatAmountHUF>${formatAmount(vatTotalHuf)}</invoiceVatAmountHUF>
       </summaryNormal>
       <summaryGrossData>
         <invoiceGrossAmount>${formatAmount(grossTotal)}</invoiceGrossAmount>
-        <invoiceGrossAmountHUF>${formatAmount(grossTotal)}</invoiceGrossAmountHUF>
+        <invoiceGrossAmountHUF>${formatAmount(grossTotalHuf)}</invoiceGrossAmountHUF>
       </summaryGrossData>
     </invoiceSummary>`;
 }
@@ -330,6 +373,19 @@ export function buildNavInvoiceXml(
   company: Company | null,
   lineExtras: Record<string, NavLineItemExtra> = {}
 ): string {
+  // Refuse, don't guess: a non-HUF invoice with no usable HUF rate never
+  // gets a NAV report with a false (or hardcoded-1) HUF VAT base. This
+  // propagates to submitOutgoingInvoiceToNav's caller uncaught, the same way
+  // a missing invoiceReference already does — no navSubmission row is
+  // written for a report that was never valid.
+  const rateResolution = resolveExchangeRate(invoice);
+  if (!rateResolution.ok) {
+    throw new Error(
+      `Cannot build NAV invoice XML for ${invoice.invoiceNumber || invoice.id}: the invoice's HUF exchange rate is missing.`
+    );
+  }
+  const rate = rateResolution.rate;
+
   const deliveryDate = invoice.invoiceDeliveryDate ?? invoice.issueDate;
   const appearance = invoice.invoiceAppearance ?? "PAPER";
   const reference = invoice.invoiceReference;
@@ -358,7 +414,7 @@ export function buildNavInvoiceXml(
           <invoiceCategory>NORMAL</invoiceCategory>
           <invoiceDeliveryDate>${escapeXml(deliveryDate)}</invoiceDeliveryDate>
           <currencyCode>${escapeXml(invoice.currency)}</currencyCode>
-          <exchangeRate>1</exchangeRate>
+          <exchangeRate>${formatExchangeRate(rate)}</exchangeRate>
           <paymentDate>${escapeXml(invoice.dueDate)}</paymentDate>
           <invoiceAppearance>${appearance}</invoiceAppearance>
         </invoiceDetail>
@@ -366,10 +422,10 @@ export function buildNavInvoiceXml(
       <invoiceLines>
         <mergedItemIndicator>false</mergedItemIndicator>
         ${invoice.lineItems
-          .map((line, index) => buildLineXml(line, index + 1, lineExtras[line.id] ?? {}))
+          .map((line, index) => buildLineXml(line, index + 1, lineExtras[line.id] ?? {}, rate))
           .join("\n        ")}
       </invoiceLines>
-      ${buildSummaryXml(invoice.lineItems, lineExtras)}
+      ${buildSummaryXml(invoice.lineItems, lineExtras, rate)}
     </invoice>
   </invoiceMain>
 </InvoiceData>`;

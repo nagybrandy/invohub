@@ -337,6 +337,46 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.errors.dueDate).toBeFalsy();
   });
 
+  it("blocks save for a non-HUF invoice with an empty exchange rate (AC13)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás" })]);
+      ref.current!.setCurrency("EUR");
+    });
+
+    let result;
+    await act(async () => {
+      result = await ref.current!.save("draft");
+    });
+
+    expect(result).toBeUndefined();
+    expect(ref.current!.errors.partner).toBeTruthy();
+    expect(ref.current!.step).toBe("partner");
+    expect(mockApiFetch).not.toHaveBeenCalledWith(
+      "/api/invoices",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("saves a non-HUF invoice once a valid exchange rate is entered (AC13)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás" })]);
+      ref.current!.setCurrency("EUR");
+      ref.current!.setExchangeRate("390,5");
+    });
+
+    let result;
+    await act(async () => {
+      result = await ref.current!.save("draft");
+    });
+
+    expect(result).toBeTruthy();
+    expect(ref.current!.errors.partner).toBeFalsy();
+  });
+
   it("selects the client from ?clientId= on mount in create mode", async () => {
     const ref = await renderComposer({ mode: "create", initialClientId: "client-1" });
     expect(ref.current!.clientName).toBe("Tech Solutions Kft.");

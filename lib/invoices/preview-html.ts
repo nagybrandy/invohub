@@ -4,7 +4,9 @@ import {
   calculateInvoiceTotals,
   formatCurrency,
   lineItemGrossTotal,
+  lineItemVatAmount,
 } from "@/lib/invoices/calculations";
+import { formatExchangeRate, requiresExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
   formatInvoiceDueDate,
@@ -14,6 +16,37 @@ import type { Invoice } from "@/lib/invoices/types";
 
 export function generateInvoicePreviewHtml(invoice: Invoice): string {
   const totals = calculateInvoiceTotals(invoice.lineItems);
+
+  // AC14: a non-HUF invoice shows the rate it was converted at plus the VAT
+  // total in forint next to the document-currency VAT — Áfa tv.'s "currency,
+  // and the exchange rate if not HUF" requirement
+  // (.claude/skills/hu-invoicing-rules/SKILL.md). Wording is plain-language,
+  // not verified legal text — see plan OQ-3. Rendered only when a usable
+  // rate resolves; buildNavInvoiceXml is what refuses to submit without one,
+  // this preview should still render for an in-progress draft.
+  const rateResolution = requiresExchangeRate(invoice.currency) ? resolveExchangeRate(invoice) : null;
+  const exchangeRateHtml =
+    rateResolution && rateResolution.ok
+      ? (() => {
+          const rate = rateResolution.rate;
+          // Convert per line, then sum the rounded HUF values (same rule as
+          // the NAV XML builder, lib/nav/invoice-xml.ts) rather than
+          // converting the already-summed document-currency VAT total.
+          const vatTotalHuf = invoice.lineItems.reduce(
+            (sum, item) => sum + toHufAmount(lineItemVatAmount(item), rate),
+            0
+          );
+          // Display rate uses a comma decimal separator (Hungarian
+          // convention) — distinct from formatExchangeRate's "." output,
+          // which is for the NAV XML, not for a human-facing document.
+          const displayRate = formatExchangeRate(rate).replace(".", ",");
+          return `
+  <div style="text-align:right;color:#444">
+    <p>Exchange rate: 1 ${escapeHtml(invoice.currency)} = ${displayRate} HUF</p>
+    <p>VAT amount in HUF: ${formatCurrency(vatTotalHuf, "HUF")}</p>
+  </div>`;
+        })()
+      : "";
   const rows = invoice.lineItems
     .map(
       (item) =>
@@ -59,6 +92,7 @@ export function generateInvoicePreviewHtml(invoice: Invoice): string {
     <p>VAT: ${formatCurrency(totals.vatTotal, invoice.currency)}</p>
     <p><strong>Total: ${formatCurrency(totals.totalAmount, invoice.currency)}</strong></p>
   </div>
+  ${exchangeRateHtml}
   ${exemptionReasons.length > 0 ? `<p style="color:#444">${exemptionReasons.map(escapeHtml).join("<br>")}</p>` : ""}
   <p style="color:#666;margin-top:24px">Issue: ${escapeHtml(formatInvoiceIssueDateTime(invoice))} · Due: ${escapeHtml(formatInvoiceDueDate(invoice))}</p>
   ${invoice.notes ? `<p style="margin-top:16px">${escapeHtml(invoice.notes)}</p>` : ""}

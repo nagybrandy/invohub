@@ -221,6 +221,11 @@ export default {
       storno: "Sztornó",
       modify: "Helyesbítő számla",
     },
+    document: {
+      exchangeRate: "Árfolyam",
+      exchangeRateValue: "1 {{currency}} = {{rate}} HUF",
+      vatInHuf: "ÁFA összege forintban",
+    },
     sections: {
       recipient: "Kinek szól a bizonylat?",
       datesPayment: "Dátumok és fizetés",
@@ -303,6 +308,9 @@ export default {
       navSubmitFailed: "A számla mentve, de a NAV beküldés sikertelen.",
       navSubmitFailedWithReason: "A számla mentve, de a NAV beküldés sikertelen: {{reason}}",
       dueBeforeIssue: "A fizetési határidő nem lehet korábbi, mint a kiállítás dátuma.",
+      exchangeRateRequired: "Nem forint pénznemű számlához kötelező megadni az árfolyamot.",
+      exchangeRateInvalid: "Az árfolyam csak nullánál nagyobb szám lehet.",
+      navExchangeRateMissing: "A NAV beküldés nem indítható el: hiányzik a számla HUF árfolyama.",
     },
     autoSaved: "Automatikusan mentve piszkozatként",
     autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",

@@ -252,3 +252,112 @@ describe("buildNavInvoiceXml", () => {
     expect(extractTag(extractBlock(xml, "invoiceReference")!, "modifyWithoutMaster")).toBe("true");
   });
 });
+
+describe("buildNavInvoiceXml — non-HUF exchange rate (AC4-AC8)", () => {
+  it("converts a EUR invoice's line/summary amounts to HUF using the stored rate, leaving the document-currency amounts untouched", () => {
+    const invoice = makeInvoice({
+      currency: "EUR",
+      exchangeRate: 390.5,
+      lineItems: [{ id: "l1", description: "Tanácsadás", quantity: 2, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+    });
+    const xml = buildNavInvoiceXml(invoice, null);
+
+    expect(extractTag(xml, "exchangeRate")).toBe("390.5");
+    expect(extractTag(xml, "currencyCode")).toBe("EUR");
+
+    const lineBlock = extractBlock(xml, "line")!;
+    expect(extractTag(lineBlock, "lineNetAmount")).toBe("200.00");
+    expect(extractTag(lineBlock, "lineNetAmountHUF")).toBe("78100.00");
+    expect(extractTag(lineBlock, "lineVatAmount")).toBe("54.00");
+    expect(extractTag(lineBlock, "lineVatAmountHUF")).toBe("21087.00");
+    expect(extractTag(lineBlock, "lineGrossAmountNormalHUF")).toBe("99187.00");
+  });
+
+  it("keeps invoiceNetAmountHUF/invoiceVatAmountHUF equal to the exact sum of the per-line HUF values, per summaryByVatRate group too (AC5)", () => {
+    const invoice = makeInvoice({
+      currency: "EUR",
+      exchangeRate: 390.5,
+      lineItems: [
+        { id: "l1", description: "Item A", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" },
+        { id: "l2", description: "Item B", quantity: 3, unitPrice: 50, vatRate: 5, vatCategory: "normal" },
+      ],
+    });
+    const xml = buildNavInvoiceXml(invoice, null);
+
+    const lineHufAmounts = extractAllTags(xml, "lineNetAmountHUF").map(Number);
+    const lineVatHufAmounts = extractAllTags(xml, "lineVatAmountHUF").map(Number);
+    expect(lineHufAmounts).toHaveLength(2);
+    expect(lineVatHufAmounts).toHaveLength(2);
+
+    const netTotalHuf = lineHufAmounts.reduce((a, b) => a + b, 0);
+    const vatTotalHuf = lineVatHufAmounts.reduce((a, b) => a + b, 0);
+
+    expect(extractTag(xml, "invoiceNetAmountHUF")).toBe(netTotalHuf.toFixed(2));
+    expect(extractTag(xml, "invoiceVatAmountHUF")).toBe(vatTotalHuf.toFixed(2));
+
+    // Two distinct VAT rates -> two summaryByVatRate groups, each matching
+    // its own line's HUF amounts exactly (single-line groups here).
+    const groupNetHufAmounts = extractAllTags(xml, "vatRateNetAmountHUF");
+    const groupVatHufAmounts = extractAllTags(xml, "vatRateVatAmountHUF");
+    expect(groupNetHufAmounts).toEqual(
+      lineHufAmounts.map((n) => n.toFixed(2))
+    );
+    expect(groupVatHufAmounts).toEqual(
+      lineVatHufAmounts.map((n) => n.toFixed(2))
+    );
+  });
+
+  it("is byte-for-byte unchanged for a HUF invoice — exchangeRate 1 and every …HUF element equal to its document-currency sibling (AC6)", () => {
+    const invoice = makeInvoice({
+      currency: "HUF",
+      lineItems: [{ id: "l1", description: "Tanácsadás", quantity: 2, unitPrice: 10000, vatRate: 27, vatCategory: "normal" }],
+    });
+    const xml = buildNavInvoiceXml(invoice, null);
+
+    expect(extractTag(xml, "exchangeRate")).toBe("1");
+    const lineBlock = extractBlock(xml, "line")!;
+    expect(extractTag(lineBlock, "lineNetAmountHUF")).toBe(extractTag(lineBlock, "lineNetAmount")!);
+    expect(extractTag(lineBlock, "lineVatAmountHUF")).toBe(extractTag(lineBlock, "lineVatAmount")!);
+    expect(extractTag(lineBlock, "lineGrossAmountNormalHUF")).toBe(extractTag(lineBlock, "lineGrossAmountNormal")!);
+    expect(extractTag(xml, "invoiceNetAmountHUF")).toBe(extractTag(xml, "invoiceNetAmount")!);
+    expect(extractTag(xml, "invoiceVatAmountHUF")).toBe(extractTag(xml, "invoiceVatAmount")!);
+    expect(extractTag(xml, "invoiceGrossAmountHUF")).toBe(extractTag(xml, "invoiceGrossAmount")!);
+  });
+
+  it("throws for a non-HUF invoice with no exchange rate, naming the invoice number and saying the rate is missing (AC7)", () => {
+    const invoice = makeInvoice({
+      invoiceNumber: "INV-2026-777",
+      currency: "EUR",
+      exchangeRate: undefined,
+    });
+    expect(() => buildNavInvoiceXml(invoice, null)).toThrow(/INV-2026-777/);
+    expect(() => buildNavInvoiceXml(invoice, null)).toThrow(/exchange rate.*missing/i);
+  });
+
+  it("throws for a non-HUF invoice with exchange rate 0 (AC7)", () => {
+    const invoice = makeInvoice({ currency: "EUR", exchangeRate: 0 });
+    expect(() => buildNavInvoiceXml(invoice, null)).toThrow(/exchange rate.*missing/i);
+  });
+
+  it("emits vatRateVatAmountHUF 0.00 and a non-zero vatRateNetAmountHUF for an AAM line on a EUR invoice (AC8)", () => {
+    const invoice = makeInvoice({
+      currency: "EUR",
+      exchangeRate: 390.5,
+      lineItems: [
+        {
+          id: "aam-line",
+          description: "Alanyi adómentes szolgáltatás",
+          quantity: 1,
+          unitPrice: 100,
+          vatRate: 0,
+          vatCategory: "AAM",
+        },
+      ],
+    });
+    const xml = buildNavInvoiceXml(invoice, null);
+
+    const summaryBlock = extractBlock(xml, "summaryByVatRate")!;
+    expect(extractTag(summaryBlock, "vatRateVatAmountHUF")).toBe("0.00");
+    expect(extractTag(summaryBlock, "vatRateNetAmountHUF")).toBe("39050.00");
+  });
+});

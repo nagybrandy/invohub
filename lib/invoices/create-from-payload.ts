@@ -2,6 +2,7 @@
 // Validates and builds an Invoice from API / external payloads.
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
+import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import type {
@@ -52,6 +53,8 @@ export type ExternalInvoiceInput = {
   dueDate?: string;
   status?: InvoiceStatus;
   currency?: InvoiceCurrency;
+  /** Manual HUF exchange rate — required (positive, finite) when currency isn't HUF. */
+  exchangeRate?: number;
   lineItems: ExternalLineItemInput[];
   notes?: string;
   submitToNav?: boolean;
@@ -98,6 +101,15 @@ export function validateExternalInvoiceInput(
   if (body.currency && body.currency !== "EUR" && body.currency !== "HUF") {
     return "currency must be EUR or HUF.";
   }
+  if (body.currency && requiresExchangeRate(body.currency)) {
+    if (
+      typeof body.exchangeRate !== "number" ||
+      !Number.isFinite(body.exchangeRate) ||
+      body.exchangeRate <= 0
+    ) {
+      return "exchangeRate must be a number greater than zero for a non-HUF currency.";
+    }
+  }
 
   const emailToError = validateEmailRecipientsInput("emailTo", body.emailTo);
   if (emailToError) return emailToError;
@@ -137,6 +149,8 @@ export async function createInvoiceFromPayload(
 
   const company = await getCompanyByUserId(userId);
   const now = new Date().toISOString();
+  const currency: InvoiceCurrency =
+    body.currency ?? (company?.country === "HU" || !company?.country ? "HUF" : "EUR");
   const invoice: Invoice = {
     id: createId(),
     // Left blank on drafts — lib/invoices/service.ts assigns a number atomically at finalize time.
@@ -147,7 +161,8 @@ export async function createInvoiceFromPayload(
     issueDate: body.issueDate ?? now.slice(0, 10),
     dueDate: body.dueDate ?? body.issueDate ?? now.slice(0, 10),
     status: body.status ?? "draft",
-    currency: body.currency ?? (company?.country === "HU" || !company?.country ? "HUF" : "EUR"),
+    currency,
+    exchangeRate: requiresExchangeRate(currency) ? body.exchangeRate : undefined,
     lineItems: mapLineItems(body.lineItems, company?.vatExempt ?? false),
     notes: body.notes,
     createdAt: now,

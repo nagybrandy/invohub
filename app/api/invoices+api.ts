@@ -1,6 +1,7 @@
 // app/api/invoices+api.ts
 // Invoice list and create API.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { createId } from "@/lib/id";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
@@ -10,6 +11,15 @@ import {
   upsertInvoice,
 } from "@/lib/invoices/service";
 import type { Invoice } from "@/lib/invoices/types";
+
+/** Only a positive, finite rate on a non-HUF invoice is ever persisted. */
+function normalizeExchangeRate(
+  currency: Invoice["currency"],
+  raw: unknown
+): number | undefined {
+  if (!requiresExchangeRate(currency)) return undefined;
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+}
 
 function parseLimit(url: URL): number {
   const raw = url.searchParams.get("limit");
@@ -58,6 +68,7 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as Partial<Invoice>;
   const now = new Date().toISOString();
+  const currency = body.currency ?? "HUF";
   const invoice: Invoice = {
     id: body.id ?? createId(),
     // Left blank when not explicit — assigned atomically at finalize (see lib/invoices/service.ts).
@@ -68,7 +79,8 @@ export async function POST(request: Request) {
     issueDate: body.issueDate ?? now.slice(0, 10),
     dueDate: body.dueDate ?? now.slice(0, 10),
     status: body.status ?? "draft",
-    currency: body.currency ?? "HUF",
+    currency,
+    exchangeRate: normalizeExchangeRate(currency, body.exchangeRate),
     lineItems: body.lineItems ?? [],
     notes: body.notes,
     paymentMethod: body.paymentMethod,

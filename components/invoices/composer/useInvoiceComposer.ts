@@ -15,6 +15,7 @@ import {
   resolveStatusForAction,
   shouldSendOnAction,
   validateDueDate,
+  validateExchangeRateInput,
   validateLineItemsStep,
   validatePartnerStep,
 } from "@/components/invoices/composer/composer-logic";
@@ -181,6 +182,17 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issueDate, dueDate]);
+
+  // AC13: clear a stale "missing exchange rate" partner-slot error as soon
+  // as the rate (or currency) becomes valid again — same pattern as the
+  // line-items/due-date effects above.
+  React.useEffect(() => {
+    if (!errors.partner) return;
+    if (validateExchangeRateInput(exchangeRate, currency).valid && validatePartnerStep(clientName).valid) {
+      setErrors((prev) => ({ ...prev, partner: undefined }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exchangeRate, currency]);
 
   React.useEffect(() => {
     if (mode !== "create" || appliedInitialClientId.current) return;
@@ -371,6 +383,17 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
       setErrors({ partner: t(partnerCheck.errorKey!) });
       setStep("partner");
       setFocusField(partnerCheck.focusField ?? null);
+      return undefined;
+    }
+
+    // AC13: a non-HUF invoice can't be saved without a usable HUF exchange
+    // rate — surfaced on the partner step (where the currency/rate fields
+    // live) rather than a dedicated step, matching validateDueDate's slot.
+    const exchangeRateCheck = validateExchangeRateInput(exchangeRate, currency);
+    if (!exchangeRateCheck.valid) {
+      setErrors({ partner: t(exchangeRateCheck.errorKey!) });
+      setStep("partner");
+      setFocusField(exchangeRateCheck.focusField ?? null);
       return undefined;
     }
 

@@ -148,4 +148,25 @@ describe("generateInvoicePdf", () => {
 
     expect(mockDrawnTexts).not.toContain("Alanyi adómentes");
   });
+
+  it("draws the forint VAT line for a EUR invoice (AC15)", async () => {
+    const invoice = makeInvoice({
+      currency: "EUR",
+      exchangeRate: 390.5,
+      lineItems: [makeLineItem({ quantity: 2, unitPrice: 100, vatRate: 27 })],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts.some((t) => t.includes("VAT amount in HUF"))).toBe(true);
+    expect(mockDrawnTexts.some((t) => t.includes("21,087") || t.includes("21 087"))).toBe(true);
+  });
+
+  it("does not draw a forint VAT line for a HUF invoice (AC15)", async () => {
+    const invoice = makeInvoice({ currency: "HUF" });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts.some((t) => t.includes("VAT amount in HUF"))).toBe(false);
+  });
 });
