@@ -104,23 +104,32 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    line items (`app/(app)/invoices/new.tsx`) — absorbed by item 0. **Shipped**
    — shared 3-step composer (Partner → Tételek → Ellenőrzés & küldés, one
    step at a time on mobile) in `components/invoices/composer/`.
-2. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
+2. **Invoice document preview/PDF is English and unbranded**
+   (`lib/invoices/preview-html.ts`) — inserted here 2026-09-15 per the UX
+   overhaul audit's explicit recommendation ("Ajánlott a következő
+   queue-tétel legyen"): the sticky composer preview and the finalized
+   invoice's "Előnézet" both render "DRAFT", "Status: unpaid", "Bill to:",
+   "Description/Qty/Unit/VAT/Total" with no InvoHub branding — this is the
+   literal document a Hungarian customer receives. Hungarianize + brand it
+   (navy/cornflower, InvoHub wordmark, Hungarian field labels, correct
+   status text) to match the app's own new visual system.
+3. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
-3. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
-4. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
+4. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
+5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
-5. Partially-paid invoice past due date surfaces as overdue (status derivation)
-6. e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
+6. Partially-paid invoice past due date surfaces as overdue (status derivation)
+7. e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
    test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test
    modes — big item, plan it in slices
-7. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
+8. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
    — **partially shipped**: the composer's own line-item icon buttons are
    now 44px (`components/invoices/composer/LineItemRow.tsx`), but the
    notification bell (`components/navigation/MobileAppHeader.tsx`, ~42px)
    and several choice pills (VAT category picker, partner-type pills,
    invoice-list filter chips) are still under 44px — see the new findings
    below; item stays open.
-8. [x] Invoices empty-state CTA: replace "Load demo data" with "Első számla
+9. [x] Invoices empty-state CTA: replace "Load demo data" with "Első számla
    kiállítása" (demo seed stays behind the dev flag). **Shipped** — the
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
