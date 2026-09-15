@@ -20,10 +20,14 @@ export type StateViewProps = {
   title?: string;
   description?: string;
   action?: ReactNode;
-  /** kind="error" only — renders a "Retry" button. */
+  /** kind="error" only — renders a retry button. */
   onRetry?: () => void;
+  /** Overrides the default (i18n) retry button label. */
+  retryLabel?: string;
   /** Number of skeleton rows/lines for kind="loading". Default 5. */
   skeletonRows?: number;
+  /** Alias for skeletonRows (some callers name it this way). */
+  rows?: number;
   className?: string;
 };
 
@@ -47,15 +51,18 @@ export function StateView({
   description,
   action,
   onRetry,
-  skeletonRows = 5,
+  retryLabel,
+  skeletonRows,
+  rows,
   className = "",
 }: StateViewProps) {
   const { t } = useTranslation();
+  const resolvedRows = rows ?? skeletonRows ?? 5;
 
   if (kind === "loading") {
     return (
       <Box testID="state-view-loading" className={`w-full items-center py-4 ${className}`.trim()}>
-        <SkeletonRows rows={skeletonRows} />
+        <SkeletonRows rows={resolvedRows} />
       </Box>
     );
   }
@@ -87,7 +94,7 @@ export function StateView({
         ) : null}
         {kind === "error" && onRetry ? (
           <Button testID="state-view-retry" variant="outline" onPress={onRetry}>
-            <ButtonText>{t("common.retry")}</ButtonText>
+            <ButtonText>{retryLabel ?? t("common.retry")}</ButtonText>
           </Button>
         ) : (
           action ?? null

@@ -10,6 +10,9 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Box } from "@/components/ui/box";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
+
+export type { BreadcrumbItem } from "@/components/layout/Breadcrumb";
 
 export type PageHeaderProps = {
   title: string;
@@ -22,8 +25,8 @@ export type PageHeaderProps = {
   primaryAction?: ReactNode;
   /** At most two visible outline buttons. */
   secondaryActions?: ReactNode;
-  /** Content of the "···" overflow menu. */
-  overflowActions?: ReactNode;
+  /** Extra items collapsed into a trailing "···" menu. */
+  overflowActions?: OverflowMenuItem[];
   /** @deprecated use primaryAction/secondaryActions/overflowActions instead. Still fully supported. */
   actions?: ReactNode;
 };
@@ -38,13 +41,13 @@ export function PageHeader({
   overflowActions,
   actions,
 }: PageHeaderProps) {
-  const hasSplitActions = Boolean(primaryAction || secondaryActions || overflowActions);
+  const hasSplitActions = Boolean(
+    primaryAction || secondaryActions || (overflowActions && overflowActions.length > 0)
+  );
 
   return (
     <VStack space="sm" className="w-full pb-2">
-      {breadcrumb && breadcrumb.length > 0 ? (
-        <Breadcrumb items={breadcrumb} />
-      ) : null}
+      {breadcrumb && breadcrumb.length > 0 ? <Breadcrumb items={breadcrumb} /> : null}
       <HStack className="flex-wrap items-start justify-between gap-4">
         <VStack space="xs" className="min-w-0 flex-1">
           <HStack space="sm" className="items-center flex-wrap">
@@ -62,7 +65,9 @@ export function PageHeader({
         {hasSplitActions ? (
           <HStack space="sm" className="w-full items-center justify-end gap-2 md:w-auto">
             {secondaryActions}
-            {overflowActions}
+            {overflowActions && overflowActions.length > 0 ? (
+              <OverflowMenu items={overflowActions} label="Továbbiak" />
+            ) : null}
             {primaryAction ? <Box className="w-full md:w-auto">{primaryAction}</Box> : null}
           </HStack>
         ) : actions ? (

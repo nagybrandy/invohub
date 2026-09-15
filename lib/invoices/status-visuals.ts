@@ -1,15 +1,16 @@
 // lib/invoices/status-visuals.ts
-// Single source of truth for invoice status colors (L3, V5). Every screen
-// that renders a status chip, badge, or overdue label must read from here —
-// `paid` is the ONLY status that is ever green anywhere in the app.
+// Single source of truth for InvoiceStatus -> chip/text/border colors, used
+// by InvoiceStatusChip everywhere a status renders (list, dashboard, detail)
+// so the app never shows two different visual systems for the same status
+// again (L3, V5). Only `paid` is ever green.
 import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 
 export type StatusVisual = {
-  /** Chip background className. */
+  /** Chip background className fragment (Tailwind, theme-token based). */
   chip: string;
-  /** Chip text className. */
+  /** Chip/label text color className fragment. */
   text: string;
-  /** Chip border className. */
+  /** Chip border color className fragment. */
   border: string;
 };
 
@@ -56,34 +57,39 @@ export const STATUS_VISUALS: Record<InvoiceStatus, StatusVisual> = {
   },
 };
 
-const OVERDUE_ELIGIBLE_STATUSES: ReadonlySet<InvoiceStatus> = new Set([
+const OVERDUE_ELIGIBLE_STATUSES: InvoiceStatus[] = [
   "sent",
   "unpaid",
+  "overdue",
   "partially_paid",
-]);
-
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
+];
 
 /**
- * Whether an invoice should be *displayed* as overdue right now. This is a
- * presentational derivation only — `dueDate < today` for a status that is
- * still awaiting payment — and never writes back to `invoice.status` (D3).
+ * Whether an invoice should be *presented* as overdue — derived from the due
+ * date, not just the stored `status`. A `sent` invoice past its due date is
+ * shown as overdue even before any background job flips the stored status
+ * (D3). This never writes the status back; it's a display-only derivation.
  */
-export function isOverdue(invoice: Pick<Invoice, "status" | "dueDate">, now: Date = new Date()): boolean {
-  if (!OVERDUE_ELIGIBLE_STATUSES.has(invoice.status)) return false;
-  if (!invoice.dueDate) return false;
-  const due = startOfDay(new Date(invoice.dueDate));
+export function isOverdue(
+  invoice: Pick<Invoice, "status" | "dueDate">,
+  now: Date = new Date()
+): boolean {
+  if (invoice.status === "overdue") return true;
+  if (!OVERDUE_ELIGIBLE_STATUSES.includes(invoice.status)) return false;
+  const due = new Date(`${invoice.dueDate.slice(0, 10)}T23:59:59`);
   if (Number.isNaN(due.getTime())) return false;
-  return due.getTime() < startOfDay(now).getTime();
+  return due.getTime() < now.getTime();
 }
 
-/** Whole days since the due date, floored at 0. Use with isOverdue(). */
-export function overdueDays(invoice: Pick<Invoice, "dueDate">, now: Date = new Date()): number {
-  const due = startOfDay(new Date(invoice.dueDate));
+/** Whole days an invoice has been overdue (0 if not overdue or due today). */
+export function overdueDays(
+  invoice: Pick<Invoice, "status" | "dueDate">,
+  now: Date = new Date()
+): number {
+  if (!isOverdue(invoice, now)) return 0;
+  const due = new Date(`${invoice.dueDate.slice(0, 10)}T00:00:00`);
   if (Number.isNaN(due.getTime())) return 0;
-  const diffMs = startOfDay(now).getTime() - due.getTime();
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const today = new Date(now.toISOString().slice(0, 10) + "T00:00:00");
+  const days = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
   return Math.max(0, days);
 }

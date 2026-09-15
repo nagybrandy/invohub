@@ -73,11 +73,16 @@ describe("PageHeader", () => {
       title: "Számlák",
       primaryAction: <RNText testID="primary">Új számla</RNText>,
       secondaryActions: <RNText testID="secondary">Export</RNText>,
-      overflowActions: <RNText testID="overflow">⋯</RNText>,
+      overflowActions: [{ label: "Egyéb", onPress: jest.fn() }],
     });
     expect(tree.root.findByProps({ testID: "primary" })).toBeTruthy();
     expect(tree.root.findByProps({ testID: "secondary" })).toBeTruthy();
-    expect(tree.root.findByProps({ testID: "overflow" })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: "overflow-menu-trigger" })).toBeTruthy();
+  });
+
+  it("omits the overflow menu when overflowActions is empty", () => {
+    const tree = render({ title: "Számlák", overflowActions: [] });
+    expect(() => tree.root.findByProps({ testID: "overflow-menu-trigger" })).toThrow();
   });
 
   it("uses the display type scale for the title (32/38 bold heading font)", () => {

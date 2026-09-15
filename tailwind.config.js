@@ -61,6 +61,10 @@ module.exports = {
           foreground: "rgb(var(--card-foreground) / <alpha-value>)",
         },
         "hard-shadow": "rgb(var(--hard-shadow) / <alpha-value>)",
+        // Lighter divider color for table rows / dense list borders (V8) —
+        // `border-subtle`, `bg-subtle`, `text-subtle` all resolve to it.
+        subtle: "rgb(var(--border-subtle) / <alpha-value>)",
+        "surface-raised": "rgb(var(--surface-raised) / <alpha-value>)",
       },
       borderWidth: {
         hairline: hairlineWidth(),

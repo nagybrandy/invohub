@@ -35,6 +35,14 @@ const RN_DOM_BLOCKLIST = new Set([
   "needsOffscreenAlphaCompositing",
   "renderToHardwareTextureAndroid",
   "shouldRasterizeIOS",
+  // RN <Text>-only truncation props — real work on native, invalid DOM
+  // attributes on web (React warns and the browser ignores them anyway;
+  // web truncation goes through className, e.g. `truncate`).
+  "numberOfLines",
+  "ellipsizeMode",
+  "allowFontScaling",
+  "adjustsFontSizeToFit",
+  "minimumFontScale",
 ]);
 
 export function webDomProps<T extends RecordProps>(props: T): RecordProps {

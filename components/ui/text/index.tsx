@@ -6,7 +6,7 @@ import { textStyle } from './styles';
 
 type ITextProps = React.ComponentProps<typeof RNText> &
   VariantProps<typeof textStyle> & {
-    /** Tabular figures for money/quantity columns — spec §4.6. */
+    /** Right-aligned tabular figures for money/quantity columns (4.6). */
     numeric?: boolean;
   };
 
@@ -39,9 +39,13 @@ const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(
           sub: sub as boolean,
           italic: italic as boolean,
           highlight: highlight as boolean,
-          class: className,
+          class: numeric ? `tabular-nums text-right ${className ?? ''}` : className,
         })}
-        style={numeric ? [{ fontVariant: ['tabular-nums'] }, style] : style}
+        style={
+          numeric
+            ? [{ fontVariant: ['tabular-nums'] as const }, style]
+            : style
+        }
         {...props}
         ref={ref}
       />

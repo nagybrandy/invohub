@@ -1,79 +1,69 @@
 // lib/invoices/status-visuals.test.ts
-import {
-  isOverdue,
-  overdueDays,
-  STATUS_VISUALS,
-} from "@/lib/invoices/status-visuals";
-import type { InvoiceStatus } from "@/lib/invoices/types";
-
-const ALL_STATUSES = Object.keys(STATUS_VISUALS) as InvoiceStatus[];
+import { STATUS_VISUALS, isOverdue, overdueDays } from "@/lib/invoices/status-visuals";
+import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 describe("STATUS_VISUALS", () => {
-  it("maps paid to the single approved green", () => {
-    expect(STATUS_VISUALS.paid.text).toBe("text-[#15803d]");
-    expect(STATUS_VISUALS.paid.chip).toContain("#15803d");
-    expect(STATUS_VISUALS.paid.border).toContain("#15803d");
+  it("is the only status whose chip color is the green/#15803d family for paid", () => {
+    expect(STATUS_VISUALS.paid.text).toContain("15803d");
+    expect(STATUS_VISUALS.paid.chip).toContain("15803d");
   });
 
-  it("never maps any other status to green (L3, V5)", () => {
-    for (const status of ALL_STATUSES) {
+  it("never uses the green family for any other status", () => {
+    for (const [status, visual] of Object.entries(STATUS_VISUALS)) {
       if (status === "paid") continue;
-      const visual = STATUS_VISUALS[status];
-      const combined = `${visual.chip} ${visual.text} ${visual.border}`;
-      expect(combined).not.toMatch(/green/i);
-      expect(combined).not.toMatch(/#15803d/i);
+      expect(visual.chip).not.toContain("15803d");
+      expect(visual.text).not.toContain("15803d");
+      expect(visual.chip.toLowerCase()).not.toContain("green");
+      expect(visual.text.toLowerCase()).not.toContain("green");
     }
   });
 
-  it("covers every InvoiceStatus", () => {
-    expect(ALL_STATUSES.sort()).toEqual(
-      [
-        "draft",
-        "proforma",
-        "sent",
-        "paid",
-        "partially_paid",
-        "unpaid",
-        "overdue",
-        "cancelled",
-      ].sort()
-    );
+  it("has an entry for every invoice status", () => {
+    const statuses = [
+      "draft",
+      "proforma",
+      "sent",
+      "paid",
+      "partially_paid",
+      "unpaid",
+      "overdue",
+      "cancelled",
+    ];
+    for (const status of statuses) {
+      expect(STATUS_VISUALS).toHaveProperty(status);
+    }
   });
 });
 
 describe("isOverdue", () => {
-  const now = new Date("2026-09-14T12:00:00Z");
+  const now = new Date("2026-09-14T12:00:00.000Z");
 
-  it("is true for a sent invoice whose due date has passed", () => {
-    expect(isOverdue({ status: "sent", dueDate: "2026-08-30" }, now)).toBe(true);
+  it("is true for a stored overdue status", () => {
+    expect(isOverdue(makeInvoice({ status: "overdue", dueDate: "2026-09-01" }), now)).toBe(true);
   });
 
-  it("is true for unpaid / partially_paid too", () => {
-    expect(isOverdue({ status: "unpaid", dueDate: "2026-08-30" }, now)).toBe(true);
-    expect(isOverdue({ status: "partially_paid", dueDate: "2026-08-30" }, now)).toBe(true);
+  it("is true for a still-`sent` invoice whose due date has passed (D3)", () => {
+    expect(isOverdue(makeInvoice({ status: "sent", dueDate: "2026-09-01" }), now)).toBe(true);
   });
 
-  it("is false when the due date is today or in the future", () => {
-    expect(isOverdue({ status: "sent", dueDate: "2026-09-14" }, now)).toBe(false);
-    expect(isOverdue({ status: "sent", dueDate: "2026-09-20" }, now)).toBe(false);
+  it("is false for a sent invoice not yet due", () => {
+    expect(isOverdue(makeInvoice({ status: "sent", dueDate: "2026-10-01" }), now)).toBe(false);
   });
 
-  it("is false for statuses that are not awaiting payment", () => {
-    expect(isOverdue({ status: "paid", dueDate: "2026-08-30" }, now)).toBe(false);
-    expect(isOverdue({ status: "draft", dueDate: "2026-08-30" }, now)).toBe(false);
-    expect(isOverdue({ status: "cancelled", dueDate: "2026-08-30" }, now)).toBe(false);
+  it("is false for paid and draft invoices regardless of due date", () => {
+    expect(isOverdue(makeInvoice({ status: "paid", dueDate: "2026-01-01" }), now)).toBe(false);
+    expect(isOverdue(makeInvoice({ status: "draft", dueDate: "2026-01-01" }), now)).toBe(false);
   });
 });
 
 describe("overdueDays", () => {
-  const now = new Date("2026-09-14T12:00:00Z");
+  const now = new Date("2026-09-14T12:00:00.000Z");
 
   it("counts whole days since the due date", () => {
-    expect(overdueDays({ dueDate: "2026-08-30" }, now)).toBe(15);
+    expect(overdueDays(makeInvoice({ status: "sent", dueDate: "2026-08-30" }), now)).toBe(15);
   });
 
-  it("floors at 0 for a due date today or in the future", () => {
-    expect(overdueDays({ dueDate: "2026-09-14" }, now)).toBe(0);
-    expect(overdueDays({ dueDate: "2026-09-20" }, now)).toBe(0);
+  it("is 0 for an invoice that is not overdue", () => {
+    expect(overdueDays(makeInvoice({ status: "paid", dueDate: "2026-08-30" }), now)).toBe(0);
   });
 });

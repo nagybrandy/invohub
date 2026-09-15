@@ -2,9 +2,6 @@
 import TestRenderer, { act } from "react-test-renderer";
 import { OverflowMenu } from "@/components/layout/OverflowMenu";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/theme/icon-colors", () => ({
   useIconColors: () => ({ foreground: "#000", muted: "#666", primary: "#4f46e5", destructive: "#dc2626" }),
 }));
@@ -28,7 +25,7 @@ function render(props: React.ComponentProps<typeof OverflowMenu>) {
 describe("OverflowMenu", () => {
   it("is closed by default", () => {
     const tree = render({ items: [{ label: "Szerkesztés", onPress: jest.fn() }] });
-    expect(() => tree.root.findByProps({ testID: "overflow-menu-list" })).toThrow();
+    expect(() => tree.root.findByProps({ testID: "overflow-menu-content" })).toThrow();
   });
 
   it("opens the list on trigger press", () => {
@@ -37,7 +34,7 @@ describe("OverflowMenu", () => {
     act(() => {
       trigger.props.onPress();
     });
-    expect(tree.root.findByProps({ testID: "overflow-menu-list" })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: "overflow-menu-content" })).toBeTruthy();
   });
 
   it("calls the item's onPress and closes the menu", () => {
@@ -47,12 +44,12 @@ describe("OverflowMenu", () => {
     act(() => {
       trigger.props.onPress();
     });
-    const menuItem = tree.root.findByProps({ testID: "overflow-menu-item" });
+    const menuItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
     act(() => {
       menuItem.props.onPress();
     });
     expect(onPress).toHaveBeenCalledTimes(1);
-    expect(() => tree.root.findByProps({ testID: "overflow-menu-list" })).toThrow();
+    expect(() => tree.root.findByProps({ testID: "overflow-menu-content" })).toThrow();
   });
 
   it("renders multiple items and marks destructive ones", () => {

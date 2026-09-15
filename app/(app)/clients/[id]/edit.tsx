@@ -70,14 +70,14 @@ export default function EditClientScreen() {
 
   if (loading) {
     return (
-      <FormScreen header={<PageHeader title={t("clients.edit")} />}>
+      <FormScreen header={<PageHeader title={t("partners.editTitle")} />}>
         <ActivityIndicator />
       </FormScreen>
     );
   }
 
   return (
-    <FormScreen header={<PageHeader title={t("clients.edit")} subtitle={name} />}>
+    <FormScreen header={<PageHeader title={t("partners.editTitle")} subtitle={name} />}>
       <VStack space="md">
         <FormControl>
           <FormControlLabel>
