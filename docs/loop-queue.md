@@ -116,8 +116,11 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    status text) to match the app's own new visual system.
    Plan: `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship)
-3. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
+3. [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
+   Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
+   Plan: `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship)
 4. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
 5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
@@ -259,7 +262,8 @@ Remaining for the launch gate:
       since 2026-09-01 and NAV only waives penalties through the end of
       2026, so this is a real launch blocker for any EV issuing nyugta.
       (needs tax/legal sign-off)
-- [ ] Non-HUF invoices report a false HUF VAT base to NAV —
+- [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
+      Non-HUF invoices report a false HUF VAT base to NAV —
       `lib/nav/invoice-xml.ts:361` hardcodes `<exchangeRate>1</exchangeRate>`
       even though `invoice.exchangeRate` exists in `db/schema.ts` and
       `app/(app)/invoices/new.tsx` already collects it. Pass the stored rate
@@ -268,6 +272,14 @@ Remaining for the launch gate:
       (`lib/invoices/build-pdf-context.ts` ignores `exchangeRate` entirely
       today). (needs tax/legal sign-off — which rate and which date govern
       the HUF VAT amount is an Áfa tv. question, not a code choice)
+      Same item as priority #3 above. Plan:
+      `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
+      Planning also found two write-path leaks the item's text did not
+      name, both in scope of that plan: `POST /api/invoices` never copies
+      `body.exchangeRate` (so the composer's rate is dropped on every newly
+      created invoice — `PATCH` keeps it, which is why the field looks like
+      it works when editing), and `lib/invoices/create-from-payload.ts`
+      (`POST /api/v1/invoices`) has no `exchangeRate` field at all.
 - [ ] Payment method and payment date never reach the NAV XML —
       `lib/nav/invoice-xml.ts` defers them as "schema placement not
       verified", but `invoiceDetail` in the published `invoiceData.xsd`
