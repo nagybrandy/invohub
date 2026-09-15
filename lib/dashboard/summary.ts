@@ -3,11 +3,12 @@
 // tests and any caller that already has an invoice array in hand);
 // getDashboardSummaryFromDb aggregates over EVERY invoice via SQL so the
 // numbers are correct at scale instead of only reflecting the first page.
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import { mapInvoiceFromDb } from "@/lib/invoices/mappers";
+import { isOverdue } from "@/lib/invoices/status-visuals";
 import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 
 function invoiceGross(invoice: Invoice): number {
@@ -36,12 +37,26 @@ export type DashboardSummary = {
 const OUTSTANDING_STATUSES: InvoiceStatus[] = ["sent", "overdue", "partially_paid", "unpaid"];
 const ISSUED_STATUSES: InvoiceStatus[] = ["draft", "proforma"];
 
+/**
+ * Whether an invoice should count toward the dashboard's overdue bucket.
+ * The reminders cron deliberately never flips a `partially_paid` invoice's
+ * stored status to "overdue" — it would discard the partial-payment signal
+ * (see lib/reminders/process.ts) — so relying on `status === "overdue"`
+ * alone permanently hides an overdue *partial* payment from every overdue
+ * total. Re-derive it from the due date for just this one status, the same
+ * way the invoice detail screen already does for display (D3, isOverdue()).
+ */
+function isDashboardOverdue(invoice: Invoice, now: Date): boolean {
+  if (invoice.status === "overdue") return true;
+  return invoice.status === "partially_paid" && isOverdue(invoice, now);
+}
+
 export function computeDashboardSummary(
   invoices: Invoice[],
   now: Date = new Date(),
 ): DashboardSummary {
   const paid = invoices.filter((invoice) => invoice.status === "paid");
-  const overdue = invoices.filter((invoice) => invoice.status === "overdue");
+  const overdue = invoices.filter((invoice) => isDashboardOverdue(invoice, now));
   const outstandingInvoices = invoices.filter((invoice) =>
     OUTSTANDING_STATUSES.includes(invoice.status),
   );
@@ -130,13 +145,39 @@ export async function getDashboardSummaryFromDb(
     })),
   );
 
+  // Same rule as isDashboardOverdue(): status "overdue" always counts;
+  // "partially_paid" counts too once its due date has passed, since the
+  // reminders cron deliberately never flips that status (it would discard
+  // the partial-payment signal — see lib/reminders/process.ts). Computed
+  // here (not via the status-only groupRows above) because that needs the
+  // due date, which a GROUP BY status can't see per invoice.
+  const todayStr = now.toISOString().slice(0, 10);
   const overdueRows = await db
-    .select({ dueDate: invoice.dueDate })
+    .select({
+      dueDate: invoice.dueDate,
+      net: sql<string>`COALESCE(SUM(${invoiceLineItem.quantity} * ${invoiceLineItem.unitPrice}), 0)`,
+      vat: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceLineItem.vatCategory} = 'normal' THEN ${invoiceLineItem.quantity} * ${invoiceLineItem.unitPrice} * ${invoiceLineItem.vatRate} / 100.0 ELSE 0 END), 0)`,
+    })
     .from(invoice)
-    .where(and(eq(invoice.userId, userId), eq(invoice.status, "overdue")));
+    .leftJoin(invoiceLineItem, eq(invoiceLineItem.invoiceId, invoice.id))
+    .where(
+      and(
+        eq(invoice.userId, userId),
+        or(
+          eq(invoice.status, "overdue"),
+          and(
+            eq(invoice.status, "partially_paid"),
+            sql`substr(${invoice.dueDate}, 1, 10) < ${todayStr}`
+          )
+        )
+      )
+    )
+    .groupBy(invoice.id, invoice.dueDate);
 
+  let overdueTotal = 0;
   let oldestOverdueDays = 0;
   for (const row of overdueRows) {
+    overdueTotal += Number(row.net) + Number(row.vat);
     const days = daysBetween(row.dueDate, now);
     if (days > oldestOverdueDays) {
       oldestOverdueDays = days;
@@ -166,6 +207,7 @@ export async function getDashboardSummaryFromDb(
 
   return {
     ...totals,
+    overdueTotal,
     overdueCount: overdueRows.length,
     oldestOverdueDays,
     recentInvoices,

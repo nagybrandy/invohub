@@ -253,7 +253,11 @@ screenshots before writing a fix plan:
    `paymentMethod`, `paymentDate` in that verified schema order.
 5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
-6. Partially-paid invoice past due date surfaces as overdue (status derivation)
+6. [x] Partially-paid invoice past due date surfaces as overdue (status
+   derivation) — **Shipped 2026-09-15** on
+   `slice/dashboard-overdue-partially-paid`. See the matching detailed
+   entry below (under "Remaining for the launch gate") for what was
+   actually wrong and fixed.
 7. e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
    test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test
    modes — big item, plan it in slices
@@ -400,7 +404,7 @@ Remaining for the launch gate:
       empty-state action now goes straight to `routes.newInvoice`
       (`t("nav.newInvoice")`, "Új számla") instead of Settings, so the
       demo-seed-visibility problem no longer applies.
-- [ ] A partially-paid invoice past its due date never surfaces as
+- [x] A partially-paid invoice past its due date never surfaces as
       overdue in its own status — `deriveInvoiceStatusFromPayment`
       (`lib/invoices/payment-status.ts`) only compares against `dueDate`
       in the `paidAmount <= 0` branch; once partially paid it
@@ -408,6 +412,39 @@ Remaining for the launch gate:
       Introduce a combined status or an additional overdue flag the UI can
       badge; add a test for paidAmount between 0 and total with a past due
       date. (2026-09-14 audit, feature)
+      **Shipped 2026-09-15** on `slice/dashboard-overdue-partially-paid`.
+      Left `deriveInvoiceStatusFromPayment` itself unchanged — its job is
+      to pick the status to *persist* at the moment of a mark-paid action,
+      and `lib/reminders/process.ts` (the cron that later flips a stale
+      invoice to "overdue") **deliberately** never touches a
+      `partially_paid` row, specifically to avoid discarding the
+      partial-payment signal (see that file's own comment) — adding a new
+      persisted status/enum value would mean a `db/schema.ts` change,
+      which this repo's rules keep out of an auto-merged slice. Instead
+      found and fixed the actual observable impact: `lib/dashboard/
+      summary.ts`'s `overdueTotal`/`overdueCount`/`oldestOverdueDays`
+      (both the pure `computeDashboardSummary` and the SQL-backed
+      `getDashboardSummaryFromDb`) filtered strictly on
+      `status === "overdue"`, so a partially-paid invoice past due
+      permanently disappeared from the dashboard's overdue widget even
+      though it genuinely is overdue money — undercounting, not just a
+      cosmetic label gap. Added `isDashboardOverdue()`, which re-derives
+      "overdue" from the due date for the `partially_paid` case only
+      (reusing `isOverdue()` from `lib/invoices/status-visuals.ts`, the
+      same derivation the invoice detail screen already uses for display,
+      D3) while leaving `status === "sent"`/`"unpaid"` behavior exactly as
+      it was — narrowly scoped to the one case the cron permanently skips,
+      not a broader change to when a not-yet-cron-flipped invoice counts
+      as overdue. The SQL path's grouped-by-status query can't see due
+      dates per row, so the previous "which invoices are overdue"
+      subquery (used for `oldestOverdueDays`) was extended to also pull
+      partially-paid rows whose due date has passed and to sum their
+      gross amount, replacing the status-only `overdueTotal` from the
+      grouped fold. New tests in `lib/dashboard/summary.test.ts` cover a
+      partially-paid-and-overdue invoice contributing to all three
+      overdue fields while a partially-paid-not-yet-due invoice does not,
+      and that `outstanding` is unaffected either way. `npm run
+      typecheck` and `npm run test:unit` green (197 suites / 1113 tests).
 - [ ] e-nyugta (nyugtaadat-szolgáltatás) client targets an endpoint and
       schema that do not exist — `lib/nav-receipt/environment.ts` posts to
       `https://api-test.onlineszamla.nav.gov.hu/receipt-if/v1` with

@@ -48,6 +48,41 @@ describe("computeDashboardSummary", () => {
     expect(summary.oldestOverdueDays).toBe(11);
   });
 
+  it("counts a partially-paid invoice past its due date as overdue, even though its stored status stays partially_paid", () => {
+    // The reminders cron deliberately never flips a partially_paid
+    // invoice's status to "overdue" (lib/reminders/process.ts) — it would
+    // discard the partial-payment signal — so the dashboard must derive
+    // "overdue" from the due date for this one status instead of trusting
+    // the stored status alone.
+    const invoices = [
+      makeInvoice({
+        id: "partial-overdue",
+        status: "partially_paid",
+        dueDate: "2026-09-01",
+        paidAmount: 10_000,
+        createdAt: "2026-08-20T00:00:00.000Z",
+        lineItems: [makeLineItem({ quantity: 1, unitPrice: 20_000, vatRate: 27 })],
+      }),
+      makeInvoice({
+        id: "partial-not-due-yet",
+        status: "partially_paid",
+        dueDate: "2026-12-01",
+        paidAmount: 10_000,
+        createdAt: "2026-08-21T00:00:00.000Z",
+        lineItems: [makeLineItem({ quantity: 1, unitPrice: 20_000, vatRate: 27 })],
+      }),
+    ];
+
+    const summary = computeDashboardSummary(invoices, now);
+
+    expect(summary.overdueTotal).toBe(25_400);
+    expect(summary.overdueCount).toBe(1);
+    expect(summary.oldestOverdueDays).toBe(11);
+    // Still counted once in "outstanding" regardless of overdue-ness —
+    // unaffected by this fix.
+    expect(summary.outstanding).toBe(50_800);
+  });
+
   it("sums VAT from paid invoice line items instead of a flat 27% guess", () => {
     const invoices = [
       makeInvoice({
@@ -121,10 +156,17 @@ describe("getDashboardSummaryFromDb", () => {
           }),
         }),
       },
-      // overdue due dates
+      // overdue rows (status "overdue", or "partially_paid" past due date)
       {
         from: () => ({
-          where: () => Promise.resolve([{ dueDate: "2026-09-01" }]),
+          leftJoin: () => ({
+            where: () => ({
+              groupBy: () =>
+                Promise.resolve([
+                  { dueDate: "2026-09-01", net: "20000", vat: "5400" },
+                ]),
+            }),
+          }),
         }),
       },
       // recent invoices
