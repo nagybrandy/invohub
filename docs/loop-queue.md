@@ -291,6 +291,26 @@ Remaining for the launch gate:
       account (needs `NAV_TEST_*` configured — see docs/nav-test-setup.md)
       — do a real storno/modify test submission once that's set up, as a
       final check before relying on this for production.
+- [ ] NAV OSA round-trip verification — close the loop on whether submitted
+      invoice data actually arrives at NAV correctly, not just that
+      `manageInvoice` returns without error. Two parts:
+      (1) implement `queryInvoiceData` in `lib/nav/real-client.ts` /
+      `lib/nav/types.ts` (currently missing — the only NAV op that reads
+      back exactly what NAV stored for a submitted invoice number), then
+      extend `scripts/nav-check.mjs` (or a new script/test) into a real
+      round trip against the already-configured `NAV_TEST_*` account:
+      `manageInvoice` a real test invoice → poll `queryTransactionStatus`
+      until DONE → `queryInvoiceData` → assert the returned data matches
+      what `buildNavInvoiceXml` sent, field by field, across a fixture
+      matrix (AAM/TAM/fordított adózás, storno, helyesbítő/modify, non-HUF
+      exchange rate, payment method/date). (2) validate `buildNavInvoiceXml`
+      output against NAV's published `invoiceData.xsd`/`invoiceBase.xsd`
+      before submission, as a network-free check catching structural
+      regressions on every change. Directly closes the open items in
+      `docs/nav-test-setup.md` ("Nyitott kérdések" — full `manageInvoice`
+      round trip never tested with a real test account) and is part of the
+      Phase 1 launch gate ("NAV OSA end-to-end certified with test
+      credentials") below. (2026-09-15, from chat)
 - [x] Invoice creation (`app/(app)/invoices/new.tsx`) is one long, flat
       scroll with ~16 fields and no sectioned/step flow on mobile —
       consider a step/accordion flow (Recipient → Dates/Payment → Line
