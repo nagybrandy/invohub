@@ -6,16 +6,16 @@ import { useWindowDimensions } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
   Building2,
-  ChevronsLeft,
-  ChevronsRight,
   LogOut,
+  PanelLeft,
   Plus,
 } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
+import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { BrandLogo } from "@/components/marketing/BrandLogo";
+import { BrandLogo, BrandMark } from "@/components/marketing/BrandLogo";
 import {
   getSidebarSecondaryNav,
   isNavActive,
@@ -152,18 +152,54 @@ export function AppSidebar({
   }
 
   const secondaryNav = getSidebarSecondaryNav(role);
+  // w-72px/w-248px are Tailwind arbitrary-value classes NativeWind resolves
+  // to a real `width`, so a plain CSS `transition-[width]` (web-only utility
+  // — no-ops harmlessly on native) animates the collapse/expand smoothly
+  // instead of the width snapping instantly.
   const widthClass = collapsed ? "w-[72px]" : "w-[248px]";
 
   return (
     <Box
       testID="app-sidebar"
-      className={`h-full flex-shrink-0 bg-secondary ${widthClass}`}
+      className={`h-full flex-shrink-0 overflow-hidden bg-secondary web:transition-[width] web:duration-200 web:ease-in-out ${widthClass}`}
     >
       <VStack className="h-full justify-between px-3 py-4">
         <VStack space="lg">
-          <Box className={collapsed ? "items-center px-1 py-1" : "px-1 py-1"}>
-            <BrandLogo tone="onDark" withMark height={24} />
-          </Box>
+          {/* Collapsed: only the mark (no wordmark — it has no room in a
+              72px rail and would clip). The collapse toggle lives up here
+              too, right next to the logo, instead of buried at the bottom —
+              a single, consistent icon (PanelLeft, the same one shadcn/ui's
+              own sidebar trigger uses) rather than swapping chevron
+              direction, so it stays visually stable and easy to spot. */}
+          <HStack
+            className={`items-center px-1 py-1 ${collapsed ? "justify-center" : "justify-between"}`}
+          >
+            {collapsed ? (
+              <BrandMark tone="onDark" size={24} />
+            ) : (
+              <BrandLogo tone="onDark" withMark height={24} />
+            )}
+            {!collapsed ? (
+              <Pressable
+                onPress={toggleCollapsed}
+                accessibilityRole="button"
+                accessibilityLabel={t("nav.collapseSidebar")}
+                className="h-8 w-8 items-center justify-center rounded-lg hover:bg-white/8"
+              >
+                <PanelLeft size={18} color={ON_DARK_MUTED} />
+              </Pressable>
+            ) : null}
+          </HStack>
+          {collapsed ? (
+            <Pressable
+              onPress={toggleCollapsed}
+              accessibilityRole="button"
+              accessibilityLabel={t("nav.expandSidebar")}
+              className="h-8 w-8 items-center justify-center self-center rounded-lg hover:bg-white/8"
+            >
+              <PanelLeft size={18} color={ON_DARK_MUTED} />
+            </Pressable>
+          ) : null}
 
           <Pressable
             onPress={onNewInvoice}
@@ -209,19 +245,6 @@ export function AppSidebar({
         </VStack>
 
         <VStack space="xs">
-          <Pressable
-            onPress={toggleCollapsed}
-            accessibilityRole="button"
-            accessibilityLabel={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
-            className="h-9 flex-row items-center justify-center rounded-lg hover:bg-white/8"
-          >
-            {collapsed ? (
-              <ChevronsRight size={16} color={ON_DARK_MUTED} />
-            ) : (
-              <ChevronsLeft size={16} color={ON_DARK_MUTED} />
-            )}
-          </Pressable>
-
           <Box className="h-px bg-white/10" />
 
           <Pressable

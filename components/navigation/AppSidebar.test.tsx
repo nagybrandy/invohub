@@ -17,6 +17,10 @@ jest.mock("@/components/marketing/BrandLogo", () => ({
     const { Text } = require("react-native");
     return <Text testID="brand-logo">InvoHub</Text>;
   },
+  BrandMark: () => {
+    const { Text } = require("react-native");
+    return <Text testID="brand-mark">IH</Text>;
+  },
 }));
 
 function makeLocalStorage() {

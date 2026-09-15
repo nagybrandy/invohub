@@ -1,15 +1,35 @@
 # .vercelignore
-# `vercel deploy` walks the filesystem itself (not just tracked git files) and
-# by default only skips what .gitignore already excludes. .claude/worktrees/
-# holds full nested checkouts (each with its own node_modules symlink) from
-# concurrent Claude Code sessions/workflows — walking into those blew the
-# upload past Vercel's 15000-file limit (18308 seen 2026-09-15). None of this
-# is needed to build or serve the app.
-.claude/worktrees/
-.claude/worktrees
+# IMPORTANT: `vercel deploy` walks the filesystem itself (not just
+# git-tracked files). Vercel CLI docs: once a `.vercelignore` exists, it is
+# used INSTEAD of `.gitignore` — `.gitignore`'s exclusions (including
+# `.env`) stop applying. This file must therefore mirror every relevant
+# `.gitignore` entry itself, not just add to it.
+#
+# 2026-09-15 incident: adding this file without an `.env` line caused the
+# next `vercel --prod` to upload the real local `.env` (DATABASE_URL,
+# BETTER_AUTH_SECRET, NAV_TEST_* etc.) as build source — the build then
+# failed for an unrelated reason before going live, but the file still
+# reached Vercel's build step. Never remove the env lines below.
 
-# Large non-deploy artifacts that accumulate over time and are never needed
-# to build/serve the app.
+# --- secrets — never upload ---
+.env
+.env.*
+!.env.example
+.vercel
+
+# --- dependencies / build output ---
+node_modules/
+dist/
+web-build/
+.expo/
+
+# Nested git worktrees for concurrent Claude Code sessions/workflows — full
+# checkouts (each with its own node_modules symlink) from other worktrees;
+# walking into these blew the upload past Vercel's 15000-file limit (18308
+# seen 2026-09-15). None of this is needed to build or serve the app.
+.claude/worktrees/
+
+# --- large non-deploy artifacts ---
 docs/design/screens/
 docs/audits/
 e2e/
@@ -17,5 +37,5 @@ __tests__/
 playwright-report/
 test-results/
 coverage/
-.expo/
 .cursor/
+.git/
