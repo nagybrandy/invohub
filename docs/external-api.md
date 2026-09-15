@@ -83,6 +83,7 @@ Létrehoz egy számlát. Alapértelmezetten **e-mailt küld PDF csatolmánnyal**
 | `dueDate` | string | nem | `YYYY-MM-DD` (default: issueDate) |
 | `status` | string | nem | `draft`, `proforma`, `sent`, `paid`, `overdue`, `cancelled` (default: `draft`) |
 | `currency` | string | nem | `EUR` vagy `HUF` (default: `EUR`) |
+| `paymentMethod` | string | nem | `transfer`, `cash`, `card`, `other` |
 | `notes` | string | nem | Megjegyzés a számlán |
 | `sendEmail` | boolean | nem | E-mail küldés (default: `true`) |
 | `emailTo` | string \| string[] | nem | Címzett(ek) felülírása — egy e-mail, vesszővel elválasztott lista, vagy tömb |

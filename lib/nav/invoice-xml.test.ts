@@ -2,6 +2,7 @@
 import { buildNavInvoiceXml } from "@/lib/nav/invoice-xml";
 import { extractAllTags, extractBlock, extractTag } from "@/lib/nav/xml-utils";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
+import { PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 
 describe("buildNavInvoiceXml", () => {
   it("builds a schema-shaped OSA 3.0 InvoiceData document", () => {
@@ -250,5 +251,92 @@ describe("buildNavInvoiceXml", () => {
       null
     );
     expect(extractTag(extractBlock(xml, "invoiceReference")!, "modifyWithoutMaster")).toBe("true");
+  });
+
+  it("emits exactly one <paymentMethod>TRANSFER</paymentMethod> inside <invoiceDetail> for a transfer invoice", () => {
+    const xml = buildNavInvoiceXml(makeInvoice({ paymentMethod: "transfer" }), null);
+    const detailBlock = extractBlock(xml, "invoiceDetail")!;
+    expect(extractAllTags(detailBlock, "paymentMethod")).toEqual(["TRANSFER"]);
+  });
+
+  it("orders invoiceDetail children per InvoiceDetailType's xs:sequence: currencyCode < exchangeRate < paymentMethod < paymentDate < invoiceAppearance", () => {
+    const xml = buildNavInvoiceXml(makeInvoice({ paymentMethod: "cash" }), null);
+    const detailBlock = extractBlock(xml, "invoiceDetail")!;
+    const currencyIdx = detailBlock.indexOf("<currencyCode>");
+    const exchangeIdx = detailBlock.indexOf("<exchangeRate>");
+    const paymentMethodIdx = detailBlock.indexOf("<paymentMethod>");
+    const paymentDateIdx = detailBlock.indexOf("<paymentDate>");
+    const appearanceIdx = detailBlock.indexOf("<invoiceAppearance>");
+
+    expect(currencyIdx).toBeGreaterThan(-1);
+    expect(exchangeIdx).toBeGreaterThan(currencyIdx);
+    expect(paymentMethodIdx).toBeGreaterThan(exchangeIdx);
+    expect(paymentDateIdx).toBeGreaterThan(paymentMethodIdx);
+    expect(appearanceIdx).toBeGreaterThan(paymentDateIdx);
+  });
+
+  it("omits <paymentMethod> when the invoice has no paymentMethod, while paymentDate and invoiceAppearance stay present", () => {
+    const xml = buildNavInvoiceXml(makeInvoice({ paymentMethod: undefined }), null);
+    expect(xml).not.toContain("<paymentMethod>");
+    expect(extractTag(xml, "paymentDate")).not.toBeNull();
+    expect(extractTag(xml, "invoiceAppearance")).not.toBeNull();
+  });
+
+  it.each(PAYMENT_METHODS)(
+    "maps InvoHub paymentMethod %s to its NAV enum end-to-end through the builder",
+    (method) => {
+      const expected: Record<(typeof PAYMENT_METHODS)[number], string> = {
+        transfer: "TRANSFER",
+        cash: "CASH",
+        card: "CARD",
+        other: "OTHER",
+      };
+      const xml = buildNavInvoiceXml(makeInvoice({ paymentMethod: method }), null);
+      expect(extractTag(xml, "paymentMethod")).toBe(expected[method]);
+    }
+  );
+
+  it("emits paymentDate as the due date, never the actual payment date (paidAt)", () => {
+    const xml = buildNavInvoiceXml(
+      makeInvoice({ dueDate: "2026-06-15", paidAt: "2026-06-03T08:00:00.000Z" }),
+      null
+    );
+    expect(extractTag(xml, "paymentDate")).toBe("2026-06-15");
+    expect(xml).not.toContain("2026-06-03");
+    expect(xml).not.toContain("2026-06-03T08:00:00.000Z");
+  });
+
+  it("normalizes a due date with a time component to a date-only paymentDate", () => {
+    const xml = buildNavInvoiceXml(makeInvoice({ dueDate: "2026-06-15T12:30:00.000Z" }), null);
+    expect(extractTag(xml, "paymentDate")).toBe("2026-06-15");
+  });
+
+  it("omits <paymentDate> entirely when dueDate is empty, without disturbing paymentMethod/invoiceAppearance", () => {
+    const xml = buildNavInvoiceXml(
+      makeInvoice({ dueDate: "", paymentMethod: "card" }),
+      null
+    );
+    expect(xml).not.toContain("<paymentDate>");
+    const detailBlock = extractBlock(xml, "invoiceDetail")!;
+    const paymentMethodIdx = detailBlock.indexOf("<paymentMethod>");
+    const appearanceIdx = detailBlock.indexOf("<invoiceAppearance>");
+    expect(paymentMethodIdx).toBeGreaterThan(-1);
+    expect(appearanceIdx).toBeGreaterThan(paymentMethodIdx);
+  });
+
+  it("date-normalizes invoiceIssueDate and invoiceDeliveryDate the same way as paymentDate", () => {
+    const xml = buildNavInvoiceXml(
+      makeInvoice({ issueDate: "2026-05-01T09:00:00Z" }),
+      null
+    );
+    expect(extractTag(xml, "invoiceIssueDate")).toBe("2026-05-01");
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-01");
+  });
+
+  it("falls back to today's raw escaped string for invoiceIssueDate/invoiceDeliveryDate when unparseable (mandatory elements, never omitted)", () => {
+    const invoice = makeInvoice({ issueDate: "not-a-date" });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "invoiceIssueDate")).toBe("not-a-date");
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("not-a-date");
   });
 });

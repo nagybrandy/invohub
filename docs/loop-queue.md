@@ -311,6 +311,13 @@ Remaining for the launch gate:
       slice instead adds `paymentMethod` and normalizes the emitted dates
       to `InvoiceDateType` shape (date-only, ≥ 2010-01-01), which the
       current raw pass-through of a `text` due date does not guarantee.
+      Implemented: `lib/nav/invoice-fields.ts` (new: `toNavPaymentMethod`,
+      `toNavDate`) + `lib/nav/invoice-xml.ts`; AC1-15 in the plan all green,
+      `npx tsc --noEmit` clean, `npm run test:unit` green (979 tests). Left
+      `[~]`, not `[x]`: this is tax/legal-gated (mandatory NAV data-report
+      content) and ships as a PR for human sign-off per CLAUDE.md, with
+      OQ-1…OQ-5 in the PR body — a human must flip this to `[x]` after
+      reviewing.
 - [ ] Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
       DBK-/ELO- numbers and `lib/i18n/locales/hu.ts` labels them, but there
       is no way to turn a paid díjbekérő into the actual számla: nothing in

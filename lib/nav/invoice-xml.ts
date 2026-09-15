@@ -32,13 +32,21 @@
 //    is unrelated (simplified/aggregate vs. normal invoice shape), not a
 //    create/modify/storno marker; confirmed against invoiceBase.xsd's
 //    InvoiceCategoryType, which has no MODIFY/STORNO value.
-//  - invoice.paymentMethod/paidAt/paidAmount (lib/invoices/types.ts) are not
-//    yet reflected in the XML — same reason (schema placement not verified).
+//  - invoice.paymentMethod now emits <paymentMethod> (verified element
+//    position between <exchangeRate> and <paymentDate> in
+//    InvoiceDetailType's xs:sequence; see lib/nav/invoice-fields.ts) and
+//    <paymentDate> is invoice.dueDate — the fizetési határidő (deadline for
+//    payment), which is what base:InvoiceDateType's paymentDate documents.
+//    invoice.paidAt (the *actual* payment date) has no OSA 3.0 element to
+//    go in and is deliberately NOT emitted — see
+//    docs/plans/2026-09-15-nav-xml-payment-method-date.md §1 for the
+//    XSD-verified reasoning. Do not "fix" paymentDate to read paidAt.
 import { lineItemGrossTotal, lineItemNetTotal, lineItemVatAmount } from "@/lib/invoices/calculations";
 import type { Invoice, InvoiceLineItem } from "@/lib/invoices/types";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import type { Company } from "@/lib/companies/service";
 import { escapeXml } from "@/lib/nav/xml-utils";
+import { toNavDate, toNavPaymentMethod } from "@/lib/nav/invoice-fields";
 
 const NS_DATA = "http://schemas.nav.gov.hu/OSA/3.0/data";
 const NS_BASE = "http://schemas.nav.gov.hu/OSA/3.0/base";
@@ -330,9 +338,25 @@ export function buildNavInvoiceXml(
   company: Company | null,
   lineExtras: Record<string, NavLineItemExtra> = {}
 ): string {
-  const deliveryDate = invoice.invoiceDeliveryDate ?? invoice.issueDate;
+  const rawDeliveryDate = invoice.invoiceDeliveryDate ?? invoice.issueDate;
+  // Mandatory elements (minOccurs unset) — never omitted. Normalize to
+  // date-only per InvoiceDateType; fall back to the raw escaped string when
+  // toNavDate can't parse it, so no currently-working invoice regresses.
+  const issueDate = toNavDate(invoice.issueDate) ?? invoice.issueDate;
+  const deliveryDate = toNavDate(rawDeliveryDate) ?? rawDeliveryDate;
   const appearance = invoice.invoiceAppearance ?? "PAPER";
   const reference = invoice.invoiceReference;
+
+  const navPaymentMethod = toNavPaymentMethod(invoice.paymentMethod);
+  const paymentMethodXml = navPaymentMethod
+    ? `<paymentMethod>${navPaymentMethod}</paymentMethod>\n          `
+    : "";
+  // paymentDate is the fizetési határidő (due date), optional — omit rather
+  // than emit an invalid/empty element when dueDate can't be normalized.
+  const navPaymentDate = toNavDate(invoice.dueDate);
+  const paymentDateXml = navPaymentDate
+    ? `<paymentDate>${navPaymentDate}</paymentDate>\n          `
+    : "";
   // Sequence order per InvoiceReferenceType: originalInvoiceNumber,
   // modifyWithoutMaster, modificationIndex.
   const referenceXml = reference
@@ -347,7 +371,7 @@ export function buildNavInvoiceXml(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <InvoiceData xmlns="${NS_DATA}" xmlns:base="${NS_BASE}">
   <invoiceNumber>${escapeXml(invoice.invoiceNumber)}</invoiceNumber>
-  <invoiceIssueDate>${escapeXml(invoice.issueDate)}</invoiceIssueDate>
+  <invoiceIssueDate>${escapeXml(issueDate)}</invoiceIssueDate>
   <completenessIndicator>false</completenessIndicator>
   <invoiceMain>
     <invoice>
@@ -359,8 +383,7 @@ export function buildNavInvoiceXml(
           <invoiceDeliveryDate>${escapeXml(deliveryDate)}</invoiceDeliveryDate>
           <currencyCode>${escapeXml(invoice.currency)}</currencyCode>
           <exchangeRate>1</exchangeRate>
-          <paymentDate>${escapeXml(invoice.dueDate)}</paymentDate>
-          <invoiceAppearance>${appearance}</invoiceAppearance>
+          ${paymentMethodXml}${paymentDateXml}<invoiceAppearance>${appearance}</invoiceAppearance>
         </invoiceDetail>
       </invoiceHead>
       <invoiceLines>

@@ -140,3 +140,12 @@ demó szimulátorra vált (semmilyen hiba nem jelenik meg a felhasználóknak) �
 - A NAV eNyugta (elektronikus nyugta) modul (`lib/nav-receipt/`) protokollja **nincs**
   hivatalos NAV séma/minta alapján ellenőrizve — demó módban (alapértelmezett) nem hív
   valódi végpontot; teszt/éles módban a korábbi, ellenőrizetlen implementációt használja.
+- A `paymentMethod` (fizetési mód) és `paymentDate` (fizetési határidő) mezők mostantól
+  bekerülnek a `manageInvoice` XML-be (`lib/nav/invoice-fields.ts`,
+  `lib/nav/invoice-xml.ts`) — az elempozíció (`<paymentMethod>` az `<exchangeRate>` és a
+  `<paymentDate>` között) és az öt elemű `base:PaymentMethodType` enum a publikus
+  `invoiceData.xsd`/`invoiceBase.xsd` ellen ellenőrizve lett (lásd
+  `docs/plans/2026-09-15-nav-xml-payment-method-date.md`). Az OSA 3.0 sémának **nincs**
+  eleme a tényleges fizetés dátumára (`invoice.paidAt`) — a `paymentDate` a fizetési
+  határidő (`dueDate`), nem a tényleges fizetés napja; a `paidAt` szándékosan nem kerül
+  az XML-be.

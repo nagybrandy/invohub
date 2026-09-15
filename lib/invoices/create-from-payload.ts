@@ -2,6 +2,7 @@
 // Validates and builds an Invoice from API / external payloads.
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
+import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 import { upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import type {
@@ -10,6 +11,7 @@ import type {
   InvoiceDocumentType,
   InvoiceLineItem,
   InvoiceStatus,
+  PaymentMethod,
   VatCategory,
   VatRate,
 } from "@/lib/invoices/types";
@@ -54,6 +56,7 @@ export type ExternalInvoiceInput = {
   currency?: InvoiceCurrency;
   lineItems: ExternalLineItemInput[];
   notes?: string;
+  paymentMethod?: PaymentMethod;
   submitToNav?: boolean;
   /** Send invoice email immediately after creation (default true). */
   sendEmail?: boolean;
@@ -97,6 +100,9 @@ export function validateExternalInvoiceInput(
   }
   if (body.currency && body.currency !== "EUR" && body.currency !== "HUF") {
     return "currency must be EUR or HUF.";
+  }
+  if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
+    return `paymentMethod must be one of ${PAYMENT_METHODS.join(", ")}.`;
   }
 
   const emailToError = validateEmailRecipientsInput("emailTo", body.emailTo);
@@ -150,6 +156,7 @@ export async function createInvoiceFromPayload(
     currency: body.currency ?? (company?.country === "HU" || !company?.country ? "HUF" : "EUR"),
     lineItems: mapLineItems(body.lineItems, company?.vatExempt ?? false),
     notes: body.notes,
+    paymentMethod: body.paymentMethod,
     createdAt: now,
     updatedAt: now,
   };
