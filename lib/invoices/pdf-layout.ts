@@ -119,18 +119,35 @@ export function tableColumns(doc: Doc): TableColumns {
   const left = doc.page.margins.left;
   const right = left + pageWidth;
 
+  // Column widths/gaps are computed right-to-left so the description column
+  // absorbs whatever space remains — this keeps the fixed-width columns from
+  // ever overlapping regardless of page width. qtyWidth is wide enough for
+  // the Hungarian header "Mennyiség" (the longest column label) to stay on
+  // one line at the table's bold header font size.
+  const gap = 8;
+  const totalWidth = 72;
+  const vatWidth = 34;
+  const unitWidth = 58;
+  const qtyWidth = 60;
+
+  const totalX = right - totalWidth;
+  const vatX = totalX - gap - vatWidth;
+  const unitX = vatX - gap - unitWidth;
+  const qtyX = unitX - gap - qtyWidth;
+  const descWidth = qtyX - left - gap;
+
   return {
     left,
     right,
-    descWidth: pageWidth * 0.4,
-    qtyX: left + pageWidth * 0.42,
-    unitX: left + pageWidth * 0.52,
-    vatX: left + pageWidth * 0.64,
-    totalX: right - 72,
-    qtyWidth: 36,
-    unitWidth: 58,
-    vatWidth: 34,
-    totalWidth: 72,
+    descWidth,
+    qtyX,
+    unitX,
+    vatX,
+    totalX,
+    qtyWidth,
+    unitWidth,
+    vatWidth,
+    totalWidth,
   };
 }
 
@@ -143,14 +160,26 @@ export function drawTableHeader(
 ): number {
   const y = doc.y;
   doc.font("Helvetica-Bold").fontSize(fontSize).fillColor(accent);
-  doc.text(labels[0] ?? "Description", cols.left, y, { width: cols.descWidth });
-  doc.text(labels[1] ?? "Qty", cols.qtyX, y, { width: cols.qtyWidth, align: "right" });
-  doc.text(labels[2] ?? "Unit", cols.unitX, y, { width: cols.unitWidth, align: "right" });
-  doc.text(labels[3] ?? "VAT", cols.vatX, y, { width: cols.vatWidth, align: "right" });
-  doc.text(labels[4] ?? "Total", cols.totalX, y, { width: cols.totalWidth, align: "right" });
+  const cells: Array<{ text: string; x: number; width: number; align?: "left" | "right" }> = [
+    { text: labels[0] ?? "Description", x: cols.left, width: cols.descWidth },
+    { text: labels[1] ?? "Qty", x: cols.qtyX, width: cols.qtyWidth, align: "right" },
+    { text: labels[2] ?? "Unit", x: cols.unitX, width: cols.unitWidth, align: "right" },
+    { text: labels[3] ?? "VAT", x: cols.vatX, width: cols.vatWidth, align: "right" },
+    { text: labels[4] ?? "Total", x: cols.totalX, width: cols.totalWidth, align: "right" },
+  ];
+  for (const cell of cells) {
+    doc.text(cell.text, cell.x, y, { width: cell.width, align: cell.align });
+  }
   doc.fillColor("#000000");
 
-  const headerBottom = y + doc.currentLineHeight() + 6;
+  // A header label can wrap onto two lines (e.g. a narrow column width or a
+  // longer translation), so measure the actual rendered height of every
+  // cell instead of assuming a single line.
+  const headerHeight = Math.max(
+    doc.currentLineHeight(),
+    ...cells.map((cell) => doc.heightOfString(cell.text, { width: cell.width }))
+  );
+  const headerBottom = y + headerHeight + 6;
   doc.moveTo(cols.left, headerBottom).lineTo(cols.right, headerBottom).strokeColor(accent).lineWidth(1).stroke();
   doc.lineWidth(1);
   return headerBottom + 8;

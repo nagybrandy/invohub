@@ -81,7 +81,9 @@ describe("generateInvoicePreviewHtml", () => {
   });
 
   it("contains the Hungarian document labels, utf-8 meta and lang=hu", () => {
-    const html = generateInvoicePreviewHtml(makeInvoice());
+    const html = generateInvoicePreviewHtml(makeInvoice(), {
+      company: { name: "Kovács Bt." },
+    });
     expect(html).toContain("Számla");
     expect(html).toContain("Kibocsátó");
     expect(html).toContain("Vevő");
@@ -136,11 +138,13 @@ describe("generateInvoicePreviewHtml", () => {
     expect(html).toContain("12345678-00000000-00000000");
   });
 
-  it("omits the company block and renders no undefined/null when no company is given", () => {
+  it("omits the entire Kibocsátó card and renders no undefined/null when no company is given", () => {
     const html = generateInvoicePreviewHtml(makeInvoice());
     expect(html).not.toContain("undefined");
     expect(html).not.toContain("null");
-    expect(html).toContain("Kibocsátó");
+    expect(html).not.toContain("Kibocsátó");
+    // The rest of the document still renders.
+    expect(html).toContain("Vevő");
   });
 
   it("prints net, VAT amount and gross per line, formatted by formatDocumentAmount", () => {

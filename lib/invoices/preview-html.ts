@@ -131,6 +131,7 @@ export function generateInvoicePreviewHtml(
   .doc-number { margin: 4px 0; color: #4a4f6a; font-variant-numeric: tabular-nums; }
   .status-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--pale-blue); color: var(--navy); font-size: 0.78rem; font-weight: 600; }
   .parties { display: flex; gap: 16px; margin-bottom: 24px; }
+  .parties-single { max-width: 50%; }
   .party-card { flex: 1; min-width: 0; background: var(--mist); border-radius: 10px; padding: 16px; }
   .party-card h2 { margin: 0 0 8px; color: var(--navy); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
   .party-card p { margin: 2px 0; font-size: 0.9rem; }
@@ -150,12 +151,14 @@ export function generateInvoicePreviewHtml(
     body { padding: 16px; }
     .page { padding: 16px; }
     .parties { flex-direction: column; }
+    .parties-single { max-width: none; }
     table thead { display: none; }
     table, tbody, tr, td { display: block; width: 100%; }
     tr { border: 1px solid #e5e9f5; border-radius: 10px; margin-bottom: 8px; padding: 6px 10px; }
     td { border: none; padding: 4px 0; text-align: right; }
     td.cell-desc { text-align: left; font-weight: 600; }
     td::before { content: attr(data-label); float: left; color: #8a90a6; font-weight: 400; }
+    td.cell-desc::before { content: none; }
   }
   @media print {
     body { background: #ffffff; padding: 0; }
@@ -181,11 +184,15 @@ export function generateInvoicePreviewHtml(
       </div>
     </div>
 
-    <div class="parties">
-      <div class="party-card">
+    <div class="parties${company ? "" : " parties-single"}">
+      ${
+        company
+          ? `<div class="party-card">
         <h2>${escapeHtml(labels.seller)}</h2>
-        ${company ? companyBlockHtml(company, labels) : ""}
-      </div>
+        ${companyBlockHtml(company, labels)}
+      </div>`
+          : ""
+      }
       <div class="party-card">
         <h2>${escapeHtml(labels.buyer)}</h2>
         <p class="party-name">${escapeHtml(invoice.clientName)}</p>
