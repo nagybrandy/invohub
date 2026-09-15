@@ -106,6 +106,29 @@ describe("validateExternalInvoiceInput", () => {
   it("does not require exchangeRate for HUF", () => {
     expect(validateExternalInvoiceInput({ ...valid, currency: "HUF" })).toBeNull();
   });
+
+  it("rejects an unknown paymentMethod, naming the field and the four valid values", () => {
+    const error = validateExternalInvoiceInput({
+      ...valid,
+      paymentMethod: "bitcoin" as never,
+    });
+    expect(error).not.toBeNull();
+    expect(error).toContain("paymentMethod");
+    expect(error).toContain("transfer");
+    expect(error).toContain("cash");
+    expect(error).toContain("card");
+    expect(error).toContain("other");
+  });
+
+  it("accepts a known paymentMethod", () => {
+    expect(
+      validateExternalInvoiceInput({ ...valid, paymentMethod: "cash" })
+    ).toBeNull();
+  });
+
+  it("accepts a payload with no paymentMethod at all", () => {
+    expect(validateExternalInvoiceInput(valid)).toBeNull();
+  });
 });
 
 describe("createInvoiceFromPayload", () => {
@@ -185,5 +208,15 @@ describe("createInvoiceFromPayload", () => {
       createInvoiceFromPayload("user-1", { ...input, currency: "EUR", exchangeRate: -1 })
     ).rejects.toThrow(/exchangeRate/);
     expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("sets paymentMethod from the payload", async () => {
+    const saved = await createInvoiceFromPayload("user-1", { ...input, paymentMethod: "cash" });
+    expect(saved.paymentMethod).toBe("cash");
+  });
+
+  it("leaves paymentMethod undefined when omitted — no silent transfer default", async () => {
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.paymentMethod).toBeUndefined();
   });
 });

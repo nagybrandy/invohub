@@ -1,7 +1,9 @@
 // lib/invoices/payment-status.test.ts
 import {
   deriveInvoiceStatusFromPayment,
+  isPaymentMethod,
   parsePaymentMethodFromNotes,
+  PAYMENT_METHODS,
   resolvePaymentMethod,
 } from "@/lib/invoices/payment-status";
 
@@ -40,6 +42,25 @@ describe("resolvePaymentMethod", () => {
 
   it("is undefined when neither source has a method", () => {
     expect(resolvePaymentMethod(null, "Thank you")).toBeUndefined();
+  });
+});
+
+describe("PAYMENT_METHODS / isPaymentMethod", () => {
+  it("PAYMENT_METHODS is exactly the four known methods, in order", () => {
+    expect(PAYMENT_METHODS).toEqual(["transfer", "cash", "card", "other"]);
+  });
+
+  it("isPaymentMethod is true for every known method", () => {
+    for (const method of PAYMENT_METHODS) {
+      expect(isPaymentMethod(method)).toBe(true);
+    }
+  });
+
+  it("isPaymentMethod is false for unknown/invalid values", () => {
+    expect(isPaymentMethod("CASH")).toBe(false);
+    expect(isPaymentMethod("voucher")).toBe(false);
+    expect(isPaymentMethod("")).toBe(false);
+    expect(isPaymentMethod(undefined)).toBe(false);
   });
 });
 

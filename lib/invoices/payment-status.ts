@@ -3,6 +3,14 @@
 // "payment method written into notes" era (before it was a real column).
 import type { InvoiceStatus, PaymentMethod } from "@/lib/invoices/types";
 
+/** Every InvoHub invoice payment method, in composer/pill display order. */
+export const PAYMENT_METHODS: PaymentMethod[] = ["transfer", "cash", "card", "other"];
+
+/** Type guard: true only for one of the four known PaymentMethod values. */
+export function isPaymentMethod(value: unknown): value is PaymentMethod {
+  return typeof value === "string" && (PAYMENT_METHODS as string[]).includes(value);
+}
+
 const LEGACY_NOTES_METHOD_HU: Record<string, PaymentMethod> = {
   átutalás: "transfer",
   utalás: "transfer",

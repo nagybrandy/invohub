@@ -3,6 +3,7 @@
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
+import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 import { upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import type {
@@ -11,6 +12,7 @@ import type {
   InvoiceDocumentType,
   InvoiceLineItem,
   InvoiceStatus,
+  PaymentMethod,
   VatCategory,
   VatRate,
 } from "@/lib/invoices/types";
@@ -57,6 +59,7 @@ export type ExternalInvoiceInput = {
   exchangeRate?: number;
   lineItems: ExternalLineItemInput[];
   notes?: string;
+  paymentMethod?: PaymentMethod;
   submitToNav?: boolean;
   /** Send invoice email immediately after creation (default true). */
   sendEmail?: boolean;
@@ -109,6 +112,9 @@ export function validateExternalInvoiceInput(
     ) {
       return "exchangeRate must be a number greater than zero for a non-HUF currency.";
     }
+  }
+  if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
+    return `paymentMethod must be one of ${PAYMENT_METHODS.join(", ")}.`;
   }
 
   const emailToError = validateEmailRecipientsInput("emailTo", body.emailTo);
@@ -165,6 +171,7 @@ export async function createInvoiceFromPayload(
     exchangeRate: requiresExchangeRate(currency) ? body.exchangeRate : undefined,
     lineItems: mapLineItems(body.lineItems, company?.vatExempt ?? false),
     notes: body.notes,
+    paymentMethod: body.paymentMethod,
     createdAt: now,
     updatedAt: now,
   };

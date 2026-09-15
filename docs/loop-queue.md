@@ -163,7 +163,7 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    must round to whole forint, and the document wording — are open
    questions for that sign-off, not resolved in code)
    **Shipped 2026-09-15. Reviewed and merged 2026-09-15 (owner sign-off).**
-4. [~] folyamatban (slice/nav-xml-payment-method-date)
+4. [x] (slice/nav-xml-payment-method-date) **Shipped 2026-09-15**
    Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
    Plan: `docs/plans/2026-09-15-nav-xml-payment-method-date.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship). Planning
@@ -172,7 +172,10 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    határidő" (the due date, which the builder already emits correctly), and
    OSA 3.0 has **no** element for the actual payment date — so `paidAt`
    stays out of the XML and the slice is really about `paymentMethod`
-   (TRANSFER/CASH/CARD/OTHER) plus date-shape normalization.
+   (TRANSFER/CASH/CARD/OTHER) plus date-shape normalization. Merged into
+   `main` together with priority #3's exchange-rate work on 2026-09-15;
+   `<invoiceDetail>` now emits `currencyCode`, `exchangeRate`,
+   `paymentMethod`, `paymentDate` in that verified schema order.
 5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
 6. Partially-paid invoice past due date surfaces as overdue (status derivation)
@@ -332,9 +335,16 @@ Remaining for the launch gate:
       usable rate, and the PDF/preview show the rate used and the HUF VAT
       amount. (needs tax/legal sign-off — which rate and which date govern
       the HUF VAT amount is an Áfa tv. question, not a code choice)
-      Same item as priority #3 above. See priority #3's note above for
-      implementation status (2026-09-15).
-- [~] folyamatban (slice/nav-xml-payment-method-date)
+      Same item as priority #3 above. Plan:
+      `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
+      Planning also found two write-path leaks the item's text did not
+      name, both in scope of that plan: `POST /api/invoices` never copies
+      `body.exchangeRate` (so the composer's rate is dropped on every newly
+      created invoice — `PATCH` keeps it, which is why the field looks like
+      it works when editing), and `lib/invoices/create-from-payload.ts`
+      (`POST /api/v1/invoices`) has no `exchangeRate` field at all. See
+      priority #3's note above for implementation status (2026-09-15).
+- [x] Shipped 2026-09-15 (slice/nav-xml-payment-method-date)
       Payment method never reaches the NAV XML —
       `lib/nav/invoice-xml.ts` defers it as "schema placement not
       verified", but `invoiceDetail` in the published `invoiceData.xsd`
@@ -356,6 +366,16 @@ Remaining for the launch gate:
       slice instead adds `paymentMethod` and normalizes the emitted dates
       to `InvoiceDateType` shape (date-only, ≥ 2010-01-01), which the
       current raw pass-through of a `text` due date does not guarantee.
+      Implemented: `lib/nav/invoice-fields.ts` (new: `toNavPaymentMethod`,
+      `toNavDate`) + `lib/nav/invoice-xml.ts`; AC1-15 in the plan all green,
+      `npx tsc --noEmit` clean, `npm run test:unit` green. This is
+      tax/legal-gated (mandatory NAV data-report content) and shipped as a
+      PR for human sign-off per CLAUDE.md, with OQ-1…OQ-5 in the PR body.
+      **Shipped 2026-09-15. Reviewed and merged 2026-09-15 (owner sign-off)**
+      together with priority #3's exchange-rate slice — the merged
+      `<invoiceDetail>` emits `currencyCode`, `exchangeRate`,
+      `paymentMethod`, `paymentDate` in that verified schema order, so both
+      slices' NAV XML changes are present with none silently dropped.
 - [ ] Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
       DBK-/ELO- numbers and `lib/i18n/locales/hu.ts` labels them, but there
       is no way to turn a paid díjbekérő into the actual számla: nothing in
