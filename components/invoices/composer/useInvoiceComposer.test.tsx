@@ -375,6 +375,12 @@ describe("useInvoiceComposer", () => {
 
     expect(result).toBeTruthy();
     expect(ref.current!.errors.partner).toBeFalsy();
+    // Regression: a comma-decimal rate must reach the saved payload as the
+    // parsed number (390.5), never NaN/undefined — Number("390,5") is NaN,
+    // which JSON.stringify silently drops to null.
+    const invoiceCall = mockApiFetch.mock.calls.find(([path]) => path === "/api/invoices");
+    const body = JSON.parse((invoiceCall![1] as RequestInit).body as string);
+    expect(body.exchangeRate).toBe(390.5);
   });
 
   it("selects the client from ?clientId= on mount in create mode", async () => {

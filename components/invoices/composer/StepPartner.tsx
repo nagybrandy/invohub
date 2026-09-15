@@ -146,7 +146,11 @@ export function StepPartner(composer: InvoiceComposerState) {
             onChangeText={setClientName}
             onSelect={handleSelectClient}
             onCreateNew={handleCreateNewClient}
-            error={errors.partner}
+            // Once a name has been typed, a lingering errors.partner can
+            // only be the exchange-rate error (see the dedicated block
+            // below) — never the "client name required" message this
+            // picker renders itself, so don't show it twice.
+            error={clientName.trim() ? undefined : errors.partner}
             t={t}
           />
         </VStack>

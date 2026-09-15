@@ -27,6 +27,7 @@ import { apiFetch } from "@/lib/api/client";
 import type { Client } from "@/lib/clients/service";
 import { calculateInvoiceTotals, createEmptyLineItem, createId } from "@/lib/invoices/calculations";
 import { applyClientToFormFields } from "@/lib/invoices/client-form-fields";
+import { parseExchangeRateInput } from "@/lib/invoices/exchange-rate";
 import type { Product } from "@/lib/products/service";
 import type {
   Invoice,
@@ -343,7 +344,7 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
       dueDate,
       status: invoice?.status ?? "draft",
       currency,
-      exchangeRate: currency !== "HUF" && exchangeRate.trim() ? Number(exchangeRate) : undefined,
+      exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,
       lineItems: lineItems.filter((item) => item.description.trim()),
       notes: notes.trim() || undefined,
       paymentMethod,
@@ -437,7 +438,7 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
         dueDate,
         status,
         currency,
-        exchangeRate: currency !== "HUF" && exchangeRate.trim() ? Number(exchangeRate) : undefined,
+        exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,
         lineItems: lineItems.filter((item) => item.description.trim()),
         notes: notes.trim() || undefined,
         paymentMethod,
