@@ -376,7 +376,8 @@ Remaining for the launch gate:
       `<invoiceDetail>` emits `currencyCode`, `exchangeRate`,
       `paymentMethod`, `paymentDate` in that verified schema order, so both
       slices' NAV XML changes are present with none silently dropped.
-- [ ] Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
+- [~] folyamatban (slice/dijbekero-convert-to-invoice)
+      Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
       DBK-/ELO- numbers and `lib/i18n/locales/hu.ts` labels them, but there
       is no way to turn a paid díjbekérő into the actual számla: nothing in
       `app/(app)/invoices/[id]/index.tsx`, `lib/invoices/service.ts` or
@@ -385,6 +386,23 @@ Remaining for the launch gate:
       client data into a new INV document and links the two, which is the
       standard collect-then-invoice flow every Hungarian competitor ships
       and the reason an EV issues a díjbekérő at all.
+      Same item as priority #5 above. Plan:
+      `docs/plans/2026-09-15-dijbekero-convert-to-invoice.md`
+      Planning also confirmed two adjacent bugs the item's text did not
+      mention, both fixed in this slice because the new flow makes them
+      reachable: "Sztornó" and "Helyesbítő számla" are currently offered on a
+      díjbekérő, and both mint a real `INV-` number out of the *invoice*
+      sequence (`sequenceBucketForDocType` maps storno/modify to the
+      `invoice` bucket) for a cancellation of a document that was never a
+      számla — a hole in the continuous invoice numbering. Also confirmed
+      *not* a problem: a díjbekérő is never auto-submitted to NAV
+      (`useInvoiceComposer` only submits on `status === "sent"`), and the
+      converted document is a plain draft, so it reaches NAV only through
+      the existing explicit composer toggle. Risk: **schema** (one additive
+      nullable `invoice.converted_from_invoice_id` column + index) — not
+      tax/legal-gated; the díjbekérő document disclaimer ("nem számla, áfa
+      levonására nem jogosít") is deliberately left out of this slice as a
+      separate, sign-off-gated follow-up.
 
 - [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
       Invoice document preview/PDF remains English and unbranded
