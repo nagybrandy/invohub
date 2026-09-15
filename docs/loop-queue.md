@@ -104,7 +104,8 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    line items (`app/(app)/invoices/new.tsx`) — absorbed by item 0. **Shipped**
    — shared 3-step composer (Partner → Tételek → Ellenőrzés & küldés, one
    step at a time on mobile) in `components/invoices/composer/`.
-2. **Invoice document preview/PDF is English and unbranded**
+2. [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
+   **Invoice document preview/PDF is English and unbranded**
    (`lib/invoices/preview-html.ts`) — inserted here 2026-09-15 per the UX
    overhaul audit's explicit recommendation ("Ajánlott a következő
    queue-tétel legyen"): the sticky composer preview and the finalized
@@ -113,6 +114,8 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    literal document a Hungarian customer receives. Hungarianize + brand it
    (navy/cornflower, InvoHub wordmark, Hungarian field labels, correct
    status text) to match the app's own new visual system.
+   Plan: `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship)
 3. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
 4. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
@@ -283,7 +286,8 @@ Remaining for the launch gate:
       standard collect-then-invoice flow every Hungarian competitor ships
       and the reason an EV issues a díjbekérő at all.
 
-- [ ] Invoice document preview/PDF remains English and unbranded
+- [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
+      Invoice document preview/PDF remains English and unbranded
       (`lib/invoices/preview-html.ts`) — confirmed still live: both the
       new composer's sticky mini-preview and the finalized invoice
       detail's "Előnézet" render "DRAFT", "Status: unpaid", "Bill to:",
@@ -293,6 +297,22 @@ Remaining for the launch gate:
       preview in a permanent sidebar on every invoice screen instead of a
       separate preview tab, so it's more visible than before — prioritize
       this as the next queue item. (2026-09-15 audit, ux-desktop)
+      Same item as priority #2 above. Plan:
+      `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
+- [ ] Invoice PDFs cannot render `ő` and `ű` — `lib/invoices/pdf-document.ts`
+      uses pdfkit's standard Helvetica (WinAnsi/cp1252), which has no glyph
+      for U+0151 / U+0171; pdfkit emits them as raw two-byte codes, so a
+      partner named "Kőfaragó Kft." or a line "Tetőfelújítás" is already
+      garbage in every PDF the app emails today (verified against the repo's
+      own pdfkit, 2026-09-15). The preview/branding slice above only adds an
+      interim `toWinAnsiSafe()` transliteration (ő→ö, ű→ü) so the text is at
+      least legible. The real fix: embed a Latin-Extended-A TTF (regular +
+      bold, licence checked — no embeddable font exists in the repo or in
+      `node_modules` today), load it in `createPdfDocument`, and extend
+      `assets/pdfkit-data` + `scripts/prepare-server-pdf-deps.mjs` +
+      `vercel.json` `includeFiles` + `scripts/verify-pdf-vendor.mjs` so it
+      survives the Vercel bundle; then delete the transliteration and its
+      test. (2026-09-15 planning, feature)
 - [ ] Ranade weight 500 is defined (`global.css`, `@font-face`,
       `public/fonts/ranade-500.woff2`) but never actually requested by any
       heading — every `font-heading` usage is paired with
