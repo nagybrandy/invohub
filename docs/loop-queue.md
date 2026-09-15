@@ -627,7 +627,7 @@ Remaining for the launch gate:
       change needed; update AC15's literal text once the real PDF font
       item (embedding a Unicode font) lands and the transliteration is
       removed. (2026-09-15 audit, acceptance)
-- [ ] `lib/invoices/preview-html.ts` interpolates the PDF template's
+- [x] `lib/invoices/preview-html.ts` interpolates the PDF template's
       `accentColor` straight into a `<style>` block
       (`--cornflower: ${escapeHtml(accent)}`) without ever calling
       `normalizeHexColor` — `escapeHtml` only escapes `& < > " '`, not
@@ -640,6 +640,23 @@ Remaining for the launch gate:
       being the only source of this value. Call `normalizeHexColor(accent)`
       before interpolating it (in `preview-html.ts` and/or in `mapRow` at
       read time). (2026-09-15 audit, security)
+      **Fixed 2026-09-15** on `slice/pdf-template-color-sanitize` — did
+      both suggested spots, not just one: `preview-html.ts`'s `accent`
+      value now goes through `normalizeHexColor` before interpolation
+      (closing the actual injection point), and `pdf-template/
+      service.ts`'s `mapRow` now normalizes `row.accentColor` on every
+      read too, so the render path's safety no longer depends on every
+      past and future write path having validated the value (a legacy
+      row, a direct DB edit). `lib/invoices/generate-pdf.ts`'s own
+      `template.accentColor` use (pdfkit `fillColor`, not string
+      interpolation into markup) was checked and isn't independently
+      vulnerable, and is now covered transitively too since it reads the
+      same `getPdfTemplate()`-sourced value. New tests: `preview-html.
+      test.ts` asserts a malicious `accentColor` value never reaches the
+      rendered `<style>` block; `pdf-template/service.test.ts` asserts
+      `getPdfTemplate` normalizes a malformed value read back from the
+      DB. `npm run typecheck` and `npm run test:unit` green (197 suites /
+      1115 tests).
 - [ ] `focusField: "exchangeRate"` (set on a failed save by
       `composer-logic.ts`'s `validateExchangeRateInput`, applied via
       `setFocusField` in `useInvoiceComposer.ts`) is never consumed or

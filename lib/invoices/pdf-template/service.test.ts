@@ -62,6 +62,31 @@ describe("getPdfTemplate", () => {
     expect(template.titleText).toBe("SZÁMLA");
     expect(template.fontScale).toBe("large");
   });
+
+  it("normalizes a malformed/malicious accentColor read back from the DB", async () => {
+    // The render path (preview-html.ts) interpolates accentColor straight
+    // into a <style> block — its safety must not depend on every row in
+    // the DB already being a strict #rrggbb value (a legacy row, or a
+    // direct DB edit). getPdfTemplate must sanitize on the way out, not
+    // just upsertPdfTemplate on the way in.
+    mockDb.select.mockReturnValue(
+      chain([
+        {
+          titleText: "SZÁMLA",
+          accentColor: "red; } body { display: none",
+          showCompanyBlock: true,
+          showBankDetails: false,
+          showClientTaxNumber: true,
+          footerText: "Footer",
+          notesLabel: "Megjegyzés",
+          fontScale: "large",
+        },
+      ])
+    );
+
+    const template = await getPdfTemplate("user-1");
+    expect(template.accentColor).toBe(DEFAULT_PDF_TEMPLATE.accentColor);
+  });
 });
 
 describe("upsertPdfTemplate", () => {

@@ -17,7 +17,11 @@ import type {
 function mapRow(row: typeof invoicePdfTemplate.$inferSelect): InvoicePdfTemplate {
   return mergePdfTemplate({
     titleText: row.titleText,
-    accentColor: row.accentColor,
+    // Normalized again at read time, not just on write (upsertPdfTemplate
+    // below) — the render path's safety must not depend on every past and
+    // future write path having validated it (a legacy row, a direct DB
+    // edit, a future write path that forgets to call normalizeHexColor).
+    accentColor: normalizeHexColor(row.accentColor),
     showCompanyBlock: row.showCompanyBlock,
     showBankDetails: row.showBankDetails,
     showClientTaxNumber: row.showClientTaxNumber,

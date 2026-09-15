@@ -20,6 +20,7 @@ import {
   type DocumentLocale,
 } from "@/lib/invoices/document-labels";
 import { formatExchangeRate, requiresExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
+import { normalizeHexColor } from "@/lib/invoices/pdf-template/defaults";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
   formatInvoiceDueDate,
@@ -70,7 +71,12 @@ export function generateInvoicePreviewHtml(
   const locale = options.locale ?? "hu";
   const labels = documentLabels(locale);
   const company = options.company;
-  const accent = options.template?.accentColor?.trim() || "#6495ed";
+  // Interpolated straight into a <style> block below — escapeHtml only
+  // escapes & < > " ', not ; } / * or whitespace, so it can't stop CSS
+  // injection on its own. normalizeHexColor guarantees a strict
+  // #rrggbb-shaped value (or the default), closing the injection vector
+  // outright instead of merely reducing it.
+  const accent = normalizeHexColor(options.template?.accentColor?.trim() || "#6495ed");
 
   const totals = calculateInvoiceTotals(invoice.lineItems);
   const documentNumber = invoice.invoiceNumber || labels.draftNumber;

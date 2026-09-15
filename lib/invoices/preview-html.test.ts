@@ -32,6 +32,29 @@ describe("generateInvoicePreviewHtml", () => {
     expect(html).toContain("&lt;b&gt;Evil&lt;/b&gt;");
   });
 
+  it("sanitizes a malicious template.accentColor instead of interpolating it raw into the <style> block", () => {
+    // accentColor is interpolated straight into a <style> block as
+    // `--cornflower: ${accent}` — escapeHtml alone (which only escapes
+    // & < > " ') can't stop CSS-syntax injection via ; } / * or
+    // whitespace, so the value must be normalized to a strict #rrggbb
+    // shape (or the default) before it ever reaches the template.
+    const html = generateInvoicePreviewHtml(makeInvoice(), {
+      template: {
+        titleText: "SZÁMLA",
+        accentColor: "red; } body { display: none; } /* pwned */",
+        showCompanyBlock: true,
+        showBankDetails: true,
+        showClientTaxNumber: true,
+        footerText: "",
+        notesLabel: "Megjegyzés",
+        fontScale: "medium",
+      },
+    });
+    expect(html).not.toContain("pwned");
+    expect(html).not.toContain("body { display: none");
+    expect(html).toContain("--cornflower: #6495ed;");
+  });
+
   it("includes line item description", () => {
     const html = generateInvoicePreviewHtml(makeInvoice());
     expect(html).toContain("Consulting");
