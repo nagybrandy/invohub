@@ -121,7 +121,16 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
    Plan: `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship)
-4. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
+4. [~] folyamatban (slice/nav-xml-payment-method-date)
+   Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
+   Plan: `docs/plans/2026-09-15-nav-xml-payment-method-date.md`
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship). Planning
+   verified against the published `invoiceData.xsd`/`invoiceBase.xsd` that
+   this item's `paidAt` premise is **wrong**: `paymentDate` is "Fizetési
+   határidő" (the due date, which the builder already emits correctly), and
+   OSA 3.0 has **no** element for the actual payment date — so `paidAt`
+   stays out of the XML and the slice is really about `paymentMethod`
+   (TRANSFER/CASH/CARD/OTHER) plus date-shape normalization.
 5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
 6. Partially-paid invoice past due date surfaces as overdue (status derivation)
@@ -280,14 +289,28 @@ Remaining for the launch gate:
       created invoice — `PATCH` keeps it, which is why the field looks like
       it works when editing), and `lib/invoices/create-from-payload.ts`
       (`POST /api/v1/invoices`) has no `exchangeRate` field at all.
-- [ ] Payment method and payment date never reach the NAV XML —
-      `lib/nav/invoice-xml.ts` defers them as "schema placement not
+- [~] folyamatban (slice/nav-xml-payment-method-date)
+      Payment method never reaches the NAV XML —
+      `lib/nav/invoice-xml.ts` defers it as "schema placement not
       verified", but `invoiceDetail` in the published `invoiceData.xsd`
-      carries `paymentMethod`/`paymentDate` and the columns already exist
-      (`invoice.paymentMethod`, `invoice.paidAt`). Map transfer/cash/card to
-      the XSD's own enum, verified by fetching the schema rather than
+      carries `paymentMethod` and the column already exists
+      (`invoice.paymentMethod`). Map transfer/cash/card/other to the XSD's
+      own enum, verified by fetching the schema rather than
       guessing, with a fixture test like the `invoiceReference` work.
       (needs tax/legal sign-off)
+      Same item as priority #4 above. Plan:
+      `docs/plans/2026-09-15-nav-xml-payment-method-date.md`
+      Correction found while planning (schema fetched 2026-09-15): the
+      `paidAt` half of this item's title is a false premise.
+      `invoiceDetail/paymentDate` is documented in the XSD as "Fizetési
+      határidő" / "Deadline for payment", and the builder already emits
+      `invoice.dueDate` there — correctly. `InvoiceDetailType`,
+      `ConventionalInvoiceInfoType` and `AdditionalDataType` contain no
+      actual-payment-date element, so `invoice.paidAt` stays out of the
+      XML rather than being smuggled into `additionalInvoiceData`. The
+      slice instead adds `paymentMethod` and normalizes the emitted dates
+      to `InvoiceDateType` shape (date-only, ≥ 2010-01-01), which the
+      current raw pass-through of a `text` due date does not guarantee.
 - [ ] Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
       DBK-/ELO- numbers and `lib/i18n/locales/hu.ts` labels them, but there
       is no way to turn a paid díjbekérő into the actual számla: nothing in
