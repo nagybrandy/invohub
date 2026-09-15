@@ -4,7 +4,7 @@
 import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Download, Mail, Copy, CheckCircle2, Eye, Trash2 } from "lucide-react-native";
+import { Download, Mail, Copy, CheckCircle2, Eye, FileEdit, Trash2 } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
@@ -134,8 +134,15 @@ export default function InvoiceListScreen() {
     router.push(routes.invoiceEdit(data.invoice.id));
   }
 
+  async function handleConvert(invoice: Invoice) {
+    const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/convert`, {
+      method: "POST",
+    });
+    router.push(routes.invoiceEdit(data.invoice.id));
+  }
+
   function menuItemsFor(invoice: Invoice): OverflowMenuItem[] {
-    return [
+    const items: OverflowMenuItem[] = [
       { label: t("invoices.list.previewAction"), icon: Eye, onPress: () => setPreviewInvoice(invoice) },
       {
         label: t("invoices.list.pdfAction"),
@@ -154,13 +161,21 @@ export default function InvoiceListScreen() {
         onPress: () => void handleMarkPaid(invoice),
       },
       { label: t("invoices.list.duplicateAction"), icon: Copy, onPress: () => void handleDuplicate(invoice) },
-      {
-        label: t("invoices.list.deleteAction"),
-        icon: Trash2,
-        destructive: true,
-        onPress: () => void handleDelete(invoice),
-      },
     ];
+    if (invoice.documentType === "proforma") {
+      items.push({
+        label: t("invoices.convert.action"),
+        icon: FileEdit,
+        onPress: () => void handleConvert(invoice),
+      });
+    }
+    items.push({
+      label: t("invoices.list.deleteAction"),
+      icon: Trash2,
+      destructive: true,
+      onPress: () => void handleDelete(invoice),
+    });
+    return items;
   }
 
   const filterLabel = (f: InvoiceStatus | "all") => (f === "all" ? t("invoices.list.filterAll") : t(STATUS_I18N_KEY[f]));

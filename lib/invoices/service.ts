@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { createId } from "@/lib/id";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
+import { buildInvoiceFromProforma } from "@/lib/invoices/convert-proforma";
 import {
   INVOICE_LIST_LIMIT,
   INVOICE_LIST_MAX_LIMIT,
@@ -393,10 +394,15 @@ export async function createStornoInvoice(
 /** Invoices whose modifiesInvoiceId points at sourceId (storno docs are excluded by caller). */
 export async function findInvoicesReferencing(
   userId: string,
-  field: "originalInvoiceId" | "modifiesInvoiceId",
+  field: "originalInvoiceId" | "modifiesInvoiceId" | "convertedFromInvoiceId",
   sourceId: string
 ): Promise<Invoice[]> {
-  const column = field === "originalInvoiceId" ? invoice.originalInvoiceId : invoice.modifiesInvoiceId;
+  const column =
+    field === "originalInvoiceId"
+      ? invoice.originalInvoiceId
+      : field === "modifiesInvoiceId"
+        ? invoice.modifiesInvoiceId
+        : invoice.convertedFromInvoiceId;
   const rows = await db
     .select()
     .from(invoice)
@@ -438,6 +444,37 @@ export async function createModificationDraft(
     updatedAt: now,
   };
   return upsertInvoice(userId, draft);
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * "Számla készítése ebből" — turns a paid díjbekérő into a draft invoice
+ * (see lib/invoices/convert-proforma.ts for the pure build). Persisted as a
+ * draft, so upsertInvoice never allocates a document_sequence number here —
+ * numbering only happens once the user finalizes the draft in the composer.
+ */
+export async function convertProformaToInvoice(
+  userId: string,
+  proforma: Invoice
+): Promise<Invoice> {
+  const draft = buildInvoiceFromProforma(proforma, todayIsoDate());
+  return upsertInvoice(userId, draft);
+}
+
+/**
+ * The non-cancelled invoice already converted from this díjbekérő, if any
+ * (used to refuse converting the same proforma twice). A cancelled
+ * conversion does not block a retry.
+ */
+export async function findExistingConversion(
+  userId: string,
+  proformaId: string
+): Promise<Invoice | null> {
+  const candidates = await findInvoicesReferencing(userId, "convertedFromInvoiceId", proformaId);
+  return candidates.find((inv) => inv.status !== "cancelled") ?? null;
 }
 
 export type MarkInvoicePaidInput = {

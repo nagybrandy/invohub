@@ -42,6 +42,8 @@ type InvoiceLinks = {
   modifiesInvoice: Invoice | null;
   stornoDocuments: Invoice[];
   correctionDocuments: Invoice[];
+  convertedFromInvoice: Invoice | null;
+  convertedToInvoices: Invoice[];
 };
 
 type NavSubmissionRow = {
@@ -207,6 +209,17 @@ export default function InvoiceDetailScreen() {
     });
   }
 
+  async function handleConvert() {
+    if (!id) return;
+    await runAction("convert", async () => {
+      const data = await apiFetch<{ invoice: Invoice }>(
+        `/api/invoices/${id}/convert`,
+        { method: "POST" }
+      );
+      router.push(routes.invoiceEdit(data.invoice.id));
+    });
+  }
+
   async function handleCorrection() {
     if (!id) return;
     const confirmed = await confirmAsync({
@@ -273,12 +286,22 @@ export default function InvoiceDetailScreen() {
 
   const overdue = isOverdue(invoice, new Date());
   const finalized = invoice.status !== "draft";
+  const isProforma = invoice.documentType === "proforma";
+  const liveConversion =
+    links?.convertedToInvoices?.find((inv) => inv.status !== "cancelled") ?? null;
 
   // Exactly one solid primary action, chosen by status (D1, spec §3.2).
   let primaryLabel = t("invoices.detail.edit");
   let primaryOnPress = () => router.push(routes.invoiceEdit(id!));
   let primaryBusyKey: string | null = null;
-  if (invoice.status === "sent" || invoice.status === "unpaid" || invoice.status === "overdue") {
+  if (isProforma && liveConversion) {
+    primaryLabel = t("invoices.convert.openExisting");
+    primaryOnPress = () => router.push(routes.invoiceDetail(liveConversion.id));
+  } else if (isProforma) {
+    primaryLabel = t("invoices.convert.action");
+    primaryOnPress = () => void runAction("convert", handleConvert);
+    primaryBusyKey = "convert";
+  } else if (invoice.status === "sent" || invoice.status === "unpaid" || invoice.status === "overdue") {
     primaryLabel = t("invoices.detail.emailReminder");
     primaryOnPress = () => void runAction("send", handleSend);
     primaryBusyKey = "send";
@@ -300,7 +323,7 @@ export default function InvoiceDetailScreen() {
     {
       label: t("invoices.correction.action"),
       icon: FileEdit,
-      disabled: invoice.status === "draft" || invoice.status === "cancelled",
+      disabled: invoice.status === "draft" || invoice.status === "cancelled" || isProforma,
       onPress: () => void handleCorrection(),
     },
     { label: t("invoices.list.pdfAction"), icon: Download, onPress: () => router.push(routes.invoiceDetail(id!)) },
@@ -369,8 +392,10 @@ export default function InvoiceDetailScreen() {
         {links &&
         (links.originalInvoice ||
           links.modifiesInvoice ||
+          links.convertedFromInvoice ||
           (links.stornoDocuments?.length ?? 0) > 0 ||
-          (links.correctionDocuments?.length ?? 0) > 0) ? (
+          (links.correctionDocuments?.length ?? 0) > 0 ||
+          (links.convertedToInvoices?.length ?? 0) > 0) ? (
           <Card className="p-4">
             <VStack space="xs">
               <Text className="font-semibold">{t("invoices.links.title")}</Text>
@@ -399,6 +424,20 @@ export default function InvoiceDetailScreen() {
                 <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.modifiedBy")}: {doc.invoiceNumber || t("invoices.status.draft")}
+                  </Text>
+                </Pressable>
+              ))}
+              {links.convertedFromInvoice ? (
+                <Pressable onPress={() => router.push(routes.invoiceDetail(links.convertedFromInvoice!.id))}>
+                  <Text size="sm" className="text-primary">
+                    {t("invoices.links.convertedFrom", { number: links.convertedFromInvoice.invoiceNumber })}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {(links.convertedToInvoices ?? []).map((doc) => (
+                <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
+                  <Text size="sm" className="text-primary">
+                    {t("invoices.links.convertedTo", { number: doc.invoiceNumber || t("invoices.status.draft") })}
                   </Text>
                 </Pressable>
               ))}
@@ -483,7 +522,7 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
-        {finalized ? (
+        {finalized && !isProforma ? (
           <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
             <HStack space="sm" className="flex-wrap">
               <Button

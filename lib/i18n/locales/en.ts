@@ -341,6 +341,8 @@ export default {
       exchangeRateRequired: "A non-HUF invoice requires an exchange rate.",
       exchangeRateInvalid: "The exchange rate must be a number greater than zero.",
       navExchangeRateMissing: "NAV submission cannot start: the invoice has no HUF exchange rate.",
+      proformaNotStornoable:
+        "A proforma is not an accounting document — it cannot be cancelled or corrected. Delete it, or convert it into an invoice.",
     },
     autoSaved: "Auto-saved as draft",
     autoSavedAt: "Auto-saved as draft at {{time}}",
@@ -435,6 +437,15 @@ export default {
         "Starts a helyesbítő draft prefilled with this invoice's lines, for you to adjust and finalize.",
       confirm: "Create draft",
     },
+    convert: {
+      action: "Create invoice from this",
+      openExisting: "Open the invoice",
+      created: "Invoice draft created from the proforma.",
+      failed: "Could not create the invoice from the proforma.",
+      alreadyConverted: "An invoice was already created from this proforma: {{number}}",
+      notProforma: "Only a proforma can be converted into an invoice.",
+      cancelledSource: "A cancelled proforma cannot be converted.",
+    },
     links: {
       title: "Related documents",
       originalInvoice: "Original document",
@@ -442,6 +453,8 @@ export default {
       stornoDocument: "Storno document",
       modifiesOf: "Corrects {{number}}",
       modifiedBy: "Corrected by",
+      convertedTo: "Invoice created from this: {{number}}",
+      convertedFrom: "Based on proforma {{number}}",
     },
     edit: {
       title: "Edit invoice",

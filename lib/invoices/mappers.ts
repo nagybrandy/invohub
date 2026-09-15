@@ -69,6 +69,7 @@ export function mapInvoiceFromDb(
     originalInvoiceId: row.originalInvoiceId ?? undefined,
     modifiesInvoiceId: row.modifiesInvoiceId ?? undefined,
     modificationIndex: row.modificationIndex ?? undefined,
+    convertedFromInvoiceId: row.convertedFromInvoiceId ?? undefined,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
   };
@@ -118,5 +119,6 @@ export function mapInvoiceToDb(
     originalInvoiceId: inv.originalInvoiceId ?? null,
     modifiesInvoiceId: inv.modifiesInvoiceId ?? null,
     modificationIndex: inv.modificationIndex ?? null,
+    convertedFromInvoiceId: inv.convertedFromInvoiceId ?? null,
   };
 }

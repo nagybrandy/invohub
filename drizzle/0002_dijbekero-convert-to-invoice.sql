@@ -1,0 +1,3 @@
+ALTER TABLE "invoice" ADD COLUMN "converted_from_invoice_id" text;--> statement-breakpoint
+ALTER TABLE "invoice" ADD CONSTRAINT "invoice_converted_from_invoice_id_invoice_id_fk" FOREIGN KEY ("converted_from_invoice_id") REFERENCES "public"."invoice"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "invoice_converted_from_invoice_id_idx" ON "invoice" USING btree ("converted_from_invoice_id");

@@ -176,8 +176,13 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    `main` together with priority #3's exchange-rate work on 2026-09-15;
    `<invoiceDetail>` now emits `currencyCode`, `exchangeRate`,
    `paymentMethod`, `paymentDate` in that verified schema order.
-5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
-   action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
+5. [x] (slice/dijbekero-convert-to-invoice-impl) **Implemented 2026-09-15**
+   Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
+   action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen).
+   Plan: `docs/plans/2026-09-15-dijbekero-convert-to-invoice.md` (risk:
+   **schema** — one additive nullable `invoice.converted_from_invoice_id`
+   column + index, not tax/legal-gated). See the checklist entry above for
+   the full writeup.
 6. Partially-paid invoice past due date surfaces as overdue (status derivation)
 7. e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
    test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test
@@ -376,8 +381,7 @@ Remaining for the launch gate:
       `<invoiceDetail>` emits `currencyCode`, `exchangeRate`,
       `paymentMethod`, `paymentDate` in that verified schema order, so both
       slices' NAV XML changes are present with none silently dropped.
-- [~] folyamatban (slice/dijbekero-convert-to-invoice)
-      Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
+- [x] Díjbekérő (proforma) is a dead end — `lib/invoices/numbering.ts` mints
       DBK-/ELO- numbers and `lib/i18n/locales/hu.ts` labels them, but there
       is no way to turn a paid díjbekérő into the actual számla: nothing in
       `app/(app)/invoices/[id]/index.tsx`, `lib/invoices/service.ts` or
@@ -403,6 +407,13 @@ Remaining for the launch gate:
       tax/legal-gated; the díjbekérő document disclaimer ("nem számla, áfa
       levonására nem jogosít") is deliberately left out of this slice as a
       separate, sign-off-gated follow-up.
+      **Implemented 2026-09-15** on `slice/dijbekero-convert-to-invoice-impl`
+      (branched from the plan commit; see PR description in the ship report
+      for the branch-naming note). All 23 plan acceptance criteria pass;
+      `npx tsc --noEmit` and `npm run test:unit` are green (196 suites /
+      1083 tests). Migration `drizzle/0002_dijbekero-convert-to-invoice.sql`
+      generated (ADD COLUMN + ADD CONSTRAINT + CREATE INDEX only — additive,
+      not yet pushed).
 
 - [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
       Invoice document preview/PDF remains English and unbranded

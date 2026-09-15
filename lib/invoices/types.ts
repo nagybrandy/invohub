@@ -81,6 +81,8 @@ export interface Invoice {
   modifiesInvoiceId?: string;
   /** 1-based count of corrections issued against the same original invoice. */
   modificationIndex?: number;
+  /** Present on a számla created from a díjbekérő; points back at the proforma. */
+  convertedFromInvoiceId?: string;
   createdAt: string;
   updatedAt: string;
 }

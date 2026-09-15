@@ -341,6 +341,8 @@ export default {
       exchangeRateRequired: "Nem forint pénznemű számlához kötelező megadni az árfolyamot.",
       exchangeRateInvalid: "Az árfolyam csak nullánál nagyobb szám lehet.",
       navExchangeRateMissing: "A NAV beküldés nem indítható el: hiányzik a számla HUF árfolyama.",
+      proformaNotStornoable:
+        "A díjbekérő nem adóügyi bizonylat — nem sztornózható és nem helyesbíthető. Töröld, vagy készíts belőle számlát.",
     },
     autoSaved: "Automatikusan mentve piszkozatként",
     autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",
@@ -435,6 +437,15 @@ export default {
         "Az eredeti számla tételeivel előtöltött piszkozatot hoz létre, amit szerkeszthetsz és kiállíthatsz.",
       confirm: "Piszkozat létrehozása",
     },
+    convert: {
+      action: "Számla készítése ebből",
+      openExisting: "Számla megnyitása",
+      created: "Számla piszkozat elkészült a díjbekérőből.",
+      failed: "A számla létrehozása a díjbekérőből sikertelen.",
+      alreadyConverted: "Ebből a díjbekérőből már készült számla: {{number}}",
+      notProforma: "Csak díjbekérőből lehet számlát készíteni.",
+      cancelledSource: "Törölt díjbekérőből nem készíthető számla.",
+    },
     links: {
       title: "Kapcsolódó bizonylatok",
       originalInvoice: "Eredeti bizonylat",
@@ -442,6 +453,8 @@ export default {
       stornoDocument: "Sztornó bizonylat",
       modifiesOf: "Helyesbíti ezt: {{number}}",
       modifiedBy: "Helyesbítve ezzel",
+      convertedTo: "Ebből készült számla: {{number}}",
+      convertedFrom: "Díjbekérő alapján: {{number}}",
     },
     edit: {
       title: "Számla szerkesztése",

@@ -24,6 +24,7 @@ function dbInvoiceRow(overrides: Record<string, unknown> = {}) {
     originalInvoiceId: null,
     modifiesInvoiceId: null,
     modificationIndex: null,
+    convertedFromInvoiceId: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -89,9 +90,12 @@ jest.mock("@/db", () => ({
 import { db } from "@/db";
 import {
   buildStornoLineItems,
+  convertProformaToInvoice,
   createModificationDraft,
   createStornoInvoice,
   duplicateInvoice,
+  findExistingConversion,
+  findInvoicesReferencing,
   listInvoicesInDateRange,
   markInvoicePaid,
 } from "@/lib/invoices/service";
@@ -112,7 +116,9 @@ jest.mock("@/lib/id", () => ({
     .mockReturnValueOnce("storno-inv-id")
     .mockReturnValueOnce("storno-line-id")
     .mockReturnValueOnce("modify-inv-id")
-    .mockReturnValueOnce("modify-line-id"),
+    .mockReturnValueOnce("modify-line-id")
+    .mockReturnValueOnce("converted-inv-id")
+    .mockReturnValueOnce("converted-line-id"),
 }));
 
 beforeEach(() => {
@@ -232,6 +238,111 @@ describe("createModificationDraft", () => {
     expect(draft.invoiceNumber).toBe("");
     expect(draft.modifiesInvoiceId).toBe("inv-orig");
     expect(draft.modificationIndex).toBe(1);
+  });
+});
+
+describe("convertProformaToInvoice", () => {
+  it("persists the built draft via upsertInvoice and never allocates a number (AC8)", async () => {
+    const source = makeInvoice({
+      id: "proforma-1",
+      documentType: "proforma",
+      status: "proforma",
+      invoiceNumber: "DBK-2026-00001",
+      issueDate: "2026-09-01",
+      dueDate: "2026-09-09",
+    });
+
+    // Inside upsertInvoice: getInvoiceById(draft.id) -> not found, then re-fetch after insert.
+    mockSelectQueue = [
+      [], // getInvoiceById before insert: no existing row
+      [
+        dbInvoiceRow({
+          id: "converted-inv-id",
+          invoiceNumber: "",
+          documentType: "invoice",
+          status: "draft",
+          convertedFromInvoiceId: "proforma-1",
+        }),
+      ],
+      [dbLineItemRow({ id: "converted-line-id", invoiceId: "converted-inv-id" })],
+    ];
+
+    const saved = await convertProformaToInvoice("user-1", source);
+
+    expect(saved.id).toBe("converted-inv-id");
+    expect(saved.documentType).toBe("invoice");
+    expect(saved.status).toBe("draft");
+    expect(saved.invoiceNumber).toBe("");
+    expect(saved.convertedFromInvoiceId).toBe("proforma-1");
+
+    // A draft never burns a document_sequence number: only the invoice row
+    // insert and the line-item insert happen, no document_sequence upsert.
+    expect(mockDb.insert).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("findExistingConversion", () => {
+  it("returns the non-cancelled invoice pointing at the proforma (AC9)", async () => {
+    mockSelectQueue = [
+      [
+        dbInvoiceRow({
+          id: "conv-1",
+          documentType: "invoice",
+          status: "draft",
+          convertedFromInvoiceId: "proforma-1",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "conv-1" })],
+    ];
+
+    const result = await findExistingConversion("user-1", "proforma-1");
+    expect(result?.id).toBe("conv-1");
+  });
+
+  it("returns null when the only match is cancelled (AC9)", async () => {
+    mockSelectQueue = [
+      [
+        dbInvoiceRow({
+          id: "conv-1",
+          documentType: "invoice",
+          status: "cancelled",
+          convertedFromInvoiceId: "proforma-1",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "conv-1" })],
+    ];
+
+    const result = await findExistingConversion("user-1", "proforma-1");
+    expect(result).toBeNull();
+  });
+});
+
+describe("findInvoicesReferencing", () => {
+  it("queries the convertedFromInvoiceId column (AC10)", async () => {
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "conv-1", convertedFromInvoiceId: "proforma-1" })],
+      [dbLineItemRow({ invoiceId: "conv-1" })],
+    ];
+
+    const rows = await findInvoicesReferencing("user-1", "convertedFromInvoiceId", "proforma-1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("conv-1");
+  });
+
+  it("still supports originalInvoiceId and modifiesInvoiceId unchanged (AC10)", async () => {
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "storno-a", originalInvoiceId: "inv-orig" })],
+      [dbLineItemRow({ invoiceId: "storno-a" })],
+    ];
+    const stornoRows = await findInvoicesReferencing("user-1", "originalInvoiceId", "inv-orig");
+    expect(stornoRows[0].id).toBe("storno-a");
+
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "modify-a", modifiesInvoiceId: "inv-orig" })],
+      [dbLineItemRow({ invoiceId: "modify-a" })],
+    ];
+    const modifyRows = await findInvoicesReferencing("user-1", "modifiesInvoiceId", "inv-orig");
+    expect(modifyRows[0].id).toBe("modify-a");
   });
 });
 
