@@ -17,6 +17,12 @@ const isRunningInsideAWorktree = __dirname
 /** @type {import('jest').Config} */
 module.exports = {
   preset: "jest-expo",
+  // Default (5000ms) is occasionally too tight in CI for tests that render a
+  // full screen tree (e.g. __tests__/screens/*) under `--coverage`
+  // instrumentation on a loaded runner — seen 2026-09-15 as a one-off CI
+  // timeout on a test that ran in <1s locally. Doubling gives real hangs
+  // plenty of room to still fail loudly while absorbing that variance.
+  testTimeout: 10000,
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testMatch: [
     "**/__tests__/**/*.(test|spec).(ts|tsx)",
