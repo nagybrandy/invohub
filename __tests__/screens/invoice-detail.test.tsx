@@ -73,6 +73,19 @@ async function renderScreen() {
   return tree!;
 }
 
+function textUnder(node: TestRenderer.ReactTestInstance): string {
+  const parts = node
+    .findAll((n) => {
+      const c = n.props?.children;
+      return typeof c === "string" || (Array.isArray(c) && c.some((x) => typeof x === "string"));
+    })
+    .map((n) => {
+      const c = n.props.children;
+      return Array.isArray(c) ? c.filter((x) => typeof x === "string").join("") : (c as string);
+    });
+  return parts.join(" | ");
+}
+
 function findPressableWithText(root: TestRenderer.ReactTestInstance, text: string) {
   return root
     .findAll((node) => typeof node.props?.onPress === "function")
@@ -84,6 +97,12 @@ describe("InvoiceDetailScreen", () => {
     jest.clearAllMocks();
   });
 
+  // Generous timeout (jest.config.js's 10s default plus, for just this
+  // test): this is the only test in the file whose invoice has a linked
+  // originalInvoice, so it's the only one that mounts the real (unmocked)
+  // linked-document row/InvoiceTimeline/InvoiceMoneyHeader subtree — real,
+  // bounded work, not a hang, but consistently >10s on a coverage-
+  // instrumented CI runner even though it's <1s locally (2026-09-15).
   it("shows related documents when the invoice has a storno original", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
@@ -94,6 +113,9 @@ describe("InvoiceDetailScreen", () => {
           correctionDocuments: [],
         };
       }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
       return { invoice: makeInvoice({ id: "inv-1", originalInvoiceId: "inv-0" }) };
     });
 
@@ -101,12 +123,15 @@ describe("InvoiceDetailScreen", () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("invoices.links.title");
     expect(json).toContain("INV-2026-000");
-  });
+  }, 30000);
 
   it("mark-paid panel toggles and posts payment on confirm", async () => {
     mockApiFetch.mockImplementation(async (path: string, init?: RequestInit) => {
       if (path.includes("/links")) {
         return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
       }
       if (path.includes("/mark-paid")) {
         expect(init?.method).toBe("POST");
@@ -140,6 +165,9 @@ describe("InvoiceDetailScreen", () => {
       if (path.includes("/links")) {
         return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
       }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
       return { invoice: makeInvoice({ id: "inv-1", status: "draft" }) };
     });
 
@@ -148,10 +176,13 @@ describe("InvoiceDetailScreen", () => {
     expect(toggleButton?.props.disabled).toBe(true);
   });
 
-  it("correction action confirms via Alert then navigates to the new draft's edit screen", async () => {
+  it("correction action (in the Továbbiak menu) confirms via Alert then navigates to the new draft's edit screen", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
         return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
       }
       if (path.includes("/modify")) {
         return { invoice: makeInvoice({ id: "modify-1", documentType: "modify" }) };
@@ -165,6 +196,12 @@ describe("InvoiceDetailScreen", () => {
     });
 
     const tree = await renderScreen();
+
+    // Correction now lives in the row's "Továbbiak" (⋯) menu (D1) — open it first.
+    const overflowTrigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+    await act(async () => {
+      overflowTrigger.props.onPress?.({});
+    });
     const correctionButton = findPressableWithText(tree.root, "invoices.correction.action");
 
     await act(async () => {
@@ -175,5 +212,53 @@ describe("InvoiceDetailScreen", () => {
 
     expect(mockPush).toHaveBeenCalledWith("/invoices/modify-1/edit");
     alertSpy.mockRestore();
+  });
+
+  it("has exactly one solid (non-outline) button, and Sztornó/Törlés live in a danger zone (AC10)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+
+    const buttons = tree.root.findAll(
+      (node) => node.type === mockUi.Pressable && "variant" in (node.props ?? {})
+    );
+    const solidButtons = buttons.filter((b) => (b.props.variant ?? "default") === "default");
+    expect(solidButtons).toHaveLength(1);
+
+    const dangerZoneToggle = tree.root.findByProps({ testID: "danger-zone-toggle" });
+    act(() => {
+      dangerZoneToggle.props.onPress?.();
+    });
+    const dangerZoneContent = tree.root.findByProps({ testID: "danger-zone-content" });
+    const text = textUnder(dangerZoneContent);
+    expect(text).toContain("invoices.storno");
+    expect(text).toContain("invoices.detail.deleteAction");
+  });
+
+  it("shows a status timeline above the document preview (D6/AC11)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [{ status: "done", transactionId: "TX-1" }] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+    const timeline = tree.root.findByProps({ testID: "invoice-timeline" });
+    expect(timeline).toBeTruthy();
+    const text = textUnder(timeline);
+    expect(text).toContain("invoices.timeline.issued");
+    expect(text).toContain("TX-1");
   });
 });

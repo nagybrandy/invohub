@@ -11,6 +11,18 @@ type ScreenLayoutProps = {
   header?: ReactNode;
   scroll?: boolean;
   scrollProps?: ScrollViewProps;
+  /**
+   * "content" (default) caps at LAYOUT.contentMax (1200px) — every screen.
+   * "form" caps at LAYOUT.formMax (720px) — a single-column form.
+   * "full" — no cap (a screen that builds its own multi-column layout).
+   */
+  width?: "content" | "form" | "full";
+};
+
+const WIDTH_CLASS: Record<NonNullable<ScreenLayoutProps["width"]>, string> = {
+  content: "max-w-[1200px]",
+  form: "max-w-[720px]",
+  full: "max-w-none",
 };
 
 export function ScreenLayout({
@@ -18,9 +30,14 @@ export function ScreenLayout({
   header,
   scroll = true,
   scrollProps,
+  width = "content",
 }: ScreenLayoutProps) {
   const content = (
-    <VStack space="md" className="flex-1 pt-5 md:pt-8">
+    <VStack
+      testID="screen-layout-content"
+      space="md"
+      className={`w-full flex-1 mx-auto ${WIDTH_CLASS[width]} pt-5 md:pt-8`}
+    >
       {header ? <Box className="px-4 md:px-10">{header}</Box> : null}
       <Box className="flex-1 px-4 pb-8 md:px-10">{children}</Box>
     </VStack>

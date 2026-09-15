@@ -4,11 +4,27 @@ import * as React from "react";
 import { apiFetch } from "@/lib/api/client";
 import type { CompanyInput } from "@/lib/companies/service";
 import type { PublicCompany } from "@/lib/companies/public-company";
+import type { InvoiceCurrency, PaymentMethod } from "@/lib/invoices/types";
 
-type CompanyResponse = { company: PublicCompany | null };
+/**
+ * Invoice-composer defaults the company profile doesn't persist yet
+ * (docs/design/app-ux-spec-2026-09-14.md §2.3). Read optionally — a
+ * `company` without these fields on the wire just yields `undefined`, and
+ * callers fall back to the composer's own defaults. No `db/schema.ts` or
+ * API change; a future queue item adds real persistence.
+ */
+export type CompanyComposerDefaults = {
+  defaultCurrency?: InvoiceCurrency;
+  defaultPaymentMethod?: PaymentMethod;
+  defaultPaymentTermDays?: number;
+};
+
+export type CompanyWithComposerDefaults = PublicCompany & CompanyComposerDefaults;
+
+type CompanyResponse = { company: CompanyWithComposerDefaults | null };
 
 export function useCompany() {
-  const [company, setCompany] = React.useState<PublicCompany | null>(null);
+  const [company, setCompany] = React.useState<CompanyWithComposerDefaults | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -31,7 +47,7 @@ export function useCompany() {
 
   const save = React.useCallback(
     async (input: CompanyInput) => {
-      const data = await apiFetch<{ company: PublicCompany }>("/api/companies", {
+      const data = await apiFetch<{ company: CompanyWithComposerDefaults }>("/api/companies", {
         method: "POST",
         body: JSON.stringify(input),
       });

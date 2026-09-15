@@ -37,6 +37,13 @@ function renderCard(props: React.ComponentProps<typeof InvoiceCard>) {
   return tree!;
 }
 
+function openRowMenu(tree: TestRenderer.ReactTestRenderer) {
+  const trigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+  act(() => {
+    trigger.props.onPress?.();
+  });
+}
+
 describe("InvoiceCard", () => {
   beforeEach(() => {
     mockConfirmAsync.mockReset();
@@ -66,18 +73,32 @@ describe("InvoiceCard", () => {
     expect(onPress).toHaveBeenCalledWith(invoice);
   });
 
-  it("has a visible delete button (not just long-press) that confirms before deleting", async () => {
+  it("has no visible trash icon in the row — delete lives in the ⋯ menu (L4)", () => {
+    const tree = renderCard({ invoice: makeInvoice(), onDelete: jest.fn() });
+    const directDeleteButtons = tree.root.findAll(
+      (node) => node.props?.accessibilityLabel === "invoices.card.deleteAction"
+    );
+    expect(directDeleteButtons).toHaveLength(0);
+  });
+
+  it("deletes from the last, destructive ⋯ menu item after confirming", async () => {
     mockConfirmAsync.mockResolvedValue(true);
     const onDelete = jest.fn();
     const invoice = makeInvoice();
-    const tree = renderCard({ invoice, onDelete });
+    const tree = renderCard({ invoice, onDelete, onPreview: jest.fn() });
 
-    const deleteButton = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "invoices.card.deleteAction"
+    openRowMenu(tree);
+    // With onPreview provided, item 0 is preview and item 1 is delete (last).
+    const deleteItem = tree.root.findByProps({ testID: "overflow-menu-item-1" });
+    const destructiveDescendants = deleteItem.findAll(
+      (node) =>
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("text-destructive")
     );
+    expect(destructiveDescendants.length).toBeGreaterThan(0);
 
     await act(async () => {
-      await deleteButton.props.onPress?.();
+      await deleteItem.props.onPress?.();
     });
 
     expect(mockConfirmAsync).toHaveBeenCalledWith(
@@ -91,18 +112,42 @@ describe("InvoiceCard", () => {
     const onDelete = jest.fn();
     const tree = renderCard({ invoice: makeInvoice(), onDelete });
 
-    const deleteButton = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "invoices.card.deleteAction"
-    );
+    openRowMenu(tree);
+    const deleteItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
 
     await act(async () => {
-      await deleteButton.props.onPress?.();
+      await deleteItem.props.onPress?.();
     });
 
     expect(onDelete).not.toHaveBeenCalled();
   });
 
-  it("renders the proforma status label via the shared status i18n map", () => {
+  it("opens quick preview from the ⋯ menu", () => {
+    const onPreview = jest.fn();
+    const invoice = makeInvoice();
+    const tree = renderCard({ invoice, onDelete: jest.fn(), onPreview });
+
+    openRowMenu(tree);
+    const previewItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
+    act(() => {
+      previewItem.props.onPress?.();
+    });
+
+    expect(onPreview).toHaveBeenCalledWith(invoice);
+  });
+
+  it("shows an overdue subtext under the due date when the invoice is past due", () => {
+    const invoice = makeInvoice({ status: "sent", dueDate: "2020-01-01" });
+    const tree = renderCard({
+      invoice,
+      onDelete: jest.fn(),
+      now: new Date("2020-02-01T00:00:00.000Z"),
+    });
+    const overdueLabel = tree.root.findByProps({ testID: "invoice-card-overdue-label" });
+    expect(overdueLabel).toBeTruthy();
+  });
+
+  it("renders the proforma status label via the shared status chip", () => {
     const tree = renderCard({
       invoice: makeInvoice({ status: "proforma" }),
       onDelete: jest.fn(),

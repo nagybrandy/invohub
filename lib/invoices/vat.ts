@@ -14,6 +14,19 @@ export const VAT_CATEGORIES: VatCategory[] = [
   "ATK",
 ];
 
+/**
+ * The two categories almost every EV needs — shown directly in
+ * `VatCategoryPicker`. The remaining five sit behind a "Speciális adózás"
+ * expander (docs/design/app-ux-spec-2026-09-14.md §2.4, INV-7). Grouping
+ * only — the categories themselves and their tax meaning are unchanged.
+ */
+export const COMMON_VAT_CATEGORIES: VatCategory[] = ["normal", "AAM"];
+
+/** The five special-taxation categories hidden behind the "Speciális adózás" expander. */
+export const ADVANCED_VAT_CATEGORIES: VatCategory[] = VAT_CATEGORIES.filter(
+  (category) => !COMMON_VAT_CATEGORIES.includes(category)
+);
+
 /** Every category but "normal" always carries 0% VAT — the rate field is only meaningful for "normal". */
 export function isExemptVatCategory(category: VatCategory): boolean {
   return category !== "normal";

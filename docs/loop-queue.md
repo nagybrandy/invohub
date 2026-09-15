@@ -90,16 +90,20 @@ before or alongside Phase 1 items that depend on it.
 The app's own functions and UX come first; audits, tooling and "confirm
 that" items wait. Build in this order (each maps to an unchecked item below):
 
-0. **App UX/UI overhaul (desktop first, then mobile)** — owner, 2026-09-14
+0. [x] **App UX/UI overhaul (desktop first, then mobile)** — owner, 2026-09-14
    evening: "the app has a lot of UX/UI problems on desktop: invoice creation
    is complicated, it's hard to see what is where, the in-app menu isn't
    clear, and it isn't pretty — fix these first." Handled as a dedicated
    multi-track workflow (`.claude/workflows/app-ux-overhaul.js`), not as one
    slice: information architecture + app shell/menu, invoice creation
    redesign, list/detail/dashboard polish, visual system. Items 1, 7 and 8
-   below are absorbed by it.
-1. Invoice creation flow: step/accordion flow on mobile, fewer fields before
-   line items (`app/(app)/invoices/new.tsx`) — absorbed by item 0
+   below are absorbed by it. **Shipped 2026-09-15** — see
+   `docs/audits/ux-overhaul-2026-09-14/REPORT.md` for what changed per
+   track, screenshots, and what's still open.
+1. [x] Invoice creation flow: step/accordion flow on mobile, fewer fields before
+   line items (`app/(app)/invoices/new.tsx`) — absorbed by item 0. **Shipped**
+   — shared 3-step composer (Partner → Tételek → Ellenőrzés & küldés, one
+   step at a time on mobile) in `components/invoices/composer/`.
 2. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
 3. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
@@ -110,8 +114,17 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test
    modes — big item, plan it in slices
 7. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
-8. Invoices empty-state CTA: replace "Load demo data" with "Első számla
-   kiállítása" (demo seed stays behind the dev flag)
+   — **partially shipped**: the composer's own line-item icon buttons are
+   now 44px (`components/invoices/composer/LineItemRow.tsx`), but the
+   notification bell (`components/navigation/MobileAppHeader.tsx`, ~42px)
+   and several choice pills (VAT category picker, partner-type pills,
+   invoice-list filter chips) are still under 44px — see the new findings
+   below; item stays open.
+8. [x] Invoices empty-state CTA: replace "Load demo data" with "Első számla
+   kiállítása" (demo seed stays behind the dev flag). **Shipped** — the
+   `/invoices` empty state now actions straight to `routes.newInvoice`
+   (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
+   control.
 
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
@@ -179,17 +192,20 @@ Remaining for the launch gate:
       account (needs `NAV_TEST_*` configured — see docs/nav-test-setup.md)
       — do a real storno/modify test submission once that's set up, as a
       final check before relying on this for production.
-- [~] folyamatban (slice/invoice-creation-step-flow-mobile)
-      Invoice creation (`app/(app)/invoices/new.tsx`) is one long, flat
+- [x] Invoice creation (`app/(app)/invoices/new.tsx`) is one long, flat
       scroll with ~16 fields and no sectioned/step flow on mobile —
       consider a step/accordion flow (Recipient → Dates/Payment → Line
       items) or collapsing less-common fields behind "more options" to
-      shorten the pre-line-items scroll distance. Deferred here as a
-      product/design decision rather than restructured unilaterally in the
-      2026-09-14 fixer pass. (ux-mobile)
+      shorten the pre-line-items scroll distance. (ux-mobile)
       Plan: `docs/plans/2026-09-14-invoice-creation-step-flow-mobile.md`
-      (design decision: accordion with collapsed-section summaries, not a
-      wizard — desktop layout unchanged)
+      **Shipped 2026-09-15** by the app UX overhaul (item 0 above): a
+      shared 3-step composer (`components/invoices/composer/`) — Partner →
+      Tételek → Ellenőrzés & küldés — renders one step at a time on mobile
+      with a sticky total bar; desktop shows the same steps in a 2-column
+      layout with a persistent summary/preview panel. Superseded this
+      item's original "accordion" design decision (the shipped shape is a
+      stepper, not an accordion) — see
+      `docs/design/app-ux-spec-2026-09-14.md` §2 for the as-built spec.
 - [ ] Notification bell tap target (`components/navigation/
       MobileAppHeader.tsx`) is ~42px, just under the 44px minimum — bump
       padding to p-3 or add hitSlop (2026-09-14 audit, ux-mobile)
@@ -200,11 +216,15 @@ Remaining for the launch gate:
       (`app/(app)/invoices/index.tsx`) — establish a shared "choice pill"
       component with a minimum 44px height instead of ad hoc
       Pressable+className (2026-09-14 audit, ux-mobile)
-- [ ] "Load demo data" empty-state CTA (`app/(app)/invoices/index.tsx`)
+- [x] "Load demo data" empty-state CTA (`app/(app)/invoices/index.tsx`)
       routes unconditionally to Settings, but the demo-seed control there
       is hidden unless `EXPO_PUBLIC_ALLOW_DEV_SEED` is set (default off) —
       hide the CTA when the flag is off, or route straight to the seed
       control when it's on (2026-09-14 audit, ux-desktop)
+      **Shipped 2026-09-15** by the app UX overhaul (item 8 above): the
+      empty-state action now goes straight to `routes.newInvoice`
+      (`t("nav.newInvoice")`, "Új számla") instead of Settings, so the
+      demo-seed-visibility problem no longer applies.
 - [ ] A partially-paid invoice past its due date never surfaces as
       overdue in its own status — `deriveInvoiceStatusFromPayment`
       (`lib/invoices/payment-status.ts`) only compares against `dueDate`
@@ -253,6 +273,52 @@ Remaining for the launch gate:
       client data into a new INV document and links the two, which is the
       standard collect-then-invoice flow every Hungarian competitor ships
       and the reason an EV issues a díjbekérő at all.
+
+- [ ] Invoice document preview/PDF remains English and unbranded
+      (`lib/invoices/preview-html.ts`) — confirmed still live: both the
+      new composer's sticky mini-preview and the finalized invoice
+      detail's "Előnézet" render "DRAFT", "Status: unpaid", "Bill to:",
+      "Description/Qty/Unit/VAT/Total" in English with no InvoHub
+      branding. Already explicitly out of scope for the 2026-09-14 app
+      UX/UI overhaul (spec §8), but the composer redesign now puts this
+      preview in a permanent sidebar on every invoice screen instead of a
+      separate preview tab, so it's more visible than before — prioritize
+      this as the next queue item. (2026-09-15 audit, ux-desktop)
+- [ ] Ranade weight 500 is defined (`global.css`, `@font-face`,
+      `public/fonts/ranade-500.woff2`) but never actually requested by any
+      heading — every `font-heading` usage is paired with
+      `font-bold`/`font-semibold`, and `components/ui/heading/styles.tsx`
+      bakes `font-bold` into the shared `Heading` base style, so no
+      rendered heading can ever hit weight 500. The app UX spec's AC4
+      (`docs/design/app-ux-spec-2026-09-14.md:1250`,
+      `document.fonts.check('500 16px Ranade') === true`) is therefore
+      unimplemented and unsatisfiable as written — no e2e spec checks it
+      either (`grep -rl "Ranade\|fonts.check" e2e/` is empty). Not a
+      visible UI defect (Ranade 700, the weight every heading actually
+      uses, loads and renders correctly) — this is a spec/test-authoring
+      gap, not a regression. Either rewrite AC4 to check weight 700, or
+      apply `font-medium` somewhere in the heading scale and add the
+      missing e2e check. (2026-09-15 audit, acceptance)
+- [ ] Composer line-item row still needs horizontal scrolling within
+      itself at 1440px to show every column beside the fixed 400px
+      summary panel (~680px available vs. ~1068px needed for the spec's
+      full 8-column layout, including the description field's 240px
+      minimum). Fixing this fully needs a larger redesign — e.g. reworking
+      the summary panel width, or restructuring the row itself (merging
+      Nettó/Bruttó into one figure) — beyond a narrow round-2 fix.
+      (2026-09-15 audit, ux-desktop)
+- [ ] `components/notifications/NotificationPanel.tsx` has substantial
+      pre-existing hardcoded English chrome text ("Notifications", "Mark
+      all read", "Refresh", empty-state copy, "Just now"/"Xh ago") — left
+      untouched by the 2026-09-15 i18n fix that only covered generated
+      notification *content*, not the panel's own chrome. (2026-09-15
+      audit, i18n)
+- [ ] Notification rows created before the 2026-09-15 i18n-key encoding
+      fix (in the same DB, from earlier test runs) still render as literal
+      English text — by design, only newly-synced/newly-seeded
+      notifications get the fix. Needs a data migration to backfill, not
+      just a code change, if old rows must display correctly too.
+      (2026-09-15 audit, i18n)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 

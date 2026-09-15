@@ -57,5 +57,13 @@ export function useProducts() {
     return data.product;
   }, []);
 
-  return { products, loading, error, refresh, create, update, getById };
+  const remove = React.useCallback(
+    async (id: string) => {
+      await apiFetch(`/api/products/${id}`, { method: "DELETE" });
+      await refresh();
+    },
+    [refresh]
+  );
+
+  return { products, loading, error, refresh, create, update, getById, remove };
 }

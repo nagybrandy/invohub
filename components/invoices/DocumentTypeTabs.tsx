@@ -5,21 +5,27 @@ import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 
+// "receipt" stays in the type union (other code still reasons about it —
+// see toInvoiceDocumentType/toTabDocumentType in useInvoiceComposer.ts) but
+// is no longer a renderable tab here: it used to navigate away from an
+// in-progress invoice and silently drop typed data (INV-14, E2). Receipts
+// are created from the sidebar's "Nyugták → Új nyugta" instead.
 export type DocumentType = "invoice" | "proforma" | "advance" | "receipt";
 
-const DOCUMENT_TYPE_KEYS: { value: DocumentType; i18nKey: string }[] = [
+const DOCUMENT_TYPE_KEYS: { value: Exclude<DocumentType, "receipt">; i18nKey: string }[] = [
   { value: "invoice", i18nKey: "invoices.documentTypes.invoice" },
   { value: "proforma", i18nKey: "invoices.documentTypes.proforma" },
   { value: "advance", i18nKey: "invoices.documentTypes.advance" },
-  { value: "receipt", i18nKey: "invoices.documentTypes.receipt" },
 ];
 
 type Props = {
   selected: DocumentType;
   onChange: (type: DocumentType) => void;
+  /** Disabled while editing an existing invoice — the document type can't change after issuing (spec §2.7). */
+  disabled?: boolean;
 };
 
-export function DocumentTypeTabs({ selected, onChange }: Props) {
+export function DocumentTypeTabs({ selected, onChange, disabled }: Props) {
   const { t } = useTranslation();
 
   return (
@@ -27,12 +33,13 @@ export function DocumentTypeTabs({ selected, onChange }: Props) {
       {DOCUMENT_TYPE_KEYS.map((dt) => (
         <Pressable
           key={dt.value}
-          onPress={() => onChange(dt.value)}
+          onPress={() => !disabled && onChange(dt.value)}
+          disabled={disabled}
           accessibilityRole="tab"
-          accessibilityState={{ selected: selected === dt.value }}
-          className={`w-1/2 items-center rounded-lg px-2 py-2.5 md:flex-1 md:px-4 md:py-3 ${
+          accessibilityState={{ selected: selected === dt.value, disabled }}
+          className={`w-1/3 items-center rounded-lg px-2 py-2.5 md:flex-1 md:px-4 md:py-3 ${
             selected === dt.value ? "bg-primary" : "bg-transparent"
-          }`}
+          } ${disabled ? "opacity-50" : ""}`}
         >
           <Text
             className={`text-sm font-medium ${

@@ -23,6 +23,12 @@
     --destructive: 220 38 38;
     --destructive-foreground: 255 255 255;
     --border: 197 199 202;
+    /* Lighter card/table border (V8) — #e4e6e8. --border stays the heavier
+       input/divider color; --border-subtle is for card and table edges. */
+    --border-subtle: 228 230 232;
+    /* Raised-surface background — popover, modal, sticky footer. Plain cards
+       use --card and carry no shadow. */
+    --surface-raised: 255 255 255;
     --input: 255 255 255;
     --ring: 100 149 237;
     --hard-shadow: 33 35 37;
@@ -47,19 +53,28 @@
     --destructive: 248 113 113;
     --destructive-foreground: 255 255 255;
     --border: 38 45 61;
+    --border-subtle: 48 56 74;
+    --surface-raised: 24 28 38;
     --input: 27 32 44;
     --ring: 120 165 240;
   }
 }
 
-/* Display font for headings — self-hosted Ranade (Fontshare), already vendored
-   for the static marketing site (marketing/assets/fonts/). Served at
-   /marketing/assets/fonts/... in production (see docs/domain-architecture.md);
-   404s harmlessly to the Inter/system-ui fallback in local Expo dev, where the
-   marketing static build isn't layered onto the app's own dev server. */
+/* Display font for headings — self-hosted Ranade (Fontshare). The original
+   @font-face pointed only at /marketing/assets/fonts/, which 404s on the
+   app's own Expo dev server (the marketing static build isn't layered onto
+   it locally) — Ranade silently fell back to Inter/system-ui everywhere
+   (V6). Fix: vendor the two woff2 files into public/fonts/ (also mirrored
+   into assets/fonts/, matching the design spec's file list), which Expo
+   Router's web dev server AND the exported build serve at /fonts/... .
+   /marketing/assets/fonts/ is kept as a second src for the layered
+   production host. Verify with
+   document.fonts.check('500 16px Ranade') === true. */
 @font-face {
   font-family: "Ranade";
-  src: url("/marketing/assets/fonts/ranade-500.woff2") format("woff2");
+  src:
+    url("/fonts/ranade-500.woff2") format("woff2"),
+    url("/marketing/assets/fonts/ranade-500.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -67,7 +82,9 @@
 
 @font-face {
   font-family: "Ranade";
-  src: url("/marketing/assets/fonts/ranade-700.woff2") format("woff2");
+  src:
+    url("/fonts/ranade-700.woff2") format("woff2"),
+    url("/marketing/assets/fonts/ranade-700.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;

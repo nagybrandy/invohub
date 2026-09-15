@@ -23,6 +23,11 @@ module.exports = {
       },
       colors: {
         border: "rgb(var(--border) / <alpha-value>)",
+        // Named "subtle" (not "border-subtle") so Tailwind's border-color
+        // plugin generates the utility our components actually use:
+        // `border-subtle` (border-{colorKey}), not `border-border-subtle`.
+        subtle: "rgb(var(--border-subtle) / <alpha-value>)",
+        "surface-raised": "rgb(var(--surface-raised) / <alpha-value>)",
         input: "rgb(var(--input) / <alpha-value>)",
         ring: "rgb(var(--ring) / <alpha-value>)",
         background: "rgb(var(--background) / <alpha-value>)",
@@ -56,6 +61,10 @@ module.exports = {
           foreground: "rgb(var(--card-foreground) / <alpha-value>)",
         },
         "hard-shadow": "rgb(var(--hard-shadow) / <alpha-value>)",
+        // Lighter divider color for table rows / dense list borders (V8) —
+        // `border-subtle`, `bg-subtle`, `text-subtle` all resolve to it.
+        subtle: "rgb(var(--border-subtle) / <alpha-value>)",
+        "surface-raised": "rgb(var(--surface-raised) / <alpha-value>)",
       },
       borderWidth: {
         hairline: hairlineWidth(),

@@ -42,7 +42,7 @@ export default function NewClientScreen() {
   }
 
   return (
-    <FormScreen header={<Heading size="2xl">{t("clients.new")}</Heading>}>
+    <FormScreen header={<Heading size="2xl">{t("partners.add")}</Heading>}>
       <VStack space="md">
         <FormControl>
           <FormControlLabel>

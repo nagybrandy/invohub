@@ -1,33 +1,90 @@
 // lib/app-navigation.test.ts
 import {
+  ADMIN_NAV,
   DASHBOARD_FEATURE_NAV,
-  DESKTOP_TOP_NAV,
   getDashboardFeatures,
-  getDesktopNavItems,
+  getMobileMoreNav,
+  getSidebarSecondaryNav,
   isNavActive,
+  MOBILE_MORE_NAV,
   MOBILE_TAB_NAV,
+  SIDEBAR_PRIMARY_NAV,
+  SIDEBAR_SECONDARY_NAV,
 } from "@/lib/app-navigation";
 import { routes } from "@/lib/navigation";
 
+describe("SIDEBAR_PRIMARY_NAV", () => {
+  it("has exactly the six owner-ordered primary sections", () => {
+    expect(SIDEBAR_PRIMARY_NAV.map((item) => item.href)).toEqual([
+      routes.dashboard,
+      routes.invoices,
+      routes.receipts,
+      routes.clients,
+      routes.products,
+      routes.settings,
+    ]);
+  });
+
+  it("labels the clients route as nav.partners, not nav.clients", () => {
+    const partnersItem = SIDEBAR_PRIMARY_NAV.find((item) => item.href === routes.clients);
+    expect(partnersItem?.labelKey).toBe("nav.partners");
+  });
+});
+
+describe("SIDEBAR_SECONDARY_NAV / getSidebarSecondaryNav", () => {
+  it("carries Importálás below the divider for every role", () => {
+    expect(SIDEBAR_SECONDARY_NAV.map((item) => item.href)).toEqual([routes.import]);
+  });
+
+  it("does not include admin for a non-admin role", () => {
+    const items = getSidebarSecondaryNav("entrepreneur");
+    expect(items.map((i) => i.href)).toEqual([routes.import]);
+  });
+
+  it("appends the admin panel below the divider for admins", () => {
+    const items = getSidebarSecondaryNav("admin");
+    expect(items.map((i) => i.href)).toEqual([routes.import, routes.admin]);
+  });
+});
+
 describe("MOBILE_TAB_NAV", () => {
-  it("puts EV daily work first with new invoice in the center", () => {
-    expect(MOBILE_TAB_NAV.map((item) => item.href)).toEqual([
+  it("puts EV daily work first with new invoice in the center and 'Továbbiak' last", () => {
+    expect(MOBILE_TAB_NAV.map((item) => item.href ?? null)).toEqual([
       routes.invoices,
       routes.clients,
       routes.newInvoice,
       routes.dashboard,
-      routes.settings,
+      null,
     ]);
+    expect(MOBILE_TAB_NAV.map((item) => item.labelKey)).toEqual([
+      "nav.invoices",
+      "nav.partners",
+      "nav.newInvoice",
+      "nav.dashboard",
+      "nav.more",
+    ]);
+  });
+
+  it("has exactly 5 tabs", () => {
+    expect(MOBILE_TAB_NAV).toHaveLength(5);
   });
 });
 
-describe("DESKTOP_TOP_NAV", () => {
-  it("leads with invoices for EV billing", () => {
-    expect(DESKTOP_TOP_NAV.map((item) => item.href)).toEqual([
-      routes.invoices,
-      routes.dashboard,
+describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
+  it("exposes receipts, products, import, and settings to entrepreneurs", () => {
+    const items = getMobileMoreNav("entrepreneur");
+    expect(items.map((i) => i.href)).toEqual([
+      routes.receipts,
+      routes.products,
+      routes.import,
       routes.settings,
     ]);
+  });
+
+  it("appends the admin panel for admins", () => {
+    const items = getMobileMoreNav("admin");
+    expect(items.map((i) => i.href)).toContain(routes.admin);
+    expect(items).toHaveLength(MOBILE_MORE_NAV.length + 1);
   });
 });
 
@@ -47,30 +104,6 @@ describe("getDashboardFeatures", () => {
   });
 });
 
-describe("getDesktopNavItems", () => {
-  it("keeps settings once and includes EV secondary features", () => {
-    const items = getDesktopNavItems("entrepreneur");
-    const settingsCount = items.filter((i) => i.href === routes.settings).length;
-    expect(settingsCount).toBe(1);
-    expect(items.map((i) => i.href)).toEqual([
-      routes.invoices,
-      routes.clients,
-      routes.newInvoice,
-      routes.dashboard,
-      routes.products,
-      routes.receipts,
-      routes.import,
-      routes.settings,
-    ]);
-  });
-
-  it("includes admin link for admin users", () => {
-    const items = getDesktopNavItems("admin");
-    expect(items.some((i) => i.href === routes.admin)).toBe(true);
-    expect(items).toHaveLength(9);
-  });
-});
-
 describe("isNavActive", () => {
   it("matches dashboard exactly", () => {
     expect(isNavActive("/dashboard", routes.dashboard)).toBe(true);
@@ -79,6 +112,7 @@ describe("isNavActive", () => {
 
   it("matches settings and admin subtrees", () => {
     expect(isNavActive("/settings/company", routes.settings)).toBe(true);
+    expect(isNavActive("/settings/pdf", routes.settings)).toBe(true);
     expect(isNavActive("/admin", routes.admin)).toBe(true);
   });
 
@@ -89,6 +123,12 @@ describe("isNavActive", () => {
   it("matches receipt detail under receipts", () => {
     expect(isNavActive("/receipts/abc-123", routes.receipts)).toBe(true);
   });
+
+  it("matches the clients (Partnerek) route", () => {
+    expect(isNavActive("/clients", routes.clients)).toBe(true);
+    expect(isNavActive("/clients/abc/edit", routes.clients)).toBe(true);
+    expect(isNavActive("/products", routes.clients)).toBe(false);
+  });
 });
 
 describe("DASHBOARD_FEATURE_NAV", () => {
@@ -96,5 +136,12 @@ describe("DASHBOARD_FEATURE_NAV", () => {
     expect(DASHBOARD_FEATURE_NAV.every((item) => !("accountantOnly" in item))).toBe(
       true,
     );
+  });
+});
+
+describe("ADMIN_NAV", () => {
+  it("points at the admin route and is marked adminOnly", () => {
+    expect(ADMIN_NAV.href).toBe(routes.admin);
+    expect(ADMIN_NAV.adminOnly).toBe(true);
   });
 });

@@ -2,6 +2,7 @@
 // FlatList wrapper with empty state, refresh, and loading skeleton.
 import type { ReactElement, ReactNode } from "react";
 import { FlatList, RefreshControl, type ListRenderItem } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { EmptyState } from "@/components/layout/EmptyState";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
@@ -11,6 +12,7 @@ type ListScreenProps<T> = {
   keyExtractor: (item: T) => string;
   renderItem: ListRenderItem<T>;
   header?: ReactNode;
+  /** Defaults to the states.emptyTitle i18n key — never a hardcoded string (V11). */
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
@@ -24,17 +26,20 @@ export function ListScreen<T>({
   keyExtractor,
   renderItem,
   header,
-  emptyTitle = "Nothing here yet",
+  emptyTitle,
   emptyDescription,
   emptyAction,
   loading = false,
   refreshing = false,
   onRefresh,
 }: ListScreenProps<T>): ReactElement {
+  const { t } = useTranslation();
+  const resolvedEmptyTitle = emptyTitle ?? t("states.emptyTitle");
+
   if (loading && data.length === 0) {
     return (
       <ScreenLayout scroll={false}>
-        <EmptyState title={emptyTitle} loading />
+        <EmptyState title={resolvedEmptyTitle} loading />
       </ScreenLayout>
     );
   }
@@ -44,7 +49,7 @@ export function ListScreen<T>({
       <ScreenLayout scroll={false}>
         {header ? <Box className="mb-4">{header}</Box> : null}
         <EmptyState
-          title={emptyTitle}
+          title={resolvedEmptyTitle}
           description={emptyDescription}
           action={emptyAction}
         />

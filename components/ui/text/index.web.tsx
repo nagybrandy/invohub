@@ -3,7 +3,11 @@ import type { VariantProps } from '@gluestack-ui/utils/nativewind-utils';
 import { webDomProps } from '@/components/ui/web-dom-props';
 import { textStyle } from './styles';
 
-type ITextProps = React.ComponentProps<'span'> & VariantProps<typeof textStyle>;
+type ITextProps = React.ComponentProps<'span'> &
+  VariantProps<typeof textStyle> & {
+    /** Right-aligned tabular figures for money/quantity columns (4.6). */
+    numeric?: boolean;
+  };
 
 const Text = React.forwardRef<React.ComponentRef<'span'>, ITextProps>(
   function Text(
@@ -17,6 +21,7 @@ const Text = React.forwardRef<React.ComponentRef<'span'>, ITextProps>(
       sub,
       italic,
       highlight,
+      numeric,
       ...props
     }: { className?: string } & ITextProps,
     ref
@@ -32,7 +37,7 @@ const Text = React.forwardRef<React.ComponentRef<'span'>, ITextProps>(
           sub: sub as boolean,
           italic: italic as boolean,
           highlight: highlight as boolean,
-          class: className,
+          class: numeric ? `tabular-nums text-right ${className ?? ''}` : className,
         })}
         {...webDomProps(props)}
         ref={ref}

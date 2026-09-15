@@ -94,14 +94,72 @@ authTest.describe("Dashboard UI (authenticated)", () => {
     ).toBeVisible();
   });
 
-  authTest("header actions show customer service button", async ({
+  authTest("header actions show customer service button in the ⋯ menu", async ({
     page,
   }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
+    await page.getByTestId("overflow-menu-trigger").first().click();
     await expect(
       page.getByRole("button", { name: /Ügyfélszolgálat/ })
     ).toBeVisible();
+  });
+});
+
+// The redesigned dashboard (A1-A7): clickable KPIs, a real chart instead of
+// a legend with nothing behind it, an honest VAT caption, and the M2M demo
+// panel collapsed at the bottom.
+authTest.describe("Dashboard KPIs and layout (redesign)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
+
+  authTest("all 4 KPI cards are clickable and navigate to a filtered invoice list", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await page.getByTestId("stat-card-press").filter({ hasText: "Lejárt" }).click();
+    await page.waitForURL(/\/invoices/);
+    expect(page.url()).toContain("status=overdue");
+  });
+
+  authTest("the estimated-VAT caption names the period and disclaims tax advice", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByText("Nem adótanácsadás")).toBeVisible();
+  });
+
+  authTest("shows a revenue split bar instead of a legend with no chart", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByTestId("dashboard-revenue-bar")).toBeVisible();
+  });
+
+  authTest("Következő lépések card renders", async ({ page }) => {
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByText("Következő lépések")).toBeVisible();
+  });
+
+  authTest("M2M diagnostics panel is collapsed by default and labeled (demó)", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByTestId("m2m-demo-card")).toBeVisible();
+    await expect(page.getByTestId("m2m-demo-content")).toHaveCount(0);
+    await expect(page.getByText("Fejlesztői diagnosztika (demó)")).toBeVisible();
   });
 });

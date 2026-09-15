@@ -58,5 +58,13 @@ export function useClients() {
     return data.client;
   }, []);
 
-  return { clients, loading, error, refresh, create, update, getById };
+  const remove = React.useCallback(
+    async (id: string) => {
+      await apiFetch(`/api/clients/${id}`, { method: "DELETE" });
+      await refresh();
+    },
+    [refresh]
+  );
+
+  return { clients, loading, error, refresh, create, update, getById, remove };
 }
