@@ -133,11 +133,36 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    into the PDF, labels and user data alike"), so the PDF draws `"Vevö"` /
    `"Fizetési határidö"`, not the literal AC15 spelling.
    **Reviewed and merged 2026-09-15 (owner sign-off).**
-3. [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
-   Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
-   NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
+3. [x] (slice/non-huf-invoice-exchange-rate-nav-xml)
+   **Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
+   NAV XML and on the PDF** (`lib/nav/invoice-xml.ts`,
+   `lib/invoices/build-pdf-context.ts`) — implemented: a new
+   `lib/invoices/exchange-rate.ts` resolves/validates the rate and converts
+   document-currency amounts to HUF (per line, then summed — never
+   converting an already-summed total, so NAV's cross-sum check holds);
+   `buildNavInvoiceXml` now emits the real `<exchangeRate>` and every
+   `…HUF` element from it, and **throws** (no `navSubmission` row written,
+   `client.manageInvoice` never called) for a non-HUF invoice with no usable
+   rate instead of silently reporting a false HUF VAT base. The create path
+   (`POST /api/invoices`, `POST /api/v1/invoices` via
+   `create-from-payload.ts`) now actually persists the rate it collects, and
+   the composer blocks save on a missing/invalid rate before it ever reaches
+   the API. The EUR document (HTML preview + PDF) now shows the rate used
+   and the VAT amount in forint next to the EUR VAT amount, wired into the
+   already-Hungarianized/branded preview and PDF (`lib/invoices/
+   document-labels.ts`'s new `exchangeRate` / `exchangeRateValue` /
+   `vatInHuf` keys) rather than the plain-English placeholder this slice
+   was written against — done as part of merging this slice with
+   `slice/hungarianize-brand-invoice-preview-pdf` on 2026-09-15, since both
+   touched the same renderer functions independently. All 16 plan
+   acceptance criteria pass; `npx tsc --noEmit` and `npm run test:unit` are
+   green.
    Plan: `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
-   (risk: **tax-legal** — PR for human sign-off, no auto-ship)
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship; the plan's
+   OQ-1/OQ-2/OQ-3 — which date's rate governs, whether the HUF VAT amount
+   must round to whole forint, and the document wording — are open
+   questions for that sign-off, not resolved in code)
+   **Shipped 2026-09-15. Reviewed and merged 2026-09-15 (owner sign-off).**
 4. [~] folyamatban (slice/nav-xml-payment-method-date)
    Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
    Plan: `docs/plans/2026-09-15-nav-xml-payment-method-date.md`
@@ -166,6 +191,17 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
    control.
+10. Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
+    (`slice/non-huf-invoice-exchange-rate-nav-xml`): before that slice,
+    `POST /api/invoices` silently dropped `body.exchangeRate` on create, so
+    any EUR/non-HUF invoice created before the fix was saved with no rate.
+    Such a row now can't be NAV-submitted (`buildNavInvoiceXml` correctly
+    refuses instead of reporting a false HUF base) until it's edited to add
+    one. Needs a listing (which existing invoices are affected) or an
+    in-app prompt on the invoice detail/edit screen — not a guessed rate.
+    Also out of scope for that slice, needs its own item: retro-correcting
+    any non-HUF invoice already reported to NAV with the old hardcoded
+    `exchangeRate=1` (a NAV MODIFY submission question, tax/legal-gated).
 
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
@@ -289,23 +325,15 @@ Remaining for the launch gate:
       2026, so this is a real launch blocker for any EV issuing nyugta.
       (needs tax/legal sign-off)
 - [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
-      Non-HUF invoices report a false HUF VAT base to NAV —
-      `lib/nav/invoice-xml.ts:361` hardcodes `<exchangeRate>1</exchangeRate>`
-      even though `invoice.exchangeRate` exists in `db/schema.ts` and
-      `app/(app)/invoices/new.tsx` already collects it. Pass the stored rate
-      into the XML, refuse to submit a non-HUF invoice that has no rate, and
-      show the HUF VAT amount on the PDF/preview
-      (`lib/invoices/build-pdf-context.ts` ignores `exchangeRate` entirely
-      today). (needs tax/legal sign-off — which rate and which date govern
+      Non-HUF invoices report a false HUF VAT base to NAV — confirmed
+      resolved: `lib/nav/invoice-xml.ts` now emits the real
+      `<exchangeRate>` (and every `…HUF` element) from `invoice.exchangeRate`
+      instead of hardcoding `1`, refuses to submit a non-HUF invoice with no
+      usable rate, and the PDF/preview show the rate used and the HUF VAT
+      amount. (needs tax/legal sign-off — which rate and which date govern
       the HUF VAT amount is an Áfa tv. question, not a code choice)
-      Same item as priority #3 above. Plan:
-      `docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`
-      Planning also found two write-path leaks the item's text did not
-      name, both in scope of that plan: `POST /api/invoices` never copies
-      `body.exchangeRate` (so the composer's rate is dropped on every newly
-      created invoice — `PATCH` keeps it, which is why the field looks like
-      it works when editing), and `lib/invoices/create-from-payload.ts`
-      (`POST /api/v1/invoices`) has no `exchangeRate` field at all.
+      Same item as priority #3 above. See priority #3's note above for
+      implementation status (2026-09-15).
 - [~] folyamatban (slice/nav-xml-payment-method-date)
       Payment method never reaches the NAV XML —
       `lib/nav/invoice-xml.ts` defers it as "schema placement not
@@ -437,6 +465,46 @@ Remaining for the launch gate:
       being the only source of this value. Call `normalizeHexColor(accent)`
       before interpolating it (in `preview-html.ts` and/or in `mapRow` at
       read time). (2026-09-15 audit, security)
+- [ ] `focusField: "exchangeRate"` (set on a failed save by
+      `composer-logic.ts`'s `validateExchangeRateInput`, applied via
+      `setFocusField` in `useInvoiceComposer.ts`) is never consumed or
+      cleared — `StepPartner.tsx` only has a ref/focus effect for
+      `focusField === "clientName"` (`nameInputRef`), and the
+      exchange-rate `Input` has no ref at all, so after a failed save due
+      to a missing/invalid rate the state stays stuck at "exchangeRate"
+      with no visible effect. Add a ref to the exchange-rate `Input` and
+      extend `StepPartner`'s focus effect to also handle
+      `focusField === "exchangeRate"`, focusing it and calling
+      `clearFocusField()` the same way the clientName branch does.
+      (2026-09-15 ship review of slice/non-huf-invoice-exchange-rate-nav-xml,
+      acceptance)
+- [ ] The new exchange-rate `Input` and currency pills in
+      `StepPartner.tsx` are ~34px tall on mobile, below the 44px
+      tap-target guideline — matches the sizing every other composer
+      `Input` already uses, and the currency-selector tap-target work is
+      already filed separately (see item 8 above); listed here only so
+      the exchange-rate field isn't missed when that item is picked up.
+      (2026-09-15 ship review of slice/non-huf-invoice-exchange-rate-nav-xml,
+      ux)
+- [x] The new `invoices.document.exchangeRate` /
+      `exchangeRateValue` / `vatInHuf` i18n keys
+      (`lib/i18n/locales/en.ts`, `hu.ts`) were unused by
+      `lib/invoices/preview-html.ts` / `generate-pdf.ts` at ship time — **by
+      design**, not a bug: those renderers were still the pre-branding,
+      all-English versions (`slice/hungarianize-brand-invoice-preview-pdf`
+      had not landed on `main` yet), and the plan's own rebase note
+      (`docs/plans/2026-09-15-non-huf-invoice-exchange-rate-nav-xml.md`,
+      "Rebase note") directed using `formatCurrency` + hardcoded English to
+      match the file's then-current state, with the new keys wired in once
+      this slice was rebased onto the landed branding slice.
+      **Resolved 2026-09-15**: wired in while merging this slice with the
+      landed branding slice — both `document.exchangeRate` /
+      `exchangeRateValue` and `document.vatInHuf` are now read by
+      `preview-html.ts`'s exchange-rate note and `generate-pdf.ts`'s forint
+      VAT line. Also fixed a duplicate `document:` object-literal key this
+      merge would otherwise have introduced in `hu.ts`/`en.ts` (the
+      branding slice and this slice each added their own `invoices.
+      document` block at a different point in the file).
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 

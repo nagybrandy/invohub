@@ -24,7 +24,11 @@ export function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     issueDate: "2026-06-01",
     dueDate: "2026-06-15",
     status: "sent",
-    currency: "EUR",
+    // HUF by default so the (many) fixture consumers unrelated to currency
+    // never need to think about exchangeRate — lib/invoices/exchange-rate.ts
+    // only requires one for a non-HUF currency. Tests exercising the EUR
+    // path pass `currency: "EUR", exchangeRate: <n>` explicitly.
+    currency: "HUF",
     lineItems: [makeLineItem()],
     notes: "Thank you",
     createdAt: "2026-06-01T10:00:00.000Z",

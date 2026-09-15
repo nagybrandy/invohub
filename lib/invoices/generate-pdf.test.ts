@@ -205,4 +205,31 @@ describe("generateInvoicePdf", () => {
 
     expect(mockDrawnTexts).toContain(formatDocumentAmount(254, "HUF"));
   });
+
+  // AC15: not the plan's literal English wording — the branding slice
+  // (slice/hungarianize-brand-invoice-preview-pdf, merged first) routes this
+  // line through the Hungarian document-labels vocabulary like every other
+  // label on the document, so it reads "ÁFA összege forintban:" instead of
+  // "VAT amount in HUF:".
+  it("draws the forint VAT line for a EUR invoice (AC15)", async () => {
+    const invoice = makeInvoice({
+      currency: "EUR",
+      exchangeRate: 390.5,
+      lineItems: [makeLineItem({ quantity: 2, unitPrice: 100, vatRate: 27 })],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts.some((t) => t.includes("ÁFA összege forintban"))).toBe(true);
+    // net 200 * vatRate 27% = 54 EUR VAT, converted at 390.5 -> 21087 HUF.
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(21087, "HUF"));
+  });
+
+  it("does not draw a forint VAT line for a HUF invoice (AC15)", async () => {
+    const invoice = makeInvoice({ currency: "HUF" });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts.some((t) => t.includes("ÁFA összege forintban"))).toBe(false);
+  });
 });

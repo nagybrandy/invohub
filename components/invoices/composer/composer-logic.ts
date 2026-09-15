@@ -8,7 +8,8 @@ import {
   lineItemVatAmount,
 } from "@/lib/invoices/calculations";
 import { lineItemEffectiveVatRate } from "@/lib/invoices/calculations";
-import type { InvoiceLineItem, InvoiceStatus } from "@/lib/invoices/types";
+import { parseExchangeRateInput, requiresExchangeRate } from "@/lib/invoices/exchange-rate";
+import type { InvoiceCurrency, InvoiceLineItem, InvoiceStatus } from "@/lib/invoices/types";
 
 export type ComposerStepId = "partner" | "items" | "review";
 
@@ -77,6 +78,33 @@ export function validateDueDate(issueDate: string, dueDate: string): StepValidat
     errorKey: "invoices.errors.dueBeforeIssue",
     focusField: "dueDate",
   };
+}
+
+/**
+ * A non-HUF invoice needs a manually entered, positive HUF exchange rate
+ * before it can be saved (spec §2, AC12) — a HUF invoice never needs one,
+ * blank or not. Accepts both "390,5" and "390.5" (parseExchangeRateInput).
+ */
+export function validateExchangeRateInput(
+  raw: string,
+  currency: InvoiceCurrency
+): StepValidationResult {
+  if (!requiresExchangeRate(currency)) return { valid: true };
+  if (!raw.trim()) {
+    return {
+      valid: false,
+      errorKey: "invoices.errors.exchangeRateRequired",
+      focusField: "exchangeRate",
+    };
+  }
+  if (parseExchangeRateInput(raw) === null) {
+    return {
+      valid: false,
+      errorKey: "invoices.errors.exchangeRateInvalid",
+      focusField: "exchangeRate",
+    };
+  }
+  return { valid: true };
 }
 
 /** Step 3 requires a client e-mail before the "send" toggle can be turned on. */

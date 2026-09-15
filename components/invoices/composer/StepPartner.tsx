@@ -146,7 +146,11 @@ export function StepPartner(composer: InvoiceComposerState) {
             onChangeText={setClientName}
             onSelect={handleSelectClient}
             onCreateNew={handleCreateNewClient}
-            error={errors.partner}
+            // Once a name has been typed, a lingering errors.partner can
+            // only be the exchange-rate error (see the dedicated block
+            // below) — never the "client name required" message this
+            // picker renders itself, so don't show it twice.
+            error={clientName.trim() ? undefined : errors.partner}
             t={t}
           />
         </VStack>
@@ -275,15 +279,29 @@ export function StepPartner(composer: InvoiceComposerState) {
             </VStack>
             {currency !== "HUF" ? (
               <VStack className="min-w-[140px]">
-                <LabeledInput
-                  label={t("invoices.fields.exchangeRate")}
-                  value={exchangeRate}
-                  onChangeText={setExchangeRate}
-                  keyboardType="decimal-pad"
-                />
+                <Text size="xs" className="text-muted-foreground">
+                  {t("invoices.fields.exchangeRate")} <Text className="text-destructive">*</Text>
+                </Text>
+                <Input>
+                  <InputField
+                    value={exchangeRate}
+                    onChangeText={setExchangeRate}
+                    keyboardType="decimal-pad"
+                    testID="composer-exchange-rate"
+                  />
+                </Input>
               </VStack>
             ) : null}
           </HStack>
+          {currency !== "HUF" && errors.partner && clientName.trim() ? (
+            // clientName is non-blank here, so a still-set `errors.partner`
+            // can only be the exchange-rate error (save() checks the
+            // partner-name error first and returns before this one) — never
+            // the "client name required" message shown above by PartnerPicker.
+            <Text size="xs" className="w-full text-destructive">
+              {errors.partner}
+            </Text>
+          ) : null}
 
           <LabeledInput
             label={t("invoices.fields.bankAccount")}

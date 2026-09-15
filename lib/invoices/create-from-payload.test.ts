@@ -78,6 +78,34 @@ describe("validateExternalInvoiceInput", () => {
       })
     ).toContain("vatCategory");
   });
+
+  it("requires exchangeRate for a non-HUF currency (AC11)", () => {
+    expect(
+      validateExternalInvoiceInput({ ...valid, currency: "EUR" })
+    ).toContain("exchangeRate");
+  });
+
+  it("accepts a non-HUF currency with a positive exchangeRate (AC11)", () => {
+    expect(
+      validateExternalInvoiceInput({ ...valid, currency: "EUR", exchangeRate: 390.5 })
+    ).toBeNull();
+  });
+
+  it("rejects a non-positive exchangeRate (AC11)", () => {
+    expect(
+      validateExternalInvoiceInput({ ...valid, currency: "EUR", exchangeRate: -1 })
+    ).toContain("exchangeRate");
+  });
+
+  it("rejects a non-numeric exchangeRate (AC11)", () => {
+    expect(
+      validateExternalInvoiceInput({ ...valid, currency: "EUR", exchangeRate: "390" as never })
+    ).toContain("exchangeRate");
+  });
+
+  it("does not require exchangeRate for HUF", () => {
+    expect(validateExternalInvoiceInput({ ...valid, currency: "HUF" })).toBeNull();
+  });
 });
 
 describe("createInvoiceFromPayload", () => {
@@ -140,5 +168,22 @@ describe("createInvoiceFromPayload", () => {
   it("defaults currency to HUF when there is no company yet (onboarding)", async () => {
     const saved = await createInvoiceFromPayload("user-1", input);
     expect(saved.currency).toBe("HUF");
+  });
+
+  it("sets exchangeRate on the created invoice for a non-HUF payload (AC11)", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      currency: "EUR",
+      exchangeRate: 390.5,
+    });
+    expect(saved.currency).toBe("EUR");
+    expect(saved.exchangeRate).toBe(390.5);
+  });
+
+  it("rejects a non-HUF payload with an invalid exchangeRate before ever calling upsertInvoice", async () => {
+    await expect(
+      createInvoiceFromPayload("user-1", { ...input, currency: "EUR", exchangeRate: -1 })
+    ).rejects.toThrow(/exchangeRate/);
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
   });
 });

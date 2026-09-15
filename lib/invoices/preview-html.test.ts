@@ -166,4 +166,26 @@ describe("generateInvoicePreviewHtml", () => {
     expect(html).toContain("@media (max-width: 560px)");
     expect(html).toContain("@media print");
   });
+
+  it("shows the exchange rate used and the VAT total in HUF for a EUR invoice (AC14)", () => {
+    const html = generateInvoicePreviewHtml(
+      makeInvoice({
+        currency: "EUR",
+        exchangeRate: 390.5,
+        lineItems: [makeLineItem({ quantity: 2, unitPrice: 100, vatRate: 27 })],
+      })
+    );
+    expect(html).toContain("390,5");
+    expect(html).toContain(formatDocumentAmount(21087, "HUF"));
+  });
+
+  it("omits the exchange-rate/HUF-VAT block for a HUF invoice (AC14)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice({ currency: "HUF" }));
+    expect(html).not.toContain("390,5");
+    // Not a bare /HUF/ match: the Hungarianize/brand slice (merged first)
+    // always prints a "Pénznem: HUF" currency line for a HUF invoice, so
+    // that substring alone doesn't distinguish "no exchange-rate block" —
+    // assert the absence of the exchange-rate-specific label instead.
+    expect(html).not.toContain("ÁFA összege forintban");
+  });
 });

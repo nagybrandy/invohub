@@ -170,4 +170,18 @@ describe("submitOutgoingInvoiceToNav", () => {
     expect(mockGetInvoiceById).not.toHaveBeenCalled();
     expect(result.invoiceXml).not.toContain("<invoiceReference>");
   });
+
+  it("rejects a non-HUF invoice with no exchange rate — no navSubmission row inserted, manageInvoice never called (AC9)", async () => {
+    mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+    const invoice = makeInvoice({ currency: "EUR", exchangeRate: undefined });
+    const { db } = require("@/db") as { db: { insert: jest.Mock } };
+
+    await expect(submitOutgoingInvoiceToNav("user-1", invoice)).rejects.toThrow(
+      /exchange rate/i
+    );
+
+    expect(mockManageInvoice).not.toHaveBeenCalled();
+    expect(mockTokenExchange).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
+  });
 });
