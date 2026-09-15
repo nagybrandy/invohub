@@ -80,6 +80,11 @@ jest.mock("@/lib/invoices/pdf-document", () => {
 });
 
 import { generateInvoicePdf, invoicePdfFilename } from "@/lib/invoices/generate-pdf";
+import {
+  formatDocumentAmount,
+  isWinAnsiSafe,
+  toWinAnsiSafe,
+} from "@/lib/invoices/document-labels";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
 beforeEach(() => {
@@ -147,5 +152,57 @@ describe("generateInvoicePdf", () => {
     await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
 
     expect(mockDrawnTexts).not.toContain("Alanyi adómentes");
+  });
+
+  it("draws the Hungarian document labels and none of the old English chrome", async () => {
+    const invoice = makeInvoice({ status: "sent" });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    // Every string drawn into the PDF — labels included — is routed through
+    // toWinAnsiSafe (AC16), so a label containing ő/ű (Vevő, ... határidő)
+    // is asserted here in its transliterated form (Vevö, ... határidö),
+    // same as any other drawn text.
+    for (const label of [
+      "Kibocsátó",
+      "Vevő",
+      "Megnevezés",
+      "Mennyiség",
+      "Egységár",
+      "ÁFA",
+      "Bruttó",
+      "Fizetési határidő",
+    ]) {
+      const expected = toWinAnsiSafe(label);
+      expect(mockDrawnTexts.some((t) => t.includes(expected))).toBe(true);
+    }
+
+    for (const stale of ["Bill to", "Description", "Qty", "Subtotal", "Status: sent"]) {
+      expect(mockDrawnTexts.some((t) => t.includes(stale))).toBe(false);
+    }
+  });
+
+  it("transliterates ő/ű everywhere so every drawn string is WinAnsi-safe", async () => {
+    const invoice = makeInvoice({
+      clientName: "Kőfaragó Kft.",
+      lineItems: [makeLineItem({ description: "Tetőfelújítás" })],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts).toContain("Köfaragó Kft.");
+    expect(mockDrawnTexts).toContain("Tetöfelújítás");
+    expect(mockDrawnTexts.every((t) => isWinAnsiSafe(t))).toBe(true);
+  });
+
+  it("draws amounts with Hungarian grouping via formatDocumentAmount", async () => {
+    const invoice = makeInvoice({
+      currency: "HUF",
+      lineItems: [makeLineItem({ quantity: 2, unitPrice: 100, vatRate: 27 })],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(254, "HUF"));
   });
 });

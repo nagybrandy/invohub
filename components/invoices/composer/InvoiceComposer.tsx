@@ -53,6 +53,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
     setDocumentType,
     documentTabsDisabled,
     draftInvoice,
+    company,
     totals,
     currency,
     lineItems,
@@ -359,6 +360,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
               <ComposerSummary
                 invoice={draftInvoice}
                 invoiceId={mode === "edit" ? invoice?.id : undefined}
+                company={company ?? undefined}
                 totals={totals}
                 currency={currency}
                 lineItems={lineItems}

@@ -21,6 +21,7 @@ import { apiFetch, invoicePdfUrl } from "@/lib/api/client";
 import { getAuthBaseUrl } from "@/lib/auth-url";
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
 import { sharePdfBlob } from "@/lib/pdf-preview";
+import type { InvoicePdfCompany } from "@/lib/invoices/generate-pdf";
 import type { Invoice } from "@/lib/invoices/types";
 import { isWeb } from "@/lib/platform";
 import { useIsDesktop } from "@/lib/useIsDesktop";
@@ -70,6 +71,8 @@ function PreviewFrame({
   minHeight: number;
   onOpenPdf?: () => void;
 }) {
+  const { t } = useTranslation();
+
   if (loading) {
     return (
       <Box className="items-center justify-center py-12" style={{ minHeight }}>
@@ -84,7 +87,7 @@ function PreviewFrame({
         <Text className="text-destructive">{error}</Text>
         {onOpenPdf ? (
           <Button variant="outline" onPress={() => void onOpenPdf()}>
-            <ButtonText>Open PDF in browser</ButtonText>
+            <ButtonText>{t("invoices.preview.openPdfInBrowser")}</ButtonText>
           </Button>
         ) : null}
       </VStack>
@@ -106,13 +109,11 @@ function PreviewFrame({
   return (
     <VStack space="md" className="items-center py-8" style={{ minHeight }}>
       <Text className="text-center text-muted-foreground">
-        {html
-          ? "HTML preview is available on web."
-          : "PDF preview is available on web. Open it in your browser if the embed does not load."}
+        {html ? t("invoices.preview.htmlWebOnly") : t("invoices.preview.pdfWebOnly")}
       </Text>
       {onOpenPdf ? (
         <Button onPress={() => void onOpenPdf()}>
-          <ButtonText>Open PDF</ButtonText>
+          <ButtonText>{t("invoices.preview.openPdf")}</ButtonText>
         </Button>
       ) : null}
     </VStack>
@@ -122,12 +123,15 @@ function PreviewFrame({
 export function InvoiceDocumentPreview({
   invoice,
   invoiceId,
+  company,
   layout = "auto",
   minHeight = 520,
 }: {
   invoice: Invoice;
   /** Saved invoice id — fetches from API. Omit for draft preview. */
   invoiceId?: string;
+  /** The signed-in user's own company, for the unsaved-draft path's issuer block. Ignored once invoiceId is set (the API route already loads it — see AC19). */
+  company?: InvoicePdfCompany;
   layout?: PreviewLayout;
   minHeight?: number;
 }) {
@@ -200,7 +204,7 @@ export function InvoiceDocumentPreview({
     if (!needsHtml || html) return;
 
     if (!invoiceId) {
-      setHtml(generateInvoicePreviewHtml(invoice));
+      setHtml(generateInvoicePreviewHtml(invoice, { company }));
       return;
     }
 
@@ -209,10 +213,11 @@ export function InvoiceDocumentPreview({
     void apiFetch<{ html: string }>(`/api/invoices/${invoiceId}/preview`)
       .then((data) => setHtml(data.html))
       .catch((e) =>
-        setErrorHtml(e instanceof Error ? e.message : "Failed to load HTML preview.")
+        setErrorHtml(e instanceof Error ? e.message : t("invoices.preview.htmlLoadFailed"))
       )
       .finally(() => setLoadingHtml(false));
-  }, [needsHtml, html, invoice, invoiceId, invoiceKey, retryToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsHtml, html, invoice, invoiceId, invoiceKey, retryToken, company]);
 
   React.useEffect(() => {
     if (!needsPdf || draftPdfUrl || nativePdfBlob) {
@@ -252,7 +257,7 @@ export function InvoiceDocumentPreview({
         }
       })
       .catch((e) =>
-        setErrorPdf(e instanceof Error ? e.message : "Failed to load PDF preview.")
+        setErrorPdf(e instanceof Error ? e.message : t("invoices.preview.pdfLoadFailed"))
       )
       .finally(() => setLoadingPdf(false));
   }, [
@@ -349,7 +354,7 @@ export function InvoiceDocumentPreview({
     return (
       <VStack space="sm">
         <Text size="sm" className="font-medium text-muted-foreground">
-          Document preview
+          {t("invoices.preview.title")}
         </Text>
         <HStack space="md" className="items-start">
           <Card className="min-w-0 flex-1 overflow-hidden p-0">

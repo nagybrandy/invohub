@@ -1,10 +1,20 @@
 // lib/invoices/generate-pdf.ts
 // Server-side invoice PDF generation (pdfkit) with clean, readable layout.
+// Hungarian labels + Hungarian money formatting (see
+// docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md) — every
+// string this module draws is routed through a single `doc.text` patch (set
+// up once below) that transliterates ő/ű so pdfkit's WinAnsi Helvetica can
+// draw it (see lib/invoices/document-labels.ts's toWinAnsiSafe for why).
 import {
   calculateInvoiceTotals,
-  formatCurrency,
   lineItemGrossTotal,
 } from "@/lib/invoices/calculations";
+import {
+  documentLabels,
+  documentStatusChip,
+  formatDocumentAmount,
+  toWinAnsiSafe,
+} from "@/lib/invoices/document-labels";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
   formatInvoiceDueDate,
@@ -60,6 +70,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
   const fonts = pdfFontSizes(template.fontScale);
   const totals = calculateInvoiceTotals(invoice.lineItems);
   const logoBuffer = company?.logoUrl ? await loadLogoImage(company.logoUrl) : null;
+  const labels = documentLabels();
 
   return withPdfKitFonts(
     () =>
@@ -70,6 +81,16 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
         const left = doc.page.margins.left;
         const right = left + pageWidth;
+
+        // Every string this module draws goes through toWinAnsiSafe exactly
+        // once, here — pdfkit's standard Helvetica AFM writes WinAnsi
+        // (cp1252), which has no glyph for ő/ű (see document-labels.ts).
+        // TODO(needs-human-review, PDF font item): remove this patch once a
+        // real Latin-Extended-A font is embedded and pdfkit can draw ő/ű
+        // directly.
+        const rawText = doc.text.bind(doc) as (...args: unknown[]) => typeof doc;
+        doc.text = ((value: string, ...rest: unknown[]) =>
+          rawText(toWinAnsiSafe(value), ...rest)) as typeof doc.text;
 
         doc.on("data", (chunk: Buffer) => chunks.push(chunk));
         doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -91,16 +112,16 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         const metaX = left + pageWidth * 0.55;
         const metaWidth = pageWidth * 0.45;
 
-        const companyLines: string[] = [];
+        const companyLines: string[] = [labels.seller];
         if (template.showCompanyBlock && company) {
           companyLines.push(company.name);
-          if (company.taxNumber) companyLines.push(`Tax no.: ${company.taxNumber}`);
+          if (company.taxNumber) companyLines.push(`${labels.taxNumber}: ${company.taxNumber}`);
           const addressLine = [company.address, company.city, company.zipCode, company.country]
             .filter(Boolean)
             .join(", ");
           if (addressLine) companyLines.push(addressLine);
           if (template.showBankDetails && company.bankAccount) {
-            companyLines.push(`Bank: ${company.bankAccount}`);
+            companyLines.push(`${labels.bankAccount}: ${company.bankAccount}`);
           }
         } else if (company?.name) {
           companyLines.push(company.name);
@@ -114,14 +135,30 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.text(template.titleText, metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.title + 8;
         doc.font("Helvetica-Bold").fontSize(fonts.subtitle).fillColor("#111111");
-        doc.text(invoice.invoiceNumber || "DRAFT", metaX, metaY, { width: metaWidth, align: "right" });
+        doc.text(invoice.invoiceNumber || labels.draftNumber, metaX, metaY, {
+          width: metaWidth,
+          align: "right",
+        });
         metaY += fonts.subtitle + 6;
         doc.font("Helvetica").fontSize(fonts.body).fillColor("#666666");
-        doc.text(`Status: ${invoice.status}`, metaX, metaY, { width: metaWidth, align: "right" });
-        metaY += fonts.body + 4;
-        doc.text(`Issue: ${formatInvoiceIssueDateTime(invoice)}`, metaX, metaY, { width: metaWidth, align: "right" });
+        // The document stops printing internal bookkeeping state (plan
+        // §1(b)) — only statuses that change what the document IS get a
+        // line at all ("sent"/"unpaid"/"overdue"/"partially_paid" print
+        // nothing here, same rule as the HTML preview).
+        const statusChip = documentStatusChip(invoice.status);
+        if (statusChip) {
+          doc.text(statusChip, metaX, metaY, { width: metaWidth, align: "right" });
+          metaY += fonts.body + 4;
+        }
+        doc.text(`${labels.issueDate}: ${formatInvoiceIssueDateTime(invoice)}`, metaX, metaY, {
+          width: metaWidth,
+          align: "right",
+        });
         metaY += fonts.body + 3;
-        doc.text(`Due: ${formatInvoiceDueDate(invoice)}`, metaX, metaY, { width: metaWidth, align: "right" });
+        doc.text(`${labels.dueDate}: ${formatInvoiceDueDate(invoice)}`, metaX, metaY, {
+          width: metaWidth,
+          align: "right",
+        });
         doc.fillColor("#000000");
 
         doc.y = Math.max(headerBlockBottom, metaY) + 20;
@@ -139,10 +176,10 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         drawTextBlock(
           doc,
           [
-            "Bill to",
+            labels.buyer,
             invoice.clientName,
             template.showClientTaxNumber && invoice.clientTaxNumber
-              ? `Tax no.: ${invoice.clientTaxNumber}`
+              ? `${labels.taxNumber}: ${invoice.clientTaxNumber}`
               : "",
           ].filter(Boolean),
           left,
@@ -153,7 +190,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         );
         drawTextBlock(
           doc,
-          ["Invoice details", `Currency: ${invoice.currency}`],
+          [`${labels.currency}: ${invoice.currency}`],
           metaX,
           billToY,
           metaWidth,
@@ -168,7 +205,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.y = drawTableHeader(
           doc,
           cols,
-          ["Description", "Qty", "Unit", "VAT", "Total"],
+          [labels.description, labels.quantity, labels.unitPrice, labels.vat, labels.gross],
           fonts.small,
           accent
         );
@@ -193,9 +230,9 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             {
               description: item.description,
               quantity: String(item.quantity),
-              unitPrice: formatCurrency(item.unitPrice, invoice.currency),
+              unitPrice: formatDocumentAmount(item.unitPrice, invoice.currency),
               vat: item.vatCategory === "normal" ? `${item.vatRate}%` : item.vatCategory,
-              total: formatCurrency(lineTotal, invoice.currency),
+              total: formatDocumentAmount(lineTotal, invoice.currency),
             },
             rowY,
             fonts.small
@@ -217,8 +254,8 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
 
         totalsY = drawTotalLine(
           doc,
-          "Subtotal:",
-          formatCurrency(totals.subtotal, invoice.currency),
+          `${labels.netTotal}:`,
+          formatDocumentAmount(totals.subtotal, invoice.currency),
           labelX,
           valueX,
           totalsY,
@@ -226,8 +263,8 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         );
         totalsY = drawTotalLine(
           doc,
-          "VAT:",
-          formatCurrency(totals.vatTotal, invoice.currency),
+          `${labels.vatTotal}:`,
+          formatDocumentAmount(totals.vatTotal, invoice.currency),
           labelX,
           valueX,
           totalsY,
@@ -235,8 +272,8 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         );
         totalsY = drawTotalLine(
           doc,
-          "Total:",
-          formatCurrency(totals.totalAmount, invoice.currency),
+          `${labels.grossTotal}:`,
+          formatDocumentAmount(totals.totalAmount, invoice.currency),
           labelX,
           valueX,
           totalsY,

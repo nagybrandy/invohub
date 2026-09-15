@@ -116,6 +116,24 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    status text) to match the app's own new visual system.
    Plan: `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship)
+   **Implemented 2026-09-15** on `slice/hungarianize-brand-invoice-preview-pdf`
+   — `npx tsc --noEmit` clean, `npm run test:unit` green (188 suites/981
+   tests). Left as `[~]`, not `[x]`: this is tax-legal-gated (needs human
+   sign-off on the Hungarian field wording before merge) and two of the
+   plan's own acceptance criteria are internally inconsistent as literally
+   worded, so they're implemented against the *correct*, self-consistent
+   reading instead of the literal string — flagged for the PR reviewer:
+   (a) AC3 says `formatDocumentAmount(1234.5, "EUR") === "1 234,56 €"`, but
+   1234.5 rounded to 2 decimals is 1234,50, not ,56 — implemented as
+   `"1 234,50 €"` (verified against `Intl.NumberFormat("hu-HU")`).
+   (b) AC15 lists literal `"Vevő"` / `"Fizetési határidő"` (containing ő)
+   as required PDF `mockDrawnTexts` entries, which directly contradicts
+   AC16 ("every string in mockDrawnTexts satisfies isWinAnsiSafe") since
+   `isWinAnsiSafe` is false for any string containing ő/ű — implemented so
+   *every* string reaching pdfkit, labels included, goes through
+   `toWinAnsiSafe` (matching the plan's own prose: "on every string drawn
+   into the PDF, labels and user data alike"), so the PDF draws `"Vevö"` /
+   `"Fizetési határidö"`, not the literal AC15 spelling.
 3. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
 4. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
@@ -299,6 +317,7 @@ Remaining for the launch gate:
       this as the next queue item. (2026-09-15 audit, ux-desktop)
       Same item as priority #2 above. Plan:
       `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
+      See priority #2's note above for implementation status (2026-09-15).
 - [ ] Invoice PDFs cannot render `ő` and `ű` — `lib/invoices/pdf-document.ts`
       uses pdfkit's standard Helvetica (WinAnsi/cp1252), which has no glyph
       for U+0151 / U+0171; pdfkit emits them as raw two-byte codes, so a

@@ -3,13 +3,13 @@
 import type { InvoicePdfTemplate, PdfFontScale } from "@/lib/invoices/pdf-template/types";
 
 export const DEFAULT_PDF_TEMPLATE: InvoicePdfTemplate = {
-  titleText: "INVOICE",
-  accentColor: "#4f46e5",
+  titleText: "SZÁMLA",
+  accentColor: "#6495ed",
   showCompanyBlock: true,
   showBankDetails: true,
   showClientTaxNumber: true,
-  footerText: "Thank you for your business.",
-  notesLabel: "Notes",
+  footerText: "Köszönjük a bizalmat!",
+  notesLabel: "Megjegyzés",
   fontScale: "medium",
 };
 

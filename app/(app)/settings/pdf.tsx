@@ -138,7 +138,7 @@ export default function PdfSettingsScreen() {
                     <InputField
                       value={draft.titleText}
                       onChangeText={(v) => updateDraft({ titleText: v })}
-                      placeholder="INVOICE"
+                      placeholder="SZÁMLA"
                     />
                   </Input>
                 </FormControl>
@@ -218,7 +218,7 @@ export default function PdfSettingsScreen() {
                     <TextareaInput
                       value={draft.footerText}
                       onChangeText={(v) => updateDraft({ footerText: v })}
-                      placeholder="Thank you for your business."
+                      placeholder="Köszönjük a bizalmat!"
                     />
                   </Textarea>
                 </FormControl>

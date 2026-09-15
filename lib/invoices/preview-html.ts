@@ -1,30 +1,102 @@
 // lib/invoices/preview-html.ts
-// Generates HTML preview for invoice modal display.
+// Generates the branded, Hungarian HTML preview for an invoice — the same
+// document a Hungarian customer receives (see
+// docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md). The
+// document is ALWAYS Hungarian by default, independent of the app UI's
+// language — pass `locale: "en"` for the rare case an English rendering is
+// wanted.
 import {
   calculateInvoiceTotals,
-  formatCurrency,
   lineItemGrossTotal,
+  lineItemNetTotal,
+  lineItemVatAmount,
 } from "@/lib/invoices/calculations";
+import {
+  documentLabels,
+  documentStatusChip,
+  documentTitleFor,
+  formatDocumentAmount,
+  type DocumentLabels,
+  type DocumentLocale,
+} from "@/lib/invoices/document-labels";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
   formatInvoiceDueDate,
   formatInvoiceIssueDateTime,
 } from "@/lib/dates/format";
-import type { Invoice } from "@/lib/invoices/types";
+import type { InvoicePdfCompany } from "@/lib/invoices/generate-pdf";
+import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
+import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
 
-export function generateInvoicePreviewHtml(invoice: Invoice): string {
+export type InvoicePreviewOptions = {
+  /** The signed-in user's own company — printed under "Kibocsátó". Omit for an unsaved draft with no company loaded yet. */
+  company?: InvoicePdfCompany;
+  /** Only accentColor is used today (the header/table stay navy/cornflower); reserved for the rest of the template. */
+  template?: InvoicePdfTemplate;
+  locale?: DocumentLocale;
+};
+
+function companyInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+}
+
+function companyBlockHtml(company: InvoicePdfCompany, labels: DocumentLabels): string {
+  const addressLine = [company.address, company.city, company.zipCode, company.country]
+    .filter(Boolean)
+    .join(", ");
+
+  return [
+    `<p class="party-name">${escapeHtml(company.name)}</p>`,
+    company.taxNumber
+      ? `<p>${escapeHtml(labels.taxNumber)}: ${escapeHtml(company.taxNumber)}</p>`
+      : "",
+    addressLine ? `<p>${escapeHtml(addressLine)}</p>` : "",
+    company.bankAccount
+      ? `<p>${escapeHtml(labels.bankAccount)}: ${escapeHtml(company.bankAccount)}</p>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function generateInvoicePreviewHtml(
+  invoice: Invoice,
+  options: InvoicePreviewOptions = {}
+): string {
+  const locale = options.locale ?? "hu";
+  const labels = documentLabels(locale);
+  const company = options.company;
+  const accent = options.template?.accentColor?.trim() || "#6495ed";
+
   const totals = calculateInvoiceTotals(invoice.lineItems);
+  const documentNumber = invoice.invoiceNumber || labels.draftNumber;
+  const documentTitle = documentTitleFor(invoice.documentType, locale);
+  const statusChip = documentStatusChip(invoice.status, locale);
+
   const rows = invoice.lineItems
-    .map(
-      (item) =>
-        `<tr>
-          <td>${escapeHtml(item.description)}</td>
-          <td style="text-align:right">${item.quantity}</td>
-          <td style="text-align:right">${formatCurrency(item.unitPrice, invoice.currency)}</td>
-          <td style="text-align:right">${item.vatCategory === "normal" ? `${item.vatRate}%` : escapeHtml(item.vatCategory)}</td>
-          <td style="text-align:right">${formatCurrency(lineItemGrossTotal(item), invoice.currency)}</td>
-        </tr>`
-    )
+    .map((item) => {
+      const net = lineItemNetTotal(item);
+      const vatAmount = lineItemVatAmount(item);
+      const gross = lineItemGrossTotal(item);
+      // Non-"normal" categories are always 0% VAT (see isExemptVatCategory) — the
+      // VAT column prints the bare category code, not a redundant "0 Ft" amount.
+      const vatCell =
+        item.vatCategory === "normal"
+          ? `${item.vatRate}% · ${formatDocumentAmount(vatAmount, invoice.currency)}`
+          : escapeHtml(item.vatCategory);
+
+      return `<tr>
+          <td class="cell-desc" data-label="${escapeHtml(labels.description)}">${escapeHtml(item.description)}</td>
+          <td class="cell-num" data-label="${escapeHtml(labels.quantity)}">${item.quantity}</td>
+          <td class="cell-num" data-label="${escapeHtml(labels.unitPrice)}">${formatDocumentAmount(item.unitPrice, invoice.currency)}</td>
+          <td class="cell-num" data-label="${escapeHtml(labels.net)}">${formatDocumentAmount(net, invoice.currency)}</td>
+          <td class="cell-num" data-label="${escapeHtml(labels.vat)}">${vatCell}</td>
+          <td class="cell-num" data-label="${escapeHtml(labels.gross)}">${formatDocumentAmount(gross, invoice.currency)}</td>
+        </tr>`;
+    })
     .join("");
 
   const exemptionReasons = [
@@ -36,32 +108,123 @@ export function generateInvoicePreviewHtml(invoice: Invoice): string {
     ),
   ];
 
+  const paymentMethodLabel = invoice.paymentMethod
+    ? labels.paymentMethods[invoice.paymentMethod as PaymentMethod]
+    : null;
+
   return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>${escapeHtml(invoice.invoiceNumber || "DRAFT")}</title></head>
-<body style="font-family:system-ui,sans-serif;padding:24px;max-width:720px;margin:0 auto;color:#111">
-  <h1 style="margin:0 0 8px">${escapeHtml(invoice.invoiceNumber || "DRAFT")}</h1>
-  <p style="color:#666;margin:0 0 24px">Status: ${escapeHtml(invoice.status)}</p>
-  <section style="margin-bottom:24px">
-    <strong>Bill to:</strong> ${escapeHtml(invoice.clientName)}
-    ${invoice.clientTaxNumber ? `<br><span style="color:#666">Tax: ${escapeHtml(invoice.clientTaxNumber)}</span>` : ""}
-  </section>
-  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
-    <thead>
-      <tr style="border-bottom:2px solid #eee;text-align:left">
-        <th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit</th><th style="text-align:right">VAT</th><th style="text-align:right">Total</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div style="text-align:right">
-    <p>Subtotal: ${formatCurrency(totals.subtotal, invoice.currency)}</p>
-    <p>VAT: ${formatCurrency(totals.vatTotal, invoice.currency)}</p>
-    <p><strong>Total: ${formatCurrency(totals.totalAmount, invoice.currency)}</strong></p>
+<html lang="${locale}">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(documentTitle)} ${escapeHtml(documentNumber)}</title>
+<style>
+  :root { --navy: #111f4a; --cornflower: ${escapeHtml(accent)}; --mist: #edf2fa; --pale-blue: #d9e7ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px; background: #f2f4f9; color: #14162b; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .page { max-width: 800px; margin: 0 auto; background: #ffffff; padding: 32px; border-radius: 12px; box-shadow: 0 1px 3px rgba(17, 31, 74, 0.12); }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .issuer-identity { display: flex; align-items: center; gap: 12px; }
+  .badge { width: 48px; height: 48px; border-radius: 10px; background: var(--cornflower); color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+  .issuer-identity .party-name { margin: 0; font-weight: 700; color: var(--navy); font-size: 1.05rem; }
+  .doc-meta { text-align: right; }
+  .doc-title { margin: 0; color: var(--navy); font-weight: 700; font-size: 1.4rem; }
+  .doc-number { margin: 4px 0; color: #4a4f6a; font-variant-numeric: tabular-nums; }
+  .status-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--pale-blue); color: var(--navy); font-size: 0.78rem; font-weight: 600; }
+  .parties { display: flex; gap: 16px; margin-bottom: 24px; }
+  .party-card { flex: 1; min-width: 0; background: var(--mist); border-radius: 10px; padding: 16px; }
+  .party-card h2 { margin: 0 0 8px; color: var(--navy); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .party-card p { margin: 2px 0; font-size: 0.9rem; }
+  .party-name { font-weight: 600; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 24px; font-size: 0.85rem; color: #4a4f6a; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  thead tr { background: var(--navy); color: #ffffff; }
+  th { padding: 10px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+  td { padding: 8px 10px; border-bottom: 1px solid #e5e9f5; font-variant-numeric: tabular-nums; }
+  .cell-num, th.cell-num { text-align: right; }
+  .totals { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+  .totals .grand { color: var(--navy); font-size: 1.25rem; font-weight: 700; margin-top: 4px; }
+  .vat-note { background: var(--pale-blue); color: var(--navy); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.9rem; }
+  .notes { margin-bottom: 16px; color: #33364f; font-size: 0.9rem; }
+  .footer { border-top: 1px solid rgba(17, 31, 74, 0.2); padding-top: 12px; text-align: center; color: #8a90a6; font-size: 0.78rem; }
+  @media (max-width: 560px) {
+    body { padding: 16px; }
+    .page { padding: 16px; }
+    .parties { flex-direction: column; }
+    table thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    tr { border: 1px solid #e5e9f5; border-radius: 10px; margin-bottom: 8px; padding: 6px 10px; }
+    td { border: none; padding: 4px 0; text-align: right; }
+    td.cell-desc { text-align: left; font-weight: 600; }
+    td::before { content: attr(data-label); float: left; color: #8a90a6; font-weight: 400; }
+  }
+  @media print {
+    body { background: #ffffff; padding: 0; }
+    .page { box-shadow: none; border-radius: 0; padding: 0; }
+    @page { margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="issuer-identity">
+        ${
+          company
+            ? `<div class="badge">${escapeHtml(companyInitials(company.name))}</div><p class="party-name">${escapeHtml(company.name)}</p>`
+            : ""
+        }
+      </div>
+      <div class="doc-meta">
+        <p class="doc-title">${escapeHtml(documentTitle)}</p>
+        <p class="doc-number">${escapeHtml(documentNumber)}</p>
+        ${statusChip ? `<span class="status-chip">${escapeHtml(statusChip)}</span>` : ""}
+      </div>
+    </div>
+
+    <div class="parties">
+      <div class="party-card">
+        <h2>${escapeHtml(labels.seller)}</h2>
+        ${company ? companyBlockHtml(company, labels) : ""}
+      </div>
+      <div class="party-card">
+        <h2>${escapeHtml(labels.buyer)}</h2>
+        <p class="party-name">${escapeHtml(invoice.clientName)}</p>
+        ${invoice.clientTaxNumber ? `<p>${escapeHtml(labels.taxNumber)}: ${escapeHtml(invoice.clientTaxNumber)}</p>` : ""}
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <span>${escapeHtml(labels.issueDate)}: ${escapeHtml(formatInvoiceIssueDateTime(invoice))}</span>
+      <span>${escapeHtml(labels.dueDate)}: ${escapeHtml(formatInvoiceDueDate(invoice))}</span>
+      ${paymentMethodLabel ? `<span>${escapeHtml(labels.paymentMethod)}: ${escapeHtml(paymentMethodLabel)}</span>` : ""}
+      <span>${escapeHtml(labels.currency)}: ${escapeHtml(invoice.currency)}</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>${escapeHtml(labels.description)}</th>
+          <th class="cell-num">${escapeHtml(labels.quantity)}</th>
+          <th class="cell-num">${escapeHtml(labels.unitPrice)}</th>
+          <th class="cell-num">${escapeHtml(labels.net)}</th>
+          <th class="cell-num">${escapeHtml(labels.vat)}</th>
+          <th class="cell-num">${escapeHtml(labels.gross)}</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="totals">
+      <span>${escapeHtml(labels.netTotal)}: ${formatDocumentAmount(totals.subtotal, invoice.currency)}</span>
+      <span>${escapeHtml(labels.vatTotal)}: ${formatDocumentAmount(totals.vatTotal, invoice.currency)}</span>
+      <span class="grand">${escapeHtml(labels.grossTotal)}: ${formatDocumentAmount(totals.totalAmount, invoice.currency)}</span>
+    </div>
+
+    ${exemptionReasons.length > 0 ? `<div class="vat-note">${exemptionReasons.map(escapeHtml).join("<br>")}</div>` : ""}
+    ${invoice.notes ? `<div class="notes"><strong>${escapeHtml(labels.notes)}:</strong> ${escapeHtml(invoice.notes)}</div>` : ""}
+
+    <div class="footer">${escapeHtml(labels.footer)}</div>
   </div>
-  ${exemptionReasons.length > 0 ? `<p style="color:#444">${exemptionReasons.map(escapeHtml).join("<br>")}</p>` : ""}
-  <p style="color:#666;margin-top:24px">Issue: ${escapeHtml(formatInvoiceIssueDateTime(invoice))} · Due: ${escapeHtml(formatInvoiceDueDate(invoice))}</p>
-  ${invoice.notes ? `<p style="margin-top:16px">${escapeHtml(invoice.notes)}</p>` : ""}
 </body>
 </html>`;
 }
@@ -71,5 +234,6 @@ function escapeHtml(value: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

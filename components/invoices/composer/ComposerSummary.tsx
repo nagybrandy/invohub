@@ -19,11 +19,13 @@ import { VStack } from "@/components/ui/vstack";
 import { groupVatRows } from "@/components/invoices/composer/composer-logic";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
 import { formatCurrency } from "@/lib/invoices/calculations";
+import type { InvoicePdfCompany } from "@/lib/invoices/generate-pdf";
 import type { Invoice, InvoiceCurrency, InvoiceLineItem, InvoiceTotals } from "@/lib/invoices/types";
 
 export function ComposerSummary({
   invoice,
   invoiceId,
+  company,
   totals,
   currency,
   lineItems,
@@ -32,6 +34,8 @@ export function ComposerSummary({
   invoice: Invoice;
   /** Saved invoice id — only set once the invoice has actually been persisted (mode="edit"). */
   invoiceId?: string;
+  /** The signed-in user's own company — for the unsaved-draft preview's issuer block. */
+  company?: InvoicePdfCompany;
   totals: InvoiceTotals;
   currency: InvoiceCurrency;
   lineItems: InvoiceLineItem[];
@@ -107,7 +111,7 @@ export function ComposerSummary({
             className="pointer-events-none h-[220px] origin-top-left scale-[0.42] overflow-hidden rounded-md border border-subtle"
             style={{ width: "238%" }}
           >
-            <InvoiceDocumentPreview invoice={invoice} layout="tabs" minHeight={520} />
+            <InvoiceDocumentPreview invoice={invoice} company={company} layout="tabs" minHeight={520} />
           </Box>
         </VStack>
       </Card>
@@ -119,7 +123,12 @@ export function ComposerSummary({
             <Heading size="md">{t("invoices.composer.fullPreviewTitle")}</Heading>
           </DrawerHeader>
           <DrawerBody className="flex-1">
-            <InvoiceDocumentPreview invoice={invoice} invoiceId={invoiceId} minHeight={480} />
+            <InvoiceDocumentPreview
+              invoice={invoice}
+              invoiceId={invoiceId}
+              company={company}
+              minHeight={480}
+            />
           </DrawerBody>
         </DrawerContent>
       </Drawer>
