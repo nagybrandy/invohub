@@ -1,0 +1,21 @@
+# .vercelignore
+# `vercel deploy` walks the filesystem itself (not just tracked git files) and
+# by default only skips what .gitignore already excludes. .claude/worktrees/
+# holds full nested checkouts (each with its own node_modules symlink) from
+# concurrent Claude Code sessions/workflows — walking into those blew the
+# upload past Vercel's 15000-file limit (18308 seen 2026-09-15). None of this
+# is needed to build or serve the app.
+.claude/worktrees/
+.claude/worktrees
+
+# Large non-deploy artifacts that accumulate over time and are never needed
+# to build/serve the app.
+docs/design/screens/
+docs/audits/
+e2e/
+__tests__/
+playwright-report/
+test-results/
+coverage/
+.expo/
+.cursor/

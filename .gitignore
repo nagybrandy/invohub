@@ -3,6 +3,11 @@
 # dependencies
 node_modules/
 
+# Nested git worktrees for concurrent Claude Code sessions/workflows —
+# full checkouts (with their own node_modules symlink), never meant to be
+# tracked or deployed.
+.claude/worktrees/
+
 # Expo
 .expo/
 dist/
