@@ -594,6 +594,8 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
 
     // Preview
     draftInvoice,
+    /** The already-loaded company — for the unsaved-draft preview's issuer block (INV, AC20). */
+    company,
 
     // Validation
     errors,

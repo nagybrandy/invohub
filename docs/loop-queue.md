@@ -104,8 +104,7 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    line items (`app/(app)/invoices/new.tsx`) — absorbed by item 0. **Shipped**
    — shared 3-step composer (Partner → Tételek → Ellenőrzés & küldés, one
    step at a time on mobile) in `components/invoices/composer/`.
-2. [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
-   **Invoice document preview/PDF is English and unbranded**
+2. [x] **Invoice document preview/PDF is English and unbranded**
    (`lib/invoices/preview-html.ts`) — inserted here 2026-09-15 per the UX
    overhaul audit's explicit recommendation ("Ajánlott a következő
    queue-tétel legyen"): the sticky composer preview and the finalized
@@ -116,6 +115,24 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    status text) to match the app's own new visual system.
    Plan: `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
    (risk: **tax-legal** — PR for human sign-off, no auto-ship)
+   **Implemented 2026-09-15** on `slice/hungarianize-brand-invoice-preview-pdf`
+   — `npx tsc --noEmit` clean, `npm run test:unit` green (188 suites/981
+   tests). Two of the plan's own acceptance criteria are internally
+   inconsistent as literally worded, so they're implemented against the
+   *correct*, self-consistent reading instead of the literal string —
+   flagged for the PR reviewer:
+   (a) AC3 says `formatDocumentAmount(1234.5, "EUR") === "1 234,56 €"`, but
+   1234.5 rounded to 2 decimals is 1234,50, not ,56 — implemented as
+   `"1 234,50 €"` (verified against `Intl.NumberFormat("hu-HU")`).
+   (b) AC15 lists literal `"Vevő"` / `"Fizetési határidő"` (containing ő)
+   as required PDF `mockDrawnTexts` entries, which directly contradicts
+   AC16 ("every string in mockDrawnTexts satisfies isWinAnsiSafe") since
+   `isWinAnsiSafe` is false for any string containing ő/ű — implemented so
+   *every* string reaching pdfkit, labels included, goes through
+   `toWinAnsiSafe` (matching the plan's own prose: "on every string drawn
+   into the PDF, labels and user data alike"), so the PDF draws `"Vevö"` /
+   `"Fizetési határidö"`, not the literal AC15 spelling.
+   **Reviewed and merged 2026-09-15 (owner sign-off).**
 3. [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
    Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
@@ -334,6 +351,7 @@ Remaining for the launch gate:
       this as the next queue item. (2026-09-15 audit, ux-desktop)
       Same item as priority #2 above. Plan:
       `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
+      See priority #2's note above for implementation status (2026-09-15).
 - [ ] Invoice PDFs cannot render `ő` and `ű` — `lib/invoices/pdf-document.ts`
       uses pdfkit's standard Helvetica (WinAnsi/cp1252), which has no glyph
       for U+0151 / U+0171; pdfkit emits them as raw two-byte codes, so a
@@ -383,6 +401,42 @@ Remaining for the launch gate:
       notifications get the fix. Needs a data migration to backfill, not
       just a code change, if old rows must display correctly too.
       (2026-09-15 audit, i18n)
+- [ ] AC3 of the hungarianize-brand-invoice-preview-pdf plan
+      (`docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md:109`)
+      literally reads `formatDocumentAmount(1234.5, "EUR") === "1 234,56 €"`,
+      which is a typo — 1234.5 rounded to 2 decimals is 1234,50, not ,56.
+      `lib/invoices/document-labels.ts` correctly returns `"1 234,50 €"`
+      (verified directly against `Intl.NumberFormat("hu-HU")`), and
+      `lib/invoices/document-labels.test.ts:66-67` asserts the correct
+      value — no code change needed, just fix the plan/AC's literal
+      example for future reference. (2026-09-15 audit, acceptance)
+- [ ] AC15 of the same plan lists literal `"Vevő"` / `"Fizetési
+      határidő"` (containing ő) as required PDF `mockDrawnTexts` entries,
+      which contradicts AC16 ("every mockDrawnTexts entry satisfies
+      isWinAnsiSafe") since `isWinAnsiSafe`
+      (`lib/invoices/document-labels.ts`) is false for any ő/ű-containing
+      string. `lib/invoices/generate-pdf.ts` routes every drawn string,
+      labels included, through `toWinAnsiSafe` (matching the plan's own
+      stated intent), so the PDF draws `"Vevö"` / `"Fizetési határidö"`
+      — the only self-consistent reading given AC16.
+      `lib/invoices/generate-pdf.test.ts:157-183` asserts the
+      transliterated form with an inline comment explaining why. No code
+      change needed; update AC15's literal text once the real PDF font
+      item (embedding a Unicode font) lands and the transliteration is
+      removed. (2026-09-15 audit, acceptance)
+- [ ] `lib/invoices/preview-html.ts` interpolates the PDF template's
+      `accentColor` straight into a `<style>` block
+      (`--cornflower: ${escapeHtml(accent)}`) without ever calling
+      `normalizeHexColor` — `escapeHtml` only escapes `& < > " '`, not
+      `; } / *` or whitespace, so it cannot stop CSS-syntax injection.
+      `normalizeHexColor` (`lib/invoices/pdf-template/defaults.ts`) is
+      only invoked on the write path (`lib/invoices/pdf-template/
+      service.ts`'s `upsertPdfTemplate`) — the read path
+      (`getPdfTemplate`/`mapRow`) returns the DB value unchanged, so the
+      render path's safety depends entirely on the write path always
+      being the only source of this value. Call `normalizeHexColor(accent)`
+      before interpolating it (in `preview-html.ts` and/or in `mapRow` at
+      read time). (2026-09-15 audit, security)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 

@@ -35,4 +35,12 @@ describe("hu/en locale parity", () => {
       expect(locale.company.vatExempt).toBeTruthy();
     }
   });
+
+  it("defines the invoices.document / invoices.preview / invoices.detail.previewTitle keys in both locales", () => {
+    for (const locale of [en, hu]) {
+      expect(locale.invoices.document.buyer).toBeTruthy();
+      expect(locale.invoices.preview.title).toBeTruthy();
+      expect(locale.invoices.detail.previewTitle).toBeTruthy();
+    }
+  });
 });

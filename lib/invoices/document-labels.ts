@@ -1,0 +1,103 @@
+// lib/invoices/document-labels.ts
+// Document-facing vocabulary + formatting for the outgoing bizonylat (HTML
+// preview and PDF). Reads straight from the locale data modules
+// (lib/i18n/locales/hu.ts / en.ts) instead of lib/i18n/index.ts (i18next) —
+// this must run server-side (API routes, PDF generation) without touching
+// client-only i18n init, and it must NOT follow the app UI's language: the
+// outgoing document defaults to Hungarian regardless of what language the
+// signed-in user has the app set to (an EN-UI user still issues a Hungarian
+// bizonylat). Pass locale="en" explicitly for the rare case an English
+// document is wanted.
+import en from "@/lib/i18n/locales/en";
+import hu from "@/lib/i18n/locales/hu";
+import type { InvoiceCurrency, InvoiceDocumentType, InvoiceStatus } from "@/lib/invoices/types";
+
+export type DocumentLocale = "hu" | "en";
+
+const LOCALES: Record<DocumentLocale, typeof hu> = { hu, en };
+
+export type DocumentLabels = typeof hu.invoices.document & {
+  documentTypes: typeof hu.invoices.documentTypes;
+  status: typeof hu.invoices.status;
+  paymentMethods: typeof hu.invoices.paymentMethods;
+};
+
+/** Every document-facing label, read straight from the locale modules — hu by default. */
+export function documentLabels(locale: DocumentLocale = "hu"): DocumentLabels {
+  const strings = LOCALES[locale].invoices;
+  return {
+    ...strings.document,
+    documentTypes: strings.documentTypes,
+    status: strings.status,
+    paymentMethods: strings.paymentMethods,
+  };
+}
+
+/** The title printed on the document itself, per documentType (AC7). */
+export function documentTitleFor(
+  documentType: InvoiceDocumentType,
+  locale: DocumentLocale = "hu"
+): string {
+  return LOCALES[locale].invoices.documentTypes[documentType];
+}
+
+// The document stops printing internal bookkeeping state (plan §1(b)): the
+// status chip renders only for statuses that change what the document *is*.
+// "sent"/"unpaid"/"overdue"/"partially_paid" are app state, not document
+// content, and print nothing.
+const PRINTED_STATUSES = new Set<InvoiceStatus>(["draft", "paid", "cancelled"]);
+
+/** The status chip text to print, or null when this status prints nothing (plan §1(b)). */
+export function documentStatusChip(
+  status: InvoiceStatus,
+  locale: DocumentLocale = "hu"
+): string | null {
+  if (!PRINTED_STATUSES.has(status)) return null;
+  return LOCALES[locale].invoices.status[status as "draft" | "paid" | "cancelled"];
+}
+
+/**
+ * Hungarian money formatting for the outgoing document — explicit `hu-HU`,
+ * independent of the server's default locale (a Vercel lambda's default
+ * locale is not Hungarian, so `toLocaleString(undefined, …)` renders
+ * `1,234,567 Ft` to a Hungarian customer). Narrow/no-break space (U+00A0)
+ * between thousands groups and before the currency symbol.
+ */
+export function formatDocumentAmount(amount: number, currency: InvoiceCurrency): string {
+  const symbol = currency === "EUR" ? "€" : "Ft";
+  const fractionDigits = currency === "EUR" ? 2 : 0;
+  const formatted = new Intl.NumberFormat("hu-HU", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+    useGrouping: true,
+  }).format(amount);
+  return `${formatted} ${symbol}`;
+}
+
+// pdfkit's standard Helvetica AFM writes WinAnsi (cp1252), which has no
+// glyph for U+0151 (ő) / U+0171 (ű) — pdfkit emits them as raw two-byte
+// codes, which every PDF viewer renders as garbage. No embeddable
+// Latin-Extended-A font exists in this repo today (see the PDF-font queue
+// item this slice files), so this is an interim transliteration applied to
+// every string drawn into the PDF — legible, if imperfect, where today's
+// output is not legible at all.
+// TODO(needs-human-review, PDF font item): delete this once a real
+// Latin-Extended-A font is embedded in the PDF and pdfkit can draw ő/ű
+// directly — see docs/loop-queue.md's PDF-font entry.
+const WINANSI_UNSAFE_MAP: Record<string, string> = {
+  ő: "ö",
+  Ő: "Ö",
+  ű: "ü",
+  Ű: "Ü",
+};
+const WINANSI_UNSAFE_RE = /[őŐűŰ]/g;
+
+/** Transliterates ő→ö / ű→ü (+ uppercase) so pdfkit's WinAnsi Helvetica can draw the string. */
+export function toWinAnsiSafe(value: string): string {
+  return value.replace(WINANSI_UNSAFE_RE, (ch) => WINANSI_UNSAFE_MAP[ch] ?? ch);
+}
+
+/** True when a string contains no character pdfkit's WinAnsi Helvetica would corrupt. */
+export function isWinAnsiSafe(value: string): boolean {
+  return !new RegExp(WINANSI_UNSAFE_RE.source).test(value);
+}

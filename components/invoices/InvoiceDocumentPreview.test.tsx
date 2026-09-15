@@ -1,4 +1,6 @@
 // components/invoices/InvoiceDocumentPreview.test.tsx
+import * as fs from "node:fs";
+import * as path from "node:path";
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
@@ -209,5 +211,58 @@ describe("InvoiceDocumentPreview", () => {
       expect.objectContaining({ method: "GET", credentials: "include" }),
     );
     expect(global.URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("renders the unsaved-draft preview with no company prop — no crash, no extra fetch", async () => {
+    const invoice = makeInvoice({ id: "draft-no-company" });
+
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(<InvoiceDocumentPreview invoice={invoice} layout="tabs" />);
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(tree!.root.findAllByType("iframe" as never).length).toBeGreaterThan(0);
+  });
+
+  it("passes an optional company prop into the unsaved-draft HTML preview", async () => {
+    const invoice = makeInvoice({ id: "draft-with-company" });
+
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <InvoiceDocumentPreview
+          invoice={invoice}
+          company={{ name: "Kovács Bt.", taxNumber: "11111111-1-11" }}
+          layout="tabs"
+        />
+      );
+      await Promise.resolve();
+    });
+
+    const iframe = tree!.root.findAllByType("iframe" as never)[0] as unknown as {
+      props: { srcDoc: string };
+    };
+    expect(iframe.props.srcDoc).toContain("Kovács Bt.");
+  });
+});
+
+describe("InvoiceDocumentPreview i18n chrome coverage", () => {
+  it("has no hardcoded English chrome strings — every preview-chrome string comes from an invoices.preview.* key", () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, "InvoiceDocumentPreview.tsx"),
+      "utf8"
+    );
+    for (const literal of [
+      '"Document preview"',
+      '"Open PDF in browser"',
+      "HTML preview is available on web.",
+      "PDF preview is available on web",
+      "Failed to load HTML preview.",
+      "Failed to load PDF preview.",
+    ]) {
+      expect(source).not.toContain(literal);
+    }
   });
 });
