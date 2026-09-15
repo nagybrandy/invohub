@@ -134,6 +134,7 @@ that" items wait. Build in this order (each maps to an unchecked item below):
    `toWinAnsiSafe` (matching the plan's own prose: "on every string drawn
    into the PDF, labels and user data alike"), so the PDF draws `"Vevö"` /
    `"Fizetési határidö"`, not the literal AC15 spelling.
+   **PR for sign-off:** https://github.com/nagybrandy/invohub/pull/12
 3. Non-HUF invoices: use `invoice.exchangeRate` for the HUF VAT base in the
    NAV XML and on the PDF (`lib/nav/invoice-xml.ts`, `lib/invoices/build-pdf-context.ts`)
 4. Payment method + payment date into the NAV XML (`paymentMethod`, `paidAt`)
