@@ -3,7 +3,7 @@
 // date + overdue subtext and the shared status chip (L3, L9), and keeps the
 // destructive delete out of the row — it lives at the bottom of the row's
 // "⋯" menu instead (L4), alongside quick preview.
-import { Eye, Trash2 } from "lucide-react-native";
+import { Eye, FileEdit, Trash2 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
@@ -31,12 +31,15 @@ export function InvoiceCard({
   onDelete,
   onPress,
   onPreview,
+  onConvert,
 }: {
   invoice: Invoice;
   now?: Date;
   onDelete: (id: string) => void;
   onPress?: (invoice: Invoice) => void;
   onPreview?: (invoice: Invoice) => void;
+  /** "Számla készítése ebből" — offered in the row menu only for a díjbekérő (AC21, mobile parity with the desktop table). */
+  onConvert?: (invoice: Invoice) => void;
 }) {
   const { t } = useTranslation();
   const totals = calculateInvoiceTotals(invoice.lineItems);
@@ -62,6 +65,13 @@ export function InvoiceCard({
       label: t("invoices.card.quickPreview"),
       icon: Eye,
       onPress: () => onPreview(invoice),
+    });
+  }
+  if (invoice.documentType === "proforma" && onConvert) {
+    menuItems.push({
+      label: t("invoices.convert.action"),
+      icon: FileEdit,
+      onPress: () => onConvert(invoice),
     });
   }
   menuItems.push({

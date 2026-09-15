@@ -197,6 +197,11 @@ export const invoice = pgTable(
     ),
     /** 1-based count of corrections issued against the same original invoice. */
     modificationIndex: integer("modification_index"),
+    /** Set on a számla created from a díjbekérő; points back at the proforma. */
+    convertedFromInvoiceId: text("converted_from_invoice_id").references(
+      (): AnyPgColumn => invoice.id,
+      { onDelete: "set null" }
+    ),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -206,6 +211,7 @@ export const invoice = pgTable(
     index("invoice_issue_date_idx").on(table.issueDate),
     index("invoice_original_invoice_id_idx").on(table.originalInvoiceId),
     index("invoice_modifies_invoice_id_idx").on(table.modifiesInvoiceId),
+    index("invoice_converted_from_invoice_id_idx").on(table.convertedFromInvoiceId),
     // Partial unique index: blank invoiceNumber (unfinalized drafts) never collides.
     uniqueIndex("invoice_user_number_unique_idx")
       .on(table.userId, table.invoiceNumber)

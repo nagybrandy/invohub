@@ -442,6 +442,11 @@ Remaining for the launch gate:
       tax/legal-gated; the díjbekérő document disclaimer ("nem számla, áfa
       levonására nem jogosít") is deliberately left out of this slice as a
       separate, sign-off-gated follow-up.
+      **PR opened 2026-09-15** (`slice/dijbekero-convert-to-invoice-impl`,
+      includes a fix-round-1 pass surfacing convert/storno/modify error
+      codes and fixing mobile convert access) — not merged, pending review
+      sign-off; 5 low-severity follow-ups filed above (acceptance/ux
+      dimensions), none blocking.
 
 - [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
       Invoice document preview/PDF remains English and unbranded
@@ -582,6 +587,80 @@ Remaining for the launch gate:
       merge would otherwise have introduced in `hu.ts`/`en.ts` (the
       branding slice and this slice each added their own `invoices.
       document` block at a different point in the file).
+- [ ] Check-then-act race lets the same díjbekérő be converted twice
+      despite the 409 guard — `convert+api.ts` calls
+      `findExistingConversion(...)` then, only if null,
+      `convertProformaToInvoice(...)`: two sequential DB calls with no
+      transaction. `drizzle/0002_dijbekero-convert-to-invoice.sql` adds
+      only a plain btree index and an FK, no unique constraint, so two
+      near-simultaneous POSTs (double-click, two tabs) can both pass the
+      check and both insert. Mirrors an existing accepted risk pattern
+      already in the codebase (`storno+api.ts` has the identical
+      check-then-act shape with no transaction), and the result is only
+      an extra draft, not a burned invoice number (per AC8) — annoying,
+      not a compliance/financial-integrity break. Fix: wrap check+create
+      in a transaction, or add a partial unique index on
+      `(user_id, converted_from_invoice_id) WHERE status <> 'cancelled'`
+      and catch the violation as the 409 path — consistent with fixing
+      the same latent gap in storno.
+      (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
+      acceptance)
+- [ ] AC20 (the "Kapcsolódó bizonylatok" card renders
+      `convertedTo`/`convertedFrom` and navigates) has no automated test
+      covering the rendered links or a click-through, and the plan's
+      required manual-verification note (§5.4: "verifying the screens by
+      hand at both breakpoints (§9). Note the manual check results in the
+      PR body.") is missing from the shipped commit.
+      `__tests__/screens/invoice-detail.test.tsx`'s AC17-19 cases all pass
+      `convertedFromInvoice: null`, and only one case (AC18) populates
+      `convertedToInvoices`, but even that only asserts the primary
+      button's label/onPress, never the links card's rendered
+      `t("invoices.links.convertedFrom"/"convertedTo")` text
+      (`app/(app)/invoices/[id]/index.tsx` ~430-443) or navigation through
+      those rows. Fix: add a test case with a populated
+      `convertedFromInvoice` and a `convertedToInvoices` entry, asserting
+      the rendered link text and onPress navigation both directions; or,
+      if kept manual, record the by-hand verification (both breakpoints)
+      in the PR body as the plan requires.
+      (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
+      acceptance)
+- [ ] Redundant nested `runAction("convert", ...)` on the primary convert
+      button in `app/(app)/invoices/[id]/index.tsx`: `primaryOnPress`
+      wraps `handleConvert` in `runAction("convert", ...)`, but
+      `handleConvert` itself already calls `runAction("convert", ...)`
+      internally — double `setBusy`/`setMessage`/try-catch. Every other
+      self-wrapping handler on this screen (`handleDelete`,
+      `handleStorno`, `handleCorrection`, `handleMarkPaid`,
+      `handlePaymentLink`) is invoked bare from its `onPress`, and every
+      externally-wrapped one (`handleSend`, `handleDuplicate`,
+      `handleDownloadPdf`) has no internal `runAction` — `handleConvert`
+      is the only handler doing both. Fix: call `() => void
+      handleConvert()` directly instead of re-wrapping it.
+      (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
+      acceptance)
+- [ ] "Kapcsolódó bizonylatok" renders a cancelled prior conversion
+      identically to a live one —
+      `app/api/invoices/[id]/links+api.ts`'s
+      `findInvoicesReferencing(userId, "convertedFromInvoiceId", id)`
+      applies no status filter, and
+      `app/(app)/invoices/[id]/index.tsx` (~437-443) renders every result
+      with the same `invoices.links.convertedTo` text and no status chip,
+      even though `liveConversion` elsewhere in the same file already
+      distinguishes `status !== "cancelled"`. After a stornó-then-reconvert
+      cycle this shows two visually identical link rows. Fix: filter
+      cancelled entries out of the rendered list, or attach a status
+      indicator per row.
+      (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
+      ux)
+- [ ] The branch this shipped from was 2 commits stale behind `main`
+      (missing the desktop sidebar collapse redesign,
+      `components/navigation/AppSidebar.tsx`) at review time — cosmetic
+      only, since the slice branch never touched that file, so a normal
+      merge/rebase onto `main` resolves cleanly with no conflict; only a
+      careless manual overwrite would regress it. No action needed beyond
+      the normal rebase-before-merge habit.
+      (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
+      ux)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 

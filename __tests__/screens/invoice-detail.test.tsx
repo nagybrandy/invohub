@@ -4,6 +4,7 @@ import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { Alert } from "react-native";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
+import { ApiError } from "@/lib/api/client";
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
@@ -21,9 +22,13 @@ jest.mock("@/lib/routing/route-param", () => ({
 }));
 
 const mockApiFetch = jest.fn();
-jest.mock("@/lib/api/client", () => ({
-  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
-}));
+jest.mock("@/lib/api/client", () => {
+  const actual = jest.requireActual("@/lib/api/client");
+  return {
+    ...actual,
+    apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  };
+});
 
 jest.mock("@/components/invoices/InvoiceDocumentPreview", () => ({
   InvoiceDocumentPreview: () => null,
@@ -240,6 +245,182 @@ describe("InvoiceDetailScreen", () => {
     const dangerZoneContent = tree.root.findByProps({ testID: "danger-zone-content" });
     const text = textUnder(dangerZoneContent);
     expect(text).toContain("invoices.storno");
+    expect(text).toContain("invoices.detail.deleteAction");
+  });
+
+  it("on a díjbekérő with no conversion, the primary action converts and navigates to the new draft's edit screen", async () => {
+    mockApiFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: null,
+          convertedToInvoices: [],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/convert")) {
+        expect(init?.method).toBe("POST");
+        return { invoice: makeInvoice({ id: "converted-1", documentType: "invoice", status: "draft" }) };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.convert.action");
+    expect(primaryButton).toBeTruthy();
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/invoices/converted-1/edit");
+  });
+
+  it("on a díjbekérő with a live conversion, the primary action opens it without posting", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: null,
+          convertedToInvoices: [
+            makeInvoice({ id: "existing-inv", documentType: "invoice", status: "draft" }),
+          ],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.convert.openExisting");
+    expect(primaryButton).toBeTruthy();
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/invoices/existing-inv");
+    const convertCall = mockApiFetch.mock.calls.find(([path]) => (path as string).includes("/convert"));
+    expect(convertCall).toBeFalsy();
+  });
+
+  it("on a 409 from /convert (a live conversion was created concurrently), navigates to the existing invoice instead of showing an error", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: null,
+          convertedToInvoices: [],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/convert")) {
+        throw new ApiError("Conflict", 409, "alreadyConverted", {
+          code: "alreadyConverted",
+          invoice: makeInvoice({ id: "race-existing", documentType: "invoice", status: "draft" }),
+        });
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.convert.action");
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/invoices/race-existing");
+    const messages = textUnder(tree.root);
+    expect(messages).not.toContain("invoices.detail.actionFailed");
+  });
+
+  it("on a 400 'notProforma' from /convert, shows the translated invoices.convert.notProforma copy instead of a raw/blank message", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: null,
+          convertedToInvoices: [],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/convert")) {
+        throw new ApiError("Bad Request", 400, "notProforma", { code: "notProforma" });
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.convert.action");
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(textUnder(tree.root)).toContain("invoices.convert.notProforma");
+  });
+
+  it("on a díjbekérő, the Helyesbítő entry is disabled and the danger zone shows only Törlés", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: null,
+          convertedToInvoices: [],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma" }) };
+    });
+
+    const tree = await renderScreen();
+
+    const overflowTrigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+    await act(async () => {
+      overflowTrigger.props.onPress?.({});
+    });
+    const correctionButton = findPressableWithText(tree.root, "invoices.correction.action");
+    expect(correctionButton?.props.disabled).toBe(true);
+
+    const dangerZoneToggle = tree.root.findByProps({ testID: "danger-zone-toggle" });
+    act(() => {
+      dangerZoneToggle.props.onPress?.();
+    });
+    const dangerZoneContent = tree.root.findByProps({ testID: "danger-zone-content" });
+    const text = textUnder(dangerZoneContent);
+    expect(text).not.toContain("invoices.storno");
     expect(text).toContain("invoices.detail.deleteAction");
   });
 

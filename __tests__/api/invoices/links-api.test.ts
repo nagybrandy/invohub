@@ -78,4 +78,50 @@ describe("GET /api/invoices/[id]/links", () => {
     // Only the id lookup for the invoice itself — no extra getInvoiceById calls.
     expect(mockGet).toHaveBeenCalledTimes(1);
   });
+
+  it("returns convertedFromInvoice and convertedToInvoices alongside the existing keys (AC15)", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    const invoice = makeInvoice({
+      id: "inv-1",
+      documentType: "invoice",
+      convertedFromInvoiceId: "proforma-1",
+    });
+    const proforma = makeInvoice({ id: "proforma-1", documentType: "proforma" });
+    const convertedTo = makeInvoice({ id: "inv-2", convertedFromInvoiceId: "proforma-other" });
+    mockGet.mockImplementation(async (_uid, id) => {
+      if (id === "inv-1") return invoice;
+      if (id === "proforma-1") return proforma;
+      return null;
+    });
+    mockFindReferencing.mockImplementation(async (_uid, field) => {
+      if (field === "convertedFromInvoiceId") return [convertedTo];
+      return [];
+    });
+
+    const response = await GET(req("inv-1"), { params: Promise.resolve({ id: "inv-1" }) });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.convertedFromInvoice.id).toBe("proforma-1");
+    expect(body.convertedToInvoices).toHaveLength(1);
+    expect(body.convertedToInvoices[0].id).toBe("inv-2");
+    // Existing keys are unchanged.
+    expect(body).toHaveProperty("originalInvoice");
+    expect(body).toHaveProperty("modifiesInvoice");
+    expect(body).toHaveProperty("stornoDocuments");
+    expect(body).toHaveProperty("correctionDocuments");
+  });
+
+  it("returns null convertedFromInvoice when the invoice was not converted from a proforma", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    const invoice = makeInvoice({ id: "inv-1", documentType: "invoice" });
+    mockGet.mockResolvedValue(invoice);
+    mockFindReferencing.mockResolvedValue([]);
+
+    const response = await GET(req("inv-1"), { params: Promise.resolve({ id: "inv-1" }) });
+    const body = await response.json();
+
+    expect(body.convertedFromInvoice).toBeNull();
+    expect(body.convertedToInvoices).toEqual([]);
+  });
 });

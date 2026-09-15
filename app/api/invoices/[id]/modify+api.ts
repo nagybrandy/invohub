@@ -18,6 +18,9 @@ export async function POST(
   if (!existing) {
     return jsonResponse({ error: "Not found" }, 404);
   }
+  if (existing.documentType === "proforma") {
+    return jsonResponse({ code: "proformaNotStornoable" }, 400);
+  }
 
   const draft = await createModificationDraft(session.user.id, existing);
   return jsonResponse({ invoice: draft }, 201);

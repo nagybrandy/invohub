@@ -19,6 +19,9 @@ export async function POST(
   if (!existing) {
     return jsonResponse({ error: "Not found" }, 404);
   }
+  if (existing.documentType === "proforma") {
+    return jsonResponse({ code: "proformaNotStornoable" }, 400);
+  }
   if (existing.status === "cancelled") {
     return jsonResponse({ error: "Invoice is already cancelled." }, 400);
   }

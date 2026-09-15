@@ -21,22 +21,34 @@ export async function GET(
     return jsonResponse({ error: "Not found" }, 404);
   }
 
-  const [originalInvoice, modifiesInvoice, stornoDocuments, correctionDocuments] =
-    await Promise.all([
-      invoice.originalInvoiceId
-        ? getInvoiceById(session.user.id, invoice.originalInvoiceId)
-        : Promise.resolve(null),
-      invoice.modifiesInvoiceId
-        ? getInvoiceById(session.user.id, invoice.modifiesInvoiceId)
-        : Promise.resolve(null),
-      findInvoicesReferencing(session.user.id, "originalInvoiceId", id),
-      findInvoicesReferencing(session.user.id, "modifiesInvoiceId", id),
-    ]);
+  const [
+    originalInvoice,
+    modifiesInvoice,
+    stornoDocuments,
+    correctionDocuments,
+    convertedFromInvoice,
+    convertedToInvoices,
+  ] = await Promise.all([
+    invoice.originalInvoiceId
+      ? getInvoiceById(session.user.id, invoice.originalInvoiceId)
+      : Promise.resolve(null),
+    invoice.modifiesInvoiceId
+      ? getInvoiceById(session.user.id, invoice.modifiesInvoiceId)
+      : Promise.resolve(null),
+    findInvoicesReferencing(session.user.id, "originalInvoiceId", id),
+    findInvoicesReferencing(session.user.id, "modifiesInvoiceId", id),
+    invoice.convertedFromInvoiceId
+      ? getInvoiceById(session.user.id, invoice.convertedFromInvoiceId)
+      : Promise.resolve(null),
+    findInvoicesReferencing(session.user.id, "convertedFromInvoiceId", id),
+  ]);
 
   return jsonResponse({
     originalInvoice,
     modifiesInvoice,
     stornoDocuments,
     correctionDocuments,
+    convertedFromInvoice,
+    convertedToInvoices,
   });
 }
