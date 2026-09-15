@@ -5,6 +5,7 @@ import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Download, Mail, Copy, CheckCircle2, Eye, FileEdit, Trash2 } from "lucide-react-native";
+import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
@@ -27,8 +28,16 @@ import { useInvoices } from "@/hooks/useInvoices";
 import { useInvoiceStatusCounts } from "@/hooks/useInvoiceStatusCounts";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useRouteParam } from "@/lib/routing/route-param";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
 import { confirmAsync } from "@/lib/ui/confirm";
+
+// Same code→i18n mapping as the detail screen (app/(app)/invoices/[id]/index.tsx)
+// — the convert route's 400 bodies only carry a `code`, not a translated
+// `error`, so a caller has to map it itself or the string never surfaces.
+const CONVERT_ERROR_I18N_KEY: Record<string, string> = {
+  notProforma: "invoices.convert.notProforma",
+  cancelled: "invoices.convert.cancelledSource",
+};
 
 const FILTERS: Array<InvoiceStatus | "all"> = [
   "all",
@@ -74,6 +83,7 @@ export default function InvoiceListScreen() {
     return { currency, amount, kinds: byCurrency.size };
   }, [invoices]);
   const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(null);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -81,6 +91,14 @@ export default function InvoiceListScreen() {
     }, 250);
     return () => clearTimeout(handle);
   }, [searchInput]);
+
+  // A minimal local toast for the row-menu convert action's errors — see
+  // InvoiceComposer's identical pattern for why this isn't components/ui/toast.
+  React.useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   const sortedInvoices = React.useMemo(() => {
     const copy = [...invoices];
@@ -135,10 +153,26 @@ export default function InvoiceListScreen() {
   }
 
   async function handleConvert(invoice: Invoice) {
-    const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/convert`, {
-      method: "POST",
-    });
-    router.push(routes.invoiceEdit(data.invoice.id));
+    try {
+      const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/convert`, {
+        method: "POST",
+      });
+      router.push(routes.invoiceEdit(data.invoice.id));
+    } catch (e) {
+      // A live conversion already exists (409) — not a failure, go straight
+      // to it, matching the detail screen's "Számla megnyitása" behavior.
+      if (e instanceof ApiError && e.status === 409) {
+        const existing = (e.body as { invoice?: Invoice } | undefined)?.invoice;
+        if (existing?.id) {
+          router.push(routes.invoiceDetail(existing.id));
+          return;
+        }
+      }
+      const codeKey = e instanceof ApiError && e.code ? CONVERT_ERROR_I18N_KEY[e.code] : undefined;
+      setToastMessage(
+        codeKey ? t(codeKey) : e instanceof Error ? e.message : t("invoices.detail.actionFailed")
+      );
+    }
   }
 
   function menuItemsFor(invoice: Invoice): OverflowMenuItem[] {
@@ -284,6 +318,7 @@ export default function InvoiceListScreen() {
               onDelete={(id) => void remove(id)}
               onPress={(inv) => router.push(routes.invoiceDetail(inv.id))}
               onPreview={(inv) => setPreviewInvoice(inv)}
+              onConvert={(inv) => void handleConvert(inv)}
             />
           ))}
         </VStack>
@@ -293,6 +328,13 @@ export default function InvoiceListScreen() {
         open={previewInvoice !== null}
         onClose={() => setPreviewInvoice(null)}
       />
+      {toastMessage ? (
+        <Box className="absolute left-0 right-0 top-4 z-50 items-center px-4" testID="invoice-list-toast">
+          <Box className="rounded-lg bg-foreground px-4 py-2.5 shadow-lg">
+            <Text className="text-sm font-medium text-background">{toastMessage}</Text>
+          </Box>
+        </Box>
+      ) : null}
     </ScreenLayout>
   );
 }

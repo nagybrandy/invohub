@@ -5,7 +5,11 @@ import { getAuthBaseUrl } from "@/lib/auth-url";
 export class ApiError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    /** The error's machine-readable `code`, when the API sent one (e.g. `notProforma`, `alreadyConverted`). */
+    readonly code?: string,
+    /** The full parsed JSON body, when the response had one — lets callers read fields beyond `error`/`code` (e.g. `invoice` on a 409). */
+    readonly body?: unknown
   ) {
     super(message);
     this.name = "ApiError";
@@ -29,8 +33,10 @@ export async function apiFetch<T>(
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as {
       error?: string;
+      code?: string;
+      [key: string]: unknown;
     };
-    throw new ApiError(body.error ?? response.statusText, response.status);
+    throw new ApiError(body.error ?? response.statusText, response.status, body.code, body);
   }
 
   if (response.status === 204) {

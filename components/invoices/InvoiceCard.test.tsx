@@ -155,4 +155,43 @@ describe("InvoiceCard", () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("invoices.proforma");
   });
+
+  it("offers 'Számla készítése ebből' in the ⋯ menu for a díjbekérő when onConvert is passed (AC21 mobile parity)", () => {
+    const onConvert = jest.fn();
+    const invoice = makeInvoice({ documentType: "proforma", status: "proforma" });
+    const tree = renderCard({ invoice, onDelete: jest.fn(), onConvert });
+
+    openRowMenu(tree);
+    // No onPreview here, so item 0 is convert and item 1 is delete.
+    const convertItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
+    act(() => {
+      convertItem.props.onPress?.();
+    });
+
+    expect(onConvert).toHaveBeenCalledWith(invoice);
+  });
+
+  it("does not offer the convert entry for a non-proforma invoice even when onConvert is passed", () => {
+    const onConvert = jest.fn();
+    const tree = renderCard({
+      invoice: makeInvoice({ documentType: "invoice" }),
+      onDelete: jest.fn(),
+      onConvert,
+    });
+
+    openRowMenu(tree);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.convert.action");
+  });
+
+  it("does not offer the convert entry for a díjbekérő when onConvert is not passed", () => {
+    const tree = renderCard({
+      invoice: makeInvoice({ documentType: "proforma", status: "proforma" }),
+      onDelete: jest.fn(),
+    });
+
+    openRowMenu(tree);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.convert.action");
+  });
 });

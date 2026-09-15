@@ -126,7 +126,9 @@ jest.mock("@/lib/api/client", () => {
     return { invoice: defaultInvoice, users: [], stats: { users: 1, invoices: 1 } };
   });
 
+  const actual = jest.requireActual("@/lib/api/client");
   return {
+    ...actual,
     apiFetch: mockApiFetch,
     apiFetchBlob: jest.fn().mockResolvedValue(new Blob()),
     invoicePdfUrl: (id: string) => `/api/invoices/${id}/pdf`,

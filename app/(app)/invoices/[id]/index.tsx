@@ -28,7 +28,7 @@ import { DangerZone } from "@/components/layout/DangerZone";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
-import { apiFetch, invoicePdfUrl } from "@/lib/api/client";
+import { apiFetch, ApiError, invoicePdfUrl } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import { isOverdue } from "@/lib/invoices/status-visuals";
@@ -61,6 +61,17 @@ const MARK_PAID_METHODS: { value: PaymentMethod; i18nKey: string }[] = [
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+// Maps a `code` an API route sends on a 400/409 (see convert+api.ts,
+// storno+api.ts, modify+api.ts) to the i18n key with the matching Hungarian/
+// English copy — otherwise those routes' error bodies never reach the user
+// (apiFetch/ApiError only surface `error`/`statusText` unless a caller
+// reads `code`).
+const ERROR_CODE_I18N_KEY: Record<string, string> = {
+  notProforma: "invoices.convert.notProforma",
+  cancelled: "invoices.convert.cancelledSource",
+  proformaNotStornoable: "invoices.errors.proformaNotStornoable",
+};
 
 export default function InvoiceDetailScreen() {
   const id = useRouteParam("id");
@@ -127,7 +138,14 @@ export default function InvoiceDetailScreen() {
     try {
       await fn();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : t("invoices.detail.actionFailed"));
+      const codeKey = e instanceof ApiError && e.code ? ERROR_CODE_I18N_KEY[e.code] : undefined;
+      setMessage(
+        codeKey
+          ? t(codeKey)
+          : e instanceof Error
+            ? e.message
+            : t("invoices.detail.actionFailed")
+      );
     } finally {
       setBusy(null);
     }
@@ -212,11 +230,25 @@ export default function InvoiceDetailScreen() {
   async function handleConvert() {
     if (!id) return;
     await runAction("convert", async () => {
-      const data = await apiFetch<{ invoice: Invoice }>(
-        `/api/invoices/${id}/convert`,
-        { method: "POST" }
-      );
-      router.push(routes.invoiceEdit(data.invoice.id));
+      try {
+        const data = await apiFetch<{ invoice: Invoice }>(
+          `/api/invoices/${id}/convert`,
+          { method: "POST" }
+        );
+        router.push(routes.invoiceEdit(data.invoice.id));
+      } catch (e) {
+        // A live conversion already exists (409) — this is not a failure,
+        // it means someone else (or a previous click) already made the
+        // invoice; go straight there, exactly like "Számla megnyitása".
+        if (e instanceof ApiError && e.status === 409) {
+          const existing = (e.body as { invoice?: Invoice } | undefined)?.invoice;
+          if (existing?.id) {
+            router.push(routes.invoiceDetail(existing.id));
+            return;
+          }
+        }
+        throw e;
+      }
     });
   }
 
