@@ -90,6 +90,25 @@ before or alongside Phase 1 items that depend on it.
 The app's own functions and UX come first; audits, tooling and "confirm
 that" items wait. Build in this order (each maps to an unchecked item below):
 
+**New owner feedback (2026-09-15, take next once the in-flight Díjbekérő
+slice ships)** — direct visual complaints, not yet triaged into concrete
+acceptance criteria; the next Plan pass should look at these with fresh
+screenshots before writing a fix plan:
+- "a timeline csúnya" — the invoice-detail status timeline
+  (`components/invoices/InvoiceTimeline.tsx`, placed above the document
+  preview per D6) looks bad. Take a fresh screenshot of `/invoices/[id]`
+  at 1440px and 375px with a few different invoice statuses (draft, sent,
+  overdue, paid, cancelled) and figure out what's actually wrong — spacing,
+  connector lines, the done/current/upcoming/skipped step states, whatever
+  it is — before proposing a fix.
+- "a számla aloldalakon a gombok csúnyán helyezkednek el" — button layout
+  on invoice sub-pages is poor. Check `/invoices/[id]` (detail — action
+  buttons, `components/layout/DangerZone.tsx` +
+  `components/layout/OverflowMenu.tsx`), `/invoices/[id]/edit`, and the
+  composer's own action row (`components/invoices/composer/StepReview.tsx`,
+  `ComposerStepper.tsx`) at both 1440px and 375px — identify which
+  screen(s) and which specific buttons before fixing.
+
 0. [x] **App UX/UI overhaul (desktop first, then mobile)** — owner, 2026-09-14
    evening: "the app has a lot of UX/UI problems on desktop: invoice creation
    is complicated, it's hard to see what is where, the in-app menu isn't
