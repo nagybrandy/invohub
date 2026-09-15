@@ -94,13 +94,37 @@ that" items wait. Build in this order (each maps to an unchecked item below):
 slice ships)** — direct visual complaints, not yet triaged into concrete
 acceptance criteria; the next Plan pass should look at these with fresh
 screenshots before writing a fix plan:
-- "a timeline csúnya" — the invoice-detail status timeline
+- [x] "a timeline csúnya" — the invoice-detail status timeline
   (`components/invoices/InvoiceTimeline.tsx`, placed above the document
-  preview per D6) looks bad. Take a fresh screenshot of `/invoices/[id]`
-  at 1440px and 375px with a few different invoice statuses (draft, sent,
-  overdue, paid, cancelled) and figure out what's actually wrong — spacing,
-  connector lines, the done/current/upcoming/skipped step states, whatever
-  it is — before proposing a fix.
+  preview per D6) looks bad. **Fixed 2026-09-15** on
+  `slice/invoice-timeline-visual-fix` — no interactive screenshot tool was
+  available in this environment, so this was diagnosed by reading the
+  className structure against `lib/invoices/status-visuals.ts` and
+  `components/invoices/composer/ComposerStepper.tsx` (the app's other
+  stepper) rather than from a fresh screenshot; **a human visual check at
+  1440px/375px across draft/sent/overdue/paid/cancelled is still
+  recommended before the next deploy**, since no image was actually
+  rendered. Two confirmed structural bugs found and fixed:
+  (1) the "current" step (e.g. an on-time sent invoice's "due" step) was
+  styled with `border-destructive`/`text-destructive` — the same red/error
+  color the app reserves for a genuine problem (`STATUS_VISUALS.overdue`).
+  Every normal sent-but-not-yet-due invoice therefore showed an alarming
+  red step for no reason. Destructive styling is now applied only when the
+  due step is actually overdue (`isOverdue()`); the plain "current" state
+  now uses `border-primary`/`text-primary`, matching
+  `STATUS_VISUALS.sent` and `ComposerStepper`'s `bg-primary` "current step"
+  treatment. (2) the steps row used `flex-wrap` with a `min-w-[140px]` per
+  step, which wraps onto two rows at 375px (2+2) — the leading connector
+  line of the wrapped-down third step then dangles with nothing above it
+  to connect to, since the connector's color/position assumes a single
+  row. Removed the wrap/min-width so the row stays a single line at any
+  width (labels/dates wrap internally instead). Also made the connector
+  line into the *active* step read as "reached" (primary) rather than grey,
+  so the progress line doesn't visually stop one step short of the
+  highlighted node. New tests in `InvoiceTimeline.test.tsx` assert the
+  current/overdue color split, the connector fill, and the non-wrapping
+  container class. `npm run typecheck` and `npm run test:unit` green (197
+  suites / 1109 tests).
 - "a számla aloldalakon a gombok csúnyán helyezkednek el" — button layout
   on invoice sub-pages is poor. Check `/invoices/[id]` (detail — action
   buttons, `components/layout/DangerZone.tsx` +

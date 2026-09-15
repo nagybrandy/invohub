@@ -67,12 +67,26 @@ function stepsFor(invoice: Invoice, now: Date): TimelineStep[] {
   ];
 }
 
-const DOT_CLASS: Record<TimelineStepState, string> = {
-  done: "bg-primary border-primary",
-  current: "border-destructive bg-background",
-  upcoming: "border-border bg-background",
-  skipped: "border-border/50 bg-muted/60",
-};
+// Color language matches lib/invoices/status-visuals.ts's STATUS_VISUALS:
+// primary marks "in progress / current" (e.g. `sent`), destructive is
+// reserved for a genuine problem (`overdue`) — never for "current" on its
+// own, or every on-time sent invoice would show an alarming red step.
+function dotClass(step: TimelineStep, isAlert: boolean): string {
+  if (step.state === "done") return "bg-primary border-primary";
+  if (step.state === "skipped") return "border-border/50 bg-muted/60";
+  if (step.state === "current") {
+    return isAlert ? "border-destructive bg-background" : "border-primary bg-background";
+  }
+  return "border-border bg-background";
+}
+
+function labelClass(step: TimelineStep, isAlert: boolean): string {
+  if (step.state === "skipped") return "text-muted-foreground/60";
+  if (step.state === "current") {
+    return isAlert ? "font-medium text-destructive" : "font-medium text-primary";
+  }
+  return "font-medium text-foreground";
+}
 
 export function InvoiceTimeline({
   invoice,
@@ -89,42 +103,39 @@ export function InvoiceTimeline({
 
   return (
     <VStack space="sm" className="rounded-xl border border-subtle p-4" testID="invoice-timeline">
-      <HStack className="flex-wrap items-start">
-        {steps.map((step, index) => (
-          <HStack key={step.key} className="min-w-[140px] flex-1 items-start">
-            {index > 0 ? (
-              <Box
-                className={`mt-2 h-px flex-1 ${step.state === "done" ? "bg-primary" : "bg-border"}`}
-              />
-            ) : null}
-            <VStack space="xs" className="items-start px-1">
-              <Box
-                testID={`invoice-timeline-dot-${step.key}`}
-                className={`h-3 w-3 rounded-full border-2 ${DOT_CLASS[step.state]}`}
-              />
-              <Text
-                size="xs"
-                className={
-                  step.state === "current"
-                    ? "font-medium text-destructive"
-                    : step.state === "skipped"
-                      ? "text-muted-foreground/60"
-                      : "font-medium text-foreground"
-                }
-              >
-                {t(step.label)}
-              </Text>
-              {step.date ? (
-                <Text size="xs" className="text-muted-foreground">
-                  {step.date}
-                  {step.key === "due" && overdue
-                    ? ` (${t("invoices.timeline.overdueTag")})`
-                    : ""}
-                </Text>
+      <HStack className="items-start" testID="invoice-timeline-steps">
+        {steps.map((step, index) => {
+          const isAlert = step.key === "due" && overdue;
+          // The connector fills in once the step it leads to has been
+          // reached (done or currently active) — a grey gap right before
+          // the highlighted active step reads as broken, not "not yet".
+          const connectorFilled = step.state === "done" || step.state === "current";
+          return (
+            <HStack key={step.key} className="flex-1 items-start">
+              {index > 0 ? (
+                <Box
+                  testID={`invoice-timeline-connector-${step.key}`}
+                  className={`mt-2 h-px flex-1 ${connectorFilled ? "bg-primary" : "bg-border"}`}
+                />
               ) : null}
-            </VStack>
-          </HStack>
-        ))}
+              <VStack space="xs" className="items-start px-1">
+                <Box
+                  testID={`invoice-timeline-dot-${step.key}`}
+                  className={`h-3 w-3 rounded-full border-2 ${dotClass(step, isAlert)}`}
+                />
+                <Text size="xs" className={labelClass(step, isAlert)}>
+                  {t(step.label)}
+                </Text>
+                {step.date ? (
+                  <Text size="xs" className="text-muted-foreground">
+                    {step.date}
+                    {isAlert ? ` (${t("invoices.timeline.overdueTag")})` : ""}
+                  </Text>
+                ) : null}
+              </VStack>
+            </HStack>
+          );
+        })}
       </HStack>
 
       <HStack space="sm" className="items-center border-t border-subtle pt-3">
