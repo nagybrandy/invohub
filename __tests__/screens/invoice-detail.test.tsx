@@ -97,6 +97,12 @@ describe("InvoiceDetailScreen", () => {
     jest.clearAllMocks();
   });
 
+  // Generous timeout (jest.config.js's 10s default plus, for just this
+  // test): this is the only test in the file whose invoice has a linked
+  // originalInvoice, so it's the only one that mounts the real (unmocked)
+  // linked-document row/InvoiceTimeline/InvoiceMoneyHeader subtree — real,
+  // bounded work, not a hang, but consistently >10s on a coverage-
+  // instrumented CI runner even though it's <1s locally (2026-09-15).
   it("shows related documents when the invoice has a storno original", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
@@ -117,7 +123,7 @@ describe("InvoiceDetailScreen", () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("invoices.links.title");
     expect(json).toContain("INV-2026-000");
-  });
+  }, 30000);
 
   it("mark-paid panel toggles and posts payment on confirm", async () => {
     mockApiFetch.mockImplementation(async (path: string, init?: RequestInit) => {
