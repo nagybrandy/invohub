@@ -159,6 +159,8 @@ export default {
       exchangeRate: "Exchange rate",
       exchangeRateValue: "1 {{currency}} = {{rate}} HUF",
       vatInHuf: "VAT amount in HUF",
+      continued: "continued",
+      pageIndicator: "Page {{page}} of {{total}}",
     },
     pdf: "PDF",
     downloadPdf: "Download PDF",

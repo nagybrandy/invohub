@@ -209,7 +209,7 @@ bugs:
   `lib/nav/` production behaviour, `lib/m2m/`, schema, or compliance-copy
   surface touched) — normal Ship-phase auto-merge applies once green.
   Plan: `docs/plans/2026-09-16-pdf-invohub-brand-mark.md`
-- [ ] **Broken pagination wastes an entire page** — with the *default*
+- [x] **Broken pagination wastes an entire page** — with the *default*
   template (short footer text "Köszönjük a bizalmat!", two line items,
   short notes), the PDF still spills onto a near-blank second page just to
   show that one footer line. Something in `contentBottom`/`ensureSpace`
@@ -230,6 +230,27 @@ bugs:
   page, or a template with a long custom `footerText`/`notes`) rather than
   assume the root cause is fully resolved — this item is left unchecked
   intentionally.
+  **Fixed (2026-09-16, `slice/pdf-broken-pagination-blank-page`)**: folded
+  the reserved footer band into the document's own bottom margin
+  (`CONTENT_MARGIN_BOTTOM = PAGE_MARGIN + FOOTER_BAND_HEIGHT = 84`) so
+  pdfkit's own auto-pagination and `ensureSpace()`/`contentBottom()` break
+  at the same line by construction; gave `ensureSpace()` a "never reopen a
+  page you're already standing at the top of" guard; replaced the fixed
+  90pt totals reserve and the fixed-advance `drawTotalLine()` with measured
+  geometry (`totalsColumns()`), so "Fizetendő összesen:" never wraps and no
+  longer overlaps the next block; measured (not fixed) reserves for the
+  exemption-reason and notes blocks; added a repeated table header + a
+  "`<invoiceNumber>` · folytatás" caption on continuation pages, and a
+  "{{page}}/{{total}}. oldal" footer indicator on multi-page documents.
+  Measured page counts: `buildSamplePreviewInvoice()` — pre-slice 2/2
+  (with/without company), post-slice **1/1**, now locked by a real-pdfkit
+  regression test (`BASELINE_PAGE_COUNT` tightened from `<= 2` to `=== 1`).
+  A 16-item invoice with a ~2000-char `notes` value and a 40-line-item
+  invoice both verified (via `pdftoppm` PNG render) to never print content
+  over the footer strip on any page, and the 40-item invoice correctly
+  repeats the column header + draws the folytatás caption on its
+  continuation page. Plan:
+  `docs/plans/2026-09-16-pdf-broken-pagination-blank-page.md`.
 - [ ] **General layout gap vs. the HTML preview** — the PDF's content area
   is sparse (lots of empty vertical space, thin single-column line-item
   table, no card/section framing) next to the HTML preview's denser,

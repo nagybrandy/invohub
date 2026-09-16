@@ -5,6 +5,11 @@ let mockTextCalls: Array<{ text: string; x: number; y: number }> = [];
 let mockFillColorCalls: string[] = [];
 let mockSwitchToPageCalls: number[] = [];
 let mockBufferedPageRange: { start: number; count: number } = { start: 0, count: 1 };
+// AC2: records the `options` object every `createPdfDocument(options)` call
+// received, so a test can assert generateInvoicePdf creates its document
+// with `margins: { ..., bottom: CONTENT_MARGIN_BOTTOM }` instead of the old
+// `margin: 48` shorthand.
+let mockConstructorOptions: Array<Record<string, unknown> | undefined> = [];
 
 jest.mock("@/lib/invoices/pdf-document", () => {
   const { EventEmitter } = require("events");
@@ -17,6 +22,17 @@ jest.mock("@/lib/invoices/pdf-document", () => {
     };
     y = 100;
     _registeredFonts: Record<string, boolean> = {};
+
+    constructor(options?: Record<string, unknown>) {
+      super();
+      mockConstructorOptions.push(options);
+      const margins = options?.margins as
+        | { left: number; right: number; top: number; bottom: number }
+        | undefined;
+      if (margins) {
+        this.page.margins = { ...margins };
+      }
+    }
 
     currentLineHeight() {
       return 12;
@@ -132,7 +148,7 @@ jest.mock("@/lib/invoices/pdf-document", () => {
   const actual = jest.requireActual("@/lib/invoices/pdf-document");
 
   return {
-    createPdfDocument: () => new MockPDFDocument(),
+    createPdfDocument: (options?: Record<string, unknown>) => new MockPDFDocument(options),
     withPdfKitFonts: (run: () => unknown) => run(),
     collectSearchRoots: actual.collectSearchRoots,
   };
@@ -143,6 +159,7 @@ import { documentLabels, formatDocumentAmount, isWinAnsiSafe } from "@/lib/invoi
 import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 import { landingColors } from "@/components/marketing/landing-theme";
 import * as pdfFontsModule from "@/lib/invoices/pdf-fonts";
+import { CONTENT_MARGIN_BOTTOM, PAGE_MARGIN } from "@/lib/invoices/pdf-layout";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
 beforeEach(() => {
@@ -152,6 +169,7 @@ beforeEach(() => {
   mockFillColorCalls = [];
   mockSwitchToPageCalls = [];
   mockBufferedPageRange = { start: 0, count: 1 };
+  mockConstructorOptions = [];
 });
 
 describe("invoicePdfFilename", () => {
@@ -436,5 +454,49 @@ describe("generateInvoicePdf — InvoHub footer brand mark", () => {
 
     expect(mockFillColorCalls).toContain(landingColors.navy);
     expect(mockFillColorCalls).toContain(landingColors.cornflower);
+  });
+});
+
+describe("generateInvoicePdf — document geometry (AC2)", () => {
+  it("creates the document with margins.bottom === CONTENT_MARGIN_BOTTOM, not margin: 48", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(CONTENT_MARGIN_BOTTOM).toBe(84);
+    expect(mockConstructorOptions).toHaveLength(1);
+    const options = mockConstructorOptions[0];
+    expect(options?.margin).toBeUndefined();
+    expect(options?.margins).toEqual({
+      top: PAGE_MARGIN,
+      left: PAGE_MARGIN,
+      right: PAGE_MARGIN,
+      bottom: CONTENT_MARGIN_BOTTOM,
+    });
+  });
+});
+
+describe("generateInvoicePdf — footer page indicator (AC12)", () => {
+  it("draws no page indicator when there is exactly 1 buffered page", async () => {
+    mockBufferedPageRange = { start: 0, count: 1 };
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts.some((t) => /\d+\/\d+\.\s*oldal/.test(t))).toBe(false);
+    // Existing empty-footerText behaviour (lockup centred) is unchanged —
+    // the issuer footerText is set by default here so this only guards the
+    // indicator itself; the centred-lockup case is covered elsewhere.
+  });
+
+  it("draws '1/3. oldal', '2/3. oldal' and '3/3. oldal' exactly once each with 3 buffered pages", async () => {
+    mockBufferedPageRange = { start: 0, count: 3 };
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    for (const expected of ["1/3. oldal", "2/3. oldal", "3/3. oldal"]) {
+      expect(mockDrawnTexts.filter((t) => t === expected)).toHaveLength(1);
+    }
   });
 });
