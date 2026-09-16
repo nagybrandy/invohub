@@ -209,7 +209,8 @@ bugs:
   `lib/nav/` production behaviour, `lib/m2m/`, schema, or compliance-copy
   surface touched) — normal Ship-phase auto-merge applies once green.
   Plan: `docs/plans/2026-09-16-pdf-invohub-brand-mark.md`
-- [ ] **Broken pagination wastes an entire page** — with the *default*
+- [~] folyamatban (slice/pdf-broken-pagination-blank-page)
+      **Broken pagination wastes an entire page** — with the *default*
   template (short footer text "Köszönjük a bizalmat!", two line items,
   short notes), the PDF still spills onto a near-blank second page just to
   show that one footer line. Something in `contentBottom`/`ensureSpace`
@@ -230,6 +231,25 @@ bugs:
   page, or a template with a long custom `footerText`/`notes`) rather than
   assume the root cause is fully resolved — this item is left unchecked
   intentionally.
+  **Planned 2026-09-16 (Opus).** That verification was done, and three real
+  defects remain underneath the fixed symptom, each reproduced against
+  `ac736d6` and rendered to PNG with `pdftoppm`: (a) content prints *through*
+  the footer strip — the doc is created with `margin: 48` so pdfkit's own
+  `doc.text()` auto-pagination breaks 36pt *below* the band `ensureSpace`
+  reserves (seen with a 16-item invoice + long `notes`); (b) `drawTotalLine`
+  returns a *fixed* `y + fontSize + 6` while drawing "Fizetendő összesen:"
+  into an 80pt column, so the wrapped second line overprints the next block
+  (seen on an ÁFA-exempt invoice, colliding with "Alanyi adómentes …");
+  (c) the reserves are magic numbers (`90` for totals vs ~68pt measured;
+  `20 + reasons*14` ignoring wrapping; `48` for a notes block of arbitrary
+  height) and `ensureSpace` has no "already at the top of a page" guard — a
+  24-item invoice pushes totals+notes to page 2 with ~77pt free on page 1.
+  Also in scope: repeated table headers + a "folytatás" caption on
+  continuation pages (a 40-item invoice's page 2 has bare rows and no column
+  labels today) and an "n/m. oldal" page indicator in the footer band.
+  Risk `none` (document rendering/typography only — no `lib/tax/`,
+  `lib/nav/` production, `lib/m2m/`, schema, or compliance copy).
+  Plan: `docs/plans/2026-09-16-pdf-broken-pagination-blank-page.md`
 - [ ] **General layout gap vs. the HTML preview** — the PDF's content area
   is sparse (lots of empty vertical space, thin single-column line-item
   table, no card/section framing) next to the HTML preview's denser,
