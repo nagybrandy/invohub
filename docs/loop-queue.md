@@ -499,9 +499,14 @@ screenshots before writing a fix plan:
    `slice/dashboard-overdue-partially-paid`. See the matching detailed
    entry below (under "Remaining for the launch gate") for what was
    actually wrong and fixed.
-7. e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
+7. [~] folyamatban (slice/e-nyugta-nav-receipt-api)
+   e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
    test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test
-   modes — big item, plan it in slices
+   modes — big item, plan it in slices.
+   Plan (slice 1 of 3): `docs/plans/2026-09-16-e-nyugta-nav-receipt-api.md`
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship). See the
+   matching detailed entry under "Remaining for the launch gate" for what
+   planning verified against the published spec/XSD.
 8. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
    — **partially shipped**: the composer's own line-item icon buttons are
    now 44px (`components/invoices/composer/LineItemRow.tsx`), but the
@@ -686,7 +691,8 @@ Remaining for the launch gate:
       overdue fields while a partially-paid-not-yet-due invoice does not,
       and that `outstanding` is unaffected either way. `npm run
       typecheck` and `npm run test:unit` green (197 suites / 1113 tests).
-- [ ] e-nyugta (nyugtaadat-szolgáltatás) client targets an endpoint and
+- [~] folyamatban (slice/e-nyugta-nav-receipt-api)
+      e-nyugta (nyugtaadat-szolgáltatás) client targets an endpoint and
       schema that do not exist — `lib/nav-receipt/environment.ts` posts to
       `https://api-test.onlineszamla.nav.gov.hu/receipt-if/v1` with
       `schemas.nav.gov.hu/receipt/1.0/*` namespaces invented in
@@ -700,6 +706,28 @@ Remaining for the launch gate:
       since 2026-09-01 and NAV only waives penalties through the end of
       2026, so this is a real launch blocker for any EV issuing nyugta.
       (needs tax/legal sign-off)
+      Plan (slice 1 of 3): `docs/plans/2026-09-16-e-nyugta-nav-receipt-api.md`
+      Planning fetched the real sources on 2026-09-16 and corrected three
+      premises of this entry: (a) the published latest is now spec **v1.3**
+      and XSD **1.1.1** (1.1.1 only widens `ReceiptSerialNumberType`, the
+      request structure is unchanged); (b) the real namespace is
+      `http://schemas.nav.gov.hu/NTCA/1.0/receipt` over
+      `nav-gov-hu/Common` tag `common-2.0.0-rc.2`, and the operations are
+      `POST /auth/token` + `POST /receipt/create` (JWT `Authorization:
+      Bearer`), not a "token exchange" + `createReceiptDataReport`; (c) the
+      `requestSignature` formula is **identical** to the OSA one already
+      implemented in `lib/nav/crypto.ts`
+      (SHA3-512(requestId + yyyyMMddHHmmss UTC + signKey), uppercase) — the
+      spec's own worked example was verified to reproduce byte-for-byte and
+      becomes a test fixture. The biggest correctness gap the entry does not
+      name: NAV wants **gross totals per ÁFA *category name*** (`0%`, `5%`,
+      `18%`, `27%`, `Alanyi adómentes`, `Egyéb` from `/vat-category/list`),
+      not the net/VAT/gross triple the current builder sends — so an **AAM
+      EV** must report under `Alanyi adómentes`, and a day mixing HUF and
+      EUR receipts needs **one report per currency**. Slice 1 covers auth +
+      `/receipt/create` + the payload rebuild; `/receipt/list`+`/detail`
+      (slice 2) and `/receipt/modify`+`/invalidate` for storno nyugta
+      (slice 3) stay open.
 - [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
       Non-HUF invoices report a false HUF VAT base to NAV — confirmed
       resolved: `lib/nav/invoice-xml.ts` now emits the real
