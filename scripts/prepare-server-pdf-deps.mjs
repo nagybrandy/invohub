@@ -13,6 +13,17 @@ const fontTargets = [
   path.join(vendorRoot, "node_modules/pdfkit/js/data"),
 ];
 
+// The embedded Latin-Extended-A TTFs (see assets/fonts/pdf/README.md and
+// lib/invoices/pdf-fonts.ts) need their own bundle path — same
+// committed-asset pattern as the AFM fonts above, but pdf-fonts.ts's
+// resolvePdfFontFiles() only looks in dist/server/assets/pdf-fonts, so a
+// missing copy here means every PDF silently falls back to transliterated
+// Helvetica in production (loud at request time via console.error, but this
+// script should fail the build instead of letting that ship unnoticed).
+const embeddedFontSrc = path.join(root, "assets/fonts/pdf");
+const embeddedFontFiles = ["NotoSans-Regular.ttf", "NotoSans-Bold.ttf"];
+const embeddedFontTarget = path.join(root, "dist/server/assets/pdf-fonts");
+
 function destForPackage(name) {
   if (name.startsWith("@")) {
     const [scope, pkg] = name.split("/");
@@ -67,6 +78,15 @@ if (!fs.existsSync(fontSrc)) {
   process.exit(1);
 }
 
+for (const file of embeddedFontFiles) {
+  if (!fs.existsSync(path.join(embeddedFontSrc, file))) {
+    console.error(
+      `Missing ${path.join("assets/fonts/pdf", file)} — see assets/fonts/pdf/README.md for provenance.`
+    );
+    process.exit(1);
+  }
+}
+
 if (!fs.existsSync(path.join(root, "dist/server"))) {
   console.error("Missing dist/server — run expo export -p web first.");
   process.exit(1);
@@ -82,3 +102,9 @@ for (const target of fontTargets) {
   }
   console.log(`Copied PDFKit fonts to ${path.relative(root, target)}`);
 }
+
+fs.mkdirSync(embeddedFontTarget, { recursive: true });
+for (const file of embeddedFontFiles) {
+  fs.copyFileSync(path.join(embeddedFontSrc, file), path.join(embeddedFontTarget, file));
+}
+console.log(`Copied embedded PDF fonts to ${path.relative(root, embeddedFontTarget)}`);

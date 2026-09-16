@@ -1,6 +1,7 @@
 // lib/invoices/pdf-layout.ts
 // Layout helpers for readable invoice PDFs (no overlapping text).
 import type PDFDocument from "pdfkit";
+import { documentFontNames } from "@/lib/invoices/pdf-fonts";
 
 type Doc = InstanceType<typeof PDFDocument>;
 
@@ -19,10 +20,11 @@ export function drawLogoBadge(
   initials: string,
   accent: string
 ): void {
+  const { bold } = documentFontNames(doc);
   doc.save();
   doc.roundedRect(x, y, size, size, 8).fill(accent);
   doc.fillColor("#ffffff")
-    .font("Helvetica-Bold")
+    .font(bold)
     .fontSize(Math.round(size * 0.38))
     .text(initials, x, y + size * 0.28, { width: size, align: "center" });
   doc.restore();
@@ -87,8 +89,9 @@ export function drawTextBlock(
   options?: { bold?: boolean; color?: string; lineGap?: number }
 ): number {
   const lineGap = options?.lineGap ?? 3;
+  const { regular, bold } = documentFontNames(doc);
   doc.fontSize(fontSize).fillColor(options?.color ?? "#111111");
-  doc.font(options?.bold ? "Helvetica-Bold" : "Helvetica");
+  doc.font(options?.bold ? bold : regular);
 
   let cursorY = y;
   for (const line of lines) {
@@ -159,7 +162,8 @@ export function drawTableHeader(
   accent: string
 ): number {
   const y = doc.y;
-  doc.font("Helvetica-Bold").fontSize(fontSize).fillColor(accent);
+  const { bold } = documentFontNames(doc);
+  doc.font(bold).fontSize(fontSize).fillColor(accent);
   const cells: Array<{ text: string; x: number; width: number; align?: "left" | "right" }> = [
     { text: labels[0] ?? "Description", x: cols.left, width: cols.descWidth },
     { text: labels[1] ?? "Qty", x: cols.qtyX, width: cols.qtyWidth, align: "right" },
@@ -200,7 +204,8 @@ export function drawTableRow(
   y: number,
   fontSize: number
 ): number {
-  doc.font("Helvetica").fontSize(fontSize);
+  const { regular } = documentFontNames(doc);
+  doc.font(regular).fontSize(fontSize);
 
   const descHeight = doc.heightOfString(row.description, { width: cols.descWidth });
   const singleLine = doc.currentLineHeight();
@@ -225,8 +230,9 @@ export function drawTotalLine(
   options?: { bold?: boolean; accent?: string; fontSize?: number }
 ): number {
   const fontSize = options?.fontSize ?? 10;
+  const { regular, bold } = documentFontNames(doc);
   doc.fontSize(fontSize);
-  doc.font(options?.bold ? "Helvetica-Bold" : "Helvetica");
+  doc.font(options?.bold ? bold : regular);
   doc.fillColor(options?.accent ?? "#111111");
   doc.text(label, xLabel, y, { width: 80, align: "right" });
   doc.text(value, xValue, y, { width: 72, align: "right" });

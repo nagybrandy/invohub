@@ -1,6 +1,18 @@
 // jest.setup.ts
 // Global Jest setup: mocks and test environment defaults.
 
+// jest-expo's preset setupFiles run `require("expo/src/winter")` before this
+// file, which installs a TextDecoder shim supporting only "utf-8" (it exists
+// for React Server Components, which need nothing else). pdfkit's embedded
+// TrueType font support (via fontkit) decodes font name tables with
+// `new TextDecoder("ascii")` and throws "Unknown encoding: ascii" under that
+// shim — restore Node's own TextDecoder (a strict superset) so real-pdfkit
+// tests can embed a font (lib/invoices/pdf-fonts.test.ts,
+// lib/invoices/generate-pdf.integration.test.ts).
+import { TextDecoder as NodeTextDecoder } from "node:util";
+(globalThis as unknown as { TextDecoder: typeof TextDecoder }).TextDecoder =
+  NodeTextDecoder as unknown as typeof TextDecoder;
+
 const mockAsyncStorage = new Map<string, string>();
 
 jest.mock("@react-native-async-storage/async-storage", () => ({

@@ -10,7 +10,9 @@ let pdfkitDataDir: string | null = null;
 
 const FONT_MARKER = "Helvetica.afm";
 
-function collectSearchRoots(): string[] {
+// Exported so pdf-fonts.ts's resolvePdfFontFiles() reuses the exact same
+// bundle-lookup strategy as the pdfkit AFM data — no behaviour change here.
+export function collectSearchRoots(): string[] {
   const roots = new Set<string>();
 
   roots.add(process.cwd());
