@@ -315,6 +315,21 @@ InvoHub mark visible, single-page output for the default template, and a
 layout that doesn't look like a placeholder next to the HTML preview. Not
 tax/legal-gated (this is document rendering/typography, not NAV/tax logic
 or compliance copy) — normal Ship-phase auto-merge applies once green.
+      **PR opened 2026-09-16** (`slice/pdf-layout-general-improvement`,
+      commit `b2a250f`) — not merged, pending review sign-off. `npx tsc
+      --noEmit` and `npm run test:unit` (202 suites / 1210 tests) are green
+      on the branch; a manual `pdftoppm` render of the sample invoice with
+      and without a company confirms the tinted party cards, filled table
+      header with a Nettó column, per-row hairlines and the framed/
+      emphasised totals block all render correctly on one page. No new
+      low-severity findings. One operational note: the fix-round commit
+      briefly landed on a differently-named branch
+      (`fixround2-pdf-layout-general-improvement`) because
+      `slice/pdf-layout-general-improvement` was already checked out in a
+      stale worktree; reconciled by fast-forwarding that worktree's branch
+      to the fix commit (clean fast-forward, nothing lost) before pushing
+      and opening the PR. See
+      `docs/audits/loop/2026-09-16-pdf-layout-general-improvement/REPORT.md`.
 
 **New owner feedback (2026-09-15, take next once the in-flight Díjbekérő
 slice ships)** — direct visual complaints, not yet triaged into concrete
