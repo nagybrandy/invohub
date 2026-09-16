@@ -656,9 +656,10 @@ button {
   padding-block: clamp(96px, 22vw, 148px) clamp(56px, 9vw, 132px);
 }
 
-/* Dot field, deliberately restrained. The brand-mark texture was tried here and
-   rejected — it competed with the hero copy; the mark appears on this page as
-   the CTA watermark and the footer lockup instead. */
+/* Dot field, deliberately restrained. An earlier pass rejected a brand-mark
+   texture here for competing with the hero copy — .hero__mark below is sized
+   and parked behind the data panel on the right instead, clear of the copy
+   column, so both can coexist. */
 .hero::before {
   content: "";
   position: absolute;
@@ -688,6 +689,29 @@ button {
   display: grid;
   gap: clamp(32px, 6vw, 64px);
   align-items: center;
+}
+
+/* Large watermark mark behind the data panel — desktop only (the panel and
+   copy stack on mobile, leaving no room for it). Same treatment as
+   .cta__mark, rotated the other way for variety. */
+.hero__mark {
+  position: absolute;
+  z-index: 0;
+  right: -64px;
+  top: -48px;
+  width: clamp(280px, 30vw, 460px);
+  height: clamp(280px, 30vw, 460px);
+  color: var(--white);
+  opacity: 0.07;
+  transform: rotate(12deg);
+  pointer-events: none;
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .hero__mark {
+    display: block;
+  }
 }
 
 .hero__copy {
@@ -889,6 +913,7 @@ button {
 }
 
 .tile {
+  position: relative;
   display: grid;
   gap: 10px;
   align-content: start;
@@ -897,6 +922,7 @@ button {
   border: 1px solid var(--line-200);
   background: var(--white);
   box-shadow: var(--shadow-card);
+  overflow: clip;
   transition: transform 0.2s var(--ease), border-color 0.2s var(--ease),
     box-shadow 0.2s var(--ease);
 }
@@ -926,6 +952,26 @@ button {
 
 .tile--wide .mini {
   margin-top: 8px;
+}
+
+/* Small watermark mark on the featured product tile — same treatment as
+   .cta__mark/.hero__mark, in navy ink for a white card. */
+.tile--wide .tile__mark {
+  position: absolute;
+  z-index: 0;
+  right: -30px;
+  bottom: -30px;
+  width: 160px;
+  height: 160px;
+  color: var(--navy-900);
+  opacity: 0.05;
+  transform: rotate(-14deg);
+  pointer-events: none;
+}
+
+.tile--wide > :not(.tile__mark) {
+  position: relative;
+  z-index: 1;
 }
 
 .tags {

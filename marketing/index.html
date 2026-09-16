@@ -125,6 +125,24 @@
 
     <main id="main">
       <section class="hero" data-testid="marketing-hero">
+        <!-- Decorative brand mark watermark, desktop only. Geometry:
+             assets/brand/mark.svg (direction "rounded") — mirrors
+             BrandTexture variant="mark" as used in the app's own hero. -->
+        <svg class="hero__mark" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
+          <g fill="currentColor">
+            <path d="M30 4H18A14 14 0 0 0 4 18V30L11 23V18A7 7 0 0 1 18 11H23Z" />
+            <path d="M18 44H30A14 14 0 0 0 44 30V18L37 25V30A7 7 0 0 1 30 37H25Z" />
+            <circle cx="17.5" cy="17.5" r="4.4" />
+            <circle cx="30.5" cy="30.5" r="4.4" />
+          </g>
+          <path
+            d="M7 41L41 7"
+            stroke="currentColor"
+            stroke-width="6.5"
+            stroke-linecap="round"
+          />
+          <circle cx="24" cy="24" r="5.5" fill="currentColor" />
+        </svg>
         <div class="shell hero__grid">
           <div class="hero__copy">
             <span class="kicker kicker--dark"><span class="dot"></span><span data-i18n="hero.kicker">Egyéni vállalkozóknak</span></span>
@@ -220,6 +238,23 @@
 
           <div class="bento">
             <article class="tile tile--wide" data-reveal>
+              <!-- Decorative brand mark watermark. Geometry: assets/brand/mark.svg
+                   (direction "rounded") — mirrors BrandTexture variant="mark". -->
+              <svg class="tile__mark" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
+                <g fill="currentColor">
+                  <path d="M30 4H18A14 14 0 0 0 4 18V30L11 23V18A7 7 0 0 1 18 11H23Z" />
+                  <path d="M18 44H30A14 14 0 0 0 44 30V18L37 25V30A7 7 0 0 1 30 37H25Z" />
+                  <circle cx="17.5" cy="17.5" r="4.4" />
+                  <circle cx="30.5" cy="30.5" r="4.4" />
+                </g>
+                <path
+                  d="M7 41L41 7"
+                  stroke="currentColor"
+                  stroke-width="6.5"
+                  stroke-linecap="round"
+                />
+                <circle cx="24" cy="24" r="5.5" fill="currentColor" />
+              </svg>
               <span class="tile__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
