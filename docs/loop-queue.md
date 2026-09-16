@@ -250,6 +250,37 @@ bugs:
   Risk `none` (document rendering/typography only — no `lib/tax/`,
   `lib/nav/` production, `lib/m2m/`, schema, or compliance copy).
   Plan: `docs/plans/2026-09-16-pdf-broken-pagination-blank-page.md`
+- [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
+  2026-09-16)** — `lib/invoices/generate-pdf.test.ts` line 489 claims the
+  empty-`footerText` centred-lockup branch (`drawFooterOnCurrentPage`,
+  align:"center") "is covered elsewhere," but no such test exists anywhere
+  in the repo; the other `footerText:""` occurrences
+  (`build-pdf-context.test.ts`, `preview-html.test.ts`,
+  `usePdfTemplate.test.tsx`) test unrelated code. The branch itself is
+  unchanged from `main` (confirmed via diff), so this is a stale/incorrect
+  test-coverage comment, not a functional regression. Either add a test
+  asserting `drawBrandLockup` is called with `align:"center"` and no
+  left/right footer text when `template.footerText === ""`, or reword the
+  comment to say the branch is unmodified from `main`.
+- [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
+  2026-09-16)** — the notes-only continuation page (e.g. page 2 of a
+  16-item + ~2000-char-notes invoice) has no invoice-number/context
+  heading: page 1 shows the table/totals/"Megjegyzés:" label plus the
+  footer "1/2. oldal", but page 2 is bare continued paragraph text with
+  only "2/2. oldal" in the footer — no "folytatás" banner, no repeated
+  "Megjegyzés:" label. `drawContinuationCaption` (`generate-pdf.ts`, ~lines
+  351-369) is wired only into the line-item loop, not the notes block
+  (~lines 495-520). Matches AC11 as written (scoped to line-item pages), so
+  not an AC violation — optional follow-up: draw the same
+  "`<invoiceNumber>` · folytatás" banner (or a lighter "Megjegyzés
+  (folytatás)" variant) at the top of a notes-only continuation page.
+- [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
+  2026-09-16)** — no note needed for app-level action: this slice only
+  touched `lib/invoices/{generate-pdf.ts,pdf-layout.ts,*.test.ts}` and
+  `lib/i18n/locales/`, no `app/` or `components/` screens, so the standard
+  Playwright screen-viewport audit doesn't apply here. Future ux-reviewer
+  passes on backend-only PDF-generation slices like this should skip or
+  rescope the screen-viewport audit rather than flag its absence.
 - [ ] **General layout gap vs. the HTML preview** — the PDF's content area
   is sparse (lots of empty vertical space, thin single-column line-item
   table, no card/section framing) next to the HTML preview's denser,
