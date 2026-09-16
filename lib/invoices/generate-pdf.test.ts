@@ -1,6 +1,10 @@
 // lib/invoices/generate-pdf.test.ts
 let mockDrawnTexts: string[] = [];
 let mockFontCalls: string[] = [];
+let mockTextCalls: Array<{ text: string; x: number; y: number }> = [];
+let mockFillColorCalls: string[] = [];
+let mockSwitchToPageCalls: number[] = [];
+let mockBufferedPageRange: { start: number; count: number } = { start: 0, count: 1 };
 
 jest.mock("@/lib/invoices/pdf-document", () => {
   const { EventEmitter } = require("events");
@@ -40,14 +44,18 @@ jest.mock("@/lib/invoices/pdf-document", () => {
       this._registeredFonts[name] = true;
       return this;
     }
-    fillColor() {
+    fillColor(color?: string) {
+      if (color) mockFillColorCalls.push(color);
       return this;
     }
     fill() {
       return this;
     }
-    text(value: string) {
+    text(value: string, x?: number, y?: number) {
       mockDrawnTexts.push(value);
+      if (typeof x === "number" && typeof y === "number") {
+        mockTextCalls.push({ text: value, x, y });
+      }
       return this;
     }
     save() {
@@ -60,6 +68,24 @@ jest.mock("@/lib/invoices/pdf-document", () => {
       return this;
     }
     lineWidth() {
+      return this;
+    }
+    lineCap() {
+      return this;
+    }
+    lineJoin() {
+      return this;
+    }
+    path() {
+      return this;
+    }
+    circle() {
+      return this;
+    }
+    translate() {
+      return this;
+    }
+    scale() {
       return this;
     }
     image() {
@@ -83,6 +109,16 @@ jest.mock("@/lib/invoices/pdf-document", () => {
     addPage() {
       return this;
     }
+    bufferedPageRange() {
+      return mockBufferedPageRange;
+    }
+    switchToPage(index: number) {
+      mockSwitchToPageCalls.push(index);
+      return this;
+    }
+    flushPages() {
+      return this;
+    }
     end() {
       this.emit("data", Buffer.from("%PDF-1.4\n"));
       this.emit("end");
@@ -103,13 +139,19 @@ jest.mock("@/lib/invoices/pdf-document", () => {
 });
 
 import { generateInvoicePdf, invoicePdfFilename } from "@/lib/invoices/generate-pdf";
-import { formatDocumentAmount, isWinAnsiSafe } from "@/lib/invoices/document-labels";
+import { documentLabels, formatDocumentAmount, isWinAnsiSafe } from "@/lib/invoices/document-labels";
+import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
+import { landingColors } from "@/components/marketing/landing-theme";
 import * as pdfFontsModule from "@/lib/invoices/pdf-fonts";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
 beforeEach(() => {
   mockDrawnTexts = [];
   mockFontCalls = [];
+  mockTextCalls = [];
+  mockFillColorCalls = [];
+  mockSwitchToPageCalls = [];
+  mockBufferedPageRange = { start: 0, count: 1 };
 });
 
 describe("invoicePdfFilename", () => {
@@ -329,5 +371,70 @@ describe("generateInvoicePdf", () => {
     await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
 
     expect(mockDrawnTexts.some((t) => t.includes("ÁFA összege forintban"))).toBe(false);
+  });
+});
+
+describe("generateInvoicePdf — InvoHub footer brand mark", () => {
+  it("draws the InvoHub attribution text from documentLabels(), not a hard-coded string (AC1)", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts).toContain(documentLabels().footer);
+  });
+
+  it("still draws the issuer's own template.footerText in the same band (AC6)", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts).toContain(DEFAULT_PDF_TEMPLATE.footerText);
+    expect(mockDrawnTexts).toContain(documentLabels().footer);
+  });
+
+  it("draws the footer strip on every buffered page (AC7)", async () => {
+    mockBufferedPageRange = { start: 0, count: 2 };
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockSwitchToPageCalls).toEqual([0, 1]);
+    const attributionCount = mockDrawnTexts.filter((t) => t === documentLabels().footer).length;
+    expect(attributionCount).toBe(2);
+  });
+
+  it("never draws the footer band below the bottom margin (AC8)", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    const labels = documentLabels();
+    const footerDraws = mockTextCalls.filter(
+      (call) => call.text === labels.footer || call.text === DEFAULT_PDF_TEMPLATE.footerText
+    );
+    expect(footerDraws.length).toBeGreaterThan(0);
+
+    // page.margins.bottom is back at its original value by the time the
+    // draw pass returns (the per-page zero-out is scoped to the draw).
+    const bottomLimit = 841.89 - 48;
+    for (const draw of footerDraws) {
+      expect(draw.y).toBeLessThanOrEqual(bottomLimit);
+    }
+  });
+
+  it("draws the mark in landingColors.navy / landingColors.cornflower, never a raw hex literal from generate-pdf.ts (AC3)", async () => {
+    // A distinct accentColor so the header/table's own accent fills can't
+    // be mistaken for the brand mark's flow ink (the template default,
+    // #6495ed, happens to equal landingColors.cornflower).
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({
+      invoice,
+      company: { name: "Demo Kft." },
+      template: { accentColor: "#ff0000" },
+    });
+
+    expect(mockFillColorCalls).toContain(landingColors.navy);
+    expect(mockFillColorCalls).toContain(landingColors.cornflower);
   });
 });
