@@ -62,9 +62,20 @@ export function LandingHero({
       <Box className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(100,149,237,0.28),transparent_42%),radial-gradient(circle_at_88%_12%,rgba(217,231,255,0.16),transparent_36%),linear-gradient(160deg,#111f4a_0%,#1f305e_58%,#111f4a_100%)]" />
       <Box className="pointer-events-none absolute -right-10 top-4 h-72 w-72 rounded-full bg-primary/25 blur-3xl web:animate-pulse md:h-[28rem] md:w-[28rem]" />
       <Box className="pointer-events-none absolute -left-8 bottom-0 h-56 w-56 rounded-full bg-[#6495ed]/15 blur-2xl" />
-      {/* No brand texture here on purpose — it was tried and rejected for
-          competing with the hero copy. The mark appears further down the page,
-          on the final CTA and in the footer lockup. */}
+      {/* A large, low-opacity mark — desktop only, parked behind the product
+          showcase on the right so it never sits under the headline/body copy
+          on the left (the thing an earlier pass here was rejected for). */}
+      {isDesktop ? (
+        <BrandTexture
+          variant="mark"
+          tone="onDark"
+          size={460}
+          rotate={12}
+          opacity={0.07}
+          className="-right-24 -top-16"
+          testID="landing-hero-texture"
+        />
+      ) : null}
       <Box
         className={`relative z-[1] mx-auto w-full max-w-[1280px] gap-10 ${
           isDesktop ? "flex-row items-center" : ""
@@ -313,10 +324,21 @@ function CapabilityCard({
 }) {
   return (
     <Card
-      className={`max-w-full overflow-hidden rounded-2xl border-[#dce3ef] p-5 shadow-none web:transition-[transform,box-shadow,border-color] web:duration-200 motion-reduce:web:transition-none web:hover:-translate-y-0.5 web:hover:border-primary/40 web:hover:shadow-lg md:p-7 ${
+      className={`relative max-w-full overflow-hidden rounded-2xl border-[#dce3ef] p-5 shadow-none web:transition-[transform,box-shadow,border-color] web:duration-200 motion-reduce:web:transition-none web:hover:-translate-y-0.5 web:hover:border-primary/40 web:hover:shadow-lg md:p-7 ${
         featured ? "bg-secondary" : "bg-white"
       } ${className ?? ""}`}
     >
+      {featured ? (
+        <BrandTexture
+          variant="mark"
+          tone="onDark"
+          size={220}
+          rotate={-14}
+          opacity={0.08}
+          className="-bottom-14 -right-14"
+          testID="landing-capability-card-texture"
+        />
+      ) : null}
       <VStack space="md">
         <Box
           className={`h-11 w-11 items-center justify-center rounded-xl ${
