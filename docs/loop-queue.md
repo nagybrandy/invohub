@@ -945,6 +945,34 @@ Remaining for the launch gate:
       the normal rebase-before-merge habit.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       ux)
+- [ ] Branch was cut from a stale `main` (2 commits behind), not the current
+      tip — verified directly: `git merge-base main
+      slice/pdf-invohub-brand-mark` == `958bd89` while `main`'s tip was
+      `7f82812`, two commits ahead (`7403879` "Plan:
+      pdf-invohub-brand-mark", `7f82812` "Replace app icon/favicon..."). The
+      three-dot diff against the merge-base matches the 12 plan-listed files
+      exactly; the noisy two-dot `main..slice` diff (6 icon PNGs,
+      `LandingSections.tsx`, a deleted plan doc) is purely a stale-base
+      artifact. `git merge-tree <merge-base> main slice` produced zero
+      conflict markers, so a normal merge/rebase applies cleanly and won't
+      revert the icon or plan-doc commits. No code fix needed — Ship should
+      `git fetch`/rebase or merge normally rather than trusting a raw
+      `main..slice` diff at face value.
+      (2026-09-16 ship review of slice/pdf-invohub-brand-mark, acceptance)
+- [ ] Footer attribution text stays at pre-existing low contrast (~3.17:1)
+      after gaining the mark — `lib/invoices/preview-html.ts`'s `.footer`
+      rule keeps `color: #8a90a6; font-size: 0.78rem` unchanged by this
+      slice (only `display:flex`/alignment/gap and a `.footer svg{flex-
+      shrink:0}` rule were added, plus inserting `brandMarkSvg({size:20})`
+      before the label span). Computed contrast of `#8a90a6` on white ≈
+      3.17:1, below WCAG AA's 4.5:1 for normal-size text (12.48px doesn't
+      meet the "large text" threshold). Confirmed visually in
+      `docs/audits/loop/2026-09-16-pdf-invohub-brand-mark/screens/
+      desktop-ux-preview-with-company-footer.png` — the mark's own navy/
+      cornflower inks are high-contrast on their own, only the accompanying
+      text is dim. Optional polish, not a blocker: on a future touch of this
+      file, darken `.footer` text color (e.g. toward `#6b7280`/`#5b6178`).
+      (2026-09-16 ship review of slice/pdf-invohub-brand-mark, ux)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
