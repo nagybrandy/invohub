@@ -26,10 +26,10 @@ import {
   formatInvoiceIssueDateTime,
 } from "@/lib/dates/format";
 import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
-import { registerDocumentFonts } from "@/lib/invoices/pdf-fonts";
+import { registerDocumentFonts, type DocumentFonts } from "@/lib/invoices/pdf-fonts";
+import { drawBrandLockup } from "@/lib/invoices/pdf-brand-mark";
 import {
   companyInitials,
-  contentBottom,
   drawLogoBadge,
   drawLogoImage,
   drawTableHeader,
@@ -37,6 +37,7 @@ import {
   drawTextBlock,
   drawTotalLine,
   ensureSpace,
+  footerBandTop,
   loadLogoImage,
   tableColumns,
 } from "@/lib/invoices/pdf-layout";
@@ -47,6 +48,70 @@ import {
 } from "@/lib/invoices/pdf-template/defaults";
 import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
 import type { Invoice } from "@/lib/invoices/types";
+import type PDFDocument from "pdfkit";
+import type { DocumentLabels } from "@/lib/invoices/document-labels";
+
+type Doc = InstanceType<typeof PDFDocument>;
+
+/**
+ * Draws the branding footer strip on the CURRENT page (caller must
+ * doc.switchToPage(i) first) — a hairline rule, the issuer's own
+ * template.footerText (left), and the InvoHub mark + attribution lockup
+ * (right, or centred when there is no issuer footer text). Lives in the
+ * reserved band bandTop..(page.height - margins.bottom) (AC9), so it can
+ * never collide with document content.
+ *
+ * `bandTop` is passed in (rather than read here via footerBandTop(doc))
+ * because the caller reads it BEFORE zeroing doc.page.margins.bottom for
+ * the duration of this draw (pdfkit's own buffered-pages idiom) —
+ * footerBandTop's own calculation depends on that margin.
+ */
+function drawFooterOnCurrentPage(
+  doc: Doc,
+  bandTop: number,
+  opts: {
+    docFonts: DocumentFonts;
+    footerText: string;
+    labels: DocumentLabels;
+    fontSize: number;
+    left: number;
+    right: number;
+    pageWidth: number;
+  }
+): void {
+  const textY = bandTop + 12;
+  const markY = bandTop + 9;
+
+  doc.moveTo(opts.left, bandTop).lineTo(opts.right, bandTop).strokeColor("#e5e7eb").lineWidth(1).stroke();
+
+  if (opts.footerText) {
+    doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor("#666666");
+    doc.text(opts.footerText, opts.left, textY, {
+      width: opts.pageWidth * 0.5,
+      lineBreak: false,
+      ellipsis: true,
+    });
+    doc.fillColor("#000000");
+
+    drawBrandLockup(doc, {
+      x: opts.right,
+      y: markY,
+      text: opts.labels.footer,
+      font: opts.docFonts.regular,
+      fontSize: opts.fontSize,
+      align: "right",
+    });
+  } else {
+    drawBrandLockup(doc, {
+      x: opts.left + opts.pageWidth / 2,
+      y: markY,
+      text: opts.labels.footer,
+      font: opts.docFonts.regular,
+      fontSize: opts.fontSize,
+      align: "center",
+    });
+  }
+}
 
 export type InvoicePdfCompany = {
   name: string;
@@ -348,14 +413,30 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           doc.y += doc.heightOfString(invoice.notes, { width: pageWidth }) + 8;
         }
 
-        if (template.footerText) {
-          const footerY = contentBottom(doc, 0) + 8;
-          doc.font(docFonts.regular).fontSize(fonts.small).fillColor("#888888");
-          doc.text(template.footerText, left, footerY, {
-            width: pageWidth,
-            align: "center",
+        // AC7: the footer strip is drawn on every buffered page, not just
+        // whichever page happened to be current when generation ended.
+        // Per-page margins.bottom is zeroed only around the draw itself
+        // (pdfkit's own buffered-pages idiom) — footerBandTop(doc) is read
+        // beforehand, against the real margins, so the band position is
+        // unaffected.
+        const footerRange = doc.bufferedPageRange();
+        for (let i = footerRange.start; i < footerRange.start + footerRange.count; i += 1) {
+          doc.switchToPage(i);
+          const bandTop = footerBandTop(doc);
+          const savedMarginBottom = doc.page.margins.bottom;
+          doc.page.margins.bottom = 0;
+          drawFooterOnCurrentPage(doc, bandTop, {
+            docFonts,
+            footerText: template.footerText,
+            labels,
+            fontSize: fonts.small,
+            left,
+            right,
+            pageWidth,
           });
+          doc.page.margins.bottom = savedMarginBottom;
         }
+        doc.flushPages();
 
         doc.end();
       })

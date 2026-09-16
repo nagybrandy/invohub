@@ -240,11 +240,27 @@ export function drawTotalLine(
   return y + fontSize + 6;
 }
 
-export function contentBottom(doc: Doc, reserveFooter = 36): number {
+// Height of the footer band reserved at the bottom of every page — the
+// InvoHub attribution/mark lockup plus the issuer's own footerText are
+// drawn inside this band, never above doc.page.height - margins.bottom
+// (AC8) and never inside the content area content already avoids (AC9).
+export const FOOTER_BAND_HEIGHT = 36;
+
+export function contentBottom(doc: Doc, reserveFooter = FOOTER_BAND_HEIGHT): number {
   return doc.page.height - doc.page.margins.bottom - reserveFooter;
 }
 
-export function ensureSpace(doc: Doc, neededHeight: number, reserveFooter = 36): void {
+/**
+ * Top edge of the footer band — the y where content must stop and the
+ * footer strip begins. Deliberately identical to contentBottom(doc) with
+ * the default reserve (AC9): the band the footer occupies is exactly the
+ * band content already avoids, so they cannot collide by construction.
+ */
+export function footerBandTop(doc: Doc): number {
+  return contentBottom(doc);
+}
+
+export function ensureSpace(doc: Doc, neededHeight: number, reserveFooter = FOOTER_BAND_HEIGHT): void {
   if (doc.y + neededHeight > contentBottom(doc, reserveFooter)) {
     doc.addPage();
   }

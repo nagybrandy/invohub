@@ -142,8 +142,7 @@ bugs:
   the backlog item's own risk call below) — normal Ship-phase auto-merge
   applies once green.
   Plan: `docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md`
-- [~] folyamatban (slice/pdf-invohub-brand-mark)
-  **No real InvoHub brand mark anywhere in the PDF** — only the issuing
+- [x] **No real InvoHub brand mark anywhere in the PDF** — only the issuing
   company's own logo (`company.logoUrl`) or, when that's unset, a plain
   colored initials badge (`drawLogoBadge` in `lib/invoices/pdf-layout.ts`).
   The HTML preview at least has a text-only "Készült az InvoHub-bal ·
@@ -154,11 +153,62 @@ bugs:
   small vector/raster asset pdfkit can draw — do not just retype the brand
   colors) to a footer/branding strip, matching the "Készült az InvoHub-bal"
   text treatment already in the HTML version.
-  Plan: `docs/plans/2026-09-16-pdf-invohub-brand-mark.md` — the mark is drawn
-  natively from the shared geometry through pdfkit's own SVG-path parser (no
-  raster/SVG asset, so no `prepare-server-pdf-deps.mjs` change), on every page
-  via a `bufferedPageRange()` footer pass; the HTML preview footer gets the
-  same mark inline so the two renderings finally match. Risk: none.
+  **Shipped 2026-09-16** on `slice/pdf-invohub-brand-mark` — draws the real
+  mark natively with pdfkit vector calls (no raster/SVG asset), reading
+  `BRAND_MARK_GEOMETRY[BRAND_MARK_DEFAULT]` and `landingColors.navy` /
+  `.cornflower` directly (no retyped paths or colors — new
+  `lib/invoices/pdf-brand-mark.ts`: `drawBrandMark` + `drawBrandLockup`, at
+  `BRAND_MARK_PDF_SIZE = 18`pt). The footer strip (hairline rule, issuer's
+  own `template.footerText` left, InvoHub mark + "Készült az InvoHub-bal ·
+  invohub.hu" lockup right, centred when there's no issuer footer text) now
+  draws on **every** buffered page via `doc.bufferedPageRange()` /
+  `switchToPage` / `flushPages`, replacing the old single-page
+  `contentBottom(doc, 0) + 8` call that drew 8pt below the bottom margin.
+  `lib/invoices/pdf-layout.ts` gained `FOOTER_BAND_HEIGHT` (=36, was a bare
+  literal) and `footerBandTop(doc)`, asserted equal to `contentBottom(doc)`
+  so the footer band is exactly the band content already reserves — cannot
+  collide with a mandatory Áfa tv. 169. § field by construction. HTML
+  preview parity: new `components/marketing/brand-mark-svg.ts`
+  (`brandMarkSvg()`, a pure string serializer, no React) inlines the same
+  geometry as an `<svg viewBox="0 0 48 48" role="img" aria-label="InvoHub">`
+  into `preview-html.ts`'s `.footer` div, next to the same `labels.footer`
+  text — both renderings now read `BRAND_MARK_GEOMETRY[BRAND_MARK_DEFAULT]`
+  directly, so switching that one constant would change both with no other
+  edit (tested). New tests: `lib/invoices/pdf-brand-mark.test.ts` (fake
+  recording doc — every frame/flow shape issued and deep-equal to the
+  imported geometry; frame drawn in the given ink and flow in the given
+  accent; a stroked shape is stroked at its `lineWidth` and never filled,
+  an unstroked shape is filled and never stroked, round cap/join set with a
+  per-shape override honored; save/restore balanced and colors reset
+  afterwards); `components/marketing/brand-mark-svg.test.ts`;
+  `lib/invoices/pdf-layout.test.ts` (the `footerBandTop`/`contentBottom`
+  invariant); `lib/invoices/generate-pdf.test.ts` (attribution text drawn
+  from `documentLabels()` not hard-coded; issuer `footerText` still drawn
+  in the same band; footer drawn twice with a stubbed 2-page
+  `bufferedPageRange`; every footer draw's `y` at or above the bottom
+  margin; the mark's fill colors are exactly `landingColors.navy` /
+  `.cornflower` with a template `accentColor` that can't be confused for
+  either); `lib/invoices/generate-pdf.integration.test.ts` (extended —
+  real pdfkit, the mark's arc/"A" path commands render without throwing,
+  with and without a `company`); `lib/invoices/preview-html.test.ts`
+  (extended — inline SVG present with the geometry's own `d` strings,
+  `role="img"`/`aria-label="InvoHub"`, wraps inside the existing
+  `@media (max-width: 560px)` block). `npx tsc --noEmit` and
+  `npm run test:unit` green (202 suites / 1155 tests). Manual check (AC15):
+  rendered `buildSamplePreviewInvoice()` via `generateInvoicePdf` with and
+  without a `company`, `pdftoppm -png -r 150` — mark crisp and legible at
+  18pt in navy/cornflower, footer strip sits clearly above the bottom
+  margin with whitespace to spare, issuer footer (left) and InvoHub lockup
+  (right) don't collide, and a synthetic 40-line-item invoice confirmed the
+  strip repeats correctly on both pages of a 2-page document. **Side
+  effect, not claimed as fixing item 3 below**: `buildSamplePreviewInvoice()`
+  now renders as **1 page** instead of 2 for both the with- and
+  without-company cases (was 2/2 before this slice, measured directly
+  against the pre-slice code) — see the note added to item 3. Not
+  tax/legal-gated (document rendering/typography only — no `lib/tax/`,
+  `lib/nav/` production behaviour, `lib/m2m/`, schema, or compliance-copy
+  surface touched) — normal Ship-phase auto-merge applies once green.
+  Plan: `docs/plans/2026-09-16-pdf-invohub-brand-mark.md`
 - [ ] **Broken pagination wastes an entire page** — with the *default*
   template (short footer text "Köszönjük a bizalmat!", two line items,
   short notes), the PDF still spills onto a near-blank second page just to
@@ -166,12 +216,20 @@ bugs:
   (`lib/invoices/pdf-layout.ts`) or the footer-placement logic in
   `generate-pdf.ts` (~line 336) is reserving/measuring space wrong. Fix so
   a normal 1-2 item invoice fits on one page.
-  Note (2026-09-16 planning, `pdf-invohub-brand-mark`): the footer is drawn
-  at `contentBottom(doc, 0) + 8`, i.e. 8pt *below* the bottom margin, which
-  is very likely what trips pdfkit's auto page break. The brand-mark slice
-  replaces that call with a `bufferedPageRange()` footer pass, so the blank
-  page may vanish as a side effect — verify `ensureSpace`/`contentBottom`
-  properly here anyway before ticking this item.
+  **Observation (2026-09-16, from `slice/pdf-invohub-brand-mark`, not
+  fixed here per that slice's plan §9)**: replacing the old footer draw
+  (`contentBottom(doc, 0) + 8` — 8pt *below* the bottom margin, drawn only
+  on whichever page happened to be current) with a correct
+  `footerBandTop`-anchored, buffered-pages footer pass made
+  `buildSamplePreviewInvoice()` render as 1 page instead of 2, both with
+  and without a `company` — measured directly (pre-slice: 2/2, post-slice:
+  1/1). That's consistent with the misplaced footer call having been the
+  trigger for the near-blank second page described here, but the next pass
+  on this item should still verify `ensureSpace`/`contentBottom` for real
+  (e.g. an invoice with enough line items to *genuinely* need a second
+  page, or a template with a long custom `footerText`/`notes`) rather than
+  assume the root cause is fully resolved — this item is left unchecked
+  intentionally.
 - [ ] **General layout gap vs. the HTML preview** — the PDF's content area
   is sparse (lots of empty vertical space, thin single-column line-item
   table, no card/section framing) next to the HTML preview's denser,
@@ -887,6 +945,34 @@ Remaining for the launch gate:
       the normal rebase-before-merge habit.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       ux)
+- [ ] Branch was cut from a stale `main` (2 commits behind), not the current
+      tip — verified directly: `git merge-base main
+      slice/pdf-invohub-brand-mark` == `958bd89` while `main`'s tip was
+      `7f82812`, two commits ahead (`7403879` "Plan:
+      pdf-invohub-brand-mark", `7f82812` "Replace app icon/favicon..."). The
+      three-dot diff against the merge-base matches the 12 plan-listed files
+      exactly; the noisy two-dot `main..slice` diff (6 icon PNGs,
+      `LandingSections.tsx`, a deleted plan doc) is purely a stale-base
+      artifact. `git merge-tree <merge-base> main slice` produced zero
+      conflict markers, so a normal merge/rebase applies cleanly and won't
+      revert the icon or plan-doc commits. No code fix needed — Ship should
+      `git fetch`/rebase or merge normally rather than trusting a raw
+      `main..slice` diff at face value.
+      (2026-09-16 ship review of slice/pdf-invohub-brand-mark, acceptance)
+- [ ] Footer attribution text stays at pre-existing low contrast (~3.17:1)
+      after gaining the mark — `lib/invoices/preview-html.ts`'s `.footer`
+      rule keeps `color: #8a90a6; font-size: 0.78rem` unchanged by this
+      slice (only `display:flex`/alignment/gap and a `.footer svg{flex-
+      shrink:0}` rule were added, plus inserting `brandMarkSvg({size:20})`
+      before the label span). Computed contrast of `#8a90a6` on white ≈
+      3.17:1, below WCAG AA's 4.5:1 for normal-size text (12.48px doesn't
+      meet the "large text" threshold). Confirmed visually in
+      `docs/audits/loop/2026-09-16-pdf-invohub-brand-mark/screens/
+      desktop-ux-preview-with-company-footer.png` — the mark's own navy/
+      cornflower inks are high-contrast on their own, only the accompanying
+      text is dim. Optional polish, not a blocker: on a future touch of this
+      file, darken `.footer` text color (e.g. toward `#6b7280`/`#5b6178`).
+      (2026-09-16 ship review of slice/pdf-invohub-brand-mark, ux)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 

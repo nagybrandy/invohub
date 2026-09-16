@@ -1,7 +1,12 @@
 // lib/invoices/preview-html.test.ts
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
-import { formatDocumentAmount } from "@/lib/invoices/document-labels";
+import { documentLabels, formatDocumentAmount } from "@/lib/invoices/document-labels";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
+import {
+  BRAND_MARK_DEFAULT,
+  BRAND_MARK_GEOMETRY,
+  type BrandShape,
+} from "@/components/marketing/brand-mark-geometry";
 
 describe("generateInvoicePreviewHtml", () => {
   it("includes invoice number and client", () => {
@@ -188,6 +193,44 @@ describe("generateInvoicePreviewHtml", () => {
     expect(html).toContain("InvoHub");
     expect(html).toContain("@media (max-width: 560px)");
     expect(html).toContain("@media print");
+  });
+
+  it("renders an inline brand-mark <svg> inside .footer, next to labels.footer (AC11)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice());
+    const footerMatch = html.match(/<div class="footer">([\s\S]*?)<\/div>/);
+    expect(footerMatch).not.toBeNull();
+    const footerHtml = footerMatch?.[1] ?? "";
+
+    expect(footerHtml).toContain('<svg');
+    expect(footerHtml).toContain('viewBox="0 0 48 48"');
+    expect(footerHtml).toContain(documentLabels().footer);
+
+    // Asserted against the imported constant, not a literal (AC11/AC13).
+    const geometry = BRAND_MARK_GEOMETRY[BRAND_MARK_DEFAULT];
+    const allShapes: BrandShape[] = [...geometry.frame, ...geometry.flow];
+    for (const shape of allShapes) {
+      if (shape.kind === "path") {
+        expect(footerHtml).toContain(shape.d);
+      }
+    }
+  });
+
+  it("marks the footer brand mark as a named image for assistive tech (AC12)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice());
+    const footerMatch = html.match(/<div class="footer">([\s\S]*?)<\/div>/);
+    const footerHtml = footerMatch?.[1] ?? "";
+
+    expect(footerHtml).toContain('role="img"');
+    expect(footerHtml).toContain('aria-label="InvoHub"');
+  });
+
+  it("wraps the footer without overflow inside the existing mobile media block (AC12)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice());
+    const mobileBlockMatch = html.match(
+      /@media \(max-width: 560px\) \{([\s\S]*?)\n {2}\}/
+    );
+    expect(mobileBlockMatch).not.toBeNull();
+    expect(mobileBlockMatch?.[1] ?? "").toContain(".footer");
   });
 
   it("shows the exchange rate used and the VAT total in HUF for a EUR invoice (AC14)", () => {
