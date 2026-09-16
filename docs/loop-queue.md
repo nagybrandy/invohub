@@ -142,7 +142,8 @@ bugs:
   the backlog item's own risk call below) — normal Ship-phase auto-merge
   applies once green.
   Plan: `docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md`
-- [ ] **No real InvoHub brand mark anywhere in the PDF** — only the issuing
+- [~] folyamatban (slice/pdf-invohub-brand-mark)
+  **No real InvoHub brand mark anywhere in the PDF** — only the issuing
   company's own logo (`company.logoUrl`) or, when that's unset, a plain
   colored initials badge (`drawLogoBadge` in `lib/invoices/pdf-layout.ts`).
   The HTML preview at least has a text-only "Készült az InvoHub-bal ·
@@ -153,6 +154,11 @@ bugs:
   small vector/raster asset pdfkit can draw — do not just retype the brand
   colors) to a footer/branding strip, matching the "Készült az InvoHub-bal"
   text treatment already in the HTML version.
+  Plan: `docs/plans/2026-09-16-pdf-invohub-brand-mark.md` — the mark is drawn
+  natively from the shared geometry through pdfkit's own SVG-path parser (no
+  raster/SVG asset, so no `prepare-server-pdf-deps.mjs` change), on every page
+  via a `bufferedPageRange()` footer pass; the HTML preview footer gets the
+  same mark inline so the two renderings finally match. Risk: none.
 - [ ] **Broken pagination wastes an entire page** — with the *default*
   template (short footer text "Köszönjük a bizalmat!", two line items,
   short notes), the PDF still spills onto a near-blank second page just to
@@ -160,6 +166,12 @@ bugs:
   (`lib/invoices/pdf-layout.ts`) or the footer-placement logic in
   `generate-pdf.ts` (~line 336) is reserving/measuring space wrong. Fix so
   a normal 1-2 item invoice fits on one page.
+  Note (2026-09-16 planning, `pdf-invohub-brand-mark`): the footer is drawn
+  at `contentBottom(doc, 0) + 8`, i.e. 8pt *below* the bottom margin, which
+  is very likely what trips pdfkit's auto page break. The brand-mark slice
+  replaces that call with a `bufferedPageRange()` footer pass, so the blank
+  page may vanish as a side effect — verify `ensureSpace`/`contentBottom`
+  properly here anyway before ticking this item.
 - [ ] **General layout gap vs. the HTML preview** — the PDF's content area
   is sparse (lots of empty vertical space, thin single-column line-item
   table, no card/section framing) next to the HTML preview's denser,
