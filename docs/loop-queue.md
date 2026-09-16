@@ -98,7 +98,8 @@ directly rendering `buildSamplePreviewInvoice()` through both
 `generateInvoicePreviewHtml` and `generateInvoicePdf` (no company set) and
 comparing screenshots — this is not a matter of taste, there are concrete
 bugs:
-- [ ] **Hungarian ő/ű render as ö/ü in the PDF** — e.g. "Vevő" → "Vevő" shows
+- [~] folyamatban (slice/pdf-embed-font-fix-ounk-umlaut)
+  **Hungarian ő/ű render as ö/ü in the PDF** — e.g. "Vevő" → "Vevő" shows
   as "Vevö", "Fizetendő" → "Fizetendö". This is a *known, already-flagged*
   limitation: `lib/invoices/generate-pdf.ts`'s `doc.text` is wrapped to run
   every string through `toWinAnsiSafe` (see `document-labels.ts`) because
@@ -116,6 +117,7 @@ bugs:
   `toWinAnsiSafe` substitution (or keep it as a last-resort fallback if the
   custom font ever fails to load — the render must never silently produce
   wrong Hungarian text).
+  Plan: `docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md`
 - [ ] **No real InvoHub brand mark anywhere in the PDF** — only the issuing
   company's own logo (`company.logoUrl`) or, when that's unset, a plain
   colored initials badge (`drawLogoBadge` in `lib/invoices/pdf-layout.ts`).
