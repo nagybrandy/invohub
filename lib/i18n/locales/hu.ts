@@ -159,6 +159,8 @@ export default {
       exchangeRate: "Árfolyam",
       exchangeRateValue: "1 {{currency}} = {{rate}} HUF",
       vatInHuf: "ÁFA összege forintban",
+      continued: "folytatás",
+      pageIndicator: "{{page}}/{{total}}. oldal",
     },
     pdf: "PDF",
     downloadPdf: "PDF letöltése",

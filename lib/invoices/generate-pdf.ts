@@ -30,6 +30,7 @@ import { registerDocumentFonts, type DocumentFonts } from "@/lib/invoices/pdf-fo
 import { drawBrandLockup } from "@/lib/invoices/pdf-brand-mark";
 import {
   companyInitials,
+  contentBottom,
   drawLogoBadge,
   drawLogoImage,
   drawTableHeader,
@@ -39,7 +40,9 @@ import {
   ensureSpace,
   footerBandTop,
   loadLogoImage,
+  PDF_PAGE_MARGINS,
   tableColumns,
+  totalsColumns,
 } from "@/lib/invoices/pdf-layout";
 import {
   DEFAULT_PDF_TEMPLATE,
@@ -77,6 +80,10 @@ function drawFooterOnCurrentPage(
     left: number;
     right: number;
     pageWidth: number;
+    // AC12: "{{page}}/{{total}}. oldal" (already interpolated), or null on
+    // a single-page document — the existing empty-footerText centred
+    // lockup stays exactly as before when there is nothing else to show.
+    pageIndicatorText: string | null;
   }
 ): void {
   const textY = bandTop + 12;
@@ -85,11 +92,37 @@ function drawFooterOnCurrentPage(
   doc.moveTo(opts.left, bandTop).lineTo(opts.right, bandTop).strokeColor("#e5e7eb").lineWidth(1).stroke();
 
   if (opts.footerText) {
+    // Narrowed from 0.5 to 0.42 of the page width to leave room for the
+    // page indicator between the issuer's own footer text and the lockup
+    // (AC12/AC13) without the two ever colliding.
     doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor("#666666");
     doc.text(opts.footerText, opts.left, textY, {
-      width: opts.pageWidth * 0.5,
+      width: opts.pageWidth * 0.42,
       lineBreak: false,
       ellipsis: true,
+    });
+    if (opts.pageIndicatorText) {
+      doc.text(opts.pageIndicatorText, opts.left + opts.pageWidth * 0.42, textY, {
+        width: opts.pageWidth * 0.16,
+        align: "center",
+        lineBreak: false,
+      });
+    }
+    doc.fillColor("#000000");
+
+    drawBrandLockup(doc, {
+      x: opts.right,
+      y: markY,
+      text: opts.labels.footer,
+      font: opts.docFonts.regular,
+      fontSize: opts.fontSize,
+      align: "right",
+    });
+  } else if (opts.pageIndicatorText) {
+    doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor("#666666");
+    doc.text(opts.pageIndicatorText, opts.left, textY, {
+      width: opts.pageWidth * 0.3,
+      lineBreak: false,
     });
     doc.fillColor("#000000");
 
@@ -111,6 +144,22 @@ function drawFooterOnCurrentPage(
       align: "center",
     });
   }
+}
+
+/**
+ * Draws "<invoiceNumber> · folytatás" at the top of a continuation page
+ * (AC11) and advances doc.y past it by the measured height, so a
+ * multi-page invoice is identifiable once its pages are printed and
+ * separated (plan §1(d)).
+ */
+function drawContinuationCaption(
+  doc: Doc,
+  opts: { docFonts: DocumentFonts; text: string; fontSize: number; left: number; width: number }
+): void {
+  doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor("#666666");
+  doc.text(opts.text, opts.left, doc.y, { width: opts.width });
+  doc.y += doc.heightOfString(opts.text, { width: opts.width }) + 8;
+  doc.fillColor("#000000");
 }
 
 export type InvoicePdfCompany = {
@@ -146,7 +195,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
   return withPdfKitFonts(
     () =>
       new Promise((resolve, reject) => {
-        const doc = createPdfDocument({ margin: 48, size: "A4", bufferPages: true });
+        const doc = createPdfDocument({ margins: PDF_PAGE_MARGINS, size: "A4", bufferPages: true });
         const chunks: Buffer[] = [];
         const accent = template.accentColor;
         const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
@@ -284,13 +333,8 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         ensureSpace(doc, 60);
 
         const cols = tableColumns(doc);
-        doc.y = drawTableHeader(
-          doc,
-          cols,
-          [labels.description, labels.quantity, labels.unitPrice, labels.vat, labels.gross],
-          fonts.small,
-          accent
-        );
+        const headerLabels = [labels.description, labels.quantity, labels.unitPrice, labels.vat, labels.gross];
+        doc.y = drawTableHeader(doc, cols, headerLabels, fonts.small, accent);
 
         const exemptCategories = new Set<string>();
 
@@ -304,7 +348,26 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             exemptCategories.add(item.vatCategory);
           }
 
-          ensureSpace(doc, rowHeightEstimate + 8);
+          // AC4/AC11: an explicit break (not ensureSpace, which never
+          // repeats a header) so a continuation page always opens with the
+          // "<invoiceNumber> · folytatás" caption and the column header
+          // repeated — never bare rows (plan §1(d)). The `doc.y > top +
+          // 0.5` guard mirrors ensureSpace's own "already at the top of a
+          // fresh page" rule (AC3) so an oversized first row can't open two
+          // pages back to back.
+          const needed = rowHeightEstimate + 8;
+          if (doc.y > doc.page.margins.top + 0.5 && doc.y + needed > contentBottom(doc)) {
+            doc.addPage();
+            drawContinuationCaption(doc, {
+              docFonts,
+              text: `${invoice.invoiceNumber || labels.draftNumber} · ${labels.continued}`,
+              fontSize: fonts.small,
+              left,
+              width: pageWidth,
+            });
+            doc.y = drawTableHeader(doc, cols, headerLabels, fonts.small, accent);
+          }
+
           const rowY = doc.y;
           doc.y = drawTableRow(
             doc,
@@ -321,46 +384,34 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           );
         }
 
-        ensureSpace(doc, 90);
-        doc.y += 8;
-        const totalsLineY = doc.y;
-        doc
-          .moveTo(left + pageWidth * 0.52, totalsLineY)
-          .lineTo(right, totalsLineY)
-          .strokeColor("#e5e7eb")
-          .stroke();
-
-        let totalsY = totalsLineY + 12;
-        const labelX = cols.totalX - 84;
-        const valueX = cols.totalX;
-
-        totalsY = drawTotalLine(
-          doc,
-          `${labels.netTotal}:`,
-          formatDocumentAmount(totals.subtotal, invoice.currency),
-          labelX,
-          valueX,
-          totalsY,
-          { fontSize: fonts.body }
-        );
-        totalsY = drawTotalLine(
-          doc,
-          `${labels.vatTotal}:`,
-          formatDocumentAmount(totals.vatTotal, invoice.currency),
-          labelX,
-          valueX,
-          totalsY,
-          { fontSize: fonts.body }
-        );
-        totalsY = drawTotalLine(
-          doc,
-          `${labels.grossTotal}:`,
-          formatDocumentAmount(totals.totalAmount, invoice.currency),
-          labelX,
-          valueX,
-          totalsY,
-          { bold: true, accent, fontSize: fonts.subtitle }
-        );
+        // Measured totals block (plan §2.2): build the rows as data first,
+        // measure their real heights up front, then reserve exactly that
+        // much space in a single ensureSpace call — the old fixed
+        // `ensureSpace(doc, 90)` either over- or under-reserved depending
+        // on font scale and currency (whether the HUF conversion row
+        // appears), which is how a short invoice could waste a whole page
+        // (plan §1(c)).
+        const totalsCols = totalsColumns(doc, cols);
+        type TotalsRow = { label: string; value: string; bold?: boolean; accent?: string; fontSize: number };
+        const totalsRows: TotalsRow[] = [
+          {
+            label: `${labels.netTotal}:`,
+            value: formatDocumentAmount(totals.subtotal, invoice.currency),
+            fontSize: fonts.body,
+          },
+          {
+            label: `${labels.vatTotal}:`,
+            value: formatDocumentAmount(totals.vatTotal, invoice.currency),
+            fontSize: fonts.body,
+          },
+          {
+            label: `${labels.grossTotal}:`,
+            value: formatDocumentAmount(totals.totalAmount, invoice.currency),
+            bold: true,
+            accent,
+            fontSize: fonts.subtitle,
+          },
+        ];
 
         // AC14/AC15: a non-HUF invoice also shows the VAT amount in forint,
         // right under the document-currency VAT/total block — same rule as
@@ -373,16 +424,49 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
               (sum, item) => sum + toHufAmount(lineItemVatAmount(item), rateResolution.rate),
               0
             );
-            totalsY = drawTotalLine(
-              doc,
-              `${labels.vatInHuf}:`,
-              formatDocumentAmount(vatTotalHuf, "HUF"),
-              labelX,
-              valueX,
-              totalsY,
-              { fontSize: fonts.body }
-            );
+            totalsRows.push({
+              label: `${labels.vatInHuf}:`,
+              value: formatDocumentAmount(vatTotalHuf, "HUF"),
+              fontSize: fonts.body,
+            });
           }
+        }
+
+        const measuredTotalsHeight =
+          8 +
+          12 +
+          totalsRows.reduce((sum, row) => {
+            doc.fontSize(row.fontSize);
+            const rowHeight = Math.max(
+              doc.heightOfString(row.label, { width: totalsCols.labelWidth }),
+              doc.heightOfString(row.value, { width: totalsCols.valueWidth })
+            );
+            return sum + rowHeight + 6;
+          }, 0) +
+          8;
+
+        ensureSpace(doc, measuredTotalsHeight);
+        doc.y += 8;
+        const totalsLineY = doc.y;
+        doc
+          .moveTo(left + pageWidth * 0.52, totalsLineY)
+          .lineTo(right, totalsLineY)
+          .strokeColor("#e5e7eb")
+          .stroke();
+
+        let totalsY = totalsLineY + 12;
+        for (const row of totalsRows) {
+          totalsY = drawTotalLine(
+            doc,
+            row.label,
+            row.value,
+            totalsCols.labelX,
+            totalsCols.valueX,
+            totalsY,
+            totalsCols.labelWidth,
+            totalsCols.valueWidth,
+            { bold: row.bold, accent: row.accent, fontSize: row.fontSize }
+          );
         }
         doc.y = totalsY + 8;
 
@@ -392,25 +476,47 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             .map((item) => resolveVatExemptionReason(item.vatCategory, item.vatExemptionReason))
             .filter((reason, index, all): reason is string => !!reason && all.indexOf(reason) === index);
 
-          ensureSpace(doc, 20 + reasons.length * 14);
+          doc.fontSize(fonts.small);
+          const reasonsHeight =
+            reasons.reduce((sum, reason) => sum + doc.heightOfString(reason, { width: pageWidth }) + 4, 0) + 8;
+          ensureSpace(doc, reasonsHeight);
           doc.font(docFonts.bold).fontSize(fonts.small).fillColor("#444444");
           for (const reason of reasons) {
             doc.text(reason, left, doc.y, { width: pageWidth });
-            doc.y += fonts.small + 4;
+            // Measured advance, not the old fixed `fonts.small + 4` — a
+            // wrapped exemption reason (AC8 fixture iii) no longer overlaps
+            // whatever is drawn next (plan §1(a)/§2.3).
+            doc.y += doc.heightOfString(reason, { width: pageWidth }) + 4;
           }
           doc.fillColor("#000000");
           doc.y += 4;
         }
 
         if (invoice.notes) {
-          ensureSpace(doc, 48);
+          // Reserve the label line plus the first ~3 lines of the notes
+          // body so "Megjegyzés:" is never orphaned at the bottom of a
+          // page (plan §2.3) — pdfkit then flows any remainder correctly
+          // on its own because of the margins fix in §2.1/AC1/AC2.
+          doc.fontSize(fonts.body);
+          const labelHeight = doc.heightOfString(`${template.notesLabel}:`, { width: pageWidth });
+          doc.fontSize(fonts.small);
+          const notesHeight = doc.heightOfString(invoice.notes, { width: pageWidth });
+          const lineHeight = doc.currentLineHeight();
+          const reserve = labelHeight + Math.min(notesHeight, 3 * lineHeight) + 16;
+
+          ensureSpace(doc, reserve);
           doc.y += 8;
           doc.font(docFonts.bold).fontSize(fonts.body).fillColor("#444444");
           doc.text(`${template.notesLabel}:`, left, doc.y);
           doc.y += fonts.body + 4;
           doc.font(docFonts.regular).fontSize(fonts.small);
           doc.text(invoice.notes, left, doc.y, { width: pageWidth, lineGap: 3 });
-          doc.y += doc.heightOfString(invoice.notes, { width: pageWidth }) + 8;
+          // pdfkit already advances doc.y to the end of the drawn
+          // (possibly paginated) text — the old code additionally added
+          // heightOfString(...) here, double-counting the advance and
+          // pushing everything after it further down than necessary
+          // (plan §2.3).
+          doc.y += 8;
         }
 
         // AC7: the footer strip is drawn on every buffered page, not just
@@ -425,6 +531,15 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           const bandTop = footerBandTop(doc);
           const savedMarginBottom = doc.page.margins.bottom;
           doc.page.margins.bottom = 0;
+          // AC12: only a multi-page document gets a page indicator — a
+          // single page keeps the existing empty-footerText behaviour
+          // (lockup centred) unchanged.
+          const pageIndicatorText =
+            footerRange.count > 1
+              ? labels.pageIndicator
+                  .replace("{{page}}", String(i - footerRange.start + 1))
+                  .replace("{{total}}", String(footerRange.count))
+              : null;
           drawFooterOnCurrentPage(doc, bandTop, {
             docFonts,
             footerText: template.footerText,
@@ -433,6 +548,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             left,
             right,
             pageWidth,
+            pageIndicatorText,
           });
           doc.page.margins.bottom = savedMarginBottom;
         }

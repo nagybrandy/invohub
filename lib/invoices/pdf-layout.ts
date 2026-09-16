@@ -220,6 +220,29 @@ export function drawTableRow(
   return y + rowHeight;
 }
 
+/**
+ * Measured totals label/value columns, aligned with the totals rule that
+ * starts at `left + pageWidth * 0.52` and ending flush with the table's
+ * Bruttó (gross) column. `labelWidth` is wide enough that every Hungarian
+ * totals label ("Fizetendő összesen:") fits on one line at every fontScale
+ * (AC5/AC6) — the fixed 80pt column that used to overflow is gone.
+ */
+export type TotalsColumns = {
+  labelX: number;
+  labelWidth: number;
+  valueX: number;
+  valueWidth: number;
+};
+
+export function totalsColumns(doc: Doc, cols: TableColumns): TotalsColumns {
+  const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const labelX = doc.page.margins.left + pageWidth * 0.52;
+  const valueX = cols.totalX;
+  const valueWidth = cols.totalWidth;
+  const labelWidth = valueX - 8 - labelX;
+  return { labelX, labelWidth, valueX, valueWidth };
+}
+
 export function drawTotalLine(
   doc: Doc,
   label: string,
@@ -227,6 +250,8 @@ export function drawTotalLine(
   xLabel: number,
   xValue: number,
   y: number,
+  labelWidth: number,
+  valueWidth: number,
   options?: { bold?: boolean; accent?: string; fontSize?: number }
 ): number {
   const fontSize = options?.fontSize ?? 10;
@@ -234,11 +259,24 @@ export function drawTotalLine(
   doc.fontSize(fontSize);
   doc.font(options?.bold ? bold : regular);
   doc.fillColor(options?.accent ?? "#111111");
-  doc.text(label, xLabel, y, { width: 80, align: "right" });
-  doc.text(value, xValue, y, { width: 72, align: "right" });
+  doc.text(label, xLabel, y, { width: labelWidth, align: "right" });
+  doc.text(value, xValue, y, { width: valueWidth, align: "right" });
   doc.fillColor("#000000");
-  return y + fontSize + 6;
+  // Measured advance (AC7): the old `y + fontSize + 6` assumed a single
+  // line and silently overlapped whatever was drawn next whenever the
+  // label wrapped (e.g. "Fizetendő összesen:" in an 80pt column at the
+  // subtitle size). Measuring the actually-rendered height of both the
+  // label and the value fixes that for any font size / column width.
+  const measuredHeight = Math.max(
+    doc.heightOfString(label, { width: labelWidth }),
+    doc.heightOfString(value, { width: valueWidth })
+  );
+  return y + measuredHeight + 6;
 }
+
+// The real page margin every side of the document uses, independent of the
+// reserved footer band (AC1/AC2).
+export const PAGE_MARGIN = 48;
 
 // Height of the footer band reserved at the bottom of every page — the
 // InvoHub attribution/mark lockup plus the issuer's own footerText are
@@ -246,22 +284,57 @@ export function drawTotalLine(
 // (AC8) and never inside the content area content already avoids (AC9).
 export const FOOTER_BAND_HEIGHT = 36;
 
-export function contentBottom(doc: Doc, reserveFooter = FOOTER_BAND_HEIGHT): number {
-  return doc.page.height - doc.page.margins.bottom - reserveFooter;
+/**
+ * Bottom margin the invoice document is CREATED with: the real page margin
+ * plus the reserved footer band. pdfkit's own auto-pagination inside
+ * doc.text() breaks at page.height - page.margins.bottom, so folding the
+ * footer band into the document's own bottom margin is what stops wrapped
+ * content from flowing into the footer strip (AC1/AC2) — the two
+ * mechanisms that used to disagree about where a page ends now can't,
+ * because they read the same number by construction.
+ */
+export const CONTENT_MARGIN_BOTTOM = PAGE_MARGIN + FOOTER_BAND_HEIGHT; // 84
+
+export const PDF_PAGE_MARGINS = {
+  top: PAGE_MARGIN,
+  left: PAGE_MARGIN,
+  right: PAGE_MARGIN,
+  bottom: CONTENT_MARGIN_BOTTOM,
+};
+
+/**
+ * Bottom of the usable content area. Computed from the fixed geometry
+ * constants, NEVER from the live `doc.page.margins.bottom` — the footer
+ * draw pass temporarily zeroes that margin (pdfkit's own buffered-pages
+ * idiom) while this function must keep returning the same value regardless
+ * (AC1).
+ */
+export function contentBottom(doc: Doc): number {
+  return doc.page.height - CONTENT_MARGIN_BOTTOM;
 }
 
 /**
  * Top edge of the footer band — the y where content must stop and the
- * footer strip begins. Deliberately identical to contentBottom(doc) with
- * the default reserve (AC9): the band the footer occupies is exactly the
- * band content already avoids, so they cannot collide by construction.
+ * footer strip begins. Deliberately identical to contentBottom(doc) (AC1):
+ * the band the footer occupies is exactly the band content already avoids,
+ * so they cannot collide by construction.
  */
 export function footerBandTop(doc: Doc): number {
   return contentBottom(doc);
 }
 
-export function ensureSpace(doc: Doc, neededHeight: number, reserveFooter = FOOTER_BAND_HEIGHT): void {
-  if (doc.y + neededHeight > contentBottom(doc, reserveFooter)) {
+/**
+ * Advances to a new page only when the current position is already past
+ * the top margin AND the next block would cross contentBottom (AC4). The
+ * `doc.y <= margins.top + 0.5` guard (AC3) is the "blank page" fix: without
+ * it, a single block taller than a whole content area (e.g. the old fixed
+ * `ensureSpace(doc, 90)` before totals, or a big notes reserve) could open
+ * a fresh page, still not fit, and open another — wasting a page that
+ * never received a single mark.
+ */
+export function ensureSpace(doc: Doc, neededHeight: number): void {
+  if (doc.y <= doc.page.margins.top + 0.5) return;
+  if (doc.y + neededHeight > contentBottom(doc)) {
     doc.addPage();
   }
 }

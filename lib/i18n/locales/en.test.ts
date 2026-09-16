@@ -43,4 +43,14 @@ describe("hu/en locale parity", () => {
       expect(locale.invoices.detail.previewTitle).toBeTruthy();
     }
   });
+
+  // AC14: the PDF continuation caption ("<invoiceNumber> · folytatás") and
+  // the multi-page footer indicator ("{{page}}/{{total}}. oldal") both need
+  // hu + en document vocabulary.
+  it("defines invoices.document.continued and invoices.document.pageIndicator in both locales (AC14)", () => {
+    for (const locale of [en, hu]) {
+      expect(locale.invoices.document.continued).toBeTruthy();
+      expect(locale.invoices.document.pageIndicator).toBeTruthy();
+    }
+  });
 });

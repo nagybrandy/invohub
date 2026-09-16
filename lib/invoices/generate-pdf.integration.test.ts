@@ -1,22 +1,168 @@
 // lib/invoices/generate-pdf.integration.test.ts
 // Real pdfkit + real fonts, no mocks — exercises the actual embedding path
 // end to end (AC8) and, since the pdf-invohub-brand-mark slice, the brand
-// mark's arc ("A") path commands (AC10). Deliberately the slowest tests in
-// this area; keep the case count small.
+// mark's arc ("A") path commands (AC10, this file's original numbering).
+// Deliberately the slowest tests in this area; keep the case count small.
 /** @jest-environment node */
 import { generateInvoicePdf } from "@/lib/invoices/generate-pdf";
 import { buildSamplePreviewInvoice } from "@/lib/invoices/pdf-template/sample-invoice";
+import { documentLabels } from "@/lib/invoices/document-labels";
+import {
+  footerBandTop,
+  tableColumns,
+  totalsColumns,
+} from "@/lib/invoices/pdf-layout";
+import { PDF_FONT_SCALES, pdfFontSizes } from "@/lib/invoices/pdf-template/defaults";
+import { documentFontNames, registerDocumentFonts } from "@/lib/invoices/pdf-fonts";
+import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
+import * as pdfDocumentModule from "@/lib/invoices/pdf-document";
+import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
+import type { Invoice } from "@/lib/invoices/types";
 
-// Measured against the pre-slice generate-pdf.ts: buildSamplePreviewInvoice()
-// rendered 2 pages both with and without a company (the near-blank second
-// page is backlog item 3 — out of scope here, see plan §9). AC10 requires
-// this slice never *increase* that count.
-const BASELINE_PAGE_COUNT = 2;
+// AC9: buildSamplePreviewInvoice() — the default 1–2 item sample — must
+// render on exactly 1 page (this slice's regression guard against the
+// "blank page" family of pagination defects; see plan §1 note).
+const BASELINE_PAGE_COUNT = 1;
 
 function countPages(pdf: Buffer): number | null {
   const text = pdf.toString("latin1");
   const match = text.match(/\/Type\s*\/Pages[^]*?\/Count\s+(\d+)/);
   return match ? Number(match[1]) : null;
+}
+
+function longText(charCount: number): string {
+  const base = "Ez egy hosszú, ismétlődő szöveg a PDF tördelés teszteléséhez. ";
+  return base.repeat(Math.ceil(charCount / base.length)).slice(0, charCount);
+}
+
+// AC8 fixture (i): 16 line items + a ~2000-character notes value.
+function fixtureLongNotes(): Invoice {
+  return makeInvoice({
+    invoiceNumber: "INV-2026-LONGNOTES",
+    lineItems: Array.from({ length: 16 }, (_, i) =>
+      makeLineItem({
+        id: `l${i}`,
+        description: `Tétel ${i + 1} — hosszabb leírással a sortördeléshez`,
+        quantity: i + 1,
+        unitPrice: 12500,
+      })
+    ),
+    notes: longText(2000),
+  });
+}
+
+// AC8 fixture (ii) / AC11: 40 line items — spans multiple pages.
+function fixtureManyLines(): Invoice {
+  return makeInvoice({
+    invoiceNumber: "INV-2026-MANYLINES",
+    lineItems: Array.from({ length: 40 }, (_, i) =>
+      makeLineItem({ id: `l${i}`, description: `Tétel ${i + 1}`, quantity: 1, unitPrice: 5000 })
+    ),
+    notes: "",
+  });
+}
+
+// AC8 fixture (iii): two ÁFA-exempt lines with a ~180-character exemption reason.
+function fixtureExemptionReason(): Invoice {
+  const reason = longText(180);
+  return makeInvoice({
+    invoiceNumber: "INV-2026-EXEMPT",
+    lineItems: [
+      makeLineItem({ id: "l1", vatCategory: "AAM", vatRate: 0, vatExemptionReason: reason }),
+      makeLineItem({
+        id: "l2",
+        description: "Second exempt line",
+        vatCategory: "AAM",
+        vatRate: 0,
+        vatExemptionReason: reason,
+      }),
+    ],
+    notes: "",
+  });
+}
+
+type RecordedTextCall = {
+  // The page the call STARTED drawing on, and the page doc.y ended up on
+  // once the call returned — pdfkit's own internal auto-pagination (AC1/
+  // AC2: page.margins.bottom === CONTENT_MARGIN_BOTTOM) can add one or more
+  // pages *during* a single long doc.text() call (e.g. the ~2000-char notes
+  // block), so a call's start and end page can legitimately differ.
+  startPage: unknown;
+  endPage: unknown;
+  text: string;
+  startY: number;
+  endY: number;
+  height: number;
+  marginBottom: number;
+};
+
+/**
+ * Generates a PDF while recording every `doc.text()` call's start Y, ending
+ * Y, measured (un-paginated) height, the page(s) it touched (by object
+ * identity — pdfkit reuses one PDFPage instance per page, including across
+ * switchToPage), and the live `page.margins.bottom` at call time (0 during
+ * the footer pass, CONTENT_MARGIN_BOTTOM otherwise — see generate-pdf.ts's
+ * zero-out around drawFooterOnCurrentPage). Every `.text()` call in this
+ * codebase passes explicit `x, y[, options]` (verified by inspection of
+ * pdf-layout.ts / generate-pdf.ts), so the wrapper only needs to support
+ * that shape. Page count is tracked via pdfkit's own 'pageAdded' event
+ * (fired for every addPage(), ours and pdfkit's own internal ones) so it
+ * reflects every page, including one that ends up with no text draw on it.
+ */
+async function withRecordedDoc(
+  invoice: Invoice,
+  extra: Parameters<typeof generateInvoicePdf>[0] = { invoice }
+): Promise<{ pdf: Buffer; calls: RecordedTextCall[]; pageCount: number }> {
+  const calls: RecordedTextCall[] = [];
+  const pageIds = new Set<unknown>();
+
+  // Capture the real implementation before spying — with Babel's CJS
+  // interop, the imported `createPdfDocument` binding resolves through
+  // `pdfDocumentModule.createPdfDocument` at each call site, so calling it
+  // from inside the mock (after jest.spyOn replaces that property) would
+  // recurse into the mock itself.
+  const originalCreatePdfDocument = pdfDocumentModule.createPdfDocument;
+  const spy = jest.spyOn(pdfDocumentModule, "createPdfDocument").mockImplementation((options) => {
+    const doc = originalCreatePdfDocument(options);
+    pageIds.add(doc.page);
+    doc.on("pageAdded", () => pageIds.add(doc.page));
+
+    const originalText = doc.text.bind(doc);
+    doc.text = ((value: string, ...rest: unknown[]) => {
+      const x = typeof rest[0] === "number" ? (rest[0] as number) : undefined;
+      const y = typeof rest[1] === "number" ? (rest[1] as number) : doc.y;
+      const opts = (rest[2] ?? (typeof rest[0] === "object" ? rest[0] : undefined) ?? {}) as {
+        width?: number;
+      };
+      const width =
+        opts.width ??
+        doc.page.width - doc.page.margins.right - (x ?? doc.page.margins.left);
+      const startPage = doc.page;
+      const height = doc.heightOfString(String(value), { width });
+      const marginBottom = doc.page.margins.bottom;
+
+      const result = originalText(value, ...(rest as Parameters<typeof originalText>));
+
+      calls.push({
+        startPage,
+        endPage: doc.page,
+        text: String(value),
+        startY: y,
+        endY: doc.y,
+        height,
+        marginBottom,
+      });
+      return result;
+    }) as typeof doc.text;
+    return doc;
+  });
+
+  try {
+    const pdf = await withPdfKitFonts(() => generateInvoicePdf({ ...extra, invoice }));
+    return { pdf, calls, pageCount: pageIds.size };
+  } finally {
+    spy.mockRestore();
+  }
 }
 
 describe("generateInvoicePdf (real pdfkit integration)", () => {
@@ -36,7 +182,7 @@ describe("generateInvoicePdf (real pdfkit integration)", () => {
     expect(pdf.includes("FontFile2")).toBe(true);
   });
 
-  it("renders the brand mark's arc path commands without throwing and without increasing the page count, with a company (AC10)", async () => {
+  it("renders the brand mark's arc path commands without throwing, on exactly 1 page, with a company (AC9)", async () => {
     const invoice = buildSamplePreviewInvoice();
 
     const pdf = await generateInvoicePdf({
@@ -49,11 +195,10 @@ describe("generateInvoicePdf (real pdfkit integration)", () => {
     expect(pdf.includes("FontFile2")).toBe(true);
 
     const pageCount = countPages(pdf);
-    expect(pageCount).not.toBeNull();
-    expect(pageCount as number).toBeLessThanOrEqual(BASELINE_PAGE_COUNT);
+    expect(pageCount).toBe(BASELINE_PAGE_COUNT);
   });
 
-  it("renders the same, without a company (AC10)", async () => {
+  it("renders the same, without a company, on exactly 1 page (AC9)", async () => {
     const invoice = buildSamplePreviewInvoice();
 
     const pdf = await generateInvoicePdf({ invoice });
@@ -63,7 +208,134 @@ describe("generateInvoicePdf (real pdfkit integration)", () => {
     expect(pdf.includes("FontFile2")).toBe(true);
 
     const pageCount = countPages(pdf);
-    expect(pageCount).not.toBeNull();
-    expect(pageCount as number).toBeLessThanOrEqual(BASELINE_PAGE_COUNT);
+    expect(pageCount).toBe(BASELINE_PAGE_COUNT);
+  });
+});
+
+describe("generateInvoicePdf — totals label width never wraps (AC6)", () => {
+  it.each(PDF_FONT_SCALES)(
+    "'Fizetendő összesen:' fits totalsColumns(...).labelWidth at fontScale=%s",
+    async (fontScale) => {
+      await withPdfKitFonts(async () => {
+        const doc = createPdfDocument({
+          margin: 48,
+          size: "A4",
+        });
+        registerDocumentFonts(doc);
+        const { bold } = documentFontNames(doc);
+        const fonts = pdfFontSizes(fontScale);
+        const cols = tableColumns(doc);
+        const totals = totalsColumns(doc, cols);
+        const labels = documentLabels();
+
+        doc.font(bold).fontSize(fonts.subtitle);
+        const width = doc.widthOfString(`${labels.grossTotal}:`);
+
+        expect(width).toBeLessThanOrEqual(totals.labelWidth);
+        doc.end();
+      });
+    }
+  );
+});
+
+describe("generateInvoicePdf — no content under the footer band (AC8/AC10)", () => {
+  const fixtures: Array<[string, () => Invoice]> = [
+    ["16 line items + ~2000-char notes", fixtureLongNotes],
+    ["40 line items", fixtureManyLines],
+    ["two ÁFA-exempt lines + ~180-char exemption reason", fixtureExemptionReason],
+  ];
+
+  it.each(fixtures)("%s — no content draw enters the footer band", async (_label, build) => {
+    const invoice = build();
+    const { calls } = await withRecordedDoc(invoice, {
+      invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" },
+    });
+
+    const contentCalls = calls.filter((c) => c.marginBottom !== 0);
+    expect(contentCalls.length).toBeGreaterThan(0);
+
+    for (const call of contentCalls) {
+      const bandTop = footerBandTop({ page: call.startPage } as never);
+      const roomOnStartPage = bandTop - call.startY;
+
+      if (call.height <= roomOnStartPage + 0.5) {
+        // The whole block fits on the page it started on — it must not
+        // start below, or extend past, the footer band on that page.
+        expect(call.startY).toBeLessThan(bandTop);
+        expect(call.startY + call.height).toBeLessThanOrEqual(bandTop + 0.5);
+      } else {
+        // The block (e.g. a long notes value) is taller than the room left
+        // on its starting page — pdfkit's own auto-pagination (AC1/AC2:
+        // page.margins.bottom === CONTENT_MARGIN_BOTTOM) breaks it across
+        // pages instead of overprinting the footer. Verify the cursor
+        // landed back inside a valid content area on whichever page it
+        // ended, not past that page's own footer band.
+        const endBandTop = footerBandTop({ page: call.endPage } as never);
+        expect(call.endY).toBeLessThanOrEqual(endBandTop + 0.5);
+      }
+    }
+  });
+
+  it.each(fixtures)("%s — no page exists solely to carry the footer strip (AC10)", async (_label, build) => {
+    const invoice = build();
+    const { calls, pageCount } = await withRecordedDoc(invoice, {
+      invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" },
+    });
+
+    const contentPages = new Set<unknown>();
+    for (const call of calls) {
+      if (call.marginBottom === 0) continue;
+      contentPages.add(call.startPage);
+      contentPages.add(call.endPage);
+    }
+    expect(contentPages.size).toBe(pageCount);
+  });
+});
+
+describe("generateInvoicePdf — continuation pages (AC11)", () => {
+  it("repeats the table header once per page carrying line items, and draws the folytatás caption once per continuation page", async () => {
+    const invoice = fixtureManyLines();
+    const { calls, pageCount } = await withRecordedDoc(invoice, {
+      invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" },
+    });
+
+    expect(pageCount).toBeGreaterThanOrEqual(2);
+
+    const labels = documentLabels();
+    const headerLabelTexts = [
+      labels.description,
+      labels.quantity,
+      labels.unitPrice,
+      labels.vat,
+      labels.gross,
+    ];
+    const headerDrawsPerPage = new Map<unknown, number>();
+    for (const call of calls) {
+      if (headerLabelTexts.includes(call.text)) {
+        headerDrawsPerPage.set(call.startPage, (headerDrawsPerPage.get(call.startPage) ?? 0) + 1);
+      }
+    }
+    // Every page that got a header draw got the full 5-label set exactly once.
+    for (const count of headerDrawsPerPage.values()) {
+      expect(count).toBe(headerLabelTexts.length);
+    }
+
+    const captionText = `${invoice.invoiceNumber} · ${labels.continued}`;
+    const captionDraws = calls.filter((c) => c.text === captionText);
+    // Once per continuation page (never page 1): total pages minus 1.
+    expect(captionDraws.length).toBe(pageCount - 1);
+    const captionPages = new Set(captionDraws.map((c) => c.startPage));
+    expect(captionPages.size).toBe(captionDraws.length);
+
+    // Every page that carries a caption also got a repeated header.
+    for (const page of captionPages) {
+      expect(headerDrawsPerPage.get(page)).toBe(headerLabelTexts.length);
+    }
+    // The number of header draws equals the number of pages with line items
+    // (page 1's initial header + one per continuation page).
+    expect(headerDrawsPerPage.size).toBe(pageCount);
   });
 });
