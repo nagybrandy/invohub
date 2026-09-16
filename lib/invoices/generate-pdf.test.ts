@@ -1,10 +1,16 @@
 // lib/invoices/generate-pdf.test.ts
 let mockDrawnTexts: string[] = [];
 let mockFontCalls: string[] = [];
-let mockTextCalls: Array<{ text: string; x: number; y: number }> = [];
+let mockTextCalls: Array<{ text: string; x: number; y: number; width?: number; align?: string }> = [];
 let mockFillColorCalls: string[] = [];
 let mockSwitchToPageCalls: number[] = [];
 let mockBufferedPageRange: { start: number; count: number } = { start: 0, count: 1 };
+// AC4/AC6/AC9/AC13/AC15: records every filled rect/roundedRect — the fill
+// colour a `.roundedRect(x,y,w,h,r).fill(color)` / `.rect(x,y,w,h).fill(color)`
+// chain actually painted, and the geometry, so tests can assert band/panel/
+// card/chip fills and positions without needing pixel output.
+let mockRectCalls: Array<{ x: number; y: number; width: number; height: number; radius?: number; fill?: string }> = [];
+let mockLastShape: { x: number; y: number; width: number; height: number; radius?: number } | null = null;
 // AC2: records the `options` object every `createPdfDocument(options)` call
 // received, so a test can assert generateInvoicePdf creates its document
 // with `margins: { ..., bottom: CONTENT_MARGIN_BOTTOM }` instead of the old
@@ -64,13 +70,16 @@ jest.mock("@/lib/invoices/pdf-document", () => {
       if (color) mockFillColorCalls.push(color);
       return this;
     }
-    fill() {
+    fill(color?: string) {
+      if (mockLastShape) {
+        mockRectCalls.push({ ...mockLastShape, fill: color });
+      }
       return this;
     }
-    text(value: string, x?: number, y?: number) {
+    text(value: string, x?: number, y?: number, opts?: { width?: number; align?: string }) {
       mockDrawnTexts.push(value);
       if (typeof x === "number" && typeof y === "number") {
-        mockTextCalls.push({ text: value, x, y });
+        mockTextCalls.push({ text: value, x, y, width: opts?.width, align: opts?.align });
       }
       return this;
     }
@@ -80,7 +89,12 @@ jest.mock("@/lib/invoices/pdf-document", () => {
     restore() {
       return this;
     }
-    roundedRect() {
+    roundedRect(x: number, y: number, width: number, height: number, radius?: number) {
+      mockLastShape = { x, y, width, height, radius };
+      return this;
+    }
+    rect(x: number, y: number, width: number, height: number) {
+      mockLastShape = { x, y, width, height };
       return this;
     }
     lineWidth() {
@@ -159,7 +173,7 @@ import { documentLabels, formatDocumentAmount, isWinAnsiSafe } from "@/lib/invoi
 import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 import { landingColors } from "@/components/marketing/landing-theme";
 import * as pdfFontsModule from "@/lib/invoices/pdf-fonts";
-import { CONTENT_MARGIN_BOTTOM, PAGE_MARGIN } from "@/lib/invoices/pdf-layout";
+import { CONTENT_MARGIN_BOTTOM, PAGE_MARGIN, readableTextOn, tint } from "@/lib/invoices/pdf-layout";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
 beforeEach(() => {
@@ -170,6 +184,8 @@ beforeEach(() => {
   mockSwitchToPageCalls = [];
   mockBufferedPageRange = { start: 0, count: 1 };
   mockConstructorOptions = [];
+  mockRectCalls = [];
+  mockLastShape = null;
 });
 
 describe("invoicePdfFilename", () => {
@@ -244,7 +260,11 @@ describe("generateInvoicePdf", () => {
     // (assets/fonts/pdf/), so pdf-fonts.ts is not mocked here and
     // registerDocumentFonts finds them for real — this exercises the
     // embedded path, where doc.text is NOT wrapped with toWinAnsiSafe (AC5)
-    // and ő/ű reach doc.text exactly as typed (AC4).
+    // and ő/ű reach doc.text exactly as typed (AC4). Kibocsátó/Vevő are
+    // drawn as party-card titles, which this slice deliberately uppercases
+    // (AC6, mirroring preview-html.ts's `.party-card h2 { text-transform:
+    // uppercase }`) — checked case-insensitively so the ő/ű glyphs
+    // themselves are still asserted unmangled either way.
     for (const label of [
       "Kibocsátó",
       "Vevő",
@@ -255,7 +275,9 @@ describe("generateInvoicePdf", () => {
       "Bruttó",
       "Fizetési határidő",
     ]) {
-      expect(mockDrawnTexts.some((t) => t.includes(label))).toBe(true);
+      expect(mockDrawnTexts.some((t) => t.toLocaleUpperCase("hu").includes(label.toLocaleUpperCase("hu")))).toBe(
+        true
+      );
     }
 
     // No transliterated forms should appear at all on the embedded path.
@@ -498,5 +520,200 @@ describe("generateInvoicePdf — footer page indicator (AC12)", () => {
     for (const expected of ["1/3. oldal", "2/3. oldal", "3/3. oldal"]) {
       expect(mockDrawnTexts.filter((t) => t === expected)).toHaveLength(1);
     }
+  });
+});
+
+// AC9/AC10: party cards — two side by side with a company, one alone
+// without, both reserved via a measured advance (the old `billToY + 56` is
+// gone).
+describe("generateInvoicePdf — party cards (AC9/AC10)", () => {
+  it("draws two equal-height cards at the same top y, 16pt apart, with a company", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({
+      invoice,
+      company: {
+        name: "Demo Kft.",
+        taxNumber: "12345678-2-41",
+        address: "Fő utca 1.",
+        city: "Budapest",
+        zipCode: "1000",
+        bankAccount: "12345678-12345678-12345678",
+      },
+    });
+
+    // Two roundedRect fills sized for a card (i.e. not the chip/header
+    // band/totals panel — those are recognisable by their own geometry),
+    // found by looking for two roundedRect fills sharing the same y and
+    // height, side by side.
+    const cardCandidates = mockRectCalls.filter((c) => c.radius === 10);
+    expect(cardCandidates.length).toBeGreaterThanOrEqual(2);
+
+    const [first, second] = cardCandidates;
+    expect(first!.y).toBe(second!.y);
+    expect(first!.height).toBe(second!.height);
+    // 16pt gutter between the two cards.
+    expect(second!.x).toBeCloseTo(first!.x + first!.width + 16, 5);
+  });
+
+  it("draws exactly one card at ~half content width without a company", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice });
+
+    const cardCandidates = mockRectCalls.filter((c) => c.radius === 10);
+    // Only the Vevő card (plus possibly the note box, which shares the
+    // same radius but is drawn much lower and full width) — filter to the
+    // top-of-document band by y proximity isn't needed here since there is
+    // no exemption reason on this fixture, so exactly one card fill.
+    expect(cardCandidates).toHaveLength(1);
+    expect(cardCandidates[0]!.width).toBeLessThan(300);
+  });
+
+  it("advances past the cards by a measured amount, never the literal billToY + 56", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({
+      invoice,
+      company: {
+        name: "Demo Kft.",
+        address: "Egy nagyon hosszú cím, ami több sorba törik a kártyán belül, Budapest",
+      },
+    });
+
+    const cardCandidates = mockRectCalls.filter((c) => c.radius === 10);
+    const cardsBottom = Math.max(...cardCandidates.map((c) => c.y + c.height));
+
+    // The next draw after the cards is the meta row (issueDate label).
+    const labels = documentLabels();
+    const metaDraw = mockTextCalls.find((c) => c.text.startsWith(`${labels.issueDate}:`));
+    expect(metaDraw).toBeDefined();
+    expect(metaDraw!.y).toBeGreaterThanOrEqual(cardsBottom + 12);
+    expect(metaDraw!.y).toBeLessThanOrEqual(cardsBottom + 24);
+  });
+
+  it("never contains the literal expression billToY + 56 in the source", () => {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const path = require("node:path") as typeof import("node:path");
+    const source = fs.readFileSync(
+      path.join(__dirname, "generate-pdf.ts"),
+      "utf8"
+    );
+    expect(source).not.toMatch(/billToY\s*\+\s*56/);
+  });
+});
+
+// AC11: the meta row prints issue date, due date, currency, and — only
+// when set — payment method.
+describe("generateInvoicePdf — meta row (AC11)", () => {
+  it("prints the payment method with its localized label when set", async () => {
+    const invoice = makeInvoice({ paymentMethod: "transfer" });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(
+      mockDrawnTexts.some((t) => t === `${labels.paymentMethod}: ${labels.paymentMethods.transfer}`)
+    ).toBe(true);
+  });
+
+  it("does not print a payment-method label when unset, and consumes no extra height", async () => {
+    const withMethod = makeInvoice({ paymentMethod: "cash" });
+    const withoutMethod = makeInvoice({ paymentMethod: undefined });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice: withoutMethod, company: { name: "Demo Kft." } });
+    expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.paymentMethod}:`))).toBe(false);
+    const tableHeaderWithout = mockTextCalls.find((c) => c.text === labels.description);
+
+    mockDrawnTexts = [];
+    mockTextCalls = [];
+    await generateInvoicePdf({ invoice: withMethod, company: { name: "Demo Kft." } });
+    expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.paymentMethod}:`))).toBe(true);
+
+    // The meta row wraps onto as many lines as its segments need (AC11's
+    // width-budget fix) rather than always drawing on one fixed line, so
+    // comparing a single segment's y between the two runs no longer says
+    // anything — the payment-method segment can land on a different line
+    // of a differently-wrapped row. What AC11 actually promises is that
+    // omitting the optional segment never leaves unused space: with this
+    // fixture, both rows still wrap to the same number of lines (the
+    // payment-method segment fits on the row's existing wrapped line
+    // alongside the currency segment), so the table header that follows
+    // starts at the same y either way.
+    const tableHeaderWith = mockTextCalls.find((c) => c.text === labels.description);
+    expect(tableHeaderWith).toBeDefined();
+    expect(tableHeaderWithout).toBeDefined();
+    expect(tableHeaderWith!.y).toBe(tableHeaderWithout!.y);
+  });
+});
+
+// AC12: each line item row prints its own net amount.
+describe("generateInvoicePdf — line item net column (AC12)", () => {
+  it("prints lineItemNetTotal(item) formatted for the invoice currency", async () => {
+    const invoice = makeInvoice({
+      currency: "HUF",
+      lineItems: [makeLineItem({ quantity: 3, unitPrice: 1000, vatRate: 27 })],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    // net = 3 * 1000 = 3000
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(3000, "HUF"));
+  });
+
+  it("does not change the printed totals (still from calculateInvoiceTotals)", async () => {
+    const invoice = makeInvoice({
+      currency: "HUF",
+      lineItems: [makeLineItem({ quantity: 2, unitPrice: 100, vatRate: 27 })],
+    });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    // net 200, vat 54, gross 254 — unchanged arithmetic.
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(200, "HUF"));
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(54, "HUF"));
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(254, "HUF"));
+  });
+});
+
+// AC13: totals panel + grand-total band colours.
+describe("generateInvoicePdf — totals panel (AC13)", () => {
+  it("fills the totals panel with tint(accent, 0.12) and the grand-total band with tint(accent, 0.24)", async () => {
+    const invoice = makeInvoice({ currency: "HUF" });
+    const accent = "#6495ed";
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." }, template: { accentColor: accent } });
+
+    const panelTint = tint(accent, 0.12);
+    const bandTint = tint(accent, 0.24);
+    expect(mockRectCalls.some((c) => c.fill === panelTint)).toBe(true);
+    expect(mockRectCalls.some((c) => c.fill === bandTint)).toBe(true);
+  });
+});
+
+// AC15: status chip — pill when present, nothing when absent.
+describe("generateInvoicePdf — status chip (AC15)", () => {
+  it("draws a pill for a printed status (draft/paid/cancelled)", async () => {
+    const invoice = makeInvoice({ status: "paid" });
+    const accent = "#6495ed";
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." }, template: { accentColor: accent } });
+
+    const chipFill = tint(accent, 0.24);
+    const labels = documentLabels();
+    expect(mockDrawnTexts).toContain(labels.status.paid);
+    expect(mockRectCalls.some((c) => c.fill === chipFill && c.radius && c.radius > 0)).toBe(true);
+  });
+
+  it("draws nothing for a non-printed status (e.g. sent)", async () => {
+    const invoice = makeInvoice({ status: "sent" });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    const labels = documentLabels();
+    expect(Object.values(labels.status)).not.toContain(
+      mockDrawnTexts.find((t) => Object.values(labels.status).includes(t))
+    );
   });
 });

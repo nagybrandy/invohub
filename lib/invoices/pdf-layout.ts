@@ -2,6 +2,7 @@
 // Layout helpers for readable invoice PDFs (no overlapping text).
 import type PDFDocument from "pdfkit";
 import { documentFontNames } from "@/lib/invoices/pdf-fonts";
+import { normalizeHexColor } from "@/lib/invoices/pdf-template/defaults";
 
 type Doc = InstanceType<typeof PDFDocument>;
 
@@ -103,16 +104,65 @@ export function drawTextBlock(
   return cursorY;
 }
 
+// ---------------------------------------------------------------------------
+// Brand-colour helpers (AC1/AC2)
+// ---------------------------------------------------------------------------
+
+function clamp01(ratio: number): number {
+  if (Number.isNaN(ratio)) return 0;
+  return Math.max(0, Math.min(1, ratio));
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clampByte = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  return `#${[r, g, b].map((v) => clampByte(v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * Mixes `hex` toward white by `ratio` (clamped to [0, 1]). Malformed input
+ * falls back to the default accent, same as `normalizeHexColor` (AC1).
+ * `tint(c, 0)` is the normalised `c` unchanged; `tint(c, 1)` is `#ffffff`.
+ */
+export function tint(hex: string, ratio: number): string {
+  const normalized = normalizeHexColor(hex);
+  const r = clamp01(ratio);
+  const [red, green, blue] = hexToRgb(normalized);
+  return rgbToHex(red + (255 - red) * r, green + (255 - green) * r, blue + (255 - blue) * r);
+}
+
+// Perceived-brightness threshold (0-255 scale, ITU-R BT.601 weights) below
+// which white text reads better than the document's navy ink on a fill of
+// this colour — chosen so the default accent (#6495ed, luminance ≈144) and
+// the navy itself (#111f4a, luminance ≈32) both get white text, while any
+// lighter tint of the accent (e.g. tint(accent, 0.24), luminance ≈171) and
+// pale user colours get the navy text (AC2).
+const READABLE_TEXT_LUMINANCE_THRESHOLD = 150;
+
+/** Returns `#ffffff` on a dark fill, `#111f4a` (document navy) on a light one (AC2). */
+export function readableTextOn(hex: string): string {
+  const normalized = normalizeHexColor(hex);
+  const [r, g, b] = hexToRgb(normalized);
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance < READABLE_TEXT_LUMINANCE_THRESHOLD ? "#ffffff" : "#111f4a";
+}
+
 export type TableColumns = {
   left: number;
   right: number;
   descWidth: number;
   qtyX: number;
   unitX: number;
+  netX: number;
   vatX: number;
   totalX: number;
   qtyWidth: number;
   unitWidth: number;
+  netWidth: number;
   vatWidth: number;
   totalWidth: number;
 };
@@ -126,16 +176,20 @@ export function tableColumns(doc: Doc): TableColumns {
   // absorbs whatever space remains — this keeps the fixed-width columns from
   // ever overlapping regardless of page width. qtyWidth is wide enough for
   // the Hungarian header "Mennyiség" (the longest column label) to stay on
-  // one line at the table's bold header font size.
+  // one line at the table's bold header font size. netWidth mirrors
+  // unitWidth — "Nettó" is a short label but the column holds a formatted
+  // money amount, same as Egységár/Bruttó (AC3).
   const gap = 8;
   const totalWidth = 72;
   const vatWidth = 34;
+  const netWidth = 62;
   const unitWidth = 58;
   const qtyWidth = 60;
 
   const totalX = right - totalWidth;
   const vatX = totalX - gap - vatWidth;
-  const unitX = vatX - gap - unitWidth;
+  const netX = vatX - gap - netWidth;
+  const unitX = netX - gap - unitWidth;
   const qtyX = unitX - gap - qtyWidth;
   const descWidth = qtyX - left - gap;
 
@@ -145,10 +199,12 @@ export function tableColumns(doc: Doc): TableColumns {
     descWidth,
     qtyX,
     unitX,
+    netX,
     vatX,
     totalX,
     qtyWidth,
     unitWidth,
+    netWidth,
     vatWidth,
     totalWidth,
   };
@@ -163,36 +219,44 @@ export function drawTableHeader(
 ): number {
   const y = doc.y;
   const { bold } = documentFontNames(doc);
-  doc.font(bold).fontSize(fontSize).fillColor(accent);
+  const textColor = readableTextOn(accent);
+  doc.font(bold).fontSize(fontSize);
   const cells: Array<{ text: string; x: number; width: number; align?: "left" | "right" }> = [
     { text: labels[0] ?? "Description", x: cols.left, width: cols.descWidth },
     { text: labels[1] ?? "Qty", x: cols.qtyX, width: cols.qtyWidth, align: "right" },
     { text: labels[2] ?? "Unit", x: cols.unitX, width: cols.unitWidth, align: "right" },
-    { text: labels[3] ?? "VAT", x: cols.vatX, width: cols.vatWidth, align: "right" },
-    { text: labels[4] ?? "Total", x: cols.totalX, width: cols.totalWidth, align: "right" },
+    { text: labels[3] ?? "Net", x: cols.netX, width: cols.netWidth, align: "right" },
+    { text: labels[4] ?? "VAT", x: cols.vatX, width: cols.vatWidth, align: "right" },
+    { text: labels[5] ?? "Total", x: cols.totalX, width: cols.totalWidth, align: "right" },
   ];
-  for (const cell of cells) {
-    doc.text(cell.text, cell.x, y, { width: cell.width, align: cell.align });
-  }
-  doc.fillColor("#000000");
 
   // A header label can wrap onto two lines (e.g. a narrow column width or a
   // longer translation), so measure the actual rendered height of every
-  // cell instead of assuming a single line.
+  // cell instead of assuming a single line — the filled band (AC4) grows
+  // with it.
+  const padY = 6;
   const headerHeight = Math.max(
     doc.currentLineHeight(),
     ...cells.map((cell) => doc.heightOfString(cell.text, { width: cell.width }))
   );
-  const headerBottom = y + headerHeight + 6;
-  doc.moveTo(cols.left, headerBottom).lineTo(cols.right, headerBottom).strokeColor(accent).lineWidth(1).stroke();
-  doc.lineWidth(1);
-  return headerBottom + 8;
+  const bandHeight = headerHeight + padY * 2;
+
+  doc.rect(cols.left, y, cols.right - cols.left, bandHeight).fill(accent);
+
+  doc.fillColor(textColor);
+  for (const cell of cells) {
+    doc.text(cell.text, cell.x, y + padY, { width: cell.width, align: cell.align });
+  }
+  doc.fillColor("#000000");
+
+  return y + bandHeight + 8;
 }
 
 export type TableRow = {
   description: string;
   quantity: string;
   unitPrice: string;
+  net: string;
   vat: string;
   total: string;
 };
@@ -211,13 +275,22 @@ export function drawTableRow(
   const singleLine = doc.currentLineHeight();
   const rowHeight = Math.max(descHeight, singleLine) + 6;
 
+  doc.fillColor("#111111");
   doc.text(row.description, cols.left, y, { width: cols.descWidth, lineGap: 2 });
   doc.text(row.quantity, cols.qtyX, y, { width: cols.qtyWidth, align: "right" });
   doc.text(row.unitPrice, cols.unitX, y, { width: cols.unitWidth, align: "right" });
+  doc.text(row.net, cols.netX, y, { width: cols.netWidth, align: "right" });
   doc.text(row.vat, cols.vatX, y, { width: cols.vatWidth, align: "right" });
   doc.text(row.total, cols.totalX, y, { width: cols.totalWidth, align: "right" });
+  doc.fillColor("#000000");
 
-  return y + rowHeight;
+  const bottomY = y + rowHeight;
+  // Per-row hairline (AC5) — the preview's `td { border-bottom: 1px solid
+  // #e5e9f5; }` equivalent, spanning the full table width.
+  doc.moveTo(cols.left, bottomY).lineTo(cols.right, bottomY).strokeColor("#e5e9f5").lineWidth(1).stroke();
+  doc.strokeColor("#000000");
+
+  return bottomY;
 }
 
 /**
@@ -272,6 +345,125 @@ export function drawTotalLine(
     doc.heightOfString(value, { width: valueWidth })
   );
   return y + measuredHeight + 6;
+}
+
+// ---------------------------------------------------------------------------
+// Party cards (AC6) — mirrors preview-html.ts's `.party-card`.
+// ---------------------------------------------------------------------------
+
+const PARTY_CARD_PADDING = 10;
+const PARTY_CARD_RADIUS = 10;
+
+export type PartyCardMeasureOptions = {
+  width: number;
+  title: string;
+  lines: string[];
+  fontSizes: { title: number; body: number };
+};
+
+export type PartyCardOptions = PartyCardMeasureOptions & {
+  x: number;
+  y: number;
+  accent: string;
+  /** Force the card to this height (e.g. the max of two cards) instead of its own measured height. */
+  height?: number;
+};
+
+/** Measures a party card's height WITHOUT drawing it (AC6), so two cards can be reserved and drawn at equal height. */
+export function partyCardHeight(doc: Doc, opts: PartyCardMeasureOptions): number {
+  const { bold, regular } = documentFontNames(doc);
+  const innerWidth = opts.width - PARTY_CARD_PADDING * 2;
+  const title = opts.title.toUpperCase();
+
+  doc.font(bold).fontSize(opts.fontSizes.title);
+  const titleHeight = doc.heightOfString(title, { width: innerWidth });
+
+  doc.font(regular).fontSize(opts.fontSizes.body);
+  let linesHeight = 0;
+  for (const line of opts.lines) {
+    if (!line) continue;
+    linesHeight += doc.heightOfString(line, { width: innerWidth }) + 2;
+  }
+
+  return titleHeight + 6 + linesHeight + PARTY_CARD_PADDING * 2;
+}
+
+/**
+ * Draws a rounded, `tint(accent, 0.12)`-filled card with an uppercase title
+ * and body lines inside a 10pt padding box, and returns the card's bottom y
+ * (AC6). Pass `height` to force a shared height across two side-by-side
+ * cards (AC9); omit it to use the card's own measured height.
+ */
+export function drawPartyCard(doc: Doc, opts: PartyCardOptions): number {
+  const height = opts.height ?? partyCardHeight(doc, opts);
+  const fill = tint(opts.accent, 0.12);
+
+  doc.roundedRect(opts.x, opts.y, opts.width, height, PARTY_CARD_RADIUS).fill(fill);
+
+  const innerX = opts.x + PARTY_CARD_PADDING;
+  const innerWidth = opts.width - PARTY_CARD_PADDING * 2;
+  let cursorY = opts.y + PARTY_CARD_PADDING;
+
+  const { bold, regular } = documentFontNames(doc);
+  const title = opts.title.toUpperCase();
+  doc.font(bold).fontSize(opts.fontSizes.title).fillColor("#111f4a");
+  doc.text(title, innerX, cursorY, { width: innerWidth });
+  cursorY += doc.heightOfString(title, { width: innerWidth }) + 6;
+
+  doc.font(regular).fontSize(opts.fontSizes.body).fillColor("#111111");
+  for (const line of opts.lines) {
+    if (!line) continue;
+    doc.text(line, innerX, cursorY, { width: innerWidth });
+    cursorY += doc.heightOfString(line, { width: innerWidth }) + 2;
+  }
+  doc.fillColor("#000000");
+
+  return opts.y + height;
+}
+
+// ---------------------------------------------------------------------------
+// Note box (AC7) — mirrors preview-html.ts's `.vat-note`.
+// ---------------------------------------------------------------------------
+
+const NOTE_BOX_PADDING = 12;
+const NOTE_BOX_RADIUS = 10;
+const NOTE_BOX_LINE_GAP = 4;
+
+export type NoteBoxOptions = {
+  x: number;
+  y: number;
+  width: number;
+  lines: string[];
+  fill: string;
+  fontSize: number;
+  /** Defaults to readableTextOn(fill). */
+  textColor?: string;
+};
+
+/** Draws a rounded, tinted, padded box around wrapped text and returns its measured bottom y (AC7). */
+export function drawNoteBox(doc: Doc, opts: NoteBoxOptions): number {
+  const { regular } = documentFontNames(doc);
+  const innerWidth = opts.width - NOTE_BOX_PADDING * 2;
+  doc.font(regular).fontSize(opts.fontSize);
+
+  const validLines = opts.lines.filter(Boolean);
+  let linesHeight = 0;
+  for (const line of validLines) {
+    linesHeight += doc.heightOfString(line, { width: innerWidth }) + NOTE_BOX_LINE_GAP;
+  }
+  const height = Math.max(linesHeight, doc.currentLineHeight()) + NOTE_BOX_PADDING * 2;
+
+  doc.roundedRect(opts.x, opts.y, opts.width, height, NOTE_BOX_RADIUS).fill(opts.fill);
+
+  doc.fillColor(opts.textColor ?? readableTextOn(opts.fill));
+  let cursorY = opts.y + NOTE_BOX_PADDING;
+  for (const line of validLines) {
+    doc.text(line, opts.x + NOTE_BOX_PADDING, cursorY, { width: innerWidth });
+    cursorY += doc.heightOfString(line, { width: innerWidth }) + NOTE_BOX_LINE_GAP;
+  }
+  doc.fillColor("#000000");
+
+  return opts.y + height;
 }
 
 // The real page margin every side of the document uses, independent of the
