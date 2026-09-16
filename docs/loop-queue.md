@@ -90,6 +90,65 @@ before or alongside Phase 1 items that depend on it.
 The app's own functions and UX come first; audits, tooling and "confirm
 that" items wait. Build in this order (each maps to an unchecked item below):
 
+**New owner feedback (2026-09-16) — take this next, ahead of everything
+below** — owner: "a pdf sokkal rosszabbul néz ki mint a html számla, javítsd,
+és legyen ott a rendes invohubos logó" (the PDF looks much worse than the
+HTML invoice — fix it, and put the real InvoHub logo in it). Confirmed by
+directly rendering `buildSamplePreviewInvoice()` through both
+`generateInvoicePreviewHtml` and `generateInvoicePdf` (no company set) and
+comparing screenshots — this is not a matter of taste, there are concrete
+bugs:
+- [ ] **Hungarian ő/ű render as ö/ü in the PDF** — e.g. "Vevő" → "Vevő" shows
+  as "Vevö", "Fizetendő" → "Fizetendö". This is a *known, already-flagged*
+  limitation: `lib/invoices/generate-pdf.ts`'s `doc.text` is wrapped to run
+  every string through `toWinAnsiSafe` (see `document-labels.ts`) because
+  pdfkit's built-in Helvetica AFM only has WinAnsi/cp1252 glyphs, which has
+  no ő/ű — so it silently substitutes the wrong (but adjacent-looking)
+  character. There's a `TODO(needs-human-review, PDF font item)` comment on
+  that exact line already asking for a real embedded font. This ships
+  Hungarian legal documents with misspelled Hungarian words — fix it
+  properly: embed a Latin-Extended-A-complete TTF (e.g. an open-license
+  Noto Sans / Inter static build — check `assets/fonts/` and licensing) via
+  `doc.registerFont()`/`doc.font()` in `lib/invoices/pdf-document.ts` /
+  `generate-pdf.ts`, verify Vercel serverless bundling the same way
+  `assets/pdfkit-data` already is (`scripts/prepare-server-pdf-deps.mjs`,
+  `scripts/verify-pdf-vendor.mjs`), and only then remove the
+  `toWinAnsiSafe` substitution (or keep it as a last-resort fallback if the
+  custom font ever fails to load — the render must never silently produce
+  wrong Hungarian text).
+- [ ] **No real InvoHub brand mark anywhere in the PDF** — only the issuing
+  company's own logo (`company.logoUrl`) or, when that's unset, a plain
+  colored initials badge (`drawLogoBadge` in `lib/invoices/pdf-layout.ts`).
+  The HTML preview at least has a text-only "Készült az InvoHub-bal ·
+  invohub.hu" footer line (`preview-html.ts`); the PDF has no InvoHub
+  branding at all — no wordmark, no mark, not even that footer text in the
+  sample render. Add the actual InvoHub mark (`components/marketing/
+  brand-mark-geometry.ts`'s `BRAND_MARK_DEFAULT` geometry, rendered as a
+  small vector/raster asset pdfkit can draw — do not just retype the brand
+  colors) to a footer/branding strip, matching the "Készült az InvoHub-bal"
+  text treatment already in the HTML version.
+- [ ] **Broken pagination wastes an entire page** — with the *default*
+  template (short footer text "Köszönjük a bizalmat!", two line items,
+  short notes), the PDF still spills onto a near-blank second page just to
+  show that one footer line. Something in `contentBottom`/`ensureSpace`
+  (`lib/invoices/pdf-layout.ts`) or the footer-placement logic in
+  `generate-pdf.ts` (~line 336) is reserving/measuring space wrong. Fix so
+  a normal 1-2 item invoice fits on one page.
+- [ ] **General layout gap vs. the HTML preview** — the PDF's content area
+  is sparse (lots of empty vertical space, thin single-column line-item
+  table, no card/section framing) next to the HTML preview's denser,
+  card-based, visually finished layout. Doesn't need to be pixel-identical
+  (pdfkit isn't CSS), but should read as the same product/brand — reference
+  `preview-html.ts`'s section structure (VEVŐ card, line-item table styling,
+  totals block) for what "finished" looks like here.
+Acceptance: render `buildSamplePreviewInvoice()` (both with and without a
+`company`) through `generateInvoicePdf`, convert to PNG (`pdftoppm`, already
+available locally) and visually confirm: correct ő/ű glyphs throughout, the
+InvoHub mark visible, single-page output for the default template, and a
+layout that doesn't look like a placeholder next to the HTML preview. Not
+tax/legal-gated (this is document rendering/typography, not NAV/tax logic
+or compliance copy) — normal Ship-phase auto-merge applies once green.
+
 **New owner feedback (2026-09-15, take next once the in-flight Díjbekérő
 slice ships)** — direct visual complaints, not yet triaged into concrete
 acceptance criteria; the next Plan pass should look at these with fresh
