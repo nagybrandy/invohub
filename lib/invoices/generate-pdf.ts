@@ -1,5 +1,7 @@
 // lib/invoices/generate-pdf.ts
-// Server-side invoice PDF generation (pdfkit) with clean, readable layout.
+// Server-side invoice PDF generation (pdfkit) with clean, readable layout
+// that mirrors the HTML preview's section order and framing (see
+// docs/plans/2026-09-16-pdf-layout-general-improvement.md).
 // Hungarian labels + Hungarian money formatting (see
 // docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md).
 // Fonts: registerDocumentFonts (lib/invoices/pdf-fonts.ts) embeds a real
@@ -11,6 +13,7 @@
 import {
   calculateInvoiceTotals,
   lineItemGrossTotal,
+  lineItemNetTotal,
   lineItemVatAmount,
 } from "@/lib/invoices/calculations";
 import {
@@ -33,15 +36,19 @@ import {
   contentBottom,
   drawLogoBadge,
   drawLogoImage,
+  drawNoteBox,
+  drawPartyCard,
   drawTableHeader,
   drawTableRow,
-  drawTextBlock,
   drawTotalLine,
   ensureSpace,
   footerBandTop,
   loadLogoImage,
+  partyCardHeight,
   PDF_PAGE_MARGINS,
+  readableTextOn,
   tableColumns,
+  tint,
   totalsColumns,
 } from "@/lib/invoices/pdf-layout";
 import {
@@ -50,7 +57,7 @@ import {
   pdfFontSizes,
 } from "@/lib/invoices/pdf-template/defaults";
 import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
-import type { Invoice } from "@/lib/invoices/types";
+import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
 import type PDFDocument from "pdfkit";
 import type { DocumentLabels } from "@/lib/invoices/document-labels";
 
@@ -227,6 +234,13 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.on("end", () => resolve(Buffer.concat(chunks)));
         doc.on("error", reject);
 
+        // -------------------------------------------------------------
+        // Header (AC8): logo/badge + company name (left); title, number,
+        // status chip (right). The full seller block (tax number, address,
+        // bank account) now lives in the Kibocsátó party card below, same
+        // as preview-html.ts's `.issuer-identity` (name only next to the
+        // badge).
+        // -------------------------------------------------------------
         const logoSize = 52;
         const headerTop = doc.y;
         const logoX = left;
@@ -243,23 +257,14 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         const metaX = left + pageWidth * 0.55;
         const metaWidth = pageWidth * 0.45;
 
-        const companyLines: string[] = [labels.seller];
-        if (template.showCompanyBlock && company) {
-          companyLines.push(company.name);
-          if (company.taxNumber) companyLines.push(`${labels.taxNumber}: ${company.taxNumber}`);
-          const addressLine = [company.address, company.city, company.zipCode, company.country]
-            .filter(Boolean)
-            .join(", ");
-          if (addressLine) companyLines.push(addressLine);
-          if (template.showBankDetails && company.bankAccount) {
-            companyLines.push(`${labels.bankAccount}: ${company.bankAccount}`);
-          }
-        } else if (company?.name) {
-          companyLines.push(company.name);
+        let headerBlockBottom = logoY + logoSize;
+        if (company?.name) {
+          doc.font(docFonts.bold).fontSize(fonts.subtitle).fillColor("#111f4a");
+          doc.text(company.name, infoX, logoY, { width: metaX - infoX - 12 });
+          const nameHeight = doc.heightOfString(company.name, { width: metaX - infoX - 12 });
+          doc.fillColor("#000000");
+          headerBlockBottom = Math.max(headerBlockBottom, logoY + nameHeight);
         }
-
-        const infoBottom = drawTextBlock(doc, companyLines, infoX, logoY, metaX - infoX - 12, fonts.body);
-        const headerBlockBottom = Math.max(logoY + logoSize, infoBottom);
 
         let metaY = logoY;
         doc.font(docFonts.bold).fontSize(fonts.title).fillColor(accent);
@@ -270,29 +275,35 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           width: metaWidth,
           align: "right",
         });
-        metaY += fonts.subtitle + 6;
-        doc.font(docFonts.regular).fontSize(fonts.body).fillColor("#666666");
-        // The document stops printing internal bookkeeping state (plan
-        // §1(b)) — only statuses that change what the document IS get a
-        // line at all ("sent"/"unpaid"/"overdue"/"partially_paid" print
-        // nothing here, same rule as the HTML preview).
-        const statusChip = documentStatusChip(invoice.status);
-        if (statusChip) {
-          doc.text(statusChip, metaX, metaY, { width: metaWidth, align: "right" });
-          metaY += fonts.body + 4;
-        }
-        doc.text(`${labels.issueDate}: ${formatInvoiceIssueDateTime(invoice)}`, metaX, metaY, {
-          width: metaWidth,
-          align: "right",
-        });
-        metaY += fonts.body + 3;
-        doc.text(`${labels.dueDate}: ${formatInvoiceDueDate(invoice)}`, metaX, metaY, {
-          width: metaWidth,
-          align: "right",
-        });
+        metaY += fonts.subtitle + 8;
         doc.fillColor("#000000");
 
-        doc.y = Math.max(headerBlockBottom, metaY) + 20;
+        // AC15: a pill (rounded tint(accent, 0.24) fill + readable text)
+        // for statuses that change what the document IS — see
+        // documentStatusChip's own "internal bookkeeping state" rule. A
+        // null chip draws nothing and consumes no vertical space.
+        const statusChip = documentStatusChip(invoice.status);
+        if (statusChip) {
+          doc.font(docFonts.bold).fontSize(fonts.small);
+          const chipTextWidth = doc.widthOfString(statusChip);
+          const chipPaddingX = 8;
+          const chipHeight = fonts.small + 8;
+          const chipWidth = chipTextWidth + chipPaddingX * 2;
+          const chipX = right - chipWidth;
+          const chipFill = tint(accent, 0.24);
+          doc.roundedRect(chipX, metaY, chipWidth, chipHeight, chipHeight / 2).fill(chipFill);
+          doc.fillColor(readableTextOn(chipFill));
+          doc.text(statusChip, chipX, metaY + chipHeight / 2 - fonts.small / 2, {
+            width: chipWidth,
+            align: "center",
+          });
+          doc.fillColor("#000000");
+          metaY += chipHeight;
+        }
+
+        headerBlockBottom = Math.max(headerBlockBottom, metaY);
+
+        doc.y = headerBlockBottom + 20;
         doc
           .moveTo(left, doc.y)
           .lineTo(right, doc.y)
@@ -301,44 +312,153 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           .stroke();
 
         doc.y += 16;
-        ensureSpace(doc, 80);
 
-        const billToY = doc.y;
-        drawTextBlock(
-          doc,
-          [
-            labels.buyer,
-            invoice.clientName,
-            template.showClientTaxNumber && invoice.clientTaxNumber
-              ? `${labels.taxNumber}: ${invoice.clientTaxNumber}`
-              : "",
-          ].filter(Boolean),
-          left,
-          billToY,
-          pageWidth * 0.5,
-          fonts.body,
-          { bold: false, lineGap: 4 }
-        );
-        drawTextBlock(
-          doc,
-          [`${labels.currency}: ${invoice.currency}`],
-          metaX,
-          billToY,
-          metaWidth,
-          fonts.body,
-          { lineGap: 4 }
-        );
+        // -------------------------------------------------------------
+        // Party cards (AC8/AC9): Kibocsátó + Vevő side by side with a
+        // company, Vevő alone (half width) without one — mirrors
+        // preview-html.ts's `.parties` / `.parties-single`.
+        // -------------------------------------------------------------
+        const cardGutter = 16;
+        const cardFontSizes = { title: fonts.small, body: fonts.body };
 
-        doc.y = billToY + 56;
+        const buyerLines = [
+          invoice.clientName,
+          template.showClientTaxNumber && invoice.clientTaxNumber
+            ? `${labels.taxNumber}: ${invoice.clientTaxNumber}`
+            : "",
+        ].filter(Boolean);
+
+        let cardsBottom: number;
+
+        if (template.showCompanyBlock && company) {
+          const sellerLines = [
+            company.name,
+            company.taxNumber ? `${labels.taxNumber}: ${company.taxNumber}` : "",
+            [company.address, company.city, company.zipCode, company.country].filter(Boolean).join(", "),
+            template.showBankDetails && company.bankAccount ? `${labels.bankAccount}: ${company.bankAccount}` : "",
+          ].filter(Boolean);
+
+          const cardWidth = (pageWidth - cardGutter) / 2;
+          const sellerHeight = partyCardHeight(doc, {
+            width: cardWidth,
+            title: labels.seller,
+            lines: sellerLines,
+            fontSizes: cardFontSizes,
+          });
+          const buyerHeight = partyCardHeight(doc, {
+            width: cardWidth,
+            title: labels.buyer,
+            lines: buyerLines,
+            fontSizes: cardFontSizes,
+          });
+          const cardHeight = Math.max(sellerHeight, buyerHeight);
+
+          ensureSpace(doc, cardHeight);
+          const topY = doc.y;
+
+          drawPartyCard(doc, {
+            x: left,
+            y: topY,
+            width: cardWidth,
+            title: labels.seller,
+            lines: sellerLines,
+            accent,
+            fontSizes: cardFontSizes,
+            height: cardHeight,
+          });
+          drawPartyCard(doc, {
+            x: left + cardWidth + cardGutter,
+            y: topY,
+            width: cardWidth,
+            title: labels.buyer,
+            lines: buyerLines,
+            accent,
+            fontSizes: cardFontSizes,
+            height: cardHeight,
+          });
+
+          cardsBottom = topY + cardHeight;
+        } else {
+          const cardWidth = pageWidth * 0.5;
+          const buyerHeight = partyCardHeight(doc, {
+            width: cardWidth,
+            title: labels.buyer,
+            lines: buyerLines,
+            fontSizes: cardFontSizes,
+          });
+
+          ensureSpace(doc, buyerHeight);
+          const topY = doc.y;
+
+          drawPartyCard(doc, {
+            x: left,
+            y: topY,
+            width: cardWidth,
+            title: labels.buyer,
+            lines: buyerLines,
+            accent,
+            fontSizes: cardFontSizes,
+          });
+
+          cardsBottom = topY + buyerHeight;
+        }
+
+        // AC10: a MEASURED advance (cardsBottom + 12..24), not the old
+        // fixed offset this replaced — a taller Kibocsátó card (a long
+        // address wrapping at `large` fontScale) no longer pushes the meta
+        // row under the table header.
+        doc.y = cardsBottom + 16;
+
+        // -------------------------------------------------------------
+        // Meta row (AC11): issue date, due date, payment method (only
+        // when set), currency — a single flowing row, mirrors
+        // preview-html.ts's `.meta-row`.
+        // -------------------------------------------------------------
+        const metaSegments: string[] = [
+          `${labels.issueDate}: ${formatInvoiceIssueDateTime(invoice)}`,
+          `${labels.dueDate}: ${formatInvoiceDueDate(invoice)}`,
+        ];
+        if (invoice.paymentMethod) {
+          const paymentMethodLabel = labels.paymentMethods[invoice.paymentMethod as PaymentMethod];
+          metaSegments.push(`${labels.paymentMethod}: ${paymentMethodLabel}`);
+        }
+        metaSegments.push(`${labels.currency}: ${invoice.currency}`);
+
+        ensureSpace(doc, fonts.body + 20);
+        doc.font(docFonts.regular).fontSize(fonts.body).fillColor("#4a4f6a");
+        const metaGap = 20;
+        const metaRowY = doc.y;
+        let metaCursorX = left;
+        let metaRowHeight = doc.currentLineHeight();
+        for (const segment of metaSegments) {
+          doc.text(segment, metaCursorX, metaRowY, { lineBreak: false });
+          metaCursorX += doc.widthOfString(segment) + metaGap;
+          metaRowHeight = Math.max(metaRowHeight, doc.heightOfString(segment));
+        }
+        doc.fillColor("#000000");
+        doc.y = metaRowY + metaRowHeight + 16;
+
+        // -------------------------------------------------------------
+        // Line-item table (AC3/AC4/AC5/AC12): 6 columns incl. Nettó, a
+        // filled accent header band, per-row hairlines.
+        // -------------------------------------------------------------
         ensureSpace(doc, 60);
 
         const cols = tableColumns(doc);
-        const headerLabels = [labels.description, labels.quantity, labels.unitPrice, labels.vat, labels.gross];
+        const headerLabels = [
+          labels.description,
+          labels.quantity,
+          labels.unitPrice,
+          labels.net,
+          labels.vat,
+          labels.gross,
+        ];
         doc.y = drawTableHeader(doc, cols, headerLabels, fonts.small, accent);
 
         const exemptCategories = new Set<string>();
 
         for (const item of invoice.lineItems) {
+          const netTotal = lineItemNetTotal(item);
           const lineTotal = lineItemGrossTotal(item);
           const rowHeightEstimate = doc.heightOfString(item.description, {
             width: cols.descWidth,
@@ -348,13 +468,13 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             exemptCategories.add(item.vatCategory);
           }
 
-          // AC4/AC11: an explicit break (not ensureSpace, which never
-          // repeats a header) so a continuation page always opens with the
-          // "<invoiceNumber> · folytatás" caption and the column header
-          // repeated — never bare rows (plan §1(d)). The `doc.y > top +
-          // 0.5` guard mirrors ensureSpace's own "already at the top of a
-          // fresh page" rule (AC3) so an oversized first row can't open two
-          // pages back to back.
+          // AC4/AC11 (pagination slice): an explicit break (not
+          // ensureSpace, which never repeats a header) so a continuation
+          // page always opens with the "<invoiceNumber> · folytatás"
+          // caption and the column header repeated — never bare rows. The
+          // `doc.y > top + 0.5` guard mirrors ensureSpace's own "already
+          // at the top of a fresh page" rule so an oversized first row
+          // can't open two pages back to back.
           const needed = rowHeightEstimate + 8;
           if (doc.y > doc.page.margins.top + 0.5 && doc.y + needed > contentBottom(doc)) {
             doc.addPage();
@@ -376,6 +496,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
               description: item.description,
               quantity: String(item.quantity),
               unitPrice: formatDocumentAmount(item.unitPrice, invoice.currency),
+              net: formatDocumentAmount(netTotal, invoice.currency),
               vat: item.vatCategory === "normal" ? `${item.vatRate}%` : item.vatCategory,
               total: formatDocumentAmount(lineTotal, invoice.currency),
             },
@@ -384,15 +505,14 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           );
         }
 
-        // Measured totals block (plan §2.2): build the rows as data first,
-        // measure their real heights up front, then reserve exactly that
-        // much space in a single ensureSpace call — the old fixed
-        // `ensureSpace(doc, 90)` either over- or under-reserved depending
-        // on font scale and currency (whether the HUF conversion row
-        // appears), which is how a short invoice could waste a whole page
-        // (plan §1(c)).
+        // -------------------------------------------------------------
+        // Totals (AC13): net/VAT (+ optional forint VAT) rows on a
+        // tint(accent, 0.12) panel, the grand total on a tint(accent,
+        // 0.24) band with readable text — one measured ensureSpace call
+        // reserves the whole panel.
+        // -------------------------------------------------------------
         const totalsCols = totalsColumns(doc, cols);
-        type TotalsRow = { label: string; value: string; bold?: boolean; accent?: string; fontSize: number };
+        type TotalsRow = { label: string; value: string; fontSize: number };
         const totalsRows: TotalsRow[] = [
           {
             label: `${labels.netTotal}:`,
@@ -404,19 +524,12 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             value: formatDocumentAmount(totals.vatTotal, invoice.currency),
             fontSize: fonts.body,
           },
-          {
-            label: `${labels.grossTotal}:`,
-            value: formatDocumentAmount(totals.totalAmount, invoice.currency),
-            bold: true,
-            accent,
-            fontSize: fonts.subtitle,
-          },
         ];
 
-        // AC14/AC15: a non-HUF invoice also shows the VAT amount in forint,
-        // right under the document-currency VAT/total block — same rule as
-        // the NAV XML builder (lib/nav/invoice-xml.ts): convert per line,
-        // then sum the rounded HUF values. See plan OQ-3 for wording status.
+        // AC14/AC15 (branding slice): a non-HUF invoice also shows the VAT
+        // amount in forint, right under the document-currency VAT total —
+        // same rule as the NAV XML builder (lib/nav/invoice-xml.ts):
+        // convert per line, then sum the rounded HUF values.
         if (requiresExchangeRate(invoice.currency)) {
           const rateResolution = resolveExchangeRate(invoice);
           if (rateResolution.ok) {
@@ -432,71 +545,111 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           }
         }
 
-        const measuredTotalsHeight =
-          8 +
-          12 +
-          totalsRows.reduce((sum, row) => {
-            doc.fontSize(row.fontSize);
-            const rowHeight = Math.max(
-              doc.heightOfString(row.label, { width: totalsCols.labelWidth }),
-              doc.heightOfString(row.value, { width: totalsCols.valueWidth })
-            );
-            return sum + rowHeight + 6;
-          }, 0) +
-          8;
+        const grandRow: TotalsRow = {
+          label: `${labels.grossTotal}:`,
+          value: formatDocumentAmount(totals.totalAmount, invoice.currency),
+          fontSize: fonts.subtitle,
+        };
 
+        const panelPaddingX = 12;
+        const panelPaddingY = 10;
+        const rowGap = 6;
+
+        function measuredRowHeight(row: TotalsRow): number {
+          doc.fontSize(row.fontSize);
+          return Math.max(
+            doc.heightOfString(row.label, { width: totalsCols.labelWidth }),
+            doc.heightOfString(row.value, { width: totalsCols.valueWidth })
+          );
+        }
+
+        const regularRowsHeight = totalsRows.reduce((sum, row) => sum + measuredRowHeight(row) + rowGap, 0);
+        const grandBandHeight = measuredRowHeight(grandRow) + panelPaddingY * 2;
+        const panelHeight = panelPaddingY * 2 + regularRowsHeight + grandBandHeight;
+
+        const panelX = totalsCols.labelX - panelPaddingX;
+        const panelWidth = right - panelX;
+
+        const measuredTotalsHeight = 8 + panelHeight + 8;
         ensureSpace(doc, measuredTotalsHeight);
         doc.y += 8;
-        const totalsLineY = doc.y;
-        doc
-          .moveTo(left + pageWidth * 0.52, totalsLineY)
-          .lineTo(right, totalsLineY)
-          .strokeColor("#e5e7eb")
-          .stroke();
 
-        let totalsY = totalsLineY + 12;
+        const panelY = doc.y;
+        doc.roundedRect(panelX, panelY, panelWidth, panelHeight, 8).fill(tint(accent, 0.12));
+
+        let rowY = panelY + panelPaddingY;
         for (const row of totalsRows) {
-          totalsY = drawTotalLine(
+          rowY = drawTotalLine(
             doc,
             row.label,
             row.value,
             totalsCols.labelX,
             totalsCols.valueX,
-            totalsY,
+            rowY,
             totalsCols.labelWidth,
             totalsCols.valueWidth,
-            { bold: row.bold, accent: row.accent, fontSize: row.fontSize }
+            { fontSize: row.fontSize }
           );
         }
-        doc.y = totalsY + 8;
 
+        const grandBandY = panelY + panelHeight - grandBandHeight;
+        doc.rect(panelX, grandBandY, panelWidth, grandBandHeight).fill(tint(accent, 0.24));
+        const grandTextColor = readableTextOn(tint(accent, 0.24));
+        drawTotalLine(
+          doc,
+          grandRow.label,
+          grandRow.value,
+          totalsCols.labelX,
+          totalsCols.valueX,
+          grandBandY + panelPaddingY,
+          totalsCols.labelWidth,
+          totalsCols.valueWidth,
+          { bold: true, accent: grandTextColor, fontSize: grandRow.fontSize }
+        );
+
+        doc.y = panelY + panelHeight + 8;
+
+        // -------------------------------------------------------------
+        // ÁFA exemption note (AC14): inside a tinted, padded note box —
+        // mirrors preview-html.ts's `.vat-note`.
+        // -------------------------------------------------------------
         if (exemptCategories.size > 0) {
           const reasons = invoice.lineItems
             .filter((item) => exemptCategories.has(item.vatCategory))
             .map((item) => resolveVatExemptionReason(item.vatCategory, item.vatExemptionReason))
             .filter((reason, index, all): reason is string => !!reason && all.indexOf(reason) === index);
 
+          const notePadding = 12;
+          const noteInnerWidth = pageWidth - notePadding * 2;
           doc.fontSize(fonts.small);
-          const reasonsHeight =
-            reasons.reduce((sum, reason) => sum + doc.heightOfString(reason, { width: pageWidth }) + 4, 0) + 8;
-          ensureSpace(doc, reasonsHeight);
-          doc.font(docFonts.bold).fontSize(fonts.small).fillColor("#444444");
-          for (const reason of reasons) {
-            doc.text(reason, left, doc.y, { width: pageWidth });
-            // Measured advance, not the old fixed `fonts.small + 4` — a
-            // wrapped exemption reason (AC8 fixture iii) no longer overlaps
-            // whatever is drawn next (plan §1(a)/§2.3).
-            doc.y += doc.heightOfString(reason, { width: pageWidth }) + 4;
-          }
-          doc.fillColor("#000000");
-          doc.y += 4;
+          const noteLinesHeight = reasons.reduce(
+            (sum, reason) => sum + doc.heightOfString(reason, { width: noteInnerWidth }) + 4,
+            0
+          );
+          const noteHeight = Math.max(noteLinesHeight, doc.currentLineHeight()) + notePadding * 2;
+
+          ensureSpace(doc, noteHeight + 8);
+          doc.y += 8;
+          const noteFill = tint(accent, 0.24);
+          const noteBottom = drawNoteBox(doc, {
+            x: left,
+            y: doc.y,
+            width: pageWidth,
+            lines: reasons,
+            fill: noteFill,
+            fontSize: fonts.small,
+          });
+          doc.y = noteBottom + 8;
         }
 
+        // -------------------------------------------------------------
+        // Notes
+        // -------------------------------------------------------------
         if (invoice.notes) {
           // Reserve the label line plus the first ~3 lines of the notes
           // body so "Megjegyzés:" is never orphaned at the bottom of a
-          // page (plan §2.3) — pdfkit then flows any remainder correctly
-          // on its own because of the margins fix in §2.1/AC1/AC2.
+          // page — pdfkit then flows any remainder correctly on its own
+          // because of the margins fix (CONTENT_MARGIN_BOTTOM).
           doc.fontSize(fonts.body);
           const labelHeight = doc.heightOfString(`${template.notesLabel}:`, { width: pageWidth });
           doc.fontSize(fonts.small);
@@ -512,28 +665,26 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           doc.font(docFonts.regular).fontSize(fonts.small);
           doc.text(invoice.notes, left, doc.y, { width: pageWidth, lineGap: 3 });
           // pdfkit already advances doc.y to the end of the drawn
-          // (possibly paginated) text — the old code additionally added
-          // heightOfString(...) here, double-counting the advance and
-          // pushing everything after it further down than necessary
-          // (plan §2.3).
+          // (possibly paginated) text — adding heightOfString(...) again
+          // here would double-count the advance.
           doc.y += 8;
         }
 
-        // AC7: the footer strip is drawn on every buffered page, not just
-        // whichever page happened to be current when generation ended.
-        // Per-page margins.bottom is zeroed only around the draw itself
-        // (pdfkit's own buffered-pages idiom) — footerBandTop(doc) is read
-        // beforehand, against the real margins, so the band position is
-        // unaffected.
+        // AC7 (pagination slice): the footer strip is drawn on every
+        // buffered page, not just whichever page happened to be current
+        // when generation ended. Per-page margins.bottom is zeroed only
+        // around the draw itself (pdfkit's own buffered-pages idiom) —
+        // footerBandTop(doc) is read beforehand, against the real margins,
+        // so the band position is unaffected.
         const footerRange = doc.bufferedPageRange();
         for (let i = footerRange.start; i < footerRange.start + footerRange.count; i += 1) {
           doc.switchToPage(i);
           const bandTop = footerBandTop(doc);
           const savedMarginBottom = doc.page.margins.bottom;
           doc.page.margins.bottom = 0;
-          // AC12: only a multi-page document gets a page indicator — a
-          // single page keeps the existing empty-footerText behaviour
-          // (lockup centred) unchanged.
+          // AC12 (pagination slice): only a multi-page document gets a
+          // page indicator — a single page keeps the existing
+          // empty-footerText behaviour (lockup centred) unchanged.
           const pageIndicatorText =
             footerRange.count > 1
               ? labels.pageIndicator

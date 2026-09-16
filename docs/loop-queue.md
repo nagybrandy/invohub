@@ -301,7 +301,7 @@ bugs:
   Playwright screen-viewport audit doesn't apply here. Future ux-reviewer
   passes on backend-only PDF-generation slices like this should skip or
   rescope the screen-viewport audit rather than flag its absence.
-- [~] folyamatban (slice/pdf-layout-general-improvement) — **General layout gap vs. the HTML preview** — the PDF's content area
+- [x] **General layout gap vs. the HTML preview** — the PDF's content area
   is sparse (lots of empty vertical space, thin single-column line-item
   table, no card/section framing) next to the HTML preview's denser,
   card-based, visually finished layout. Doesn't need to be pixel-identical

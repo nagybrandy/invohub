@@ -90,6 +90,13 @@ type RecordedTextCall = {
   startPage: unknown;
   endPage: unknown;
   text: string;
+  startX: number;
+  // The raw `options.width` passed to this .text() call, or undefined when
+  // none was given — used by the AC18 density guard to tell a full-width
+  // (or unset-width) body draw apart from a narrow fixed-width draw like
+  // the header's logo-badge initials, which happens to share the body's
+  // left margin as its x but is not part of the single-column content flow.
+  optWidth?: number;
   startY: number;
   endY: number;
   height: number;
@@ -147,6 +154,8 @@ async function withRecordedDoc(
         startPage,
         endPage: doc.page,
         text: String(value),
+        startX: x ?? doc.page.margins.left,
+        optWidth: opts.width,
         startY: y,
         endY: doc.y,
         height,
@@ -309,6 +318,7 @@ describe("generateInvoicePdf — continuation pages (AC11)", () => {
       labels.description,
       labels.quantity,
       labels.unitPrice,
+      labels.net,
       labels.vat,
       labels.gross,
     ];
@@ -337,5 +347,77 @@ describe("generateInvoicePdf — continuation pages (AC11)", () => {
     // The number of header draws equals the number of pages with line items
     // (page 1's initial header + one per continuation page).
     expect(headerDrawsPerPage.size).toBe(pageCount);
+  });
+});
+
+// AC18: no fixed-gap "holes" left in the body — no vertical gap larger than
+// 28pt between the end of one drawn content block and the start of the
+// next (the footer band is excluded, since it is deliberately reserved
+// whitespace, not a layout defect).
+//
+// The document has two side-by-side columns in the party-card region
+// (Kibocsátó/Vevő), which a naive global Y-sort across ALL text would
+// misread as gaps whenever one card has fewer lines than the other (its
+// own AC10 range of 12–24pt above cardsBottom already covers that
+// transition specifically, in generate-pdf.test.ts). This guard instead
+// follows the single-column backbone that every section shares an anchor
+// on — the description column (table header/rows, note box, notes) and the
+// totals label column — which is where a fixed, content-independent gap
+// would actually show up as unused whitespace.
+describe("generateInvoicePdf — density guard (AC18)", () => {
+  it("leaves no gap larger than 28pt along the single-column backbone, with a company", async () => {
+    const invoice = buildSamplePreviewInvoice();
+    const { calls } = await withRecordedDoc(invoice, {
+      invoice,
+      company: {
+        name: "InvoHub Demo Kft.",
+        taxNumber: "12345678-2-41",
+        address: "Fő utca 1.",
+        city: "Budapest",
+        zipCode: "1000",
+        bankAccount: "12345678-12345678-12345678",
+      },
+    });
+
+    const measureDoc = createPdfDocument({ margin: 48, size: "A4" });
+    registerDocumentFonts(measureDoc);
+    const cols = tableColumns(measureDoc);
+    const totalsCols = totalsColumns(measureDoc, cols);
+    measureDoc.end();
+
+    const anchorXs = [cols.left, totalsCols.labelX];
+    const isOnBackbone = (x: number) => anchorXs.some((anchor) => Math.abs(x - anchor) < 1);
+    // Excludes the header logo badge's initials text — it happens to share
+    // the body's left margin as its x (drawn at `left`), but is a narrow,
+    // fixed-width (`size` = 52pt), centred draw belonging to the header
+    // block, not the single-column body flow this guard follows. Every
+    // real body draw on the backbone either passes no width (a plain
+    // `doc.text(text, x, y)` call) or a width comparable to the content
+    // area (well over 100pt).
+    const isBodyWidth = (w: number | undefined) => w === undefined || w >= 100;
+
+    const backboneCalls = calls.filter(
+      (c) => c.marginBottom !== 0 && c.text.trim().length > 0 && isOnBackbone(c.startX) && isBodyWidth(c.optWidth)
+    );
+    expect(backboneCalls.length).toBeGreaterThan(0);
+
+    const byPage = new Map<unknown, RecordedTextCall[]>();
+    for (const call of backboneCalls) {
+      const list = byPage.get(call.startPage) ?? [];
+      list.push(call);
+      byPage.set(call.startPage, list);
+    }
+
+    for (const pageCalls of byPage.values()) {
+      const sorted = [...pageCalls].sort((a, b) => a.startY - b.startY);
+      let blockEnd = sorted[0]!.startY;
+      for (const call of sorted) {
+        const gap = call.startY - blockEnd;
+        if (gap > 0) {
+          expect(gap).toBeLessThanOrEqual(28);
+        }
+        blockEnd = Math.max(blockEnd, call.startY + call.height);
+      }
+    }
   });
 });
