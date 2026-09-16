@@ -74,16 +74,15 @@ export function formatDocumentAmount(amount: number, currency: InvoiceCurrency):
   return `${formatted} ${symbol}`;
 }
 
-// pdfkit's standard Helvetica AFM writes WinAnsi (cp1252), which has no
+// FALLBACK PATH ONLY. lib/invoices/pdf-fonts.ts embeds a real
+// Latin-Extended-A TrueType font (Noto Sans) so the normal PDF path draws
+// ő/ű directly — see docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md.
+// pdfkit's built-in Helvetica AFM writes WinAnsi (cp1252) only, which has no
 // glyph for U+0151 (ő) / U+0171 (ű) — pdfkit emits them as raw two-byte
-// codes, which every PDF viewer renders as garbage. No embeddable
-// Latin-Extended-A font exists in this repo today (see the PDF-font queue
-// item this slice files), so this is an interim transliteration applied to
-// every string drawn into the PDF — legible, if imperfect, where today's
-// output is not legible at all.
-// TODO(needs-human-review, PDF font item): delete this once a real
-// Latin-Extended-A font is embedded in the PDF and pdfkit can draw ő/ű
-// directly — see docs/loop-queue.md's PDF-font entry.
+// codes, which every PDF viewer renders as garbage. generate-pdf.ts uses
+// this transliteration only when the embedded font files can't be resolved
+// (a bundling regression), as a loud, still-legible last resort — never on
+// the normal path.
 const WINANSI_UNSAFE_MAP: Record<string, string> = {
   ő: "ö",
   Ő: "Ö",

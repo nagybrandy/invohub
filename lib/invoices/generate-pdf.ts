@@ -1,10 +1,13 @@
 // lib/invoices/generate-pdf.ts
 // Server-side invoice PDF generation (pdfkit) with clean, readable layout.
 // Hungarian labels + Hungarian money formatting (see
-// docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md) — every
-// string this module draws is routed through a single `doc.text` patch (set
-// up once below) that transliterates ő/ű so pdfkit's WinAnsi Helvetica can
-// draw it (see lib/invoices/document-labels.ts's toWinAnsiSafe for why).
+// docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md).
+// Fonts: registerDocumentFonts (lib/invoices/pdf-fonts.ts) embeds a real
+// Latin-Extended-A TTF so ő/ű draw correctly (see
+// docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md). The
+// toWinAnsiSafe `doc.text` patch below only runs on the fallback path, when
+// the embedded fonts can't be resolved — see the "if (!docFonts.embedded)"
+// block.
 import {
   calculateInvoiceTotals,
   lineItemGrossTotal,
@@ -23,6 +26,7 @@ import {
   formatInvoiceIssueDateTime,
 } from "@/lib/dates/format";
 import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
+import { registerDocumentFonts } from "@/lib/invoices/pdf-fonts";
 import {
   companyInitials,
   contentBottom,
@@ -84,15 +88,26 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         const left = doc.page.margins.left;
         const right = left + pageWidth;
 
-        // Every string this module draws goes through toWinAnsiSafe exactly
-        // once, here — pdfkit's standard Helvetica AFM writes WinAnsi
-        // (cp1252), which has no glyph for ő/ű (see document-labels.ts).
-        // TODO(needs-human-review, PDF font item): remove this patch once a
-        // real Latin-Extended-A font is embedded and pdfkit can draw ő/ű
-        // directly.
-        const rawText = doc.text.bind(doc) as (...args: unknown[]) => typeof doc;
-        doc.text = ((value: string, ...rest: unknown[]) =>
-          rawText(toWinAnsiSafe(value), ...rest)) as typeof doc.text;
+        // Embed a real Latin-Extended-A font so ő/ű draw correctly (see
+        // lib/invoices/pdf-fonts.ts). `docFonts.regular`/`docFonts.bold`
+        // are the names every doc.font(...) call below must use — never a
+        // hard-coded "Helvetica"/"Helvetica-Bold" (AC7; see pdf-fonts.ts's
+        // header comment for why that silently breaks embedding).
+        const docFonts = registerDocumentFonts(doc);
+
+        // Fallback only: when the embedded font files can't be resolved,
+        // route every drawn string through toWinAnsiSafe exactly once, here
+        // — pdfkit's standard Helvetica AFM writes WinAnsi (cp1252), which
+        // has no glyph for ő/ű (see document-labels.ts). Loudly log the
+        // degradation once; the PDF still renders, never throws.
+        if (!docFonts.embedded) {
+          console.error(
+            "generateInvoicePdf: embedded PDF fonts unresolvable, falling back to ő→ö / ű→ü transliteration"
+          );
+          const rawText = doc.text.bind(doc) as (...args: unknown[]) => typeof doc;
+          doc.text = ((value: string, ...rest: unknown[]) =>
+            rawText(toWinAnsiSafe(value), ...rest)) as typeof doc.text;
+        }
 
         doc.on("data", (chunk: Buffer) => chunks.push(chunk));
         doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -133,16 +148,16 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         const headerBlockBottom = Math.max(logoY + logoSize, infoBottom);
 
         let metaY = logoY;
-        doc.font("Helvetica-Bold").fontSize(fonts.title).fillColor(accent);
+        doc.font(docFonts.bold).fontSize(fonts.title).fillColor(accent);
         doc.text(template.titleText, metaX, metaY, { width: metaWidth, align: "right" });
         metaY += fonts.title + 8;
-        doc.font("Helvetica-Bold").fontSize(fonts.subtitle).fillColor("#111111");
+        doc.font(docFonts.bold).fontSize(fonts.subtitle).fillColor("#111111");
         doc.text(invoice.invoiceNumber || labels.draftNumber, metaX, metaY, {
           width: metaWidth,
           align: "right",
         });
         metaY += fonts.subtitle + 6;
-        doc.font("Helvetica").fontSize(fonts.body).fillColor("#666666");
+        doc.font(docFonts.regular).fontSize(fonts.body).fillColor("#666666");
         // The document stops printing internal bookkeeping state (plan
         // §1(b)) — only statuses that change what the document IS get a
         // line at all ("sent"/"unpaid"/"overdue"/"partially_paid" print
@@ -313,7 +328,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             .filter((reason, index, all): reason is string => !!reason && all.indexOf(reason) === index);
 
           ensureSpace(doc, 20 + reasons.length * 14);
-          doc.font("Helvetica-Bold").fontSize(fonts.small).fillColor("#444444");
+          doc.font(docFonts.bold).fontSize(fonts.small).fillColor("#444444");
           for (const reason of reasons) {
             doc.text(reason, left, doc.y, { width: pageWidth });
             doc.y += fonts.small + 4;
@@ -325,17 +340,17 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         if (invoice.notes) {
           ensureSpace(doc, 48);
           doc.y += 8;
-          doc.font("Helvetica-Bold").fontSize(fonts.body).fillColor("#444444");
+          doc.font(docFonts.bold).fontSize(fonts.body).fillColor("#444444");
           doc.text(`${template.notesLabel}:`, left, doc.y);
           doc.y += fonts.body + 4;
-          doc.font("Helvetica").fontSize(fonts.small);
+          doc.font(docFonts.regular).fontSize(fonts.small);
           doc.text(invoice.notes, left, doc.y, { width: pageWidth, lineGap: 3 });
           doc.y += doc.heightOfString(invoice.notes, { width: pageWidth }) + 8;
         }
 
         if (template.footerText) {
           const footerY = contentBottom(doc, 0) + 8;
-          doc.font("Helvetica").fontSize(fonts.small).fillColor("#888888");
+          doc.font(docFonts.regular).fontSize(fonts.small).fillColor("#888888");
           doc.text(template.footerText, left, footerY, {
             width: pageWidth,
             align: "center",

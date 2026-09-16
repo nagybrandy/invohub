@@ -98,25 +98,49 @@ directly rendering `buildSamplePreviewInvoice()` through both
 `generateInvoicePreviewHtml` and `generateInvoicePdf` (no company set) and
 comparing screenshots — this is not a matter of taste, there are concrete
 bugs:
-- [~] folyamatban (slice/pdf-embed-font-fix-ounk-umlaut)
-  **Hungarian ő/ű render as ö/ü in the PDF** — e.g. "Vevő" → "Vevő" shows
-  as "Vevö", "Fizetendő" → "Fizetendö". This is a *known, already-flagged*
-  limitation: `lib/invoices/generate-pdf.ts`'s `doc.text` is wrapped to run
-  every string through `toWinAnsiSafe` (see `document-labels.ts`) because
-  pdfkit's built-in Helvetica AFM only has WinAnsi/cp1252 glyphs, which has
-  no ő/ű — so it silently substitutes the wrong (but adjacent-looking)
-  character. There's a `TODO(needs-human-review, PDF font item)` comment on
-  that exact line already asking for a real embedded font. This ships
-  Hungarian legal documents with misspelled Hungarian words — fix it
-  properly: embed a Latin-Extended-A-complete TTF (e.g. an open-license
-  Noto Sans / Inter static build — check `assets/fonts/` and licensing) via
-  `doc.registerFont()`/`doc.font()` in `lib/invoices/pdf-document.ts` /
-  `generate-pdf.ts`, verify Vercel serverless bundling the same way
-  `assets/pdfkit-data` already is (`scripts/prepare-server-pdf-deps.mjs`,
-  `scripts/verify-pdf-vendor.mjs`), and only then remove the
-  `toWinAnsiSafe` substitution (or keep it as a last-resort fallback if the
-  custom font ever fails to load — the render must never silently produce
-  wrong Hungarian text).
+- [x] **Hungarian ő/ű render as ö/ü in the PDF** — fixed on
+  `slice/pdf-embed-font-fix-ounk-umlaut`. Embedded a real Latin-Extended-A
+  TrueType font (Noto Sans Regular + Bold, SIL OFL 1.1,
+  `assets/fonts/pdf/`, provenance in that dir's `README.md`) via a new
+  `lib/invoices/pdf-fonts.ts` (`registerDocumentFonts`/`documentFontNames`,
+  registered under the non-standard names `InvoHubSans`/`InvoHubSans-Bold`
+  — registering under a base-14 name like `"Helvetica"` silently falls back
+  to pdfkit's built-in WinAnsi font instead of embedding the TTF, verified
+  and locked in by a dedicated test). `generate-pdf.ts` and
+  `pdf-layout.ts` now resolve every `doc.font(...)` call through those
+  names instead of a hard-coded `"Helvetica"`/`"Helvetica-Bold"`; the old
+  `toWinAnsiSafe` transliteration (`document-labels.ts`, unchanged) now
+  runs only on the fallback path (font files unresolvable), logging one
+  explicit `console.error` and still rendering rather than throwing.
+  `scripts/prepare-server-pdf-deps.mjs` vendors the TTFs into
+  `dist/server/assets/pdf-fonts/` (exits non-zero if the source files are
+  missing) and `scripts/verify-pdf-vendor.mjs` fails the build unless the
+  vendored runtime can actually register and embed the bundled TTF
+  (asserts an `EmbeddedFont`, a `%PDF` buffer, and a `FontFile2` stream) —
+  so a Vercel bundling regression fails the deploy instead of silently
+  shipping mis-rendered Hungarian. New tests: `lib/invoices/pdf-fonts.test.ts`
+  (real pdfkit — embedded names are non-base-14, `doc._font` is an
+  `EmbeddedFont` not a `StandardFont`, the five line-item header labels fit
+  their columns at every `fontScale`, fallback shape when unresolvable),
+  `lib/invoices/generate-pdf.test.ts` (embedded path draws ő/ű unmodified
+  and never a hard-coded Helvetica name; fallback path keeps the old
+  transliteration and logs once), `lib/invoices/generate-pdf.integration.test.ts`
+  (real pdfkit end to end on `buildSamplePreviewInvoice()` — `%PDF` +
+  `FontFile2`). Also fixed a pre-existing test-infra bug surfaced while
+  writing these: `jest-expo`'s preset installs a `TextDecoder` shim that
+  only supports `"utf-8"` (for React Server Components), which made any
+  test importing real `pdfkit` (→ `fontkit`) throw `Unknown encoding:
+  ascii` regardless of `@jest-environment` — `jest.setup.ts` now restores
+  Node's own `TextDecoder` after that shim runs, for every test file.
+  `npx tsc --noEmit` and `npm run test:unit` green (200 suites / 1128 tests).
+  Manual check: rendered `buildSamplePreviewInvoice()` via
+  `generateInvoicePdf` with and without a `company` (client name
+  `Kőfaragó Kft.` on the with-company case), `pdftoppm -png` and
+  `pdftotext` both confirm correct ő/ű throughout (Kőfaragó, Vevő,
+  Mennyiség, ÁFA, Fizetendő, Köszönjük, előnézetéhez) — no transliteration
+  anywhere. Not tax/legal-gated (document rendering/typography only, per
+  the backlog item's own risk call below) — normal Ship-phase auto-merge
+  applies once green.
   Plan: `docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md`
 - [ ] **No real InvoHub brand mark anywhere in the PDF** — only the issuing
   company's own logo (`company.logoUrl`) or, when that's unset, a plain
