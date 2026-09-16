@@ -9,6 +9,7 @@ import { buildSamplePreviewInvoice } from "@/lib/invoices/pdf-template/sample-in
 import { documentLabels } from "@/lib/invoices/document-labels";
 import {
   footerBandTop,
+  PDF_PAGE_MARGINS,
   tableColumns,
   totalsColumns,
 } from "@/lib/invoices/pdf-layout";
@@ -419,5 +420,48 @@ describe("generateInvoicePdf — density guard (AC18)", () => {
         blockEnd = Math.max(blockEnd, call.startY + call.height);
       }
     }
+  });
+});
+
+// AC11 regression: the meta row must wrap instead of drawing past the right
+// content margin when its segments (issue date, due date, fizetési mód,
+// currency) don't fit on one line — see
+// docs/plans/2026-09-16-pdf-layout-general-improvement.md's fix-round-2
+// finding. Exercised at fontScale=large specifically, since that's where a
+// set invoice.paymentMethod pushed the row furthest past budget.
+describe("generateInvoicePdf — meta row stays within the content width (AC11 regression)", () => {
+  it("no meta-row text draw exceeds the right content margin at fontScale=large, with a payment method set", async () => {
+    const invoice = makeInvoice({ paymentMethod: "transfer" });
+    const labels = documentLabels();
+    const metaPrefixes = [
+      `${labels.issueDate}:`,
+      `${labels.dueDate}:`,
+      `${labels.paymentMethod}:`,
+      `${labels.currency}:`,
+    ];
+
+    const { calls } = await withRecordedDoc(invoice, {
+      invoice,
+      template: { fontScale: "large" },
+    });
+
+    const metaCalls = calls.filter((c) => metaPrefixes.some((prefix) => c.text.startsWith(prefix)));
+    expect(metaCalls.length).toBe(4);
+
+    await withPdfKitFonts(async () => {
+      const measureDoc = createPdfDocument({ margins: PDF_PAGE_MARGINS, size: "A4" });
+      registerDocumentFonts(measureDoc);
+      const { regular } = documentFontNames(measureDoc);
+      const fonts = pdfFontSizes("large");
+      measureDoc.font(regular).fontSize(fonts.body);
+
+      const right = measureDoc.page.width - measureDoc.page.margins.right;
+      for (const call of metaCalls) {
+        const width = measureDoc.widthOfString(call.text);
+        expect(call.startX + width).toBeLessThanOrEqual(right + 0.5);
+      }
+
+      measureDoc.end();
+    });
   });
 });

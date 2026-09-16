@@ -624,19 +624,27 @@ describe("generateInvoicePdf — meta row (AC11)", () => {
 
     await generateInvoicePdf({ invoice: withoutMethod, company: { name: "Demo Kft." } });
     expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.paymentMethod}:`))).toBe(false);
-    const dueDrawWithout = mockTextCalls.find((c) => c.text.startsWith(`${labels.dueDate}:`));
+    const tableHeaderWithout = mockTextCalls.find((c) => c.text === labels.description);
 
     mockDrawnTexts = [];
     mockTextCalls = [];
     await generateInvoicePdf({ invoice: withMethod, company: { name: "Demo Kft." } });
     expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.paymentMethod}:`))).toBe(true);
 
-    // The row's own line height (thus how far doc.y advances past it) is
-    // unaffected by whether a segment was added — same single-line row.
-    const currencyDrawWith = mockTextCalls.find((c) => c.text.startsWith(`${labels.currency}:`));
-    expect(currencyDrawWith).toBeDefined();
-    expect(dueDrawWithout).toBeDefined();
-    expect(currencyDrawWith!.y).toBe(dueDrawWithout!.y);
+    // The meta row wraps onto as many lines as its segments need (AC11's
+    // width-budget fix) rather than always drawing on one fixed line, so
+    // comparing a single segment's y between the two runs no longer says
+    // anything — the payment-method segment can land on a different line
+    // of a differently-wrapped row. What AC11 actually promises is that
+    // omitting the optional segment never leaves unused space: with this
+    // fixture, both rows still wrap to the same number of lines (the
+    // payment-method segment fits on the row's existing wrapped line
+    // alongside the currency segment), so the table header that follows
+    // starts at the same y either way.
+    const tableHeaderWith = mockTextCalls.find((c) => c.text === labels.description);
+    expect(tableHeaderWith).toBeDefined();
+    expect(tableHeaderWithout).toBeDefined();
+    expect(tableHeaderWith!.y).toBe(tableHeaderWithout!.y);
   });
 });
 

@@ -424,16 +424,47 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         }
         metaSegments.push(`${labels.currency}: ${invoice.currency}`);
 
-        ensureSpace(doc, fonts.body + 20);
-        doc.font(docFonts.regular).fontSize(fonts.body).fillColor("#4a4f6a");
+        doc.font(docFonts.regular).fontSize(fonts.body);
         const metaGap = 20;
-        const metaRowY = doc.y;
-        let metaCursorX = left;
-        let metaRowHeight = doc.currentLineHeight();
+        const metaLineGap = 4;
+        const metaLineHeight = doc.currentLineHeight();
+
+        // Wrap segments to a new line when they would overflow the content
+        // width (mirrors preview-html.ts's `.meta-row { flex-wrap: wrap }`)
+        // instead of drawing past `right` unconditionally — a long localized
+        // fizetési mód label plus the other three segments can exceed the
+        // content width at fontScale=medium/large (see the AC11 regression
+        // this replaced).
+        const metaLines: string[][] = [];
+        let metaLineWidth = 0;
         for (const segment of metaSegments) {
-          doc.text(segment, metaCursorX, metaRowY, { lineBreak: false });
-          metaCursorX += doc.widthOfString(segment) + metaGap;
-          metaRowHeight = Math.max(metaRowHeight, doc.heightOfString(segment));
+          const segmentWidth = doc.widthOfString(segment);
+          const currentLine = metaLines[metaLines.length - 1];
+          const wouldOverflow =
+            currentLine !== undefined &&
+            left + metaLineWidth + metaGap + segmentWidth > right;
+          if (currentLine === undefined || wouldOverflow) {
+            metaLines.push([segment]);
+            metaLineWidth = segmentWidth;
+          } else {
+            currentLine.push(segment);
+            metaLineWidth += metaGap + segmentWidth;
+          }
+        }
+        const metaRowHeight =
+          metaLines.length * metaLineHeight + (metaLines.length - 1) * metaLineGap;
+
+        ensureSpace(doc, metaRowHeight + 20);
+        doc.fillColor("#4a4f6a");
+        const metaRowY = doc.y;
+        let metaCursorY = metaRowY;
+        for (const line of metaLines) {
+          let metaCursorX = left;
+          for (const segment of line) {
+            doc.text(segment, metaCursorX, metaCursorY, { lineBreak: false });
+            metaCursorX += doc.widthOfString(segment) + metaGap;
+          }
+          metaCursorY += metaLineHeight + metaLineGap;
         }
         doc.fillColor("#000000");
         doc.y = metaRowY + metaRowHeight + 16;
