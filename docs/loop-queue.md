@@ -1150,6 +1150,52 @@ Remaining for the launch gate:
       {{number}}" / "...(cancelled): {{number}}") instead of the plain
       `invoices.links.convertedTo`, per the plan's UX note to use copy, not
       a new colour, in this plain-list card.
+- [ ] `docs/loop-queue.md`'s fix-round-2 note (above, "folyamatban
+      (slice/dijbekero-convert-to-invoice)") says "**PR merged 2026-09-15.**
+      Fix-round-2 (`slice/dijbekero-proforma-to-invoice-flow`, 2026-09-18)
+      closed F1-F4 ..." — claiming the PR merged on 2026-09-15, three days
+      *before* the 2026-09-18 fix-round-2 work it goes on to describe, and
+      this branch is in fact still unmerged/under review as of 2026-09-18.
+      Fix: reword to something like "**PR opened 2026-09-18, pending
+      review.** Fix-round-2 ... closed F1-F4 ..." and let the Ship phase
+      add the actual merge note once it merges, consistent with CLAUDE.md's
+      rule that Ship (not the implementer) records merges.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
+      acceptance)
+- [ ] AC14's screen-level wiring (`menuItemsFor`/`handleOpenExisting` swap
+      in `app/(app)/invoices/index.tsx`) has no dedicated test with a
+      non-empty `convertedProformaIds` map — the only test touching that
+      screen (`__tests__/screens/app-pages.smoke.test.tsx`) adds
+      `convertedProformaIds: {}` to the `useInvoices` mock and only asserts
+      the screen renders. The label swap
+      (`invoice.documentType === "proforma" && convertedProformaIds[invoice.id]`
+      → `invoices.convert.openExisting`) and `handleOpenExisting`'s id
+      lookup → `router.push(routes.invoiceDetail(existingId))` are manually
+      verified correct by reading the code, but are exercised only through
+      `InvoiceCard.test.tsx`/`InvoiceListTable.test.tsx` with hand-supplied
+      props, never through this screen's own id-mapping logic with a
+      populated map. Fix: add a case to `app-pages.smoke.test.tsx` (or a new
+      screen test) mocking `useInvoices` with a non-empty
+      `convertedProformaIds` map, asserting the swapped label and correct
+      navigation target.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
+      ux)
+- [ ] `InvoiceListRow`'s converted badge (`components/invoices/InvoiceListRow.tsx`
+      ~56-65) is not gated on `documentType`, unlike `InvoiceCard.tsx`
+      (~106: `invoice.documentType === "proforma" && converted`) — it
+      renders whenever the `converted` prop is true, with no proforma
+      check. Currently safe only because the sole caller
+      (`invoices/index.tsx`'s `convertedProformaIds`, built exclusively from
+      proforma rows per AC11/AC12) guarantees `converted` is never true for
+      a non-proforma row — an implicit, untested invariant at this
+      component's own boundary; `InvoiceListRow.test.tsx`'s AC17 negative
+      case uses `documentType: "proforma"` with `converted` omitted, not a
+      non-proforma row with `converted=true`. Fix: either add the same
+      `documentType` guard inside `InvoiceListRow` for defense-in-depth, or
+      add a test asserting a non-proforma invoice with `converted=true`
+      does not render the badge.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
+      ux)
 - [ ] The branch this shipped from was 2 commits stale behind `main`
       (missing the desktop sidebar collapse redesign,
       `components/navigation/AppSidebar.tsx`) at review time — cosmetic
