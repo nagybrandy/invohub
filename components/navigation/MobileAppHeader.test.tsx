@@ -121,10 +121,86 @@ describe("MobileAppHeader", () => {
     const pressables = tree!.root.findAll(
       (node) => typeof node.props?.onPress === "function"
     );
-    const bell = pressables.find((node) => node.props.accessibilityLabel === "nav.notifications");
+    const bell = pressables.find((node) => node.props.accessibilityLabel === "nav.notificationsUnread");
     act(() => {
       bell?.props.onPress();
     });
     expect(onOpenNotifications).toHaveBeenCalled();
+  });
+
+  function bellWrapper(tree: TestRenderer.ReactTestRenderer) {
+    return tree.root.findAll(
+      (n) => typeof n.props?.onPress === "function" && typeof n.props?.className === "string"
+    )[0];
+  }
+
+  it("sizes the bell wrapper to a 44x44 tap target (AC9)", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader userName="Test User" unreadCount={0} onOpenNotifications={jest.fn()} />
+      );
+    });
+    const bell = bellWrapper(tree!);
+    expect(String(bell.props.className)).toContain("h-11");
+    expect(String(bell.props.className)).toContain("w-11");
+    expect(String(bell.props.className)).toContain("items-center");
+    expect(String(bell.props.className)).toContain("justify-center");
+    expect(bell.props.hitSlop).toBe(8);
+  });
+
+  it("shows no badge for unreadCount 0", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader userName="Test User" unreadCount={0} onOpenNotifications={jest.fn()} />
+      );
+    });
+    const json = JSON.stringify(tree!.toJSON());
+    expect(json).not.toMatch(/"9\+"/);
+  });
+
+  it("shows the exact count badge for unreadCount 3", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader userName="Test User" unreadCount={3} onOpenNotifications={jest.fn()} />
+      );
+    });
+    const json = JSON.stringify(tree!.toJSON());
+    expect(json).toContain('"3"');
+  });
+
+  it("caps the badge at '9+' for unreadCount 12", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader userName="Test User" unreadCount={12} onOpenNotifications={jest.fn()} />
+      );
+    });
+    const json = JSON.stringify(tree!.toJSON());
+    expect(json).toContain("9+");
+  });
+
+  it("uses nav.notifications as the accessibilityLabel when nothing is unread (AC10)", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader userName="Test User" unreadCount={0} onOpenNotifications={jest.fn()} />
+      );
+    });
+    const bell = bellWrapper(tree!);
+    expect(bell.props.accessibilityLabel).toBe("nav.notifications");
+  });
+
+  it("uses nav.notificationsUnread as the accessibilityLabel when unreadCount > 0 (AC10)", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader userName="Test User" unreadCount={5} onOpenNotifications={jest.fn()} />
+      );
+    });
+    const bell = bellWrapper(tree!);
+    expect(bell.props.accessibilityLabel).toBe("nav.notificationsUnread");
   });
 });

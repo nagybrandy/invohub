@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 // "receipt" stays in the type union (other code still reasons about it —
 // see toInvoiceDocumentType/toTabDocumentType in useInvoiceComposer.ts) but
@@ -37,9 +38,9 @@ export function DocumentTypeTabs({ selected, onChange, disabled }: Props) {
           disabled={disabled}
           accessibilityRole="tab"
           accessibilityState={{ selected: selected === dt.value, disabled }}
-          className={`w-1/3 items-center rounded-lg px-2 py-2.5 md:flex-1 md:px-4 md:py-3 ${
+          className={`w-1/3 items-center justify-center rounded-lg px-2 py-2.5 md:flex-1 md:px-4 md:py-3 ${
             selected === dt.value ? "bg-primary" : "bg-transparent"
-          } ${disabled ? "opacity-50" : ""}`}
+          } ${disabled ? "opacity-50" : ""} ${TAP_TARGET_MIN_H}`}
         >
           <Text
             className={`text-sm font-medium ${

@@ -9,6 +9,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import { TAP_TARGET_ICON_BOX } from "@/lib/ui/tap-target";
 
 // Fixed on-navy ink for icons on this always-navy header, matching AppSidebar.
 const ON_DARK_ICON = "#ffffff";
@@ -72,12 +73,18 @@ export function MobileAppHeader({
         <HStack space="sm" className="items-center">
           <Pressable
             onPress={onOpenNotifications}
-            className="relative rounded-full p-2.5"
-            accessibilityLabel={t("nav.notifications")}
+            className={`relative rounded-full ${TAP_TARGET_ICON_BOX}`}
+            hitSlop={8}
+            accessibilityLabel={
+              unreadCount > 0 ? t("nav.notificationsUnread", { count: unreadCount }) : t("nav.notifications")
+            }
           >
             <Bell size={22} color={ON_DARK_ICON} />
             {unreadCount > 0 ? (
-              <Box className="absolute -right-0.5 -top-0.5 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 py-0.5">
+              // Offset INSIDE the enlarged 44px box (not the box corner) so
+              // the badge stays visually attached to the bell glyph instead
+              // of drifting to the far corner of the bigger tap target.
+              <Box className="absolute right-1.5 top-1.5 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 py-0.5">
                 <Text size="xs" className="font-bold text-white">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </Text>

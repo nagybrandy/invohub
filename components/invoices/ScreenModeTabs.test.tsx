@@ -22,6 +22,20 @@ describe("ScreenModeTabs", () => {
     expect(json).toContain("invoices.screenModes.preview");
   });
 
+  it("renders each tab at a >=44px tap target (AC11)", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(<ScreenModeTabs mode="edit" onChange={jest.fn()} />);
+    });
+    const tabs = tree!.root.findAll(
+      (node) => typeof node.props?.onPress === "function" && typeof node.props?.className === "string"
+    );
+    expect(tabs.length).toBeGreaterThan(0);
+    for (const tab of tabs) {
+      expect(String(tab.props.className)).toContain("min-h-11");
+    }
+  });
+
   it("calls onChange when preview pressed", () => {
     const onChange = jest.fn();
     let tree: TestRenderer.ReactTestRenderer;

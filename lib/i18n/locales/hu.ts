@@ -14,6 +14,7 @@ export default {
     menu: "Menü",
     more: "Továbbiak",
     notifications: "Értesítések",
+    notificationsUnread: "Értesítések, {{count}} olvasatlan",
     admin: "Admin panel",
     companySettings: "Cégbeállítások",
     accountSettings: "Fiókbeállítások",
@@ -185,6 +186,7 @@ export default {
       showingCount: "{{shown}} / {{total}} számla megjelenítve (legújabb elöl).",
       filterAll: "Összes",
       filterOther: "Egyéb",
+      filterOtherHint: "Nem szűrhető (díjbekérő, részben fizetett, sztornózott)",
       overdueBy: "Lejárt {{days}} napja",
       navSubmittedHint: "Valószínűleg beküldve a NAV-nak",
       navNotSubmittedHint: "Még nincs beküldve a NAV-nak",
@@ -395,6 +397,7 @@ export default {
     vat: {
       categoryLabel: "ÁFA kezelés",
       advancedToggle: "Speciális adózás",
+      rateA11y: "{{rate}}% áfakulcs",
       category: {
         normal: "Adóköteles",
         AAM: "AAM — Alanyi adómentes",

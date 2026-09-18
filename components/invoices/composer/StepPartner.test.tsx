@@ -131,6 +131,93 @@ function Harness() {
   );
 }
 
+describe("StepPartner — deadline/payment-method/currency pills (AC6)", () => {
+  function renderExpanded(overrides: Partial<InvoiceComposerState> = {}) {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <StepPartner {...baseComposerProps({ showDatesPayment: true, ...overrides })} />
+      );
+    });
+    return tree!;
+  }
+
+  // Finds the deepest onPress-bearing node whose own text content matches
+  // — that is the rendered Pressable actually carrying the computed
+  // className, not a ChoicePill wrapper fiber (which has no className of
+  // its own when the caller relies on ChoicePill's internal default) and
+  // not an unrelated pressable elsewhere in the step (e.g. the accordion
+  // toggle) that happens to also carry onPress + className.
+  function pillWithText(tree: TestRenderer.ReactTestRenderer, text: string) {
+    return tree.root
+      .findAll(
+        (n) =>
+          typeof n.props?.onPress === "function" &&
+          typeof n.props?.className === "string" &&
+          n.findAll((c) => String(c.props?.children ?? "").includes(text)).length > 0
+      )
+      .pop();
+  }
+
+  it("renders the deadline quick-pick, payment-method, and currency pills at >=44px", () => {
+    const tree = renderExpanded();
+    const targets = [
+      "8",
+      "15",
+      "30",
+      "invoices.paymentMethods.transfer",
+      "invoices.paymentMethods.cash",
+      "invoices.paymentMethods.card",
+      "invoices.paymentMethods.other",
+      "HUF",
+      "EUR",
+    ];
+    for (const text of targets) {
+      const pill = pillWithText(tree, text);
+      expect(pill).toBeDefined();
+      expect(String(pill!.props.className)).toContain("min-h-11");
+    }
+  });
+
+  it("calls setDeadlineDays(30) when the 30-day quick-pick pill is pressed", () => {
+    const setDeadlineDays = jest.fn();
+    const tree = renderExpanded({ setDeadlineDays });
+    const pill = tree.root
+      .findAll((n) => typeof n.props?.onPress === "function")
+      .find((n) => n.findAll((c) => String(c.props?.children ?? "").includes("30")).length > 0);
+    act(() => {
+      pill?.props.onPress?.();
+    });
+    expect(setDeadlineDays).toHaveBeenCalledWith(30);
+  });
+
+  it("calls setPaymentMethod when a payment-method pill is pressed", () => {
+    const setPaymentMethod = jest.fn();
+    const tree = renderExpanded({ setPaymentMethod });
+    const pill = tree.root
+      .findAll((n) => typeof n.props?.onPress === "function")
+      .find((n) =>
+        n.findAll((c) => c.props?.children === "invoices.paymentMethods.cash").length > 0
+      );
+    act(() => {
+      pill?.props.onPress?.();
+    });
+    expect(setPaymentMethod).toHaveBeenCalledWith("cash");
+  });
+
+  it("calls setCurrency when a currency pill is pressed", () => {
+    const setCurrency = jest.fn();
+    const tree = renderExpanded({ setCurrency, currency: "HUF" });
+    const pill = tree.root
+      .findAll((n) => typeof n.props?.onPress === "function")
+      .find((n) => n.findAll((c) => c.props?.children === "EUR").length > 0);
+    act(() => {
+      pill?.props.onPress?.();
+    });
+    expect(setCurrency).toHaveBeenCalledWith("EUR");
+  });
+});
+
 describe("StepPartner — exchangeRate focusField", () => {
   beforeEach(() => {
     mockFocus.mockClear();

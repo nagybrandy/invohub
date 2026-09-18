@@ -10,6 +10,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
 import { DateInput } from "@/components/invoices/composer/DateInput";
 import { PartnerPicker } from "@/components/invoices/composer/PartnerPicker";
 import { DEADLINE_QUICK_DAYS } from "@/components/invoices/composer/useInvoiceComposer";
@@ -239,22 +240,18 @@ export function StepPartner(composer: InvoiceComposerState) {
             </VStack>
           </HStack>
 
-          <HStack space="xs" className="flex-wrap items-center">
+          <VStack space="xs">
             <Text size="xs" className="text-muted-foreground">{t("invoices.composer.deadlineQuickPick")}</Text>
-            {DEADLINE_QUICK_DAYS.map((d) => (
-              <Pressable
-                key={d}
-                onPress={() => setDeadlineDays(d)}
-                className={`rounded-lg border px-3 py-1 ${
-                  deadlineDays === d ? "border-primary bg-primary/10" : "border-border bg-background"
-                }`}
-              >
-                <Text size="xs">
-                  {d} {t("invoices.fields.days")}
-                </Text>
-              </Pressable>
-            ))}
-          </HStack>
+            <ChoicePillGroup>
+              {DEADLINE_QUICK_DAYS.map((d) => (
+                <ChoicePill key={d} selected={deadlineDays === d} onPress={() => setDeadlineDays(d)}>
+                  <Text size="xs" className={deadlineDays === d ? "font-medium text-primary" : "text-foreground"}>
+                    {d} {t("invoices.fields.days")}
+                  </Text>
+                </ChoicePill>
+              ))}
+            </ChoicePillGroup>
+          </VStack>
 
           <HStack className="items-center justify-between">
             <Text size="sm" className="font-light text-foreground">{t("invoices.fields.continuousPerformance")}</Text>
@@ -263,37 +260,29 @@ export function StepPartner(composer: InvoiceComposerState) {
 
           <VStack space="xs">
             <Text size="xs" className="text-muted-foreground">{t("invoices.fields.paymentMethod")}</Text>
-            <HStack space="sm" className="flex-wrap">
+            <ChoicePillGroup>
               {PAYMENT_METHOD_I18N.map((pm) => (
-                <Pressable
-                  key={pm.value}
-                  onPress={() => setPaymentMethod(pm.value)}
-                  className={`rounded-lg border px-3 py-1.5 ${
-                    paymentMethod === pm.value ? "border-primary bg-primary/10" : "border-border bg-background"
-                  }`}
-                >
-                  <Text size="sm">{t(pm.i18nKey)}</Text>
-                </Pressable>
+                <ChoicePill key={pm.value} selected={paymentMethod === pm.value} onPress={() => setPaymentMethod(pm.value)}>
+                  <Text size="sm" className={paymentMethod === pm.value ? "font-medium text-primary" : "text-foreground"}>
+                    {t(pm.i18nKey)}
+                  </Text>
+                </ChoicePill>
               ))}
-            </HStack>
+            </ChoicePillGroup>
           </VStack>
 
           <HStack space="sm" className="flex-wrap items-end">
             <VStack space="xs">
               <Text size="xs" className="text-muted-foreground">{t("invoices.fields.currency")}</Text>
-              <HStack space="sm">
+              <ChoicePillGroup>
                 {(["HUF", "EUR"] as InvoiceCurrency[]).map((value) => (
-                  <Pressable
-                    key={value}
-                    onPress={() => setCurrency(value)}
-                    className={`rounded-lg border px-3 py-1.5 ${
-                      currency === value ? "border-primary bg-primary/10" : "border-border bg-background"
-                    }`}
-                  >
-                    <Text size="sm">{value}</Text>
-                  </Pressable>
+                  <ChoicePill key={value} selected={currency === value} onPress={() => setCurrency(value)}>
+                    <Text size="sm" className={currency === value ? "font-medium text-primary" : "text-foreground"}>
+                      {value}
+                    </Text>
+                  </ChoicePill>
                 ))}
-              </HStack>
+              </ChoicePillGroup>
             </VStack>
             {currency !== "HUF" ? (
               <VStack className="min-w-[140px]">
