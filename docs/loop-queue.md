@@ -779,11 +779,12 @@ Remaining for the launch gate:
       slice): the additive `receipt.exchangeRate`/`navReceiptSubmission
       .currency` columns, and the pre-existing `selectable`-prop web console
       warning (separate filed follow-up below).
-      **PR opened 2026-09-18** (`slice/receipt-blocked-message-i18n-fallback`,
-      base `slice/e-nyugta-nav-receipt-api`, commit `6964405`) — not merged,
+      **PR opened 2026-09-18**: https://github.com/nagybrandy/invohub/pull/19
+      (`slice/receipt-blocked-message-i18n-fallback`, base
+      `slice/e-nyugta-nav-receipt-api`, commit `6964405`) — not merged,
       needs sign-off on both this stacked PR and its parent slice's OQ list.
       2 low-severity ship-review follow-ups filed below (acceptance/ux
-      dimensions), none blocking; see PR description for the PR URL.
+      dimensions), none blocking.
 - [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — the new NAV-report-id row in
       `app/(app)/receipts/[id]/index.tsx` repeats a pre-existing
