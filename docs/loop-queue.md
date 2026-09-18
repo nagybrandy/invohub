@@ -499,13 +499,14 @@ screenshots before writing a fix plan:
    `slice/dashboard-overdue-partially-paid`. See the matching detailed
    entry below (under "Remaining for the launch gate") for what was
    actually wrong and fixed.
-7. [~] e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.3 / XSD
-   1.1.1, test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind
-   demo/test modes — **slice 1 of 3 built** on `slice/e-nyugta-nav-receipt-api`
+7. [~] needs sign-off (PR) — e-nyugta: real NAV eRECEIPT API
+   (nav-gov-hu/eRECEIPT spec v1.3 / XSD 1.1.1, test base
+   https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test modes —
+   **slice 1 of 3 built** on `slice/e-nyugta-nav-receipt-api`
    (`docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md`), all 20 acceptance
-   criteria green, **not merged — tax-legal gated, needs human sign-off**
-   (VAT-category names, OQ-1 through OQ-6 in the plan §8). See the matching
-   detailed entry below for what shipped.
+   criteria green, **PR opened 2026-09-18 — not merged, tax-legal gated,
+   needs human sign-off** (VAT-category names, OQ-1 through OQ-6 in the
+   plan §8). See the matching detailed entry below for what shipped.
 8. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
    — **partially shipped**: the composer's own line-item icon buttons are
    now 44px (`components/invoices/composer/LineItemRow.tsx`), but the
@@ -690,7 +691,7 @@ Remaining for the launch gate:
       overdue fields while a partially-paid-not-yet-due invoice does not,
       and that `outstanding` is unaffected either way. `npm run
       typecheck` and `npm run test:unit` green (197 suites / 1113 tests).
-- [~] folyamatban (slice/e-nyugta-nav-receipt-api)
+- [~] needs sign-off (PR) (slice/e-nyugta-nav-receipt-api)
       e-nyugta (nyugtaadat-szolgáltatás) — **slice 1 of 3 built**, PR pending
       human sign-off (needs tax/legal sign-off; must not auto-merge/auto-deploy).
       Plan: `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md` (supersedes
@@ -731,6 +732,39 @@ Remaining for the launch gate:
       documented in `docs/nav-test-setup.md` §7), and the additive
       `receipt.exchangeRate` column that would unblock non-HUF reporting —
       no `db/schema.ts` change in this slice at all.
+      **PR opened 2026-09-18** (`slice/e-nyugta-nav-receipt-api`, commit
+      `484cc85`, includes a fix-round pass correcting a currency-group
+      mixup on the receipt detail screen) — not merged, pending tax/legal
+      sign-off per the OQ list above; `npx tsc --noEmit` and `npm run
+      test:unit` (207 suites / 1254 tests) are green on the branch. 2
+      low-severity follow-ups filed below (acceptance/ux dimensions), none
+      blocking.
+- [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
+      2026-09-18)** — `receipts.navMissingExchangeRate` is defined in both
+      `lib/i18n/locales/hu.ts:555` and `en.ts:555` but referenced nowhere
+      else in the repo. The message actually shown for a blocked non-HUF
+      receipt group comes from `BLOCKED_MESSAGE_HU`, a raw Hungarian string
+      literal duplicated identically in
+      `app/api/receipts/[id]/submit-nav+api.ts:20-21` and
+      `app/api/cron/nav-receipt-report+api.ts:16-17`, written into
+      `navReceiptSubmission.errorMessage` and rendered as-is (no `t()`
+      call) in `app/(app)/receipts/[id]/index.tsx:201`. An English-locale
+      user sees the raw Hungarian sentence instead of the English
+      translation already sitting unused in `en.ts`. Fix: store the stable
+      reason code (`BlockedReceiptGroup.reason` already provides
+      `"missing_exchange_rate"`) in `errorMessage` instead of a
+      pre-rendered sentence, and render it client-side via
+      `t("receipts.navMissingExchangeRate")`, deleting the duplicated
+      literal from both API route files.
+- [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
+      2026-09-18)** — the new NAV-report-id row in
+      `app/(app)/receipts/[id]/index.tsx` repeats a pre-existing
+      `selectable` prop console error on web ("Received `true` for a
+      non-boolean attribute"), matching the unchanged `qrUrl` text a few
+      lines below it in the same file. Not a new regression — out of scope
+      for this PR — but worth a follow-up to replace `selectable` on web
+      Gluestack `Text` with the web-safe equivalent (or gate it behind
+      `Platform.OS !== 'web'`) across both occurrences in this file.
 - [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
       Non-HUF invoices report a false HUF VAT base to NAV — confirmed
       resolved: `lib/nav/invoice-xml.ts` now emits the real
