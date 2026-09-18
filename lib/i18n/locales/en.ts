@@ -546,8 +546,14 @@ export default {
     navSubmitted: "Submitted",
     navPending: "Not submitted",
     navSubmission: "NAV receipt submission",
-    navSubmissionHint:
-      "The receipt will be automatically submitted to NAV eReceipt.",
+    navReportId: "NAV report ID",
+    navReportError: "NAV error",
+    navModeDemo: "Demo",
+    navModeTest: "NAV test",
+    navDemoHint: "Demo mode: this receipt is not sent to NAV.",
+    navTestHint: "The daily receipt data report is sent to NAV's test system.",
+    navMissingExchangeRate:
+      "Non-HUF receipt: no exchange rate on file, so it cannot be reported to NAV.",
     search: "Search",
     columnNumber: "Receipt #",
     columnClient: "Client",

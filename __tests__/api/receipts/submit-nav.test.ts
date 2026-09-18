@@ -1,4 +1,3 @@
-// __tests__/api/receipts/submit-nav.test.ts
 jest.mock("@/lib/api/session", () => ({
   requireSession: jest.fn(),
   unauthorizedResponse: () =>
@@ -6,23 +5,17 @@ jest.mock("@/lib/api/session", () => ({
   jsonResponse: (data: unknown, status = 200) => Response.json(data, { status }),
 }));
 
-jest.mock("@/db", () => {
-  const chainable = () => {
-    const chain: any = {
-      values: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockResolvedValue([]),
-      returning: jest.fn().mockResolvedValue([]),
-    };
-    return chain;
-  };
-  return {
-    db: {
-      insert: jest.fn().mockImplementation(chainable),
-      update: jest.fn().mockImplementation(chainable),
-    },
-  };
+const mockInsert = jest.fn().mockReturnValue({ values: jest.fn().mockResolvedValue([]) });
+const mockUpdate = jest.fn().mockReturnValue({
+  set: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([]) }),
 });
+
+jest.mock("@/db", () => ({
+  db: {
+    insert: (...args: unknown[]) => mockInsert(...args),
+    update: (...args: unknown[]) => mockUpdate(...args),
+  },
+}));
 
 jest.mock("@/db/schema", () => ({
   navReceiptSubmission: { id: "navReceiptSubmission.id" },
@@ -31,7 +24,11 @@ jest.mock("@/db/schema", () => ({
 
 jest.mock("@/lib/receipts/service", () => ({
   getReceiptById: jest.fn(),
-  getDailyVatAggregation: jest.fn(),
+  getReceiptsByDateRange: jest.fn(),
+}));
+
+jest.mock("@/lib/receipts/daily-report", () => ({
+  buildDailyReceiptReports: jest.fn(),
 }));
 
 jest.mock("@/lib/companies/service", () => ({
@@ -42,21 +39,27 @@ jest.mock("@/lib/id", () => ({
   createId: jest.fn(() => "test-id"),
 }));
 
+jest.mock("@/lib/nav/credentials", () => ({
+  decryptNavSecretOrPassthrough: jest.fn((v: string | null | undefined) => v ?? undefined),
+}));
+
 jest.mock("@/lib/nav-receipt/report", () => ({
-  submitDailyReceiptReport: jest.fn(),
+  submitReceiptDataReport: jest.fn(),
 }));
 
 import { requireSession } from "@/lib/api/session";
-import { getReceiptById, getDailyVatAggregation } from "@/lib/receipts/service";
+import { getReceiptById, getReceiptsByDateRange } from "@/lib/receipts/service";
+import { buildDailyReceiptReports } from "@/lib/receipts/daily-report";
 import { getCompanyByUserId } from "@/lib/companies/service";
-import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
+import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
 import { POST } from "@/app/api/receipts/[id]/submit-nav+api";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
 const mockGetReceipt = getReceiptById as jest.MockedFunction<typeof getReceiptById>;
+const mockGetRange = getReceiptsByDateRange as jest.MockedFunction<typeof getReceiptsByDateRange>;
+const mockBuildReports = buildDailyReceiptReports as jest.MockedFunction<typeof buildDailyReceiptReports>;
 const mockGetCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
-const mockSubmit = submitDailyReceiptReport as jest.MockedFunction<typeof submitDailyReceiptReport>;
-const mockAggregation = getDailyVatAggregation as jest.MockedFunction<typeof getDailyVatAggregation>;
+const mockSubmit = submitReceiptDataReport as jest.MockedFunction<typeof submitReceiptDataReport>;
 
 function makeRequest(id: string) {
   return new Request(`http://localhost/api/receipts/${id}/submit-nav`, {
@@ -64,7 +67,7 @@ function makeRequest(id: string) {
   });
 }
 
-const fakeCompany = {
+const fakeCompanyTest = {
   id: "comp-1",
   userId: "user-1",
   name: "Demo Kft.",
@@ -72,9 +75,9 @@ const fakeCompany = {
   navTechnicalUser: "tech-user",
   navTechnicalPassword: "tech-pass",
   navXmlSignKey: "sign-key",
-  // Real submitDailyReceiptReport is only called outside demo mode — tests
-  // below that exercise the real-call path opt into "test" explicitly.
+  navReceiptSoftwareId: "InvoHub",
   navEnvironment: "test",
+  vatExempt: false,
 };
 
 const fakeReceipt = {
@@ -86,23 +89,31 @@ const fakeReceipt = {
   issuedAt: "2026-06-15T10:00:00.000Z",
 };
 
-const fakeAggregation = {
-  reportDate: "2026-06-15",
-  receiptCount: 3,
-  startReceiptNumber: "NYG-001",
-  endReceiptNumber: "NYG-003",
-  vatBreakdown: [
-    { vatRate: 27, netAmount: 3937, vatAmount: 1063, grossAmount: 5000, itemCount: 3 },
-  ],
+const hufReport = {
+  taxPayerId: "12345678",
+  issuingSoftwareName: "InvoHub",
+  applicableDate: "2026-06-15",
+  serialNumber: "NYG-001",
+  currency: "HUF",
+  exchangeRate: null,
+  vatCategoryItems: [{ vat: "27%", saleDocument: 5000, modifyingDocument: 0 }],
+  total: 5000,
+  numberOfSaleDocument: 1,
+  numberOfModifyingDocument: 0,
 };
 
 describe("POST /api/receipts/[id]/submit-nav", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInsert.mockReturnValue({ values: jest.fn().mockResolvedValue([]) });
+    mockUpdate.mockReturnValue({
+      set: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([]) }),
+    });
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockGetReceipt.mockResolvedValue(fakeReceipt as never);
-    mockGetCompany.mockResolvedValue(fakeCompany as never);
-    mockAggregation.mockResolvedValue(fakeAggregation as never);
+    mockGetCompany.mockResolvedValue(fakeCompanyTest as never);
+    mockGetRange.mockResolvedValue([fakeReceipt as never]);
+    mockBuildReports.mockReturnValue({ reports: [hufReport as never], blocked: [] });
   });
 
   it("returns 401 without session", async () => {
@@ -143,9 +154,9 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
     expect(body.error).toContain("Company profile");
   });
 
-  it("simulates acceptance in demo mode (the default) without calling the real NAV endpoint", async () => {
+  it("makes zero fetch calls in demo mode (the default) and still records a submission row", async () => {
     mockGetCompany.mockResolvedValue({
-      ...fakeCompany,
+      ...fakeCompanyTest,
       navEnvironment: "demo",
       navTechnicalUser: null,
       navTechnicalPassword: null,
@@ -157,13 +168,15 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.transactionId).toMatch(/^RECEIPT-DEMO-/);
+    expect(body.mode).toBe("demo");
     expect(mockSubmit).not.toHaveBeenCalled();
+    expect(mockGetRange).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 400 when NAV credentials missing", async () => {
+  it("returns 400 when NAV credentials missing in test mode", async () => {
     mockGetCompany.mockResolvedValue({
-      ...fakeCompany,
+      ...fakeCompanyTest,
       navTechnicalUser: null,
       navTechnicalPassword: null,
       navXmlSignKey: null,
@@ -176,34 +189,49 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
     expect(body.error).toContain("NAV credentials");
   });
 
-  it("returns success on NAV submission", async () => {
-    mockSubmit.mockResolvedValue({
-      ok: true,
-      transactionId: "NAV-TX-001",
-    } as never);
+  it("in test mode calls submitReceiptDataReport once per reportable currency group and stores the NAV id", async () => {
+    mockSubmit.mockResolvedValue({ ok: true, reportId: "12345678_20260615_1" } as never);
 
     const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.transactionId).toBe("NAV-TX-001");
-    expect(body.receiptCount).toBe(3);
     expect(mockSubmit).toHaveBeenCalledTimes(1);
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    const insertedValues = mockInsert.mock.results[0].value.values.mock.calls[0][0];
+    expect(insertedValues.transactionId).toBe("12345678_20260615_1");
+    expect(insertedValues.status).toBe("submitted");
   });
 
-  it("returns error when NAV submission fails", async () => {
-    mockSubmit.mockResolvedValue({
-      ok: false,
-      error: "NAV validation error",
-    } as never);
+  it("stores NAV's error text in errorMessage on a NAV rejection", async () => {
+    mockSubmit.mockResolvedValue({ ok: false, error: "VALIDATION_ERROR Bad data" } as never);
 
     const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(false);
-    expect(body.error).toBe("NAV validation error");
+    const insertedValues = mockInsert.mock.results[0].value.values.mock.calls[0][0];
+    expect(insertedValues.status).toBe("failed");
+    expect(insertedValues.errorMessage).toBe("VALIDATION_ERROR Bad data");
+  });
+
+  it("stores the blocked-group message in errorMessage for a non-HUF group, with no fetch call", async () => {
+    mockBuildReports.mockReturnValue({
+      reports: [],
+      blocked: [{ currency: "EUR", reason: "missing_exchange_rate", receiptCount: 1 }],
+    });
+
+    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(false);
+    expect(mockSubmit).not.toHaveBeenCalled();
+    const insertedValues = mockInsert.mock.results[0].value.values.mock.calls[0][0];
+    expect(insertedValues.status).toBe("failed");
+    expect(insertedValues.errorMessage).toContain("HUF");
   });
 
   it("returns 500 on unexpected exception", async () => {

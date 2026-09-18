@@ -13,6 +13,33 @@ jest.mock("@/lib/receipts/service", () => ({
   validateReceiptInput: jest.fn(),
 }));
 
+jest.mock("@/lib/companies/service", () => ({
+  getCompanyByUserId: jest.fn(),
+}));
+
+jest.mock("@/db", () => ({
+  db: {
+    select: jest.fn().mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          orderBy: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      }),
+    }),
+  },
+}));
+
+jest.mock("@/db/schema", () => ({
+  navReceiptSubmission: {
+    id: "navReceiptSubmission.id",
+    userId: "navReceiptSubmission.userId",
+    reportDate: "navReceiptSubmission.reportDate",
+    createdAt: "navReceiptSubmission.createdAt",
+  },
+}));
+
 import { requireSession } from "@/lib/api/session";
 import {
   listReceipts,
@@ -20,6 +47,7 @@ import {
   getReceiptById,
   validateReceiptInput,
 } from "@/lib/receipts/service";
+import { getCompanyByUserId } from "@/lib/companies/service";
 import { GET as listGET, POST } from "@/app/api/receipts+api";
 import { GET as detailGET } from "@/app/api/receipts/[id]+api";
 
@@ -28,6 +56,7 @@ const mockList = listReceipts as jest.MockedFunction<typeof listReceipts>;
 const mockCreate = createReceipt as jest.MockedFunction<typeof createReceipt>;
 const mockGetById = getReceiptById as jest.MockedFunction<typeof getReceiptById>;
 const mockValidate = validateReceiptInput as jest.MockedFunction<typeof validateReceiptInput>;
+const mockGetCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
 
 const fakeReceipt = {
   id: "r1",
@@ -185,9 +214,10 @@ describe("GET /api/receipts/[id]", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns receipt json", async () => {
+  it("returns receipt json with NAV mode info", async () => {
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockGetById.mockResolvedValue(fakeReceipt as never);
+    mockGetCompany.mockResolvedValue({ navEnvironment: "demo" } as never);
 
     const res = await detailGET(
       new Request("http://localhost/api/receipts/r1"),
@@ -197,6 +227,7 @@ describe("GET /api/receipts/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body.receipt.id).toBe("r1");
+    expect(body.navMode).toBe("demo");
     expect(mockGetById).toHaveBeenCalledWith("user-1", "r1");
   });
 });

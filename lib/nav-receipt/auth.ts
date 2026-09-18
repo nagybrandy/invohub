@@ -1,8 +1,8 @@
 // lib/nav-receipt/auth.ts
-import { createHash, randomUUID } from "crypto";
-
 import type { NavReceiptAuthToken, NavReceiptCredentials, NavReceiptEnvironment } from "./types";
 import { getReceiptBaseUrl } from "./environment";
+import { parseNavReceiptResponse } from "./response";
+import { buildAuthTokenXml } from "./xml-builder";
 
 // Keyed by credentials identity + environment, not a single module-level
 // token — this module runs once per process, and the daily receipt-report
@@ -12,12 +12,8 @@ import { getReceiptBaseUrl } from "./environment";
 // for company A's credentials.
 const tokenCache = new Map<string, NavReceiptAuthToken>();
 
-function cacheKey(credentials: NavReceiptCredentials, env: NavReceiptEnvironment): string {
+function cacheKey(env: NavReceiptEnvironment, credentials: NavReceiptCredentials): string {
   return `${env}:${credentials.taxNumber}:${credentials.technicalUser}`;
-}
-
-function hashPassword(password: string): string {
-  return createHash("sha512").update(password, "utf8").digest("hex").toUpperCase();
 }
 
 function isTokenValid(token: NavReceiptAuthToken): boolean {
@@ -28,52 +24,49 @@ export async function authenticate(
   credentials: NavReceiptCredentials,
   env: NavReceiptEnvironment
 ): Promise<NavReceiptAuthToken> {
-  const key = cacheKey(credentials, env);
-  const cachedToken = tokenCache.get(key);
-  if (cachedToken && isTokenValid(cachedToken)) {
-    return cachedToken;
+  if (env === "demo") {
+    // Demo is a local simulation — callers must never route here for a
+    // demo-mode company (see app/api/receipts/[id]/submit-nav+api.ts /
+    // app/api/cron/nav-receipt-report+api.ts, which branch before calling
+    // authenticate at all). Fail loudly rather than silently going to the
+    // network with a demo credential.
+    throw new Error("authenticate() must not be called in demo mode — demo never reaches NAV.");
+  }
+
+  const key = cacheKey(env, credentials);
+  const cached = tokenCache.get(key);
+  if (cached && isTokenValid(cached)) {
+    return cached;
   }
 
   const baseUrl = getReceiptBaseUrl(env);
-  const requestId = randomUUID();
-  const passwordHash = hashPassword(credentials.technicalPassword);
+  const xml = buildAuthTokenXml(credentials);
 
-  const body = {
-    header: {
-      requestId,
-      timestamp: new Date().toISOString(),
-    },
-    user: {
-      login: credentials.technicalUser,
-      passwordHash,
-      taxNumber: credentials.taxNumber,
-    },
-  };
-
-  const res = await fetch(`${baseUrl}/authenticate`, {
+  const res = await fetch(`${baseUrl}/auth/token`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/xml" },
+    body: xml,
   });
 
-  const text = await res.text();
-  let parsed: { token?: string; tokenValiditySeconds?: number; resultCode?: string; resultMessage?: string };
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(`NAV receipt auth failed (${res.status}): ${text.slice(0, 200)}`);
+  const body = await res.text();
+  const parsed = parseNavReceiptResponse(body, ["token", "validTo"]);
+
+  if (!parsed) {
+    throw new Error(`NAV eNyugta auth failed (HTTP ${res.status}): ${body.slice(0, 200)}`);
   }
 
-  if (!res.ok || !parsed.token) {
-    throw new Error(
-      `NAV receipt auth failed: ${parsed.resultCode ?? res.status} ${parsed.resultMessage ?? ""}`.trim()
-    );
+  const token = parsed.token;
+  const validTo = parsed.validTo;
+
+  if (!res.ok || !token || !validTo) {
+    const resultCode = parsed.resultCode ?? String(res.status);
+    const message = parsed.message ?? "Unknown NAV error.";
+    throw new Error(`NAV eNyugta auth rejected: ${resultCode} ${message}`.trim());
   }
 
-  const expiresAt = new Date(Date.now() + (parsed.tokenValiditySeconds ?? 300) * 1000);
-  const token: NavReceiptAuthToken = { token: parsed.token, expiresAt };
-  tokenCache.set(key, token);
-  return token;
+  const authToken: NavReceiptAuthToken = { token, expiresAt: new Date(validTo) };
+  tokenCache.set(key, authToken);
+  return authToken;
 }
 
 export function clearAuthCache(): void {
