@@ -15,6 +15,27 @@ export type ComposerStepId = "partner" | "items" | "review";
 
 export const COMPOSER_STEP_ORDER: ComposerStepId[] = ["partner", "items", "review"];
 
+export type ComposerDesktopLayout = {
+  /** Whether the sticky 400px ComposerSummary column renders on this step. */
+  showSummaryColumn: boolean;
+  /** The form column's max width, or undefined for "no cap" (composer-line-item-horizontal-scroll-1440). */
+  formMaxWidth: number | undefined;
+};
+
+/**
+ * composer-line-item-horizontal-scroll-1440: the items step gets the full
+ * content width — no 400px summary column, no 720px form cap — so the
+ * 860px line-item grid (grid-columns.ts) fits without scrolling inside its
+ * own card at 1440px. Partner and Ellenőrzés keep the summary + cap exactly
+ * as before (see docs/decisions/2026-09-18-composer-items-step-full-width-grid.md).
+ */
+export function composerDesktopLayout(step: ComposerStepId): ComposerDesktopLayout {
+  if (step === "items") {
+    return { showSummaryColumn: false, formMaxWidth: undefined };
+  }
+  return { showSummaryColumn: true, formMaxWidth: 720 };
+}
+
 /** INV-6: suggested units of measure for the line-item grid's "Egység" column. */
 export const UNIT_OPTIONS = ["db", "óra", "nap", "hó", "km", "kg", "m²", "alkalom"];
 

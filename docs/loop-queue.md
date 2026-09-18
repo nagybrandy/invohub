@@ -1070,18 +1070,19 @@ Remaining for the launch gate:
       gap, not a regression. Either rewrite AC4 to check weight 700, or
       apply `font-medium` somewhere in the heading scale and add the
       missing e2e check. (2026-09-15 audit, acceptance)
-- [~] folyamatban (slice/composer-line-item-horizontal-scroll-1440)
-      Composer line-item row still needs horizontal scrolling within
+- [x] Composer line-item row still needs horizontal scrolling within
       itself at 1440px to show every column beside the fixed 400px
       summary panel (~680px available vs. ~1068px needed for the spec's
       full 8-column layout, including the description field's 240px
-      minimum). Fixing this fully needs a larger redesign — e.g. reworking
-      the summary panel width, or restructuring the row itself (merging
-      Nettó/Bruttó into one figure) — beyond a narrow round-2 fix.
-      (2026-09-15 audit, ux-desktop) Plan:
-      `docs/plans/2026-09-18-composer-line-item-horizontal-scroll-1440.md`
-      (step 2 goes full width + 8 columns → 6; row minimum 860px vs.
-      1112px available at 1440px)
+      minimum). (2026-09-15 audit, ux-desktop) Fixed on
+      `slice/composer-line-item-horizontal-scroll-1440` per
+      `docs/plans/2026-09-18-composer-line-item-horizontal-scroll-1440.md`:
+      step 2 now spans the full content column (no 400px summary, no 720px
+      form cap — `composerDesktopLayout()`), the row merges Menny./Egység
+      and Nettó/Bruttó into 6 columns (`grid-columns.ts`,
+      `composerGridMinWidth() === 860`), which fits the 1112px available at
+      1440px (was 680px). Sticky totals bar + `previewSlot` keep INV-9/
+      INV-13 (see `docs/decisions/2026-09-18-composer-items-step-full-width-grid.md`).
 - [ ] `components/notifications/NotificationPanel.tsx` has substantial
       pre-existing hardcoded English chrome text ("Notifications", "Mark
       all read", "Refresh", empty-state copy, "Just now"/"Xh ago") — left

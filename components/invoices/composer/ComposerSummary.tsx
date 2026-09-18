@@ -3,21 +3,13 @@
 // document preview that never replaces the form (spec §2.2, INV-9, INV-13).
 import * as React from "react";
 import { Box } from "@/components/ui/box";
-import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Drawer,
-  DrawerBackdrop,
-  DrawerBody,
-  DrawerContent,
-  DrawerHeader,
-} from "@/components/ui/drawer";
 import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { ComposerPreviewButton } from "@/components/invoices/composer/ComposerPreviewButton";
 import { groupVatRows } from "@/components/invoices/composer/composer-logic";
-import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import type { InvoicePdfCompany } from "@/lib/invoices/generate-pdf";
 import type { Invoice, InvoiceCurrency, InvoiceLineItem, InvoiceTotals } from "@/lib/invoices/types";
@@ -41,7 +33,6 @@ export function ComposerSummary({
   lineItems: InvoiceLineItem[];
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
-  const [previewOpen, setPreviewOpen] = React.useState(false);
   const vatRows = groupVatRows(lineItems);
 
   return (
@@ -98,40 +89,14 @@ export function ComposerSummary({
       </Card>
 
       <Card className="overflow-hidden p-3">
-        <VStack space="sm">
-          <Button
-            size="sm"
-            variant="outline"
-            onPress={() => setPreviewOpen(true)}
-            testID="composer-open-preview"
-          >
-            <ButtonText>{t("invoices.composer.openFullPreview")}</ButtonText>
-          </Button>
-          <Box
-            className="pointer-events-none h-[220px] origin-top-left scale-[0.42] overflow-hidden rounded-md border border-subtle"
-            style={{ width: "238%" }}
-          >
-            <InvoiceDocumentPreview invoice={invoice} company={company} layout="tabs" minHeight={520} />
-          </Box>
-        </VStack>
+        <ComposerPreviewButton
+          invoice={invoice}
+          invoiceId={invoiceId}
+          company={company}
+          showThumbnail
+          t={t}
+        />
       </Card>
-
-      <Drawer isOpen={previewOpen} onClose={() => setPreviewOpen(false)} size="lg" anchor="bottom">
-        <DrawerBackdrop />
-        <DrawerContent className="max-h-[92%]">
-          <DrawerHeader>
-            <Heading size="md">{t("invoices.composer.fullPreviewTitle")}</Heading>
-          </DrawerHeader>
-          <DrawerBody className="flex-1">
-            <InvoiceDocumentPreview
-              invoice={invoice}
-              invoiceId={invoiceId}
-              company={company}
-              minHeight={480}
-            />
-          </DrawerBody>
-        </DrawerContent>
-      </Drawer>
     </VStack>
   );
 }

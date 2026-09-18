@@ -1,8 +1,11 @@
 // components/invoices/composer/InvoiceComposer.tsx
 // The full 3-step composer flow — new.tsx and edit.tsx both render this
-// (docs/design/app-ux-spec-2026-09-14.md §2, §2.7). Desktop: 2 columns,
-// form max 720px, sticky 400px summary. Mobile: one step at a time, a 48px
-// sticky total bar, and a single-row footer (spec §2.2, INV-19/M1).
+// (docs/design/app-ux-spec-2026-09-14.md §2, §2.7). Desktop: 2 columns on
+// Partner/Ellenőrzés (form max 720px, sticky 400px summary); the items step
+// spans the full content width instead (composerDesktopLayout, composer-
+// line-item-horizontal-scroll-1440 — see the ADR under docs/decisions/).
+// Mobile: one step at a time, a 48px sticky total bar, and a single-row
+// footer (spec §2.2, INV-19/M1).
 import * as React from "react";
 import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
@@ -15,6 +18,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
+import { ComposerPreviewButton } from "@/components/invoices/composer/ComposerPreviewButton";
 import { ComposerStepper } from "@/components/invoices/composer/ComposerStepper";
 import { ComposerSummary } from "@/components/invoices/composer/ComposerSummary";
 import { StepPartner } from "@/components/invoices/composer/StepPartner";
@@ -22,6 +26,7 @@ import { StepLineItems } from "@/components/invoices/composer/StepLineItems";
 import { StepReview } from "@/components/invoices/composer/StepReview";
 import {
   COMPOSER_STEP_ORDER,
+  composerDesktopLayout,
   type ComposerStepId,
 } from "@/components/invoices/composer/composer-logic";
 import {
@@ -112,6 +117,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
 
   const stepIndex = COMPOSER_STEP_ORDER.indexOf(step);
   const mobileStepLabel = `${stepIndex + 1}/${COMPOSER_STEP_ORDER.length} · ${t(STEP_LABEL_KEYS[step])}`;
+  const desktopLayout = composerDesktopLayout(step);
 
   const stepErrorMessage =
     step === "partner"
@@ -313,11 +319,13 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             {/* The line-item grid is a table, not a stack of fields — it
                 legitimately needs more than 720px of row width (spec §2.4);
                 the 720px cap (spec §2.2, INV-3/E3) applies to individual
-                form fields on the Partner and Review steps, not to the
-                grid's overall width. */}
+                form fields on the Partner and Review steps. On the items
+                step composerDesktopLayout() drops both the cap and the
+                summary column so the grid fits without inner scrolling at
+                1440px (composer-line-item-horizontal-scroll-1440, ADR). */}
             <Box
               className="min-w-0 flex-1"
-              style={isDesktop && step !== "items" ? { maxWidth: 720 } : undefined}
+              style={isDesktop && desktopLayout.formMaxWidth ? { maxWidth: desktopLayout.formMaxWidth } : undefined}
             >
               {step === "partner" ? <StepPartner {...composer} /> : null}
               {step === "items" ? (
@@ -329,6 +337,14 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
                   onAdd={composer.addLineItem}
                   onAddFromProduct={composer.addLineItemFromProduct}
                   onRemove={composer.removeLineItem}
+                  previewSlot={
+                    <ComposerPreviewButton
+                      invoice={draftInvoice}
+                      invoiceId={mode === "edit" ? invoice?.id : undefined}
+                      company={company ?? undefined}
+                      t={t}
+                    />
+                  }
                   t={t}
                 />
               ) : null}
@@ -356,7 +372,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
               ) : null}
             </Box>
 
-            {isDesktop ? (
+            {isDesktop && desktopLayout.showSummaryColumn ? (
               <ComposerSummary
                 invoice={draftInvoice}
                 invoiceId={mode === "edit" ? invoice?.id : undefined}
