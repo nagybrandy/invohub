@@ -589,17 +589,47 @@ screenshots before writing a fix plan:
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
    control.
-10. Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
+10. [x] (slice/backfill-non-huf-invoices-missing-exchange-rate) Backfill/
+    surface non-HUF invoices with no `exchangeRate` — filed by item 3
     (`slice/non-huf-invoice-exchange-rate-nav-xml`): before that slice,
     `POST /api/invoices` silently dropped `body.exchangeRate` on create, so
     any EUR/non-HUF invoice created before the fix was saved with no rate.
     Such a row now can't be NAV-submitted (`buildNavInvoiceXml` correctly
     refuses instead of reporting a false HUF base) until it's edited to add
-    one. Needs a listing (which existing invoices are affected) or an
-    in-app prompt on the invoice detail/edit screen — not a guessed rate.
-    Also out of scope for that slice, needs its own item: retro-correcting
-    any non-HUF invoice already reported to NAV with the old hardcoded
+    one. **Shipped** — implemented: a pure `isMissingExchangeRate` predicate
+    (`lib/invoices/exchange-rate.ts`) built on the existing
+    `resolveExchangeRate`, so it can never drift from what the NAV XML
+    builder refuses; a `needsExchangeRate` filter threaded through
+    `lib/invoices/list-query.ts`, the exported `buildInvoiceListWhere`
+    (`lib/invoices/service.ts`, SQL-pushed, not JS-filtered), `GET
+    /api/invoices`, and `useInvoices`/`useMissingExchangeRateCount`; a
+    dismissable-by-toggle `ExchangeRateFixBanner` on `/invoices` that
+    switches the list to an affected-only view; a warning card on the
+    invoice detail screen that deep-links (`routes.invoiceEdit(id, {
+    focus: "exchangeRate" })`) straight to the composer's exchange-rate
+    field (reusing the already-shipped `StepPartner` focus behaviour); and
+    `POST /api/nav/submit` now refuses with 409 `code: "missingExchangeRate"`
+    before ever calling NAV, instead of a raw 500. No rate is guessed,
+    fetched or defaulted anywhere — the user always types it. All 8 plan
+    acceptance criteria pass; `npx tsc --noEmit` and `npm run test:unit` are
+    green. Nothing under `lib/nav/`, `lib/tax/`, `lib/m2m/` or `marketing/`
+    touched; `db/schema.ts` unchanged (risk: **none** — see plan §8).
+    Plan: `docs/plans/2026-09-18-backfill-non-huf-invoices-missing-exchange-rate.md`
+    Still out of scope, filed as item 11 below: retro-correcting any
+    non-HUF invoice already reported to NAV with the old hardcoded
     `exchangeRate=1` (a NAV MODIFY submission question, tax/legal-gated).
+11. [ ] Retro-correct non-HUF invoices already reported to NAV with the old
+    hardcoded `exchangeRate=1` — filed by item 10
+    (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the
+    item-3 fix, every non-HUF invoice's NAV submission reported a HUF VAT
+    base computed at an implicit rate of 1, which is wrong for any invoice
+    not actually in HUF. A previously reported invoice's NAV record now
+    disagrees with reality. Fixing this means emitting a NAV **MODIFY**
+    submission with the corrected HUF amounts — a real tax consequence, not
+    a UI fix. **Tax/legal-gated: needs its own plan and explicit human
+    sign-off before any code that emits a MODIFY report ships** (per
+    CLAUDE.md's phase-1 launch gate and `lib/nav/` production-behaviour
+    sign-off rule). Do not auto-ship.
 
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules

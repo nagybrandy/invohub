@@ -89,6 +89,7 @@ jest.mock("@/db", () => ({
 
 import { db } from "@/db";
 import {
+  buildInvoiceListWhere,
   buildStornoLineItems,
   convertProformaToInvoice,
   createModificationDraft,
@@ -526,5 +527,39 @@ describe("listInvoicesInDateRange", () => {
 
     expect(invoices).toHaveLength(0);
     expect(mockDb.select).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("buildInvoiceListWhere", () => {
+  // Walks a drizzle SQL object's queryChunks recursively and collects every
+  // `.name` found on a chunk (a Column has a `.name`) — asserts structurally
+  // that the clause references the right columns, without depending on
+  // drizzle's rendered SQL string format (AC3.1, AC3.2).
+  function collectColumnNames(node: unknown, names: Set<string> = new Set()): Set<string> {
+    if (!node || typeof node !== "object") return names;
+    const obj = node as Record<string, unknown>;
+    if (typeof obj.name === "string") {
+      names.add(obj.name);
+    }
+    const chunks = obj.queryChunks;
+    if (Array.isArray(chunks)) {
+      for (const chunk of chunks) collectColumnNames(chunk, names);
+    }
+    return names;
+  }
+
+  it("references both the currency and exchange_rate columns when needsExchangeRate is set (AC3.1)", () => {
+    const where = buildInvoiceListWhere("user-1", { needsExchangeRate: true });
+    const sql = (where as { getSQL?: () => unknown }).getSQL?.() ?? where;
+    const names = [...collectColumnNames(sql)];
+    expect(names).toEqual(expect.arrayContaining(["currency", "exchange_rate"]));
+  });
+
+  it("references neither column when needsExchangeRate is not set (AC3.2)", () => {
+    const where = buildInvoiceListWhere("user-1", {});
+    const sql = (where as { getSQL?: () => unknown }).getSQL?.() ?? where;
+    const names = collectColumnNames(sql);
+    expect(names.has("currency")).toBe(false);
+    expect(names.has("exchange_rate")).toBe(false);
   });
 });

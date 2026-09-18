@@ -61,6 +61,16 @@ describe("useInvoices", () => {
     );
   });
 
+  it("forwards needsExchangeRate=1 when requested", async () => {
+    await renderUseInvoices({ needsExchangeRate: true });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/invoices?limit=30&needsExchangeRate=1",
+    );
+  });
+
   it("surfaces API errors", async () => {
     mockApiFetch.mockRejectedValue(new Error("Network error"));
     const ref = await renderUseInvoices();

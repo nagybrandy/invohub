@@ -22,6 +22,8 @@ type InvoiceResponse = { invoice: Invoice };
 export type UseInvoicesOptions = {
   status?: InvoiceStatus | "all";
   search?: string;
+  /** Non-HUF invoices with no usable stored HUF rate (see lib/invoices/exchange-rate.ts). */
+  needsExchangeRate?: boolean;
 };
 
 const EMPTY_STATS: InvoiceStats = {
@@ -35,6 +37,7 @@ const EMPTY_CONVERTED_PROFORMA_IDS: Record<string, string> = {};
 export function useInvoices(options: UseInvoicesOptions = {}) {
   const status = options.status ?? "all";
   const search = options.search ?? "";
+  const needsExchangeRate = options.needsExchangeRate ?? false;
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [total, setTotal] = React.useState(0);
   const [stats, setStats] = React.useState<InvoiceStats>(EMPTY_STATS);
@@ -52,6 +55,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
         limit: INVOICE_LIST_LIMIT,
         status,
         search,
+        needsExchangeRate,
       });
       const data = await apiFetch<InvoicesResponse>(`/api/invoices?${query}`);
       setInvoices(data.invoices);
@@ -64,7 +68,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [status, search]);
+  }, [status, search, needsExchangeRate]);
 
   React.useEffect(() => {
     void refresh();

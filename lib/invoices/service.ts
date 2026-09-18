@@ -1,6 +1,6 @@
 // lib/invoices/service.ts
 // Server-side invoice CRUD against Neon via Drizzle.
-import { and, count, desc, eq, gte, ilike, inArray, lt, lte, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { createId } from "@/lib/id";
@@ -50,7 +50,12 @@ function clampLimit(limit: number | undefined): number {
   return Math.min(Math.max(1, value), INVOICE_LIST_MAX_LIMIT);
 }
 
-function buildListWhere(userId: string, options: InvoiceListOptions) {
+/**
+ * Exported (not just internal) so the "needsExchangeRate" clause can be
+ * unit-tested structurally without a live Postgres connection — see
+ * lib/invoices/service.test.ts.
+ */
+export function buildInvoiceListWhere(userId: string, options: InvoiceListOptions) {
   const clauses = [eq(invoice.userId, userId)];
 
   if (options.status) {
@@ -65,6 +70,15 @@ function buildListWhere(userId: string, options: InvoiceListOptions) {
         ilike(invoice.clientName, pattern),
         ilike(invoice.invoiceNumber, pattern),
         ilike(invoice.clientTaxNumber, pattern),
+      )!,
+    );
+  }
+
+  if (options.needsExchangeRate) {
+    clauses.push(
+      and(
+        ne(invoice.currency, "HUF"),
+        or(isNull(invoice.exchangeRate), lte(invoice.exchangeRate, "0"))!,
       )!,
     );
   }
@@ -136,7 +150,7 @@ export async function listInvoices(
 ): Promise<InvoiceListResult> {
   const limit = clampLimit(options.limit);
   const offset = Math.max(0, options.offset ?? 0);
-  const where = buildListWhere(userId, options);
+  const where = buildInvoiceListWhere(userId, options);
 
   const [totalRow, rows] = await Promise.all([
     db.select({ value: count() }).from(invoice).where(where),

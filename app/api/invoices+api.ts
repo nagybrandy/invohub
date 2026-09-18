@@ -47,6 +47,7 @@ export async function GET(request: Request) {
   const filters = normalizeInvoiceListFilters({
     status: url.searchParams.get("status"),
     search: url.searchParams.get("search"),
+    needsExchangeRate: url.searchParams.get("needsExchangeRate"),
   });
 
   const [listResult, stats] = await Promise.all([

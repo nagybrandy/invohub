@@ -1,5 +1,6 @@
 // lib/invoices/list-query.ts
 // Pure invoice list filter normalization and match helpers (TDD-friendly).
+import { isMissingExchangeRate } from "@/lib/invoices/exchange-rate";
 import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 
 export const INVOICE_LIST_STATUSES: InvoiceStatus[] = [
@@ -16,11 +17,14 @@ export const INVOICE_LIST_STATUSES: InvoiceStatus[] = [
 export type InvoiceListFilters = {
   status?: InvoiceStatus;
   search?: string;
+  /** Non-HUF invoices with no usable stored HUF rate (see lib/invoices/exchange-rate.ts). */
+  needsExchangeRate?: boolean;
 };
 
 export function normalizeInvoiceListFilters(input: {
   status?: string | null;
   search?: string | null;
+  needsExchangeRate?: string | null;
 }): InvoiceListFilters {
   const rawStatus = input.status?.trim();
   const status =
@@ -29,14 +33,23 @@ export function normalizeInvoiceListFilters(input: {
       : undefined;
 
   const search = input.search?.trim() || undefined;
-  return { status, search };
+  const needsExchangeRate =
+    input.needsExchangeRate === "1" || input.needsExchangeRate === "true" ? true : undefined;
+  return { status, search, needsExchangeRate };
 }
 
 export function invoiceMatchesListFilters(
-  invoice: Pick<Invoice, "status" | "clientName" | "invoiceNumber" | "clientTaxNumber">,
+  invoice: Pick<
+    Invoice,
+    "status" | "clientName" | "invoiceNumber" | "clientTaxNumber" | "currency" | "exchangeRate"
+  >,
   filters: InvoiceListFilters,
 ): boolean {
   if (filters.status && invoice.status !== filters.status) {
+    return false;
+  }
+
+  if (filters.needsExchangeRate && !isMissingExchangeRate(invoice)) {
     return false;
   }
 
@@ -58,6 +71,7 @@ export function buildInvoiceListQueryString(input: {
   offset?: number;
   status?: InvoiceStatus | "all";
   search?: string;
+  needsExchangeRate?: boolean;
 }): string {
   const params = new URLSearchParams();
   params.set("limit", String(input.limit));
@@ -70,6 +84,9 @@ export function buildInvoiceListQueryString(input: {
   const search = input.search?.trim();
   if (search) {
     params.set("search", search);
+  }
+  if (input.needsExchangeRate) {
+    params.set("needsExchangeRate", "1");
   }
   return params.toString();
 }

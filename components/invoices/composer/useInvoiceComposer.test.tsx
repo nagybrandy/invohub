@@ -112,6 +112,16 @@ describe("useInvoiceComposer", () => {
     setupApiFetch();
   });
 
+  it("seeds focusField from initialFocusField (AC6.3)", async () => {
+    const ref = await renderComposer({ mode: "create", initialFocusField: "exchangeRate" });
+    expect(ref.current!.focusField).toBe("exchangeRate");
+  });
+
+  it("starts with focusField null when no initialFocusField is given (AC6.3)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.focusField).toBeNull();
+  });
+
   it("selecting a saved partner never turns e-mail sending on (INV-2)", async () => {
     const ref = await renderComposer({ mode: "create" });
 

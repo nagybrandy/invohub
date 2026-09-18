@@ -72,6 +72,9 @@ export type UseInvoiceComposerOptions = {
   invoice?: Invoice | null;
   /** From /invoices/new?clientId=… — the "Invoice this partner" shortcut (spec §3.4). */
   initialClientId?: string | null;
+  /** From routes.invoiceEdit(id, { focus }) — e.g. the exchange-rate-missing
+   * warning card's deep link (StepPartner reacts to focusField). */
+  initialFocusField?: string | null;
 };
 
 export type ComposerErrors = {
@@ -80,7 +83,12 @@ export type ComposerErrors = {
   dueDate?: string;
 };
 
-export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoiceComposerOptions) {
+export function useInvoiceComposer({
+  mode,
+  invoice,
+  initialClientId,
+  initialFocusField,
+}: UseInvoiceComposerOptions) {
   const { t } = useTranslation();
   const { clients } = useClients();
   const { products } = useProducts();
@@ -136,7 +144,9 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
 
   // Save/dirty state ---------------------------------------------------------
   const [errors, setErrors] = React.useState<ComposerErrors>({});
-  const [focusField, setFocusField] = React.useState<string | null>(null);
+  const [focusField, setFocusField] = React.useState<string | null>(
+    initialFocusField ?? null
+  );
   const [isDirty, setIsDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<string | null>(null);

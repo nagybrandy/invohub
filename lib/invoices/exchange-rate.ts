@@ -50,6 +50,18 @@ export function resolveExchangeRate(
   return { ok: true, rate };
 }
 
+/**
+ * True when an invoice can't be reported to NAV because it's non-HUF and
+ * has no usable stored rate — the same condition `buildNavInvoiceXml`
+ * refuses on (via `resolveExchangeRate`). A HUF invoice is never
+ * "affected": it always resolves to rate 1 regardless of what's stored.
+ */
+export function isMissingExchangeRate(
+  invoice: Pick<Invoice, "currency" | "exchangeRate">
+): boolean {
+  return !resolveExchangeRate(invoice).ok;
+}
+
 /** Converts a document-currency amount to HUF at the given rate, rounded to 2 decimals. */
 export function toHufAmount(amount: number, rate: number): number {
   return Math.round(amount * rate * 100) / 100;

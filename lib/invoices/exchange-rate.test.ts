@@ -1,6 +1,7 @@
 // lib/invoices/exchange-rate.test.ts
 import {
   formatExchangeRate,
+  isMissingExchangeRate,
   parseExchangeRateInput,
   requiresExchangeRate,
   resolveExchangeRate,
@@ -69,6 +70,46 @@ describe("resolveExchangeRate", () => {
       ok: true,
       rate: 390.5,
     });
+  });
+});
+
+describe("isMissingExchangeRate", () => {
+  it("is false for a HUF invoice, even with no stored rate (AC1.1)", () => {
+    expect(isMissingExchangeRate({ currency: "HUF", exchangeRate: undefined })).toBe(false);
+  });
+
+  it("is true for a non-HUF invoice with no stored rate (AC1.2)", () => {
+    expect(isMissingExchangeRate({ currency: "EUR", exchangeRate: undefined })).toBe(true);
+  });
+
+  it("is true for a non-HUF invoice with a null stored rate (AC1.3)", () => {
+    expect(
+      isMissingExchangeRate({ currency: "EUR", exchangeRate: null as never })
+    ).toBe(true);
+  });
+
+  it("is true for a non-HUF invoice with a zero or negative stored rate (AC1.4)", () => {
+    expect(isMissingExchangeRate({ currency: "EUR", exchangeRate: 0 })).toBe(true);
+    expect(isMissingExchangeRate({ currency: "EUR", exchangeRate: -3 })).toBe(true);
+  });
+
+  it("is false for a non-HUF invoice with a positive stored rate (AC1.5)", () => {
+    expect(isMissingExchangeRate({ currency: "EUR", exchangeRate: 398.5 })).toBe(false);
+  });
+
+  it("agrees with resolveExchangeRate on every case (AC1.6)", () => {
+    const cases: { currency: "HUF" | "EUR"; exchangeRate?: number }[] = [
+      { currency: "HUF", exchangeRate: undefined },
+      { currency: "HUF", exchangeRate: 390 },
+      { currency: "EUR", exchangeRate: undefined },
+      { currency: "EUR", exchangeRate: 0 },
+      { currency: "EUR", exchangeRate: -1 },
+      { currency: "EUR", exchangeRate: 390.5 },
+    ];
+    for (const invoice of cases) {
+      const resolution = resolveExchangeRate(invoice);
+      expect(isMissingExchangeRate(invoice)).toBe(!resolution.ok);
+    }
   });
 });
 

@@ -30,6 +30,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { apiFetch, ApiError, invoicePdfUrl } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
+import { isMissingExchangeRate } from "@/lib/invoices/exchange-rate";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import { isOverdue } from "@/lib/invoices/status-visuals";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
@@ -420,6 +421,28 @@ export default function InvoiceDetailScreen() {
             </HStack>
           }
         />
+
+        {isMissingExchangeRate(invoice) ? (
+          <Card className="border-destructive/40 bg-destructive/10 p-4" testID="exchange-rate-fix-detail-card">
+            <VStack space="sm">
+              <Text className="font-semibold text-destructive">
+                {t("invoices.exchangeRateFix.detailTitle")}
+              </Text>
+              <Text size="sm" className="text-muted-foreground">
+                {t("invoices.exchangeRateFix.detailBody", { currency: invoice.currency })}
+              </Text>
+              <Button
+                variant="outline"
+                className="self-start border-destructive/40"
+                onPress={() => router.push(routes.invoiceEdit(invoice.id, { focus: "exchangeRate" }))}
+              >
+                <ButtonText className="text-destructive">
+                  {t("invoices.exchangeRateFix.addRate")}
+                </ButtonText>
+              </Button>
+            </VStack>
+          </Card>
+        ) : null}
 
         <InvoiceTimeline invoice={invoice} nav={nav} />
 

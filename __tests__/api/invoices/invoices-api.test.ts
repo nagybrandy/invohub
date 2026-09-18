@@ -169,4 +169,26 @@ describe("GET /api/invoices", () => {
     expect(body.convertedProformaIds).toEqual({});
     expect(mockFindLiveConversions).toHaveBeenCalledWith("user-1", []);
   });
+
+  it("passes needsExchangeRate: true to listInvoices when ?needsExchangeRate=1 (AC2.6)", async () => {
+    mockListInvoices.mockResolvedValue({ invoices: [], total: 0, limit: 25, offset: 0 });
+    mockFindLiveConversions.mockResolvedValue({});
+
+    await GET(request("http://localhost/api/invoices?needsExchangeRate=1"));
+
+    expect(mockListInvoices).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ needsExchangeRate: true })
+    );
+  });
+
+  it("omits needsExchangeRate from listInvoices when the query param is absent (AC2.6)", async () => {
+    mockListInvoices.mockResolvedValue({ invoices: [], total: 0, limit: 25, offset: 0 });
+    mockFindLiveConversions.mockResolvedValue({});
+
+    await GET(request());
+
+    const [, options] = mockListInvoices.mock.calls[0];
+    expect((options as { needsExchangeRate?: boolean }).needsExchangeRate).toBeUndefined();
+  });
 });
