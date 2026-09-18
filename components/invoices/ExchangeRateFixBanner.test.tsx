@@ -124,6 +124,23 @@ describe("ExchangeRateFixBanner", () => {
     expect(onShowAll).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the 44px tap-target floor on the action button (no shrunken size=\"sm\")", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <ExchangeRateFixBanner
+          count={3}
+          active={false}
+          onShowAffected={jest.fn()}
+          onShowAll={jest.fn()}
+        />
+      );
+    });
+    const button = tree!.root.findByProps({ testID: "exchange-rate-fix-banner-action" });
+    expect(button.props.className).toContain("min-h-11");
+    expect(button.props.size).toBeUndefined();
+  });
+
   it("still renders when active even if count is 0 (already in the affected-only view)", () => {
     let tree: TestRenderer.ReactTestRenderer;
     act(() => {
