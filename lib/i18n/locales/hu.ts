@@ -553,7 +553,7 @@ export default {
     navDemoHint: "Demó mód: a nyugta nem kerül be a NAV rendszerébe.",
     navTestHint: "A napi nyugta-adatszolgáltatás a NAV teszt rendszerébe kerül.",
     navMissingExchangeRate:
-      "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.",
+      "Nem HUF ({{currency}}) nyugta: nincs rögzített árfolyam, ezért kimaradt a napi NAV-adatszolgáltatásból.",
     search: "Keresés",
     columnNumber: "Nyugtaszám",
     columnClient: "Ügyfél",

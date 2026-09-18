@@ -239,14 +239,13 @@ describe("GET /api/receipts/[id]", () => {
   });
 
   // Regression for a mixed-currency day: a HUF submission run also inserts a
-  // "failed" row for every non-HUF group, blocked with the exact
-  // BLOCKED_EXCHANGE_RATE_MESSAGE_HU text (lib/receipts/daily-report.ts),
+  // "failed" row for every non-HUF group, blocked with the stable
+  // "missing_exchange_rate" reason code (lib/receipts/nav-error-code.ts),
   // sharing the same reportDate and createdAt as the HUF row (submit-nav+api.ts
   // and cron/nav-receipt-report+api.ts both reuse a single `now`). The
   // detail screen for the successfully-submitted HUF receipt must surface
   // its own "submitted" row, not the other currency group's blocked row.
-  const BLOCKED_MESSAGE_HU =
-    "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.";
+  const BLOCKED_MESSAGE_CODE = "missing_exchange_rate";
 
   it("shows the HUF receipt's own submitted NAV report id, not a same-day blocked non-HUF row's error", async () => {
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
@@ -256,7 +255,7 @@ describe("GET /api/receipts/[id]", () => {
     // order here is arbitrary — the blocked (EUR) row lists first, exactly
     // the "wins on a tie" case the bug hit.
     mockOrderBy.mockResolvedValue([
-      { status: "failed", errorMessage: BLOCKED_MESSAGE_HU, transactionId: null },
+      { status: "failed", errorMessage: BLOCKED_MESSAGE_CODE, transactionId: null },
       { status: "submitted", errorMessage: null, transactionId: "12345678_20260601_1" },
     ]);
 
@@ -277,7 +276,7 @@ describe("GET /api/receipts/[id]", () => {
     mockGetCompany.mockResolvedValue({ navEnvironment: "test" } as never);
     mockOrderBy.mockResolvedValue([
       { status: "submitted", errorMessage: null, transactionId: "12345678_20260601_1" },
-      { status: "failed", errorMessage: BLOCKED_MESSAGE_HU, transactionId: null },
+      { status: "failed", errorMessage: BLOCKED_MESSAGE_CODE, transactionId: null },
     ]);
 
     const res = await detailGET(
@@ -288,6 +287,6 @@ describe("GET /api/receipts/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body.navReportId).toBeNull();
-    expect(body.navError).toBe(BLOCKED_MESSAGE_HU);
+    expect(body.navError).toBe(BLOCKED_MESSAGE_CODE);
   });
 });

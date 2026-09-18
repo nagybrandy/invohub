@@ -29,8 +29,6 @@ jest.mock("@/lib/receipts/service", () => ({
 
 jest.mock("@/lib/receipts/daily-report", () => ({
   buildDailyReceiptReports: jest.fn(),
-  BLOCKED_EXCHANGE_RATE_MESSAGE_HU:
-    "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.",
 }));
 
 jest.mock("@/lib/companies/service", () => ({
@@ -233,7 +231,7 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
     expect(mockSubmit).not.toHaveBeenCalled();
     const insertedValues = mockInsert.mock.results[0].value.values.mock.calls[0][0];
     expect(insertedValues.status).toBe("failed");
-    expect(insertedValues.errorMessage).toContain("HUF");
+    expect(insertedValues.errorMessage).toBe("missing_exchange_rate");
   });
 
   it("returns 500 on unexpected exception", async () => {

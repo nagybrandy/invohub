@@ -739,7 +739,7 @@ Remaining for the launch gate:
       test:unit` (207 suites / 1254 tests) are green on the branch. 2
       low-severity follow-ups filed below (acceptance/ux dimensions), none
       blocking.
-- [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
+- [~] needs sign-off (PR) **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — `receipts.navMissingExchangeRate` is defined in both
       `lib/i18n/locales/hu.ts:555` and `en.ts:555` but referenced nowhere
       else in the repo. The message actually shown for a blocked non-HUF
@@ -756,6 +756,35 @@ Remaining for the launch gate:
       pre-rendered sentence, and render it client-side via
       `t("receipts.navMissingExchangeRate")`, deleting the duplicated
       literal from both API route files.
+      **Built 2026-09-18** (`slice/receipt-blocked-message-i18n-fallback`,
+      branched off `slice/e-nyugta-nav-receipt-api`, not `main` — see
+      `docs/plans/2026-09-18-receipt-blocked-message-i18n-fallback.md` §0).
+      New `lib/receipts/nav-error-code.ts`
+      (`isNavReceiptBlockedReason`/`navReceiptErrorI18nKey`) is the single
+      code↔key mapping; both API routes now write
+      `errorMessage: group.reason` (`"missing_exchange_rate"`), the
+      `[id]+api.ts` HUF/non-HUF discriminator uses
+      `isNavReceiptBlockedReason(row.errorMessage)` instead of string
+      equality against translated copy, and the detail screen's NAV block is
+      extracted into `components/receipts/ReceiptNavCard.tsx`, which renders
+      `t("receipts.navMissingExchangeRate", { currency })` for a known code
+      and NAV's own text verbatim otherwise. `navMissingExchangeRate` copy
+      reworded in both locales to interpolate `{{currency}}`. `npx tsc
+      --noEmit` clean; `npm run test:unit` green (209 suites / 1268 tests,
+      +2 suites / +14 tests over the 207/1254 parent-branch baseline).
+      **This is a stacked PR onto `slice/e-nyugta-nav-receipt-api`, not
+      `main`** — that parent slice is still pending its own tax/legal
+      sign-off (OQ-1…OQ-6 above); Ship must not merge either branch to
+      `main` on its own. Deferred (plan §9, unchanged from the parent
+      slice): the additive `receipt.exchangeRate`/`navReceiptSubmission
+      .currency` columns, and the pre-existing `selectable`-prop web console
+      warning (separate filed follow-up below).
+      **PR opened 2026-09-18**: https://github.com/nagybrandy/invohub/pull/19
+      (`slice/receipt-blocked-message-i18n-fallback`, base
+      `slice/e-nyugta-nav-receipt-api`, commit `6964405`) — not merged,
+      needs sign-off on both this stacked PR and its parent slice's OQ list.
+      2 low-severity ship-review follow-ups filed below (acceptance/ux
+      dimensions), none blocking.
 - [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — the new NAV-report-id row in
       `app/(app)/receipts/[id]/index.tsx` repeats a pre-existing
@@ -765,6 +794,49 @@ Remaining for the launch gate:
       for this PR — but worth a follow-up to replace `selectable` on web
       Gluestack `Text` with the web-safe equivalent (or gate it behind
       `Platform.OS !== 'web'`) across both occurrences in this file.
+- [ ] **Ship-review follow-up (low, `slice/receipt-blocked-message-i18n-fallback`,
+      2026-09-18)** — vacuous assertion in
+      `components/receipts/ReceiptNavCard.test.tsx` never exercises anything.
+      Line ~47: `expect(json).not.toContain(">missing_exchange_rate<")` where
+      `json = JSON.stringify(tree.toJSON())`. react-test-renderer's `toJSON()`
+      output (confirmed via `__tests__/mocks/gluestack-ui.tsx`, which maps
+      Gluestack primitives to plain RN `View`/`Text`) is a plain nested JS
+      object tree, and `JSON.stringify()` of that structure never contains
+      literal `<`/`>` characters — those are HTML/JSX syntax, not part of
+      this JSON serialization. The assertion therefore passes unconditionally
+      regardless of what the component renders. The preceding line
+      `expect(json).toContain("receipts.navMissingExchangeRate")` is the only
+      assertion in this test that actually covers AC4.1. Fix: drop the
+      vacuous `not.toContain(">missing_exchange_rate<")` line (redundant,
+      provides no coverage), or replace it with a real negative check such as
+      `expect(json).not.toContain('"missing_exchange_rate"')` to assert the
+      raw code string is absent from the serialized tree.
+- [ ] **Ship-review follow-up (low, `slice/receipt-blocked-message-i18n-fallback`,
+      2026-09-18)** — live UX screenshot capture for the receipt NAV card
+      could not be completed in this review environment (no DB/auth
+      credentials); informational only, not a code defect. CONFIRMED on
+      re-check: (1) the review worktree has no `.env` (only `.env.example`),
+      so `db/index.ts` throws `DATABASE_URL is not set` the moment any
+      server module — including the receipt detail API route this branch
+      touches (`app/(app)/receipts/[id]/index.tsx` via
+      `app/api/receipts/[id]+api.ts`) — is hit, making any authenticated
+      screen unreachable without a real DB; (2) CLAUDE.md restricts the
+      production Neon `DATABASE_URL` to the owner's main checkout only, so
+      copying it into a throwaway review worktree would violate that rule
+      (correctly not done); (3) `components/receipts/ReceiptNavCard.tsx`'s
+      own header comment confirms it is a "Pure extraction of the NAV status
+      card from the receipt detail screen," and diffing it against the
+      pre-refactor inline JSX at commit `484cc85` shows byte-identical
+      structure/classNames — only `{navError}` became `{errorText}`; (4) the
+      new en/hu `navMissingExchangeRate` strings (97/94 chars with `currency`
+      interpolated) are both shorter than the 169-char Hungarian error
+      string already rendered and visually confirmed (commit `016cddf`
+      audit screenshots) to wrap cleanly across 4 lines at 375px/1440px with
+      no overflow — so the static-diff substitution is sound. No action
+      required; if a fresh visual re-check is still wanted, run it from a
+      session with E2E test credentials and a scratch (non-production)
+      `DATABASE_URL`, e.g. during a future Ship phase's own worktree smoke
+      pass.
 - [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
       Non-HUF invoices report a false HUF VAT base to NAV — confirmed
       resolved: `lib/nav/invoice-xml.ts` now emits the real
