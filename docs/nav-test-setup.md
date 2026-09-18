@@ -123,6 +123,39 @@ Ha az M2M_* változók nincsenek beállítva, az alkalmazás automatikusan a be�
 demó szimulátorra vált (semmilyen hiba nem jelenik meg a felhasználóknak) — az irányítópult
 "NAV adószámla (demó)" kártyaként mutatja ezt.
 
+## 7. NAV eNyugta (nyugta-adatszolgáltatás)
+
+A `lib/nav-receipt/` modul a NAV publikált eRECEIPT gépi interfészét hívja
+(`nav-gov-hu/eRECEIPT`, XSD `xsd/1.1/receipt_datareport/receipt-if-schema-v1.1.1.xsd`) —
+lásd `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md`.
+
+**Nincs külön `NAV_RECEIPT_*` környezeti változó** — az eNyugta ugyanazokat a céghez
+tárolt NAV technikai hitelesítő adatokat használja, mint az Online Számla (Beállítások >
+Cégadatok: technikai felhasználó, technikai jelszó, aláíró kulcs, adószám), és
+ugyanazt a `company.navEnvironment` módváltót (demó / NAV teszt / éles).
+
+| Mód | Végpont |
+|-----|---------|
+| **Demó** (alapértelmezett) | Nincs hálózati hívás — helyi szimuláció. |
+| **NAV teszt** | `https://bv-receipt-if.enyugta.nav.gov.hu/v1` |
+| **Éles** | **Nincs elérhető végpont.** `getReceiptBaseUrl("production")` mindig
+  dobást (throw) ad — az InvoHubnak nincs ellenőrzött éles eNyugta hosztja, és a kód
+  soha nem hívhat kitalált éles URL-t (lásd CLAUDE.md "NAV modes"). |
+
+A `company.navReceiptSoftwareId` oszlop (a schema-ban ez a neve, de a beküldött
+`CreateReceiptRequest`-ben mezőneve `issuingSoftware/name`) a regisztrált **szoftvernevet**
+tárolja, nem egy azonosítót. A `POST /issuing-software/create` hívás (a szoftver
+regisztrálása a NAV-nál) **egyszeri, kézi üzemeltetői lépés** ebben a szeletben — nincs
+implementálva UI-ban vagy scriptben; a névnek egyszerűen egyeznie kell azzal, amit az
+üzemeltető a NAV eNyugta portálján regisztrált. Amíg ez nincs beállítva, a kód `"InvoHub"`
+alapértelmezett nevet küld.
+
+⚠️ A NAV VAT-kategória *nevek* (`lib/nav-receipt/vat-category.ts`,
+`NAV_VAT_CATEGORIES`) **nincsenek** a publikus XSD-ben rögzítve (csak minta-reguláris
+kifejezés) — a hiteles lista a spec 5.9. szakaszában és a `GET /vat-category/list`
+végponton érhető el, egyik sem volt elérhető a tervezés során. Emberi jóváhagyás
+szükséges a beküldés előtt (lásd a terv 8. szakaszát, OQ-1).
+
 ## Nyitott kérdések / ellenőrizendő pontok
 
 - Az `M2M_SIGNATURE_KEY_FIRST` / `M2M_NONCE` beszerzésének pontos UI-lépései a
@@ -137,9 +170,12 @@ demó szimulátorra vált (semmilyen hiba nem jelenik meg a felhasználóknak) �
   élesben tesztelve valódi teszt fiókkal.
 - Az `electronicInvoiceHash` mező (látható néhány valódi `manageInvoice` mintában) nincs
   implementálva — nem világos, mindig kötelező-e; XSD ellenőrzés ajánlott.
-- A NAV eNyugta (elektronikus nyugta) modul (`lib/nav-receipt/`) protokollja **nincs**
-  hivatalos NAV séma/minta alapján ellenőrizve — demó módban (alapértelmezett) nem hív
-  valódi végpontot; teszt/éles módban a korábbi, ellenőrizetlen implementációt használja.
+- A NAV eNyugta (elektronikus nyugta) modul (`lib/nav-receipt/`) protokollja a publikált
+  `receipt-if-schema-v1.1.1.xsd` ellen ellenőrizve lett 2026-09-18-én (lásd
+  `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md` §1.2); demó módban (alapértelmezett)
+  nem hív valódi végpontot, teszt módban a valódi `bv-receipt-if.enyugta.nav.gov.hu`
+  hosztot hívja. A VAT-kategória nevek (OQ-1) és több más nyitott kérdés (§8 a tervben)
+  emberi jóváhagyásra vár — még nem lett élesben, valódi teszt fiókkal beküldve.
 - A `paymentMethod` (fizetési mód) és `paymentDate` (fizetési határidő) mezők mostantól
   bekerülnek a `manageInvoice` XML-be (`lib/nav/invoice-fields.ts`,
   `lib/nav/invoice-xml.ts`) — az elempozíció (`<paymentMethod>` az `<exchangeRate>` és a

@@ -7,12 +7,17 @@ import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/se
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
-import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
-import type { NavReceiptCredentials, NavReceiptEnvironment } from "@/lib/nav-receipt/types";
-import type { NavReceiptSubmissionResult } from "@/lib/nav-receipt/types";
-import { getDailyVatAggregation, getReceiptById } from "@/lib/receipts/service";
+import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
+import { parseNavReceiptEnvironment } from "@/lib/nav-receipt/environment";
+import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
+import type { NavReceiptCredentials } from "@/lib/nav-receipt/types";
+import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU, buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { getReceiptById, getReceiptsByDateRange } from "@/lib/receipts/service";
 
 type Params = { id: string };
+
+// AC1.3 / plan §1.3: non-HUF receipt days are refused, not guessed.
+const BLOCKED_MESSAGE_HU = BLOCKED_EXCHANGE_RATE_MESSAGE_HU;
 
 export async function POST(
   request: Request,
@@ -38,106 +43,111 @@ export async function POST(
     if (!comp) {
       return jsonResponse({ error: "Company profile required. Update company settings." }, 400);
     }
-    const navMode = comp.navEnvironment ?? "demo";
+    if (!comp.taxNumber) {
+      return jsonResponse({ error: "Company tax number required. Update company settings." }, 400);
+    }
 
-    // Demo mode (the default) never calls the real receipt-if/v1 endpoint —
-    // its request/response shape is not verified against an official NAV
-    // schema/sample (unlike lib/nav/, this predates that verification pass).
-    // See docs/nav-test-setup.md openIssues. Test/production mode keeps the
-    // existing (unverified) real call for owners who explicitly opt in.
-    if (navMode !== "demo" && (!comp.navTechnicalUser || !comp.navTechnicalPassword || !comp.navXmlSignKey || !comp.taxNumber)) {
+    const envMode = parseNavReceiptEnvironment(comp.navEnvironment);
+
+    const issuedDate = new Date(receiptRecord.issuedAt);
+    const dayStart = new Date(issuedDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(issuedDate);
+    dayEnd.setHours(23, 59, 59, 999);
+    const applicableDate = dayStart.toISOString().slice(0, 10);
+
+    const now = new Date();
+
+    if (envMode === "demo") {
+      // Demo mode never calls NAV — simulate acceptance for the submitted
+      // receipt without aggregating the whole day.
+      const submissionId = createId();
+      await db.insert(navReceiptSubmission).values({
+        id: submissionId,
+        userId: session.user.id,
+        companyId: comp.id,
+        reportDate: applicableDate,
+        status: "submitted",
+        receiptCount: 1,
+        transactionId: `RECEIPT-DEMO-${Date.now()}`,
+        submittedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.update(receipt).set({ navSubmitted: true, updatedAt: now }).where(eq(receipt.id, id));
+      return jsonResponse({ ok: true, mode: "demo", reportDate: applicableDate });
+    }
+
+    if (!comp.navTechnicalUser || !comp.navTechnicalPassword || !comp.navXmlSignKey) {
       return jsonResponse(
         { error: "NAV credentials not configured. Update company settings." },
         400
       );
     }
 
-    const issuedDate = new Date(receiptRecord.issuedAt);
-    const reportDate = issuedDate.toISOString().slice(0, 10);
+    const dayReceipts = await getReceiptsByDateRange(session.user.id, dayStart, dayEnd);
+    const { reports, blocked } = buildDailyReceiptReports(dayReceipts, {
+      taxPayerId: comp.taxNumber,
+      issuingSoftwareName: comp.navReceiptSoftwareId ?? "InvoHub",
+      applicableDate,
+      vatExempt: comp.vatExempt,
+    });
 
-    const aggregation = await getDailyVatAggregation(session.user.id, issuedDate);
+    const credentials: NavReceiptCredentials = {
+      technicalUser: comp.navTechnicalUser,
+      technicalPassword: decryptNavSecretOrPassthrough(comp.navTechnicalPassword) ?? comp.navTechnicalPassword,
+      signingKey: decryptNavSecretOrPassthrough(comp.navXmlSignKey) ?? comp.navXmlSignKey,
+      taxNumber: comp.taxNumber,
+    };
 
-    const submissionId = createId();
-    const now = new Date();
+    const submissions: { ok: boolean; reportId?: string; error?: string }[] = [];
+    let anyOk = false;
 
-    await db.insert(navReceiptSubmission).values({
-      id: submissionId,
-      userId: session.user.id,
-      companyId: comp.id,
-      reportDate,
-      status: "pending",
-      receiptCount: aggregation.receiptCount,
-      cancelledCount: 0,
-        startReceiptNumber: aggregation.startReceiptNumber ?? "",
-        endReceiptNumber: aggregation.endReceiptNumber ?? "",
-        vatBreakdown: JSON.stringify(aggregation.vatBreakdown),
+    for (const report of reports) {
+      const submissionId = createId();
+      const result = await submitReceiptDataReport(report, credentials, envMode);
+      await db.insert(navReceiptSubmission).values({
+        id: submissionId,
+        userId: session.user.id,
+        companyId: comp.id,
+        reportDate: applicableDate,
+        status: result.ok ? "submitted" : "failed",
+        receiptCount: report.numberOfSaleDocument,
+        transactionId: result.reportId ?? null,
+        errorMessage: result.error ?? null,
+        submittedAt: result.ok ? now : null,
         createdAt: now,
         updatedAt: now,
       });
-
-    let navResult: NavReceiptSubmissionResult;
-    if (navMode === "demo") {
-      // Demo mode: simulate acceptance, no network call to the unverified endpoint.
-      navResult = { ok: true, transactionId: `RECEIPT-DEMO-${Date.now()}` };
-    } else {
-      const credentials: NavReceiptCredentials = {
-        technicalUser: comp!.navTechnicalUser!,
-        technicalPassword: comp!.navTechnicalPassword!,
-        signingKey: comp!.navXmlSignKey!,
-        taxNumber: comp!.taxNumber!,
-      };
-      const env: NavReceiptEnvironment = navMode === "production" ? "production" : "test";
-
-      navResult = await submitDailyReceiptReport(
-        {
-          taxNumber: comp!.taxNumber!,
-          softwareId: (comp as any).navReceiptSoftwareId ?? "INVOHUB-DEFAULT",
-          reportDate,
-          startReceiptNumber: aggregation.startReceiptNumber ?? "",
-          endReceiptNumber: aggregation.endReceiptNumber ?? "",
-          receiptCount: aggregation.receiptCount,
-          cancelledCount: 0,
-          vatAggregations: aggregation.vatBreakdown.map((v) => ({
-            vatRateCode: `${v.vatRate}%`,
-            vatRate: v.vatRate,
-            netAmount: v.netAmount,
-            vatAmount: v.vatAmount,
-            grossAmount: v.grossAmount,
-            receiptCount: v.itemCount,
-          })),
-        },
-        credentials,
-        env
-      );
+      submissions.push({ ok: result.ok, reportId: result.reportId, error: result.error });
+      if (result.ok) anyOk = true;
     }
 
-    const finalStatus = navResult.ok ? "submitted" : "failed";
-
-    await db
-      .update(navReceiptSubmission)
-      .set({
-        status: finalStatus,
-        transactionId: navResult.transactionId ?? null,
-        errorMessage: navResult.error ?? null,
-        submittedAt: navResult.ok ? now : null,
+    for (const group of blocked) {
+      const submissionId = createId();
+      await db.insert(navReceiptSubmission).values({
+        id: submissionId,
+        userId: session.user.id,
+        companyId: comp.id,
+        reportDate: applicableDate,
+        status: "failed",
+        receiptCount: group.receiptCount,
+        errorMessage: BLOCKED_MESSAGE_HU,
+        createdAt: now,
         updatedAt: now,
-      })
-      .where(eq(navReceiptSubmission.id, submissionId));
+      });
+      submissions.push({ ok: false, error: BLOCKED_MESSAGE_HU });
+    }
 
-    if (navResult.ok) {
-      await db
-        .update(receipt)
-        .set({ navSubmitted: true, updatedAt: now })
-        .where(eq(receipt.id, id));
+    if (anyOk) {
+      await db.update(receipt).set({ navSubmitted: true, updatedAt: now }).where(eq(receipt.id, id));
     }
 
     return jsonResponse({
-      ok: navResult.ok,
-      submissionId,
-      reportDate,
-      receiptCount: aggregation.receiptCount,
-      transactionId: navResult.transactionId,
-      error: navResult.error,
+      ok: anyOk,
+      mode: envMode,
+      reportDate: applicableDate,
+      submissions,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "NAV submission failed.";

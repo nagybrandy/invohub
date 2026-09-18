@@ -1,13 +1,7 @@
 // lib/nav-receipt/report.test.ts
-import {
-  submitDailyReceiptReport,
-  registerReceiptSoftware,
-} from "@/lib/nav-receipt/report";
+import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
 import { clearAuthCache } from "@/lib/nav-receipt/auth";
-import type {
-  DailyReceiptReport,
-  NavReceiptCredentials,
-} from "@/lib/nav-receipt/types";
+import type { DailyReceiptReport, NavReceiptCredentials } from "@/lib/nav-receipt/types";
 
 const testCredentials: NavReceiptCredentials = {
   technicalUser: "testuser",
@@ -17,23 +11,16 @@ const testCredentials: NavReceiptCredentials = {
 };
 
 const testReport: DailyReceiptReport = {
-  taxNumber: "12345678",
-  softwareId: "SW-001",
-  reportDate: "2026-09-01",
-  startReceiptNumber: "R-0001",
-  endReceiptNumber: "R-0050",
-  receiptCount: 50,
-  cancelledCount: 2,
-  vatAggregations: [
-    {
-      vatRate: 27,
-      vatRateCode: "27",
-      netAmount: 100000,
-      vatAmount: 27000,
-      grossAmount: 127000,
-      receiptCount: 40,
-    },
-  ],
+  taxPayerId: "12345678",
+  issuingSoftwareName: "InvoHub",
+  applicableDate: "2026-07-12",
+  serialNumber: "NYG-2026-001",
+  currency: "HUF",
+  exchangeRate: null,
+  vatCategoryItems: [{ vat: "27%", saleDocument: 127000, modifyingDocument: 0 }],
+  total: 127000,
+  numberOfSaleDocument: 40,
+  numberOfModifyingDocument: 0,
 };
 
 const mockFetch = jest.fn();
@@ -44,73 +31,57 @@ function mockAuthSuccess() {
     ok: true,
     status: 200,
     text: () =>
-      Promise.resolve(JSON.stringify({ token: "test-token", tokenValiditySeconds: 600 })),
+      Promise.resolve(
+        `<AuthTokenResponse><token>test-token</token><validTo>${new Date(
+          Date.now() + 3_600_000
+        ).toISOString()}</validTo></AuthTokenResponse>`
+      ),
   });
 }
 
-describe("submitDailyReceiptReport", () => {
+describe("submitReceiptDataReport", () => {
   beforeEach(() => {
     clearAuthCache();
     mockFetch.mockReset();
   });
 
-  it("submits report and returns ok on success", async () => {
+  it("posts to <base>/receipt/create with Authorization: Bearer <token> and returns the parsed id", async () => {
     mockAuthSuccess();
     mockFetch.mockResolvedValueOnce({
+      ok: true,
       status: 200,
       text: () =>
-        Promise.resolve("<result><transactionId>TX-42</transactionId></result>"),
+        Promise.resolve(
+          "<CreateReceiptResponse><resultCode>OK</resultCode><id>12345678_20260712_3</id></CreateReceiptResponse>"
+        ),
     });
 
-    const result = await submitDailyReceiptReport(testReport, testCredentials, "test");
-    expect(result.ok).toBe(true);
-    expect(result.transactionId).toBe("TX-42");
+    const result = await submitReceiptDataReport(testReport, testCredentials, "test");
+
+    expect(result).toEqual({ ok: true, reportId: "12345678_20260712_3" });
     expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    const [url, init] = mockFetch.mock.calls[1];
+    expect(url).toBe("https://bv-receipt-if.enyugta.nav.gov.hu/v1/receipt/create");
+    expect(init.headers.Authorization).toBe("Bearer test-token");
   });
 
-  it("returns error on HTTP failure", async () => {
+  it("returns { ok: false, error } containing NAV's message on a NAV error, with no retry", async () => {
     mockAuthSuccess();
     mockFetch.mockResolvedValueOnce({
+      ok: false,
       status: 400,
       text: () =>
-        Promise.resolve("<error><message>Bad data</message></error>"),
+        Promise.resolve(
+          "<GeneralExceptionResponse><resultCode>VALIDATION_ERROR</resultCode><message>Bad data</message></GeneralExceptionResponse>"
+        ),
     });
 
-    const result = await submitDailyReceiptReport(testReport, testCredentials, "test");
+    const result = await submitReceiptDataReport(testReport, testCredentials, "test");
+
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Bad data");
-  });
-});
-
-describe("registerReceiptSoftware", () => {
-  beforeEach(() => {
-    clearAuthCache();
-    mockFetch.mockReset();
-  });
-
-  it("registers software and returns softwareId", async () => {
-    mockAuthSuccess();
-    mockFetch.mockResolvedValueOnce({
-      status: 200,
-      text: () =>
-        Promise.resolve("<result><softwareId>SW-NEW-1</softwareId></result>"),
-    });
-
-    const result = await registerReceiptSoftware(testCredentials, "test", "MyApp");
-    expect(result.ok).toBe(true);
-    expect(result.softwareId).toBe("SW-NEW-1");
-  });
-
-  it("returns error on failure", async () => {
-    mockAuthSuccess();
-    mockFetch.mockResolvedValueOnce({
-      status: 500,
-      text: () =>
-        Promise.resolve("<error><resultMessage>Server error</resultMessage></error>"),
-    });
-
-    const result = await registerReceiptSoftware(testCredentials, "test");
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("Server error");
+    // auth + one create call — no retry of the failed create call.
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

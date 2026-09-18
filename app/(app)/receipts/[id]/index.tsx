@@ -24,6 +24,9 @@ export default function ReceiptDetailScreen() {
   const { t } = useTranslation();
   const id = useRouteParam("id");
   const [receipt, setReceipt] = React.useState<ReceiptRecord | null>(null);
+  const [navMode, setNavMode] = React.useState<"demo" | "test" | "production">("demo");
+  const [navReportId, setNavReportId] = React.useState<string | null>(null);
+  const [navError, setNavError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -36,8 +39,16 @@ export default function ReceiptDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<{ receipt: ReceiptRecord }>(`/api/receipts/${id}`);
+      const data = await apiFetch<{
+        receipt: ReceiptRecord;
+        navMode?: "demo" | "test" | "production";
+        navReportId?: string | null;
+        navError?: string | null;
+      }>(`/api/receipts/${id}`);
       setReceipt(data.receipt);
+      setNavMode(data.navMode ?? "demo");
+      setNavReportId(data.navReportId ?? null);
+      setNavError(data.navError ?? null);
     } catch (e) {
       setReceipt(null);
       setError(e instanceof Error ? e.message : t("receipts.loadFailed"));
@@ -148,18 +159,50 @@ export default function ReceiptDetailScreen() {
         ) : null}
 
         <Card className="p-4">
-          <HStack className="items-center justify-between">
-            <Text size="sm" className="text-muted-foreground">NAV</Text>
-            {receipt.navSubmitted ? (
-              <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
-                <BadgeText className="text-xs text-green-600">{t("receipts.navSubmitted")}</BadgeText>
-              </Badge>
-            ) : (
+          <VStack space="sm">
+            <HStack className="items-center justify-between">
+              <Text size="sm" className="text-muted-foreground">NAV</Text>
+              {receipt.navSubmitted ? (
+                <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
+                  <BadgeText className="text-xs text-green-600">{t("receipts.navSubmitted")}</BadgeText>
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="rounded-full px-2 py-0.5">
+                  <BadgeText className="text-xs text-muted-foreground">{t("receipts.navPending")}</BadgeText>
+                </Badge>
+              )}
+            </HStack>
+            <HStack className="items-center justify-between">
               <Badge variant="outline" className="rounded-full px-2 py-0.5">
-                <BadgeText className="text-xs text-muted-foreground">{t("receipts.navPending")}</BadgeText>
+                <BadgeText className="text-xs text-muted-foreground">
+                  {navMode === "test" ? t("receipts.navModeTest") : t("receipts.navModeDemo")}
+                </BadgeText>
               </Badge>
-            )}
-          </HStack>
+              <Text size="xs" className="flex-1 text-right text-muted-foreground">
+                {navMode === "test" ? t("receipts.navTestHint") : t("receipts.navDemoHint")}
+              </Text>
+            </HStack>
+            {navReportId ? (
+              <HStack className="justify-between">
+                <Text size="sm" className="text-muted-foreground">
+                  {t("receipts.navReportId")}
+                </Text>
+                <Text selectable size="xs" className="flex-1 text-right font-mono">
+                  {navReportId}
+                </Text>
+              </HStack>
+            ) : null}
+            {navError ? (
+              <VStack space="xs">
+                <Text size="xs" className="text-muted-foreground">
+                  {t("receipts.navReportError")}
+                </Text>
+                <Text size="xs" className="text-destructive">
+                  {navError}
+                </Text>
+              </VStack>
+            ) : null}
+          </VStack>
         </Card>
 
         <Text size="xs" selectable className="font-mono text-muted-foreground">

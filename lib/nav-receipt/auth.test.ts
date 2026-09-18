@@ -12,13 +12,13 @@ const testCredentials: NavReceiptCredentials = {
 const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
 
-function mockAuthResponse(token: string, validitySeconds = 300) {
+function mockAuthXmlResponse(token: string, validTo = new Date(Date.now() + 3_600_000).toISOString()) {
   mockFetch.mockResolvedValueOnce({
     ok: true,
     status: 200,
     text: () =>
       Promise.resolve(
-        JSON.stringify({ token, tokenValiditySeconds: validitySeconds })
+        `<AuthTokenResponse><resultCode>OK</resultCode><token>${token}</token><validTo>${validTo}</validTo></AuthTokenResponse>`
       ),
   });
 }
@@ -29,20 +29,36 @@ describe("authenticate", () => {
     mockFetch.mockReset();
   });
 
-  it("sends credentials and returns a token", async () => {
-    mockAuthResponse("tok-123");
+  it("posts the auth XML to <base>/auth/token with Content-Type: application/xml", async () => {
+    mockAuthXmlResponse("tok-123");
     const result = await authenticate(testCredentials, "test");
 
     expect(result.token).toBe("tok-123");
     expect(result.expiresAt).toBeInstanceOf(Date);
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
-    const url = mockFetch.mock.calls[0][0] as string;
-    expect(url).toContain("/authenticate");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe("https://bv-receipt-if.enyugta.nav.gov.hu/v1/auth/token");
+    expect(init.method).toBe("POST");
+    expect(init.headers["Content-Type"]).toBe("application/xml");
+    expect(typeof init.body).toBe("string");
+    expect(init.body).toContain("<AuthTokenRequest");
   });
 
-  it("reuses cached token on second call", async () => {
-    mockAuthResponse("tok-cached", 600);
+  it("expires the cache entry from validTo", async () => {
+    const soonValidTo = new Date(Date.now() + 5_000).toISOString(); // < 30s cache margin
+    mockAuthXmlResponse("tok-soon", soonValidTo);
+    await authenticate(testCredentials, "test");
+
+    mockAuthXmlResponse("tok-next");
+    const second = await authenticate(testCredentials, "test");
+
+    expect(second.token).toBe("tok-next");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("reuses a cached token while validTo is still far enough in the future", async () => {
+    mockAuthXmlResponse("tok-cached");
     const first = await authenticate(testCredentials, "test");
     const second = await authenticate(testCredentials, "test");
 
@@ -50,31 +66,32 @@ describe("authenticate", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("throws on HTTP error", async () => {
+  it("rejects with NAV's resultCode + message on an error response", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 401,
       text: () =>
         Promise.resolve(
-          JSON.stringify({ resultCode: "AUTH_FAILED", resultMessage: "Bad creds" })
+          "<GeneralExceptionResponse><resultCode>AUTH_FAILED</resultCode><message>Bad creds</message></GeneralExceptionResponse>"
         ),
     });
 
-    await expect(authenticate(testCredentials, "test")).rejects.toThrow(
-      /AUTH_FAILED/
-    );
+    await expect(authenticate(testCredentials, "test")).rejects.toThrow(/AUTH_FAILED.*Bad creds/s);
   });
 
-  it("throws on non-JSON response", async () => {
+  it("rejects with the HTTP status plus a truncated body when the body is not parseable XML", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
       text: () => Promise.resolve("Internal Server Error"),
     });
 
-    await expect(authenticate(testCredentials, "test")).rejects.toThrow(
-      /500/
-    );
+    await expect(authenticate(testCredentials, "test")).rejects.toThrow(/500.*Internal Server Error/s);
+  });
+
+  it("makes no call at all in demo mode", async () => {
+    await expect(authenticate(testCredentials, "demo")).rejects.toThrow();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("does not reuse a token cached for a different company's credentials", async () => {
@@ -93,10 +110,10 @@ describe("authenticate", () => {
       taxNumber: "22222222",
     };
 
-    mockAuthResponse("tok-company-a");
+    mockAuthXmlResponse("tok-company-a");
     const tokenA = await authenticate(companyA, "test");
 
-    mockAuthResponse("tok-company-b");
+    mockAuthXmlResponse("tok-company-b");
     const tokenB = await authenticate(companyB, "test");
 
     expect(tokenA.token).toBe("tok-company-a");
@@ -111,13 +128,13 @@ describe("authenticate", () => {
   });
 
   it("clears cache via clearAuthCache", async () => {
-    mockAuthResponse("tok-1");
+    mockAuthXmlResponse("tok-1");
     await authenticate(testCredentials, "test");
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
     clearAuthCache();
 
-    mockAuthResponse("tok-2");
+    mockAuthXmlResponse("tok-2");
     const result = await authenticate(testCredentials, "test");
     expect(result.token).toBe("tok-2");
     expect(mockFetch).toHaveBeenCalledTimes(2);

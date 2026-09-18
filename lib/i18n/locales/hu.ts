@@ -546,8 +546,14 @@ export default {
     navSubmitted: "Beküldve",
     navPending: "Nincs beküldve",
     navSubmission: "NAV nyugta beküldése",
-    navSubmissionHint:
-      "A nyugta automatikusan beküldésre kerül a NAV eNyugta rendszerébe.",
+    navReportId: "NAV adatszolgáltatás azonosító",
+    navReportError: "NAV hibaüzenet",
+    navModeDemo: "Demó",
+    navModeTest: "NAV teszt",
+    navDemoHint: "Demó mód: a nyugta nem kerül be a NAV rendszerébe.",
+    navTestHint: "A napi nyugta-adatszolgáltatás a NAV teszt rendszerébe kerül.",
+    navMissingExchangeRate:
+      "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.",
     search: "Keresés",
     columnNumber: "Nyugtaszám",
     columnClient: "Ügyfél",
