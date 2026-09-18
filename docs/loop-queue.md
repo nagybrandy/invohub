@@ -554,6 +554,36 @@ screenshots before writing a fix plan:
    code superseded by `composer/VatCategoryPicker.tsx` — the loop-queue's
    original file reference below was stale) still needs deleting; out of
    scope for this slice.
+   Ship-review follow-ups (low severity, from the 2026-09-18 ship review of
+   `slice/invoice-flow-tap-targets-44px`):
+   - [ ] `components/ui/choice-pill/index.tsx`'s code comment claims the
+     caller-className-after-base ordering "always wins" the 44px floor, but
+     the test (`index.test.tsx`, "always renders min-h-11 and items-center,
+     even when the caller passes a conflicting className") only asserts
+     `className.trim().endsWith(TAP_TARGET_MIN_H)` — string order, not
+     actual rendered/computed CSS cascade behavior (NativeWind on web
+     resolves same-specificity utility conflicts via stylesheet rule order,
+     not attribute string order). Soften the comment to describe what's
+     actually guaranteed (string order + test coverage), and track a real
+     computed-style/visual check (e.g. in the Playwright UX sweep) as the
+     follow-up that verifies the assumption.
+   - [ ] `components/navigation/MobileAppHeader.tsx`'s new `hitSlop={8}` on
+     the notification bell (required by this slice's AC9) now meets
+     `LanguageSwitcher`'s pre-existing `hitSlop={8}` across their shared
+     `HStack space="sm"` (8px) gap, creating a roughly 4px contested
+     touch band at the boundary where RN's hit-test (not visual proximity)
+     decides which control a tap there hits. Fix with an asymmetric
+     hitSlop on the bell (exclude the side facing the switcher) or widen
+     the gap between the two controls.
+   - [ ] This slice's branch is a single squashed commit
+     (`git log main..slice/invoice-flow-tap-targets-44px`), so TDD
+     red→green test-first ordering (AGENTS.md §9) can't be independently
+     confirmed from git history — only inferred from test specificity
+     (e.g. the hostile-className cascade test, the `StepPartner`
+     `exchangeRate` focusField describe block). Not blocking, but if
+     test-first provenance needs to stay auditable, keep WIP/red-green
+     commits on future slices or note the ordering explicitly in the PR
+     description.
 9. [x] Invoices empty-state CTA: replace "Load demo data" with "Első számla
    kiállítása" (demo seed stays behind the dev flag). **Shipped** — the
    `/invoices` empty state now actions straight to `routes.newInvoice`
