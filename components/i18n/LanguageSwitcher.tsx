@@ -10,6 +10,7 @@ import {
   setAppLanguage,
   type AppLanguage,
 } from "@/lib/i18n/language";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 type LanguageSwitcherProps = {
   tone?: "onDark" | "onLight";
@@ -52,7 +53,7 @@ export function LanguageSwitcher({
             accessibilityLabel={language.label}
             testID={`${testID}-${language.code}`}
             hitSlop={8}
-            className={`min-h-9 min-w-8 items-center justify-center rounded-md px-2.5 py-1.5 ${
+            className={`${TAP_TARGET_MIN_H} min-w-8 items-center justify-center rounded-md px-2.5 py-1.5 ${
               selected
                 ? onDark
                   ? "bg-white"

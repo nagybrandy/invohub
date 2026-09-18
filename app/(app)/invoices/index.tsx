@@ -9,10 +9,10 @@ import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
-import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
+import { InvoiceFilterChips, isKnownInvoiceFilter } from "@/components/invoices/InvoiceFilterChips";
 import { InvoiceListTable, type InvoiceListSort, type InvoiceSortKey } from "@/components/invoices/InvoiceListTable";
 import { InvoicePreviewModal } from "@/components/invoices/InvoicePreviewModal";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -21,7 +21,6 @@ import { StateView } from "@/components/layout/StateView";
 import { StatCard } from "@/components/layout/StatCard";
 import type { OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
-import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
@@ -39,25 +38,12 @@ const CONVERT_ERROR_I18N_KEY: Record<string, string> = {
   cancelled: "invoices.convert.cancelledSource",
 };
 
-const FILTERS: Array<InvoiceStatus | "all"> = [
-  "all",
-  "draft",
-  "sent",
-  "unpaid",
-  "overdue",
-  "paid",
-];
-
-function isKnownFilter(value: string | undefined): value is InvoiceStatus | "all" {
-  return !!value && (FILTERS as string[]).includes(value);
-}
-
 export default function InvoiceListScreen() {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
   const statusParam = useRouteParam("status");
   const [filter, setFilter] = React.useState<InvoiceStatus | "all">(
-    isKnownFilter(statusParam) ? statusParam : "all"
+    isKnownInvoiceFilter(statusParam) ? statusParam : "all"
   );
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
@@ -233,9 +219,6 @@ export default function InvoiceListScreen() {
     return items;
   }
 
-  const filterLabel = (f: InvoiceStatus | "all") => (f === "all" ? t("invoices.list.filterAll") : t(STATUS_I18N_KEY[f]));
-  const filterCount = (f: InvoiceStatus | "all") => (f === "all" ? allCount : counts[f] ?? 0);
-
   const header = (
     <VStack space="md" className="pb-4">
       <PageHeader
@@ -272,32 +255,14 @@ export default function InvoiceListScreen() {
           testID="invoice-list-search"
         />
       </Input>
-      <HStack space="xs" className="flex-wrap">
-        {FILTERS.map((f) => {
-          const selected = filter === f;
-          return (
-            <Pressable
-              key={f}
-              testID={`invoice-filter-${f}`}
-              onPress={() => setFilter(f)}
-              className={`rounded-full border px-3 py-1.5 ${
-                selected ? "border-primary bg-primary" : "border-border bg-transparent"
-              }`}
-            >
-              <Text size="xs" className={selected ? "font-medium text-primary-foreground" : "text-foreground"}>
-                {t("invoices.list.filterCount", { label: filterLabel(f), count: filterCount(f) })}
-              </Text>
-            </Pressable>
-          );
-        })}
-        {otherCount > 0 ? (
-          <Pressable className="rounded-full border border-border bg-transparent px-3 py-1.5">
-            <Text size="xs" className="text-foreground">
-              {t("invoices.list.filterCount", { label: t("invoices.list.filterOther"), count: otherCount })}
-            </Text>
-          </Pressable>
-        ) : null}
-      </HStack>
+      <InvoiceFilterChips
+        filter={filter}
+        onSelect={setFilter}
+        counts={counts}
+        allCount={allCount}
+        otherCount={otherCount}
+        t={t}
+      />
     </VStack>
   );
 

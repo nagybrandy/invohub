@@ -14,6 +14,7 @@ export default {
     menu: "Menu",
     more: "More",
     notifications: "Notifications",
+    notificationsUnread: "Notifications, {{count}} unread",
     admin: "Admin panel",
     companySettings: "Company settings",
     accountSettings: "Account settings",
@@ -184,6 +185,7 @@ export default {
       showingCount: "Showing {{shown}} of {{total}} invoices (most recent first).",
       filterAll: "All",
       filterOther: "Other",
+      filterOtherHint: "Not filterable (proforma, partially paid, cancelled)",
       overdueBy: "Overdue by {{days}} days",
       navSubmittedHint: "Likely submitted to NAV",
       navNotSubmittedHint: "Not yet submitted to NAV",
@@ -395,6 +397,7 @@ export default {
     vat: {
       categoryLabel: "VAT treatment",
       advancedToggle: "Special taxation",
+      rateA11y: "{{rate}}% VAT rate",
       category: {
         normal: "Taxed",
         AAM: "AAM — VAT-exempt (alanyi adómentes)",

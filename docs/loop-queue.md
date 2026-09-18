@@ -533,13 +533,27 @@ screenshots before writing a fix plan:
    the 2026-09-16 plan, which was never built. See the matching detailed
    entry under "Remaining for the launch gate" for what planning verified
    against the published spec/XSD.
-8. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
-   — **partially shipped**: the composer's own line-item icon buttons are
-   now 44px (`components/invoices/composer/LineItemRow.tsx`), but the
-   notification bell (`components/navigation/MobileAppHeader.tsx`, ~42px)
-   and several choice pills (VAT category picker, partner-type pills,
-   invoice-list filter chips) are still under 44px — see the new findings
-   below; item stays open.
+8. [x] Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
+   — **Shipped** (`slice/invoice-flow-tap-targets-44px`). New
+   `lib/ui/tap-target.ts` (`MIN_TAP_TARGET_PX`, `TAP_TARGET_MIN_H`,
+   `TAP_TARGET_ICON_BOX`) is the single source of truth; a new
+   `components/ui/choice-pill/` primitive (`ChoicePill`/`ChoicePillGroup`,
+   deliberately composed with a plain template literal instead of
+   `tva()`/twMerge so a caller's conflicting className can't strip the 44px
+   floor) now backs `VatCategoryPicker`'s common/advanced/rate pills, the
+   notification-bell 44×44 tap box + `hitSlop={8}` in `MobileAppHeader.tsx`
+   (badge re-offset inside the box), `StepPartner`'s deadline/payment-method/
+   currency pills, `DocumentTypeTabs`/`ScreenModeTabs`/`ComposerStepper`, and
+   the new `components/invoices/InvoiceFilterChips.tsx` (extracted from
+   `app/(app)/invoices/index.tsx`'s inline `FILTERS.map`, which also fixes
+   the dead "Egyéb (n)" chip — it had no `onPress` and looked identical to a
+   working filter; it's now a non-interactive, visually distinct element).
+   Plan: `docs/plans/2026-09-18-invoice-flow-tap-targets-44px.md` (risk:
+   **none** — no `lib/tax/`, NAV/M2M, tax figure, marketing copy, or schema
+   change). Follow-up filed: `components/invoices/LineItemEditor.tsx` (dead
+   code superseded by `composer/VatCategoryPicker.tsx` — the loop-queue's
+   original file reference below was stale) still needs deleting; out of
+   scope for this slice.
 9. [x] Invoices empty-state CTA: replace "Load demo data" with "Első számla
    kiállítása" (demo seed stays behind the dev flag). **Shipped** — the
    `/invoices` empty state now actions straight to `routes.newInvoice`
@@ -657,16 +671,27 @@ Remaining for the launch gate:
       item's original "accordion" design decision (the shipped shape is a
       stepper, not an accordion) — see
       `docs/design/app-ux-spec-2026-09-14.md` §2 for the as-built spec.
-- [ ] Notification bell tap target (`components/navigation/
+- [x] Notification bell tap target (`components/navigation/
       MobileAppHeader.tsx`) is ~42px, just under the 44px minimum — bump
       padding to p-3 or add hitSlop (2026-09-14 audit, ux-mobile)
-- [ ] Multiple inline-choice pill buttons across the invoice flow are
+      **Shipped** by item 8 above (`slice/invoice-flow-tap-targets-44px`):
+      the bell now renders `TAP_TARGET_ICON_BOX` (`h-11 w-11 items-center
+      justify-center`) plus `hitSlop={8}`.
+- [x] Multiple inline-choice pill buttons across the invoice flow are
       under the 44px tap-target minimum: VAT category/rate pills
       (`components/invoices/LineItemEditor.tsx`), payment-method/currency/
       deadline pills (`app/(app)/invoices/new.tsx`), and filter pills
       (`app/(app)/invoices/index.tsx`) — establish a shared "choice pill"
       component with a minimum 44px height instead of ad hoc
       Pressable+className (2026-09-14 audit, ux-mobile)
+      **Shipped** by item 8 above. The file references here were stale by
+      the time this shipped: the composer rewrite had already replaced
+      `LineItemEditor.tsx` (dead code, still not deleted — see item 8's
+      follow-up note) with `composer/VatCategoryPicker.tsx`, and
+      `app/(app)/invoices/new.tsx` with the `composer/StepPartner.tsx`
+      pills — both now render through the new `ChoicePill` primitive
+      (`components/ui/choice-pill/`), as does the extracted
+      `InvoiceFilterChips.tsx`.
 - [x] "Load demo data" empty-state CTA (`app/(app)/invoices/index.tsx`)
       routes unconditionally to Settings, but the demo-seed control there
       is hidden unless `EXPO_PUBLIC_ALLOW_DEV_SEED` is set (default off) —

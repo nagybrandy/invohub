@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 export type ScreenMode = "edit" | "preview";
 
@@ -25,9 +26,9 @@ export function ScreenModeTabs({
         <Pressable
           key={value}
           onPress={() => onChange(value)}
-          className={`flex-1 rounded-md px-4 py-2 ${
+          className={`flex-1 items-center justify-center rounded-md px-4 py-2 ${
             mode === value ? "bg-background shadow-sm" : ""
-          }`}
+          } ${TAP_TARGET_MIN_H}`}
         >
           <Text
             size="sm"

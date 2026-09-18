@@ -50,4 +50,15 @@ describe("LanguageSwitcher", () => {
     });
     expect(mockSetAppLanguage).toHaveBeenCalledWith("en");
   });
+
+  it("sizes each option pill to the 44px tap-target floor (min-h-11), matching the header bell", async () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(<LanguageSwitcher />);
+    });
+    const hu = tree.root.findByProps({ testID: "language-switcher-hu" });
+    const en = tree.root.findByProps({ testID: "language-switcher-en" });
+    expect(String(hu.props.className)).toContain("min-h-11");
+    expect(String(en.props.className)).toContain("min-h-11");
+  });
 });

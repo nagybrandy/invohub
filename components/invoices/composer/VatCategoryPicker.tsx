@@ -1,15 +1,21 @@
 // components/invoices/composer/VatCategoryPicker.tsx
 // INV-7: 2 common VAT categories up front, the other 5 behind a "Speciális
 // adózás" expander instead of 7 chips fighting for space in every row.
+//
+// Every choice here — common categories, VAT-rate pills, and the advanced
+// categories — is a compliance-relevant tap (AAM vs. 27% on the wrong
+// line), so each renders through ChoicePill instead of an ad-hoc Pressable
+// to guarantee the 44px tap-target floor (tap-targets-44px slice).
 import * as React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
-import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
 import { ADVANCED_VAT_CATEGORIES, COMMON_VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import type { VatCategory, VatRate } from "@/lib/invoices/types";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 export function VatCategoryPicker({
   category,
@@ -29,41 +35,37 @@ export function VatCategoryPicker({
 
   return (
     <VStack space="xs">
-      <HStack space="xs" className="flex-wrap">
+      <ChoicePillGroup>
         {COMMON_VAT_CATEGORIES.map((option) => (
-          <Pressable
-            key={option}
-            onPress={() => onChangeCategory(option)}
-            className={`rounded-md border px-2.5 py-1.5 ${
-              category === option ? "border-primary bg-primary/10" : "border-border bg-background"
-            }`}
-          >
+          <ChoicePill key={option} selected={category === option} onPress={() => onChangeCategory(option)}>
             <Text size="xs" className={category === option ? "font-medium text-primary" : "text-foreground"}>
               {t(`invoices.vat.category.${option}`)}
             </Text>
-          </Pressable>
+          </ChoicePill>
         ))}
-      </HStack>
+      </ChoicePillGroup>
 
       {category === "normal" ? (
-        <HStack space="xs" className="flex-wrap">
+        <ChoicePillGroup>
           {VAT_RATES.map((r) => (
-            <Pressable
+            <ChoicePill
               key={r}
+              selected={rate === r}
               onPress={() => onChangeRate(r)}
-              className={`rounded-md border px-2 py-1 ${
-                rate === r ? "border-primary bg-primary/10" : "border-border bg-background"
-              }`}
+              accessibilityLabel={t("invoices.vat.rateA11y", { rate: r })}
             >
               <Text size="2xs" className={rate === r ? "font-medium text-primary" : "text-muted-foreground"}>
                 {r}%
               </Text>
-            </Pressable>
+            </ChoicePill>
           ))}
-        </HStack>
+        </ChoicePillGroup>
       ) : null}
 
-      <Pressable onPress={() => setExpanded((v) => !v)} className="flex-row items-center gap-1">
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        className={`flex-row items-center gap-1 ${TAP_TARGET_MIN_H}`}
+      >
         <Text size="xs" className="text-muted-foreground underline">
           {t("invoices.vat.advancedToggle")}
         </Text>
@@ -77,17 +79,11 @@ export function VatCategoryPicker({
       {expanded ? (
         <VStack space="xs" className="rounded-md border border-border bg-muted/30 p-2">
           {ADVANCED_VAT_CATEGORIES.map((option) => (
-            <Pressable
-              key={option}
-              onPress={() => onChangeCategory(option)}
-              className={`rounded-md border px-2.5 py-1.5 ${
-                category === option ? "border-primary bg-primary/10" : "border-border bg-background"
-              }`}
-            >
+            <ChoicePill key={option} selected={category === option} onPress={() => onChangeCategory(option)}>
               <Text size="xs" className={category === option ? "font-medium text-primary" : "text-foreground"}>
                 {t(`invoices.vat.category.${option}`)}
               </Text>
-            </Pressable>
+            </ChoicePill>
           ))}
         </VStack>
       ) : null}

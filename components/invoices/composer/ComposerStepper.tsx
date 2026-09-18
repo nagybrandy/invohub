@@ -6,6 +6,7 @@ import { Text } from "@/components/ui/text";
 import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
 import { COMPOSER_STEP_ORDER, type ComposerStepId } from "@/components/invoices/composer/composer-logic";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 const STEP_LABEL_KEYS: Record<ComposerStepId, string> = {
   partner: "invoices.composer.steps.partner",
@@ -35,7 +36,7 @@ export function ComposerStepper({
             onPress={() => onSelect(stepId)}
             accessibilityRole="tab"
             accessibilityState={{ selected: isCurrent }}
-            className="flex-row items-center"
+            className={`flex-row items-center ${TAP_TARGET_MIN_H}`}
           >
             <HStack space="xs" className="items-center">
               <VStack
