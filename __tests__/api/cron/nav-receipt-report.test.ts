@@ -130,7 +130,7 @@ describe("GET /api/cron/nav-receipt-report", () => {
     const failedRow = insertedRows.find((row) => row.status === "failed");
 
     expect(submittedRow?.transactionId).toBe("12345678_20260101_1");
-    expect(failedRow?.errorMessage).toContain("HUF");
+    expect(failedRow?.errorMessage).toBe("missing_exchange_rate");
   });
 
   it("skips a test company with missing NAV credentials", async () => {

@@ -739,7 +739,7 @@ Remaining for the launch gate:
       test:unit` (207 suites / 1254 tests) are green on the branch. 2
       low-severity follow-ups filed below (acceptance/ux dimensions), none
       blocking.
-- [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
+- [x] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — `receipts.navMissingExchangeRate` is defined in both
       `lib/i18n/locales/hu.ts:555` and `en.ts:555` but referenced nowhere
       else in the repo. The message actually shown for a blocked non-HUF
@@ -756,6 +756,29 @@ Remaining for the launch gate:
       pre-rendered sentence, and render it client-side via
       `t("receipts.navMissingExchangeRate")`, deleting the duplicated
       literal from both API route files.
+      **Done 2026-09-18** (`slice/receipt-blocked-message-i18n-fallback`,
+      branched off `slice/e-nyugta-nav-receipt-api`, not `main` — see
+      `docs/plans/2026-09-18-receipt-blocked-message-i18n-fallback.md` §0).
+      New `lib/receipts/nav-error-code.ts`
+      (`isNavReceiptBlockedReason`/`navReceiptErrorI18nKey`) is the single
+      code↔key mapping; both API routes now write
+      `errorMessage: group.reason` (`"missing_exchange_rate"`), the
+      `[id]+api.ts` HUF/non-HUF discriminator uses
+      `isNavReceiptBlockedReason(row.errorMessage)` instead of string
+      equality against translated copy, and the detail screen's NAV block is
+      extracted into `components/receipts/ReceiptNavCard.tsx`, which renders
+      `t("receipts.navMissingExchangeRate", { currency })` for a known code
+      and NAV's own text verbatim otherwise. `navMissingExchangeRate` copy
+      reworded in both locales to interpolate `{{currency}}`. `npx tsc
+      --noEmit` clean; `npm run test:unit` green (209 suites / 1268 tests,
+      +2 suites / +14 tests over the 207/1254 parent-branch baseline).
+      **This is a stacked PR onto `slice/e-nyugta-nav-receipt-api`, not
+      `main`** — that parent slice is still pending its own tax/legal
+      sign-off (OQ-1…OQ-6 above); Ship must not merge either branch to
+      `main` on its own. Deferred (plan §9, unchanged from the parent
+      slice): the additive `receipt.exchangeRate`/`navReceiptSubmission
+      .currency` columns, and the pre-existing `selectable`-prop web console
+      warning (separate filed follow-up below).
 - [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — the new NAV-report-id row in
       `app/(app)/receipts/[id]/index.tsx` repeats a pre-existing

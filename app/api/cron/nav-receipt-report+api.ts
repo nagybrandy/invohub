@@ -10,10 +10,8 @@ import { createId } from "@/lib/id";
 import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
 import type { NavReceiptCredentials, NavReceiptEnvironment } from "@/lib/nav-receipt/types";
-import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU, buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { buildDailyReceiptReports } from "@/lib/receipts/daily-report";
 import { getReceiptsByDateRange } from "@/lib/receipts/service";
-
-const BLOCKED_MESSAGE_HU = BLOCKED_EXCHANGE_RATE_MESSAGE_HU;
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -99,11 +97,11 @@ export async function GET(request: Request) {
           reportDate,
           status: "failed",
           receiptCount: group.receiptCount,
-          errorMessage: BLOCKED_MESSAGE_HU,
+          errorMessage: group.reason,
           createdAt: now,
           updatedAt: now,
         });
-        results.push({ companyId: comp.id, status: "failed", error: BLOCKED_MESSAGE_HU });
+        results.push({ companyId: comp.id, status: "failed", error: group.reason });
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : "Unknown error";

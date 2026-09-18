@@ -5,6 +5,7 @@
 // docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md §1.3.
 import type { DailyReceiptReport, ReceiptVatCategoryItem } from "@/lib/nav-receipt/types";
 import { toNavVatCategory, type NavVatCategory } from "@/lib/nav-receipt/vat-category";
+import type { NavReceiptBlockedReason } from "@/lib/receipts/nav-error-code";
 
 export type DailyReportReceiptInput = {
   receiptNumber: string;
@@ -22,18 +23,9 @@ export type BuildDailyReceiptReportsOptions = {
 
 export type BlockedReceiptGroup = {
   currency: string;
-  reason: "missing_exchange_rate";
+  reason: NavReceiptBlockedReason;
   receiptCount: number;
 };
-
-// AC1.3 / plan §1.3: non-HUF receipt days are refused, not guessed. This is
-// the errorMessage every blocked (non-HUF) navReceiptSubmission row carries.
-// navReceiptSubmission has no currency column (deferred, see plan §6/§9), so
-// callers that need to tell a HUF submission row apart from a blocked
-// non-HUF row for the same reportDate match on this exact message instead —
-// see app/api/receipts/[id]+api.ts.
-export const BLOCKED_EXCHANGE_RATE_MESSAGE_HU =
-  "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.";
 
 export type BuildDailyReceiptReportsResult = {
   reports: DailyReceiptReport[];

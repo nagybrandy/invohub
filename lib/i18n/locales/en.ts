@@ -553,7 +553,7 @@ export default {
     navDemoHint: "Demo mode: this receipt is not sent to NAV.",
     navTestHint: "The daily receipt data report is sent to NAV's test system.",
     navMissingExchangeRate:
-      "Non-HUF receipt: no exchange rate on file, so it cannot be reported to NAV.",
+      "Non-HUF ({{currency}}) receipt: no exchange rate on file, so it was left out of the daily NAV data report.",
     search: "Search",
     columnNumber: "Receipt #",
     columnClient: "Client",
