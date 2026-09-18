@@ -6,10 +6,26 @@
 // Deliberate departure from AGENTS.md §5's tva() convention: tva() runs
 // twMerge, which would let a caller's conflicting className (e.g.
 // "py-0.5 min-h-0") silently strip the 44px floor this component exists to
-// guarantee (Apple HIG 44pt / WCAG 2.5.8 AAA). Composition here is a plain
-// template literal, ordered base -> selected/unselected tokens -> caller
-// className -> TAP_TARGET_MIN_H, so the floor is always composed last and
-// always wins. Do not "fix" this back to tva()/twMerge.
+// guarantee (Apple HIG 44pt / WCAG 2.5.8 AAA). twMerge resolves conflicts by
+// which Tailwind "group" a class belongs to and drops the earlier one, so a
+// caller's `min-h-0` would delete our `min-h-11` outright.
+//
+// Composition here is instead a plain template literal, with TAP_TARGET_MIN_H
+// last. That position is not what makes the floor win, though: Tailwind
+// utilities are single-class selectors of equal specificity, so when two
+// conflicting classes are both present on an element, the plain-CSS cascade
+// resolves them by which rule comes LAST IN THE GENERATED STYLESHEET, and
+// Tailwind emits utilities grouped by the theme scale they come from (e.g.
+// `min-h-0` before `min-h-11`, `py-0.5` before `py-2`) — not by the order the
+// classNames appear in this string or in JSX. `min-h-11` beats a hostile
+// `min-h-0` only because 11 > 0 on the spacing scale; the same mechanism
+// means BASE's `py-2` below always beats any caller `py-*` override smaller
+// than 2, regardless of whether the caller className is composed before or
+// after BASE. Trailing position keeps the source readable and matches the
+// visual "floor" intent, but it has no effect on which rule wins; verify any
+// change here against the real compiled CSS (see
+// tap-target-css-resolution.test.ts), not against className string order.
+// Do not "fix" this back to tva()/twMerge.
 import * as React from "react";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
