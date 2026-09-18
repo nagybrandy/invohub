@@ -589,17 +589,74 @@ screenshots before writing a fix plan:
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
    control.
-10. Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
+10. [~] folyamatban — PR open (slice/backfill-non-huf-invoices-missing-exchange-rate)
+    Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
     (`slice/non-huf-invoice-exchange-rate-nav-xml`): before that slice,
     `POST /api/invoices` silently dropped `body.exchangeRate` on create, so
     any EUR/non-HUF invoice created before the fix was saved with no rate.
     Such a row now can't be NAV-submitted (`buildNavInvoiceXml` correctly
     refuses instead of reporting a false HUF base) until it's edited to add
-    one. Needs a listing (which existing invoices are affected) or an
-    in-app prompt on the invoice detail/edit screen — not a guessed rate.
-    Also out of scope for that slice, needs its own item: retro-correcting
-    any non-HUF invoice already reported to NAV with the old hardcoded
+    one. **Built, not merged.** Not tax/legal/NAV-production gated, but this
+    ship round wasn't green end-to-end, so Ship opened a PR for human review
+    instead of auto-merging rather than force it through. Implemented: a
+    pure `isMissingExchangeRate` predicate
+    (`lib/invoices/exchange-rate.ts`) built on the existing
+    `resolveExchangeRate`, so it can never drift from what the NAV XML
+    builder refuses; a `needsExchangeRate` filter threaded through
+    `lib/invoices/list-query.ts`, the exported `buildInvoiceListWhere`
+    (`lib/invoices/service.ts`, SQL-pushed, not JS-filtered), `GET
+    /api/invoices`, and `useInvoices`/`useMissingExchangeRateCount`; a
+    dismissable-by-toggle `ExchangeRateFixBanner` on `/invoices` that
+    switches the list to an affected-only view; a warning card on the
+    invoice detail screen that deep-links (`routes.invoiceEdit(id, {
+    focus: "exchangeRate" })`) straight to the composer's exchange-rate
+    field (reusing the already-shipped `StepPartner` focus behaviour); and
+    `POST /api/nav/submit` now refuses with 409 `code: "missingExchangeRate"`
+    before ever calling NAV, instead of a raw 500. No rate is guessed,
+    fetched or defaulted anywhere — the user always types it. All 8 plan
+    acceptance criteria pass; `npx tsc --noEmit` and `npm run test:unit` are
+    green. Nothing under `lib/nav/`, `lib/tax/`, `lib/m2m/` or `marketing/`
+    touched; `db/schema.ts` unchanged (risk: **none** — see plan §8).
+    Plan: `docs/plans/2026-09-18-backfill-non-huf-invoices-missing-exchange-rate.md`
+    Still out of scope, filed as item 11 below: retro-correcting any
+    non-HUF invoice already reported to NAV with the old hardcoded
     `exchangeRate=1` (a NAV MODIFY submission question, tax/legal-gated).
+    Ship-review follow-up (low severity, from the 2026-09-18 fix-round
+    review of `slice/backfill-non-huf-invoices-missing-exchange-rate`):
+    - [ ] `invoices.errors.navMissingExchangeRate` is defined in both
+      `lib/i18n/locales/hu.ts` and `en.ts` but referenced nowhere in the
+      app — `components/invoices/NavStatusCard.tsx` (unmounted by any
+      screen, per plan §9 item 5) never reads `ApiError.code`, so a 409
+      from `POST /api/nav/submit` still surfaces the server's raw English
+      developer sentence, not the Hungarian/English translation, if that
+      component is ever wired up. Wiring `NavStatusCard.tsx` was
+      explicitly out of scope for this slice; when it is mounted, add
+      `missingExchangeRate` to a code-to-i18n-key map there (mirroring
+      `ERROR_CODE_I18N_KEY` in `app/(app)/invoices/[id]/index.tsx`) so the
+      key stops being dead. Same pattern already filed above for
+      `receipts.navMissingExchangeRate`.
+    - [ ] The invoice-detail warning card's "add rate" `Button`
+      (`app/(app)/invoices/[id]/index.tsx`, the `isMissingExchangeRate`
+      card) has no `size` prop and no `min-h-11`/`TAP_TARGET_MIN_H` class,
+      so it falls under the 44px tap-target floor established by
+      `slice/invoice-flow-tap-targets-44px` — on a control that routes the
+      user to fix a NAV-blocking problem. Not a regression (other buttons on
+      the same screen are similarly unstyled), but new code from this slice
+      that had the chance to apply the shared floor and didn't. Add
+      `TAP_TARGET_MIN_H` (or `min-h-11`) to this button's className,
+      alongside `ExchangeRateFixBanner`'s button, for consistency.
+11. [ ] Retro-correct non-HUF invoices already reported to NAV with the old
+    hardcoded `exchangeRate=1` — filed by item 10
+    (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the
+    item-3 fix, every non-HUF invoice's NAV submission reported a HUF VAT
+    base computed at an implicit rate of 1, which is wrong for any invoice
+    not actually in HUF. A previously reported invoice's NAV record now
+    disagrees with reality. Fixing this means emitting a NAV **MODIFY**
+    submission with the corrected HUF amounts — a real tax consequence, not
+    a UI fix. **Tax/legal-gated: needs its own plan and explicit human
+    sign-off before any code that emits a MODIFY report ships** (per
+    CLAUDE.md's phase-1 launch gate and `lib/nav/` production-behaviour
+    sign-off rule). Do not auto-ship.
 
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
@@ -835,7 +892,8 @@ Remaining for the launch gate:
       test:unit` (207 suites / 1254 tests) are green on the branch. 2
       low-severity follow-ups filed below (acceptance/ux dimensions), none
       blocking.
-- [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
+- [~] folyamatban (slice/receipt-blocked-message-i18n-fallback)
+      **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — `receipts.navMissingExchangeRate` is defined in both
       `lib/i18n/locales/hu.ts:555` and `en.ts:555` but referenced nowhere
       else in the repo. The message actually shown for a blocked non-HUF
@@ -852,6 +910,19 @@ Remaining for the launch gate:
       pre-rendered sentence, and render it client-side via
       `t("receipts.navMissingExchangeRate")`, deleting the duplicated
       literal from both API route files.
+      Plan:
+      `docs/plans/2026-09-18-receipt-blocked-message-i18n-fallback.md`
+      **Base branch is `slice/e-nyugta-nav-receipt-api`, not `main`** — none
+      of the named symbols exist on `main` (that slice is still unmerged,
+      pending tax/legal sign-off). This becomes a stacked PR onto that
+      slice and must not be auto-merged to `main`. Planning also found that
+      the Hungarian sentence is load-bearing as a *database discriminator*:
+      `app/api/receipts/[id]+api.ts` tells a blocked non-HUF row apart from
+      a HUF row for the same `reportDate` by exact-matching that sentence,
+      so any copy edit would silently attach the wrong currency group's NAV
+      status to a receipt. Moving to the stable `missing_exchange_rate`
+      code removes that latent bug, which is why this "low" item is worth
+      doing properly rather than as a one-line `t()` wrap.
 - [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — the new NAV-report-id row in
       `app/(app)/receipts/[id]/index.tsx` repeats a pre-existing

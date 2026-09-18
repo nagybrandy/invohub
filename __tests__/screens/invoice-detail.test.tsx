@@ -593,6 +593,65 @@ describe("InvoiceDetailScreen", () => {
     expect(mockPush).toHaveBeenCalledWith("/invoices/converted-1/edit");
   });
 
+  it("renders the exchange-rate warning card for a EUR invoice with no rate, and its button routes to the composer with focus=exchangeRate (AC5.1, AC5.3)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return {
+        invoice: makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: undefined }),
+      };
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.exchangeRateFix.detailTitle");
+    expect(json).toContain('invoices.exchangeRateFix.detailBody:{\\"currency\\":\\"EUR\\"}');
+
+    const addRateButton = findPressableWithText(tree.root, "invoices.exchangeRateFix.addRate");
+    expect(addRateButton).toBeTruthy();
+
+    await act(async () => {
+      addRateButton?.props.onPress?.();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/invoices/inv-1/edit?focus=exchangeRate");
+  });
+
+  it("renders no warning card for a HUF invoice (AC5.2)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", currency: "HUF" }) };
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.exchangeRateFix.detailTitle");
+  });
+
+  it("renders no warning card for a EUR invoice that already has a rate (AC5.2)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: 390.5 }) };
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.exchangeRateFix.detailTitle");
+  });
+
   it("shows a status timeline above the document preview (D6/AC11)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {

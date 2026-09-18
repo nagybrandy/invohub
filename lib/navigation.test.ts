@@ -10,6 +10,12 @@ describe("routes", () => {
     expect(routes.invoiceEdit("xyz")).toBe("/invoices/xyz/edit");
   });
 
+  it("builds an invoice edit path with a focus param (AC6.2)", () => {
+    expect(routes.invoiceEdit("xyz", { focus: "exchangeRate" })).toBe(
+      "/invoices/xyz/edit?focus=exchangeRate"
+    );
+  });
+
   it("exposes static app routes", () => {
     expect(routes.invoices).toBe("/invoices");
     expect(routes.settingsCompany).toBe("/settings/company");

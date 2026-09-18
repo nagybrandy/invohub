@@ -23,7 +23,13 @@ export const routes = {
   newInvoiceForClient: (clientId: string) =>
     ({ pathname: "/invoices/new", params: { clientId } }) as Href,
   invoiceDetail: (id: string) => `/invoices/${id}` as Href,
-  invoiceEdit: (id: string) => `/invoices/${id}/edit` as Href,
+  /** With `focus`, deep-links into a specific composer field — e.g. the
+   * exchange-rate-missing warning card's "Add exchange rate" button
+   * (StepPartner already reacts to focusField === options.focus). */
+  invoiceEdit: (id: string, options?: { focus?: string }) =>
+    (options?.focus
+      ? `/invoices/${id}/edit?focus=${encodeURIComponent(options.focus)}`
+      : `/invoices/${id}/edit`) as Href,
   clients: "/clients" as Href,
   newClient: "/clients/new" as Href,
   clientEdit: (id: string) => `/clients/${id}/edit` as Href,

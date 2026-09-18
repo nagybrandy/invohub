@@ -207,6 +207,18 @@ export default {
       deleteAction: "Delete",
       searchPlaceholder: "Search by partner, invoice number, or tax ID",
     },
+    exchangeRateFix: {
+      banner:
+        "{{count}} foreign-currency invoices have no HUF exchange rate, so they cannot be submitted to NAV.",
+      showAffected: "Show affected",
+      showAll: "Show all invoices",
+      activeTitle: "Foreign-currency invoices without a rate",
+      emptyAffected: "No foreign-currency invoice is missing a rate.",
+      detailTitle: "HUF exchange rate is missing",
+      detailBody:
+        "This invoice is in {{currency}} but has no exchange rate. NAV Online Számla requires the VAT amount in forint, so it cannot be submitted until you enter the rate.",
+      addRate: "Add exchange rate",
+    },
     nav: {
       title: "NAV Online Számla",
       demoBadge: "Demo mode — not a real NAV report",
@@ -347,6 +359,8 @@ export default {
       navExchangeRateMissing: "NAV submission cannot start: the invoice has no HUF exchange rate.",
       proformaNotStornoable:
         "A proforma is not an accounting document — it cannot be cancelled or corrected. Delete it, or convert it into an invoice.",
+      navMissingExchangeRate:
+        "NAV submission is not possible: the invoice has no HUF exchange rate.",
     },
     autoSaved: "Auto-saved as draft",
     autoSavedAt: "Auto-saved as draft at {{time}}",

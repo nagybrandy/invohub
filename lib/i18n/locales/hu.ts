@@ -208,6 +208,18 @@ export default {
       deleteAction: "Törlés",
       searchPlaceholder: "Keresés partner, számlaszám vagy adószám alapján",
     },
+    exchangeRateFix: {
+      banner:
+        "{{count}} deviza számlához nincs rögzítve HUF-árfolyam, ezért nem küldhetők be a NAV-nak.",
+      showAffected: "Érintett számlák",
+      showAll: "Összes számla",
+      activeTitle: "Árfolyam nélküli deviza számlák",
+      emptyAffected: "Nincs árfolyam nélküli deviza számla.",
+      detailTitle: "Hiányzik a HUF-árfolyam",
+      detailBody:
+        "Ez a számla {{currency}} pénznemű, de nincs hozzá rögzítve árfolyam. A NAV Online Számla adatszolgáltatás forintban kéri az áfaértéket, ezért a beküldés addig nem lehetséges, amíg meg nem adod az árfolyamot.",
+      addRate: "Árfolyam megadása",
+    },
     nav: {
       title: "NAV Online Számla",
       demoBadge: "Demó mód — nem valódi NAV jelentés",
@@ -347,6 +359,8 @@ export default {
       navExchangeRateMissing: "A NAV beküldés nem indítható el: hiányzik a számla HUF árfolyama.",
       proformaNotStornoable:
         "A díjbekérő nem adóügyi bizonylat — nem sztornózható és nem helyesbíthető. Töröld, vagy készíts belőle számlát.",
+      navMissingExchangeRate:
+        "A NAV beküldés nem lehetséges: a számlához nincs megadva HUF-árfolyam.",
     },
     autoSaved: "Automatikusan mentve piszkozatként",
     autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",

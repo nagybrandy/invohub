@@ -11,6 +11,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { ExchangeRateFixBanner } from "@/components/invoices/ExchangeRateFixBanner";
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { InvoiceFilterChips, isKnownInvoiceFilter } from "@/components/invoices/InvoiceFilterChips";
 import { InvoiceListTable, type InvoiceListSort, type InvoiceSortKey } from "@/components/invoices/InvoiceListTable";
@@ -25,6 +26,7 @@ import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useInvoiceStatusCounts } from "@/hooks/useInvoiceStatusCounts";
+import { useMissingExchangeRateCount } from "@/hooks/useMissingExchangeRateCount";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useRouteParam } from "@/lib/routing/route-param";
 import { apiFetch, ApiError } from "@/lib/api/client";
@@ -48,6 +50,7 @@ export default function InvoiceListScreen() {
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [sort, setSort] = React.useState<InvoiceListSort>({ key: "issued", direction: "desc" });
+  const [needsExchangeRate, setNeedsExchangeRate] = React.useState(false);
   const {
     invoices,
     loading,
@@ -59,8 +62,19 @@ export default function InvoiceListScreen() {
   } = useInvoices({
     status: filter,
     search,
+    needsExchangeRate,
   });
   const { counts, allCount, other: otherCount } = useInvoiceStatusCounts();
+  const { count: missingExchangeRateCount } = useMissingExchangeRateCount();
+
+  function handleShowAffectedInvoices() {
+    setFilter("all");
+    setNeedsExchangeRate(true);
+  }
+
+  function handleShowAllInvoices() {
+    setNeedsExchangeRate(false);
+  }
   // Matches the dashboard's default currency (HUF) — invoices don't share a
   // single currency, so this is only a label for the primary total, never a
   // sum across currencies (L6).
@@ -247,6 +261,12 @@ export default function InvoiceListScreen() {
           }
         />
       </HStack>
+      <ExchangeRateFixBanner
+        count={missingExchangeRateCount}
+        active={needsExchangeRate}
+        onShowAffected={handleShowAffectedInvoices}
+        onShowAll={handleShowAllInvoices}
+      />
       <Input>
         <InputField
           value={searchInput}
@@ -266,7 +286,9 @@ export default function InvoiceListScreen() {
     </VStack>
   );
 
-  const emptyState = (
+  const emptyState = needsExchangeRate ? (
+    <StateView kind="empty" title={t("invoices.exchangeRateFix.emptyAffected")} />
+  ) : (
     <StateView
       kind="empty"
       title={t("invoices.empty")}
