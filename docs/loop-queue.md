@@ -589,7 +589,8 @@ screenshots before writing a fix plan:
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
    control.
-10. Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
+10. [~] folyamatban (slice/backfill-non-huf-invoices-missing-exchange-rate)
+    Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
     (`slice/non-huf-invoice-exchange-rate-nav-xml`): before that slice,
     `POST /api/invoices` silently dropped `body.exchangeRate` on create, so
     any EUR/non-HUF invoice created before the fix was saved with no rate.
@@ -600,6 +601,15 @@ screenshots before writing a fix plan:
     Also out of scope for that slice, needs its own item: retro-correcting
     any non-HUF invoice already reported to NAV with the old hardcoded
     `exchangeRate=1` (a NAV MODIFY submission question, tax/legal-gated).
+    Plan: `docs/plans/2026-09-18-backfill-non-huf-invoices-missing-exchange-rate.md`
+    — the planned slice covers **only** the surfacing half (an
+    `needsExchangeRate` list filter, a banner on `/invoices`, a warning +
+    deep link to the exchange-rate field on the invoice detail screen, and a
+    typed 409 from `POST /api/nav/submit` instead of an unhandled 500).
+    Risk: none — no `lib/nav/`, `lib/tax/`, `lib/m2m/`, `marketing/` or
+    `db/schema.ts` change. The retro-correction (NAV MODIFY) half stays
+    **tax/legal-gated and unstarted**; it needs its own item and human
+    sign-off.
 
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
