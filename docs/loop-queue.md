@@ -589,14 +589,17 @@ screenshots before writing a fix plan:
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
    control.
-10. [x] (slice/backfill-non-huf-invoices-missing-exchange-rate) Backfill/
-    surface non-HUF invoices with no `exchangeRate` — filed by item 3
+10. [~] folyamatban — PR open (slice/backfill-non-huf-invoices-missing-exchange-rate)
+    Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
     (`slice/non-huf-invoice-exchange-rate-nav-xml`): before that slice,
     `POST /api/invoices` silently dropped `body.exchangeRate` on create, so
     any EUR/non-HUF invoice created before the fix was saved with no rate.
     Such a row now can't be NAV-submitted (`buildNavInvoiceXml` correctly
     refuses instead of reporting a false HUF base) until it's edited to add
-    one. **Shipped** — implemented: a pure `isMissingExchangeRate` predicate
+    one. **Built, not merged.** Not tax/legal/NAV-production gated, but this
+    ship round wasn't green end-to-end, so Ship opened a PR for human review
+    instead of auto-merging rather than force it through. Implemented: a
+    pure `isMissingExchangeRate` predicate
     (`lib/invoices/exchange-rate.ts`) built on the existing
     `resolveExchangeRate`, so it can never drift from what the NAV XML
     builder refuses; a `needsExchangeRate` filter threaded through
@@ -632,6 +635,16 @@ screenshots before writing a fix plan:
       `ERROR_CODE_I18N_KEY` in `app/(app)/invoices/[id]/index.tsx`) so the
       key stops being dead. Same pattern already filed above for
       `receipts.navMissingExchangeRate`.
+    - [ ] The invoice-detail warning card's "add rate" `Button`
+      (`app/(app)/invoices/[id]/index.tsx`, the `isMissingExchangeRate`
+      card) has no `size` prop and no `min-h-11`/`TAP_TARGET_MIN_H` class,
+      so it falls under the 44px tap-target floor established by
+      `slice/invoice-flow-tap-targets-44px` — on a control that routes the
+      user to fix a NAV-blocking problem. Not a regression (other buttons on
+      the same screen are similarly unstyled), but new code from this slice
+      that had the chance to apply the shared floor and didn't. Add
+      `TAP_TARGET_MIN_H` (or `min-h-11`) to this button's className,
+      alongside `ExchangeRateFixBanner`'s button, for consistency.
 11. [ ] Retro-correct non-HUF invoices already reported to NAV with the old
     hardcoded `exchangeRate=1` — filed by item 10
     (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the
