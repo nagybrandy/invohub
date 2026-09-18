@@ -184,6 +184,44 @@ describe("InvoiceCard", () => {
     expect(json).not.toContain("invoices.convert.action");
   });
 
+  it("renders the converted badge next to the number and offers the open-existing menu entry when converted is true (AC16)", () => {
+    const onConvert = jest.fn();
+    const onOpenExisting = jest.fn();
+    const invoice = makeInvoice({ documentType: "proforma", status: "proforma" });
+    const tree = renderCard({
+      invoice,
+      onDelete: jest.fn(),
+      onConvert,
+      converted: true,
+      onOpenExisting,
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.convert.convertedBadge");
+
+    openRowMenu(tree);
+    const menuJson = JSON.stringify(tree.toJSON());
+    expect(menuJson).toContain("invoices.convert.openExisting");
+    expect(menuJson).not.toContain("invoices.convert.action");
+
+    const openExistingItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
+    act(() => {
+      openExistingItem.props.onPress?.();
+    });
+    expect(onOpenExisting).toHaveBeenCalledWith(invoice);
+    expect(onConvert).not.toHaveBeenCalled();
+  });
+
+  it("does not render the converted badge for a non-proforma document even when converted is true", () => {
+    const tree = renderCard({
+      invoice: makeInvoice({ documentType: "invoice" }),
+      onDelete: jest.fn(),
+      converted: true,
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.convert.convertedBadge");
+  });
+
   it("does not offer the convert entry for a díjbekérő when onConvert is not passed", () => {
     const tree = renderCard({
       invoice: makeInvoice({ documentType: "proforma", status: "proforma" }),

@@ -333,7 +333,7 @@ export default function InvoiceDetailScreen() {
     primaryOnPress = () => router.push(routes.invoiceDetail(liveConversion.id));
   } else if (isProforma) {
     primaryLabel = t("invoices.convert.action");
-    primaryOnPress = () => void runAction("convert", handleConvert);
+    primaryOnPress = () => void handleConvert();
     primaryBusyKey = "convert";
   } else if (invoice.status === "sent" || invoice.status === "unpaid" || invoice.status === "overdue") {
     primaryLabel = t("invoices.detail.emailReminder");
@@ -471,7 +471,13 @@ export default function InvoiceDetailScreen() {
               {(links.convertedToInvoices ?? []).map((doc) => (
                 <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
                   <Text size="sm" className="text-primary">
-                    {t("invoices.links.convertedTo", { number: doc.invoiceNumber || t("invoices.status.draft") })}
+                    {doc.status === "cancelled"
+                      ? t("invoices.links.convertedToCancelled", {
+                          number: doc.invoiceNumber || t("invoices.status.draft"),
+                        })
+                      : t("invoices.links.convertedTo", {
+                          number: doc.invoiceNumber || t("invoices.status.draft"),
+                        })}
                   </Text>
                 </Pressable>
               ))}
