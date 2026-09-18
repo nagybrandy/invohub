@@ -11,14 +11,13 @@ import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import { parseNavReceiptEnvironment } from "@/lib/nav-receipt/environment";
 import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
 import type { NavReceiptCredentials } from "@/lib/nav-receipt/types";
-import { buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU, buildDailyReceiptReports } from "@/lib/receipts/daily-report";
 import { getReceiptById, getReceiptsByDateRange } from "@/lib/receipts/service";
 
 type Params = { id: string };
 
 // AC1.3 / plan §1.3: non-HUF receipt days are refused, not guessed.
-const BLOCKED_MESSAGE_HU =
-  "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.";
+const BLOCKED_MESSAGE_HU = BLOCKED_EXCHANGE_RATE_MESSAGE_HU;
 
 export async function POST(
   request: Request,

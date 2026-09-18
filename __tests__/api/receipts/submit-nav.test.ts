@@ -29,6 +29,8 @@ jest.mock("@/lib/receipts/service", () => ({
 
 jest.mock("@/lib/receipts/daily-report", () => ({
   buildDailyReceiptReports: jest.fn(),
+  BLOCKED_EXCHANGE_RATE_MESSAGE_HU:
+    "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.",
 }));
 
 jest.mock("@/lib/companies/service", () => ({
