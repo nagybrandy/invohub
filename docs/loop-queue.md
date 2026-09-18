@@ -503,10 +503,11 @@ screenshots before writing a fix plan:
    e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.2 / XSD 1.1,
    test base https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test
    modes — big item, plan it in slices.
-   Plan (slice 1 of 3): `docs/plans/2026-09-16-e-nyugta-nav-receipt-api.md`
-   (risk: **tax-legal** — PR for human sign-off, no auto-ship). See the
-   matching detailed entry under "Remaining for the launch gate" for what
-   planning verified against the published spec/XSD.
+   Plan (slice 1 of 3): `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md`
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship). Supersedes
+   the 2026-09-16 plan, which was never built. See the matching detailed
+   entry under "Remaining for the launch gate" for what planning verified
+   against the published spec/XSD.
 8. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
    — **partially shipped**: the composer's own line-item icon buttons are
    now 44px (`components/invoices/composer/LineItemRow.tsx`), but the
@@ -706,7 +707,9 @@ Remaining for the launch gate:
       since 2026-09-01 and NAV only waives penalties through the end of
       2026, so this is a real launch blocker for any EV issuing nyugta.
       (needs tax/legal sign-off)
-      Plan (slice 1 of 3): `docs/plans/2026-09-16-e-nyugta-nav-receipt-api.md`
+      Plan (slice 1 of 3): `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md`
+      (supersedes `docs/plans/2026-09-16-e-nyugta-nav-receipt-api.md`, which
+      was planned but never built — the slice branch is still at `main`.)
       Planning fetched the real sources on 2026-09-16 and corrected three
       premises of this entry: (a) the published latest is now spec **v1.3**
       and XSD **1.1.1** (1.1.1 only widens `ReceiptSerialNumberType`, the
@@ -728,6 +731,23 @@ Remaining for the launch gate:
       `/receipt/create` + the payload rebuild; `/receipt/list`+`/detail`
       (slice 2) and `/receipt/modify`+`/invalidate` for storno nyugta
       (slice 3) stay open.
+      Re-planning on 2026-09-18 downloaded and read
+      `receipt-if-schema-v1.1.1.xsd` plus the `common-2.0.0-rc.2`
+      `service`/`authservice`/`type`/`customer` schemas, confirmed the
+      `CreateReceiptRequest` child sequence and the gross-per-category
+      payload, and found three further traps: (a) `AuthTokenRequest` uses
+      `LegacyContextType`, whose `requestId` is `[+a-zA-Z0-9_]{1,30}` — a
+      `randomUUID()` is **invalid** there, while business requests do
+      require a UUID; (b) `taxPayerId` is the **8-digit törzsszám**
+      (`[0-9]{8}`), not the full `12345678-1-42` tax number; (c)
+      `exchangeRate` is required-but-nillable and bounded `1..1000`, and
+      `receipt` has no rate column at all — so slice 1 reports HUF days with
+      `xsi:nil` and **refuses** non-HUF days rather than inventing a rate.
+      The VAT **category names** are not in the XSD (only a pattern), so they
+      stay an unverified constant with a sourced TODO until the tax/legal
+      sign-off checks them against spec §5.9 / `/vat-category/list`.
+      Follow-up item this slice files: additive `receipt.exchangeRate`
+      (numeric, nullable) — it is what unblocks non-HUF nyugta reporting.
 - [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
       Non-HUF invoices report a false HUF VAT base to NAV — confirmed
       resolved: `lib/nav/invoice-xml.ts` now emits the real
