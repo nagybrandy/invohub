@@ -492,8 +492,32 @@ screenshots before writing a fix plan:
    `main` together with priority #3's exchange-rate work on 2026-09-15;
    `<invoiceDetail>` now emits `currencyCode`, `exchangeRate`,
    `paymentMethod`, `paymentDate` in that verified schema order.
-5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
+5. [~] folyamatban (slice/dijbekero-proforma-to-invoice-flow)
+   Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
+   **Round 2.** The literal checkbox already shipped in PR #15
+   (`slice/dijbekero-convert-to-invoice-impl`, merged 2026-09-15) —
+   numbering, the pure build, the route and both entry points exist, and
+   storno/helyesbítő are already refused on a díjbekérő at both the API and
+   the detail screen. Planning verified that on `main` today. This round
+   closes the four open ship-review findings filed against that merge (the
+   double-convert race, the missing AC20 links-card test, the redundant
+   nested `runAction("convert", …)`, and a cancelled prior conversion
+   rendering identically to a live one) and adds the piece of real EV value
+   the first round left out: a díjbekérő that has already been invoiced is
+   indistinguishable from an open one in the list, so "which díjbekérők
+   still need a számla?" cannot be answered without opening each one. The
+   race fix is a **partial unique index** rather than a transaction —
+   `db/index.ts` uses the Neon **HTTP** driver, which has no interactive
+   transaction, so the DB itself has to arbitrate and the route maps the
+   23505 violation onto the 409 path it already returns.
+   Plan: `docs/plans/2026-09-18-dijbekero-proforma-to-invoice-flow.md`
+   (risk: **schema** — one additive partial unique index; not tax/legal, so
+   Ship may auto-merge when green, but see the plan §5 caveat: creating a
+   unique index fails if the race has already produced a duplicate in
+   production, and that is a human decision, not a force-push).
+   The díjbekérő disclaimer ("nem számla, áfa levonására nem jogosít")
+   stays out of scope and sign-off-gated, as in the 2026-09-15 plan.
 6. [x] Partially-paid invoice past due date surfaces as overdue (status
    derivation) — **Shipped 2026-09-15** on
    `slice/dashboard-overdue-partially-paid`. See the matching detailed
