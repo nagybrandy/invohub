@@ -157,6 +157,7 @@ jest.mock("@/hooks/useInvoices", () => {
       loading: false,
       error: null,
       stats: { count: 1, thisMonthCount: 1, monthlyTotal: 1000 },
+      convertedProformaIds: {},
       refresh: jest.fn(),
       addOrUpdate: jest.fn(),
       remove: jest.fn(),

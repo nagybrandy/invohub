@@ -96,6 +96,7 @@ import {
   duplicateInvoice,
   findExistingConversion,
   findInvoicesReferencing,
+  findLiveConversionsForProformas,
   listInvoicesInDateRange,
   markInvoicePaid,
 } from "@/lib/invoices/service";
@@ -314,6 +315,42 @@ describe("findExistingConversion", () => {
 
     const result = await findExistingConversion("user-1", "proforma-1");
     expect(result).toBeNull();
+  });
+});
+
+describe("findLiveConversionsForProformas", () => {
+  it("maps each díjbekérő id to the id of its non-cancelled conversion (AC11)", async () => {
+    mockSelectQueue = [
+      [
+        { id: "conv-1", convertedFromInvoiceId: "proforma-1" },
+        { id: "conv-2", convertedFromInvoiceId: "proforma-2" },
+      ],
+    ];
+
+    const result = await findLiveConversionsForProformas("user-1", ["proforma-1", "proforma-2", "proforma-3"]);
+
+    expect(result).toEqual({
+      "proforma-1": "conv-1",
+      "proforma-2": "conv-2",
+    });
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips cancelled conversions entirely — the query never returns them (AC11)", async () => {
+    // The query itself filters status <> "cancelled", so a proforma whose
+    // only conversion was cancelled simply has no row here.
+    mockSelectQueue = [[]];
+
+    const result = await findLiveConversionsForProformas("user-1", ["proforma-1"]);
+
+    expect(result).toEqual({});
+  });
+
+  it("short-circuits to {} for an empty input array, with no DB query (AC11)", async () => {
+    const result = await findLiveConversionsForProformas("user-1", []);
+
+    expect(result).toEqual({});
+    expect(mockDb.select).not.toHaveBeenCalled();
   });
 });
 

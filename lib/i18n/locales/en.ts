@@ -447,6 +447,7 @@ export default {
       alreadyConverted: "An invoice was already created from this proforma: {{number}}",
       notProforma: "Only a proforma can be converted into an invoice.",
       cancelledSource: "A cancelled proforma cannot be converted.",
+      convertedBadge: "Invoiced",
     },
     links: {
       title: "Related documents",
@@ -456,6 +457,7 @@ export default {
       modifiesOf: "Corrects {{number}}",
       modifiedBy: "Corrected by",
       convertedTo: "Invoice created from this: {{number}}",
+      convertedToCancelled: "Invoice created from this (cancelled): {{number}}",
       convertedFrom: "Based on proforma {{number}}",
     },
     edit: {

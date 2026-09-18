@@ -62,7 +62,15 @@ export default function InvoiceListScreen() {
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [sort, setSort] = React.useState<InvoiceListSort>({ key: "issued", direction: "desc" });
-  const { invoices, loading, stats, total, refresh, remove } = useInvoices({
+  const {
+    invoices,
+    loading,
+    stats,
+    total,
+    refresh,
+    remove,
+    convertedProformaIds = {},
+  } = useInvoices({
     status: filter,
     search,
   });
@@ -152,6 +160,13 @@ export default function InvoiceListScreen() {
     router.push(routes.invoiceEdit(data.invoice.id));
   }
 
+  function handleOpenExisting(invoice: Invoice) {
+    const existingId = convertedProformaIds[invoice.id];
+    if (existingId) {
+      router.push(routes.invoiceDetail(existingId));
+    }
+  }
+
   async function handleConvert(invoice: Invoice) {
     try {
       const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/convert`, {
@@ -196,7 +211,13 @@ export default function InvoiceListScreen() {
       },
       { label: t("invoices.list.duplicateAction"), icon: Copy, onPress: () => void handleDuplicate(invoice) },
     ];
-    if (invoice.documentType === "proforma") {
+    if (invoice.documentType === "proforma" && convertedProformaIds[invoice.id]) {
+      items.push({
+        label: t("invoices.convert.openExisting"),
+        icon: FileEdit,
+        onPress: () => handleOpenExisting(invoice),
+      });
+    } else if (invoice.documentType === "proforma") {
       items.push({
         label: t("invoices.convert.action"),
         icon: FileEdit,
@@ -304,6 +325,7 @@ export default function InvoiceListScreen() {
           onRowPress={(inv) => router.push(routes.invoiceDetail(inv.id))}
           menuItemsFor={menuItemsFor}
           empty={emptyState}
+          convertedIds={convertedProformaIds}
         />
       ) : loading && invoices.length === 0 ? (
         <StateView kind="loading" title="" />
@@ -319,6 +341,8 @@ export default function InvoiceListScreen() {
               onPress={(inv) => router.push(routes.invoiceDetail(inv.id))}
               onPreview={(inv) => setPreviewInvoice(inv)}
               onConvert={(inv) => void handleConvert(inv)}
+              converted={!!convertedProformaIds[invoice.id]}
+              onOpenExisting={(inv) => handleOpenExisting(inv)}
             />
           ))}
         </VStack>

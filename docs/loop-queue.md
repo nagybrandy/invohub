@@ -863,6 +863,19 @@ Remaining for the launch gate:
       codes and fixing mobile convert access) — not merged, pending review
       sign-off; 5 low-severity follow-ups filed above (acceptance/ux
       dimensions), none blocking.
+      **PR merged 2026-09-15.** Fix-round-2
+      (`slice/dijbekero-proforma-to-invoice-flow`, 2026-09-18) closed F1-F4
+      above (double-conversion race, missing links-card test, the
+      redundant `runAction`, and cancelled-vs-live link rendering) and
+      added the one remaining real EV value: a converted díjbekérő now
+      shows "Számlázva" and an "open existing" menu action in both the
+      desktop table and the mobile card list instead of looking identical
+      to an unconverted one. `npx tsc --noEmit` clean, `npm run test:unit`
+      green (1237 tests). Still `[~]`, not `[x]`: the díjbekérő document
+      disclaimer text ("nem számla, áfa levonására nem jogosít") stays
+      deliberately out of scope, sign-off-gated, as recorded above and in
+      the fix-round-2 plan §9 — that is the one piece left before this
+      whole item can close.
 
 - [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
       Invoice document preview/PDF remains English and unbranded
@@ -1039,7 +1052,7 @@ Remaining for the launch gate:
       merge would otherwise have introduced in `hu.ts`/`en.ts` (the
       branding slice and this slice each added their own `invoices.
       document` block at a different point in the file).
-- [ ] Check-then-act race lets the same díjbekérő be converted twice
+- [x] Check-then-act race lets the same díjbekérő be converted twice
       despite the 409 guard — `convert+api.ts` calls
       `findExistingConversion(...)` then, only if null,
       `convertProformaToInvoice(...)`: two sequential DB calls with no
@@ -1057,7 +1070,20 @@ Remaining for the launch gate:
       the same latent gap in storno.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       acceptance)
-- [ ] AC20 (the "Kapcsolódó bizonylatok" card renders
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      added the partial unique index
+      `invoice_converted_from_live_unique_idx` on
+      `(user_id, converted_from_invoice_id) WHERE converted_from_invoice_id
+      IS NOT NULL AND status <> 'cancelled'` (`drizzle/0003_dijbekero-
+      double-conversion-guard.sql`, additive only — no DROP/ALTER/rename)
+      as the DB-level backstop, a new pure `isUniqueViolation()` classifier
+      (`lib/db/unique-violation.ts`), and a try/catch in `convert+api.ts`
+      that, on the violation, re-runs `findExistingConversion` and returns
+      the identical 409 `{ code: "alreadyConverted", invoice }` — or
+      rethrows if the winner is no longer live. A route test fakes the
+      `23505` race and asserts a 409, never a 500. The identical race in
+      `storno+api.ts` is still open — separate item, not touched here.
+- [x] AC20 (the "Kapcsolódó bizonylatok" card renders
       `convertedTo`/`convertedFrom` and navigates) has no automated test
       covering the rendered links or a click-through, and the plan's
       required manual-verification note (§5.4: "verifying the screens by
@@ -1076,7 +1102,15 @@ Remaining for the launch gate:
       in the PR body as the plan requires.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       acceptance)
-- [ ] Redundant nested `runAction("convert", ...)` on the primary convert
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      `__tests__/screens/invoice-detail.test.tsx` gained a case with a
+      populated `convertedFromInvoice` asserting the rendered
+      `invoices.links.convertedFrom` row and that pressing it navigates via
+      `router.push` to the source díjbekérő's detail route, plus a case
+      with two `convertedToInvoices` (one live, one cancelled) asserting
+      both rows render with their distinct i18n keys and pressing the live
+      row navigates to it.
+- [x] Redundant nested `runAction("convert", ...)` on the primary convert
       button in `app/(app)/invoices/[id]/index.tsx`: `primaryOnPress`
       wraps `handleConvert` in `runAction("convert", ...)`, but
       `handleConvert` itself already calls `runAction("convert", ...)`
@@ -1090,7 +1124,12 @@ Remaining for the launch gate:
       handleConvert()` directly instead of re-wrapping it.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       acceptance)
-- [ ] "Kapcsolódó bizonylatok" renders a cancelled prior conversion
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      `primaryOnPress` now calls `() => void handleConvert()` directly;
+      `runAction("convert", ...)` appears exactly once in the file, inside
+      `handleConvert` itself — matching every other self-wrapping handler
+      on the screen.
+- [x] "Kapcsolódó bizonylatok" renders a cancelled prior conversion
       identically to a live one —
       `app/api/invoices/[id]/links+api.ts`'s
       `findInvoicesReferencing(userId, "convertedFromInvoiceId", id)`
@@ -1103,6 +1142,59 @@ Remaining for the launch gate:
       cancelled entries out of the rendered list, or attach a status
       indicator per row.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
+      ux)
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      kept every row (no filtering, so the history stays visible) but
+      distinguished them textually — a `status === "cancelled"` row now
+      renders `invoices.links.convertedToCancelled` ("...(sztornózva):
+      {{number}}" / "...(cancelled): {{number}}") instead of the plain
+      `invoices.links.convertedTo`, per the plan's UX note to use copy, not
+      a new colour, in this plain-list card.
+- [ ] `docs/loop-queue.md`'s fix-round-2 note (above, "folyamatban
+      (slice/dijbekero-convert-to-invoice)") says "**PR merged 2026-09-15.**
+      Fix-round-2 (`slice/dijbekero-proforma-to-invoice-flow`, 2026-09-18)
+      closed F1-F4 ..." — claiming the PR merged on 2026-09-15, three days
+      *before* the 2026-09-18 fix-round-2 work it goes on to describe, and
+      this branch is in fact still unmerged/under review as of 2026-09-18.
+      Fix: reword to something like "**PR opened 2026-09-18, pending
+      review.** Fix-round-2 ... closed F1-F4 ..." and let the Ship phase
+      add the actual merge note once it merges, consistent with CLAUDE.md's
+      rule that Ship (not the implementer) records merges.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
+      acceptance)
+- [ ] AC14's screen-level wiring (`menuItemsFor`/`handleOpenExisting` swap
+      in `app/(app)/invoices/index.tsx`) has no dedicated test with a
+      non-empty `convertedProformaIds` map — the only test touching that
+      screen (`__tests__/screens/app-pages.smoke.test.tsx`) adds
+      `convertedProformaIds: {}` to the `useInvoices` mock and only asserts
+      the screen renders. The label swap
+      (`invoice.documentType === "proforma" && convertedProformaIds[invoice.id]`
+      → `invoices.convert.openExisting`) and `handleOpenExisting`'s id
+      lookup → `router.push(routes.invoiceDetail(existingId))` are manually
+      verified correct by reading the code, but are exercised only through
+      `InvoiceCard.test.tsx`/`InvoiceListTable.test.tsx` with hand-supplied
+      props, never through this screen's own id-mapping logic with a
+      populated map. Fix: add a case to `app-pages.smoke.test.tsx` (or a new
+      screen test) mocking `useInvoices` with a non-empty
+      `convertedProformaIds` map, asserting the swapped label and correct
+      navigation target.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
+      ux)
+- [ ] `InvoiceListRow`'s converted badge (`components/invoices/InvoiceListRow.tsx`
+      ~56-65) is not gated on `documentType`, unlike `InvoiceCard.tsx`
+      (~106: `invoice.documentType === "proforma" && converted`) — it
+      renders whenever the `converted` prop is true, with no proforma
+      check. Currently safe only because the sole caller
+      (`invoices/index.tsx`'s `convertedProformaIds`, built exclusively from
+      proforma rows per AC11/AC12) guarantees `converted` is never true for
+      a non-proforma row — an implicit, untested invariant at this
+      component's own boundary; `InvoiceListRow.test.tsx`'s AC17 negative
+      case uses `documentType: "proforma"` with `converted` omitted, not a
+      non-proforma row with `converted=true`. Fix: either add the same
+      `documentType` guard inside `InvoiceListRow` for defense-in-depth, or
+      add a test asserting a non-proforma invoice with `converted=true`
+      does not render the badge.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
       ux)
 - [ ] The branch this shipped from was 2 commits stale behind `main`
       (missing the desktop sidebar collapse redesign,

@@ -1,6 +1,6 @@
 // lib/invoices/service.ts
 // Server-side invoice CRUD against Neon via Drizzle.
-import { and, count, desc, eq, gte, ilike, inArray, lt, lte, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lt, lte, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { createId } from "@/lib/id";
@@ -475,6 +475,39 @@ export async function findExistingConversion(
 ): Promise<Invoice | null> {
   const candidates = await findInvoicesReferencing(userId, "convertedFromInvoiceId", proformaId);
   return candidates.find((inv) => inv.status !== "cancelled") ?? null;
+}
+
+/**
+ * For a page of díjbekérő rows, maps each proforma id that already has a
+ * *live* (non-cancelled) conversion to that conversion's invoice id — used
+ * by the list screen to show "Számlázva" / "Számla megnyitása" instead of
+ * the convert action (AC12-17). A single IN query, never a full-table scan;
+ * an empty input short-circuits without touching the DB.
+ */
+export async function findLiveConversionsForProformas(
+  userId: string,
+  proformaIds: string[]
+): Promise<Record<string, string>> {
+  if (proformaIds.length === 0) return {};
+
+  const rows = await db
+    .select({ id: invoice.id, convertedFromInvoiceId: invoice.convertedFromInvoiceId })
+    .from(invoice)
+    .where(
+      and(
+        eq(invoice.userId, userId),
+        inArray(invoice.convertedFromInvoiceId, proformaIds),
+        ne(invoice.status, "cancelled")
+      )
+    );
+
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    if (row.convertedFromInvoiceId) {
+      result[row.convertedFromInvoiceId] = row.id;
+    }
+  }
+  return result;
 }
 
 export type MarkInvoicePaidInput = {

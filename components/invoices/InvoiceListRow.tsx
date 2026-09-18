@@ -31,11 +31,14 @@ export function InvoiceListRow({
   now = new Date(),
   onPress,
   menuItems,
+  converted = false,
 }: {
   invoice: Invoice;
   now?: Date;
   onPress?: (invoice: Invoice) => void;
   menuItems: OverflowMenuItem[];
+  /** True when this díjbekérő already has a live conversion (AC15) — a small muted sub-label under the number, reusing the unnumbered-draft two-line shape so row height doesn't change. */
+  converted?: boolean;
 }) {
   const { t } = useTranslation();
   const totals = calculateInvoiceTotals(invoice.lineItems);
@@ -51,7 +54,16 @@ export function InvoiceListRow({
       className="flex-row items-center border-b border-subtle px-4 py-3 last:border-b-0 data-[hover=true]:bg-muted/40"
     >
       <Box style={{ width: w.serial }}>
-        {hasInvoiceNumber(invoice) ? (
+        {converted ? (
+          <VStack space="xs">
+            <Text size="sm" className="font-medium text-foreground">
+              {invoice.invoiceNumber || "—"}
+            </Text>
+            <Text size="xs" className="text-muted-foreground">
+              {t("invoices.convert.convertedBadge")}
+            </Text>
+          </VStack>
+        ) : hasInvoiceNumber(invoice) ? (
           <Text size="sm" className="font-medium text-foreground">
             {invoice.invoiceNumber}
           </Text>

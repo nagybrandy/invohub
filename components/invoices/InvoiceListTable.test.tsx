@@ -84,4 +84,27 @@ describe("InvoiceListTable", () => {
     const tree = render({ invoices: [], loading: true, menuItemsFor: () => [] });
     expect(tree.root.findByProps({ testID: "state-view-loading" })).toBeTruthy();
   });
+
+  it("threads convertedIds through to InvoiceListRow so only the listed invoice shows the badge (AC15)", () => {
+    const converted = makeInvoice({
+      id: "proforma-1",
+      documentType: "proforma",
+      invoiceNumber: "DBK-2026-001",
+    });
+    const notConverted = makeInvoice({
+      id: "proforma-2",
+      documentType: "proforma",
+      invoiceNumber: "DBK-2026-002",
+    });
+    const tree = render({
+      invoices: [converted, notConverted],
+      menuItemsFor: () => [],
+      convertedIds: { "proforma-1": "converted-inv-1" },
+    });
+    const json = JSON.stringify(tree.toJSON());
+    // Exactly one badge — the converted row's, not the other proforma's.
+    expect(json.split("invoices.convert.convertedBadge")).toHaveLength(2);
+    expect(json).toContain("DBK-2026-001");
+    expect(json).toContain("DBK-2026-002");
+  });
 });
