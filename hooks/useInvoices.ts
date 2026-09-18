@@ -13,6 +13,8 @@ type InvoicesResponse = {
   limit: number;
   offset: number;
   stats: InvoiceStats;
+  /** proformaId -> its live (non-cancelled) conversion's invoice id (AC12). */
+  convertedProformaIds?: Record<string, string>;
 };
 
 type InvoiceResponse = { invoice: Invoice };
@@ -28,12 +30,17 @@ const EMPTY_STATS: InvoiceStats = {
   monthlyTotal: 0,
 };
 
+const EMPTY_CONVERTED_PROFORMA_IDS: Record<string, string> = {};
+
 export function useInvoices(options: UseInvoicesOptions = {}) {
   const status = options.status ?? "all";
   const search = options.search ?? "";
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [total, setTotal] = React.useState(0);
   const [stats, setStats] = React.useState<InvoiceStats>(EMPTY_STATS);
+  const [convertedProformaIds, setConvertedProformaIds] = React.useState<Record<string, string>>(
+    EMPTY_CONVERTED_PROFORMA_IDS
+  );
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -50,8 +57,10 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
       setInvoices(data.invoices);
       setTotal(data.total);
       setStats(data.stats);
+      setConvertedProformaIds(data.convertedProformaIds ?? EMPTY_CONVERTED_PROFORMA_IDS);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load invoices.");
+      setConvertedProformaIds(EMPTY_CONVERTED_PROFORMA_IDS);
     } finally {
       setLoading(false);
     }
@@ -93,6 +102,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
     loading,
     error,
     stats,
+    convertedProformaIds,
     refresh,
     addOrUpdate,
     remove,

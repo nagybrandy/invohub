@@ -6,6 +6,7 @@ import { createId } from "@/lib/id";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
 import {
+  findLiveConversionsForProformas,
   getInvoiceStats,
   listInvoices,
   upsertInvoice,
@@ -53,12 +54,24 @@ export async function GET(request: Request) {
     getInvoiceStats(session.user.id),
   ]);
 
+  // Only the current page's díjbekérő rows — never a full-table scan — so
+  // the list can show "Számlázva" / "Számla megnyitása" instead of the
+  // convert action for one that already has a live invoice (AC12-17).
+  const proformaIds = listResult.invoices
+    .filter((inv) => inv.documentType === "proforma")
+    .map((inv) => inv.id);
+  const convertedProformaIds = await findLiveConversionsForProformas(
+    session.user.id,
+    proformaIds
+  );
+
   return jsonResponse({
     invoices: listResult.invoices,
     total: listResult.total,
     limit: listResult.limit,
     offset: listResult.offset,
     stats,
+    convertedProformaIds,
   });
 }
 

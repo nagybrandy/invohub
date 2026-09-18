@@ -216,6 +216,16 @@ export const invoice = pgTable(
     uniqueIndex("invoice_user_number_unique_idx")
       .on(table.userId, table.invoiceNumber)
       .where(sql`${table.invoiceNumber} <> ''`),
+    // Partial unique index: at most one *live* (non-cancelled) invoice may
+    // point at a given díjbekérő as its conversion source. A cancelled
+    // conversion (stornó'd) doesn't count, so a re-convert after storno is
+    // allowed — this is the DB-level backstop for the check-then-act race
+    // in app/api/invoices/[id]/convert+api.ts (F1).
+    uniqueIndex("invoice_converted_from_live_unique_idx")
+      .on(table.userId, table.convertedFromInvoiceId)
+      .where(
+        sql`${table.convertedFromInvoiceId} IS NOT NULL AND ${table.status} <> 'cancelled'`
+      ),
   ]
 );
 

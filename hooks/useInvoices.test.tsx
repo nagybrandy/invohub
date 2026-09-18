@@ -70,4 +70,42 @@ describe("useInvoices", () => {
     expect(ref.current?.loading).toBe(false);
     expect(ref.current?.error).toBe("Network error");
   });
+
+  it("exposes convertedProformaIds from the response (AC13)", async () => {
+    mockApiFetch.mockResolvedValue({
+      invoices: [makeInvoice({ id: "proforma-1", documentType: "proforma" })],
+      total: 1,
+      limit: 30,
+      offset: 0,
+      stats: { count: 1, thisMonthCount: 1, monthlyTotal: 1000 },
+      convertedProformaIds: { "proforma-1": "converted-inv-1" },
+    });
+    const ref = await renderUseInvoices();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(ref.current?.convertedProformaIds).toEqual({ "proforma-1": "converted-inv-1" });
+  });
+
+  it("defaults convertedProformaIds to {} when the response omits it, and on error (AC13)", async () => {
+    mockApiFetch.mockResolvedValue({
+      invoices: [makeInvoice()],
+      total: 1,
+      limit: 30,
+      offset: 0,
+      stats: { count: 1, thisMonthCount: 1, monthlyTotal: 1000 },
+    });
+    const ref = await renderUseInvoices();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(ref.current?.convertedProformaIds).toEqual({});
+
+    mockApiFetch.mockRejectedValue(new Error("Network error"));
+    const errorRef = await renderUseInvoices();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(errorRef.current?.convertedProformaIds).toEqual({});
+  });
 });

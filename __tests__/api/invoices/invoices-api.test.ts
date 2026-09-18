@@ -10,14 +10,26 @@ jest.mock("@/lib/invoices/service", () => ({
   listInvoices: jest.fn(),
   getInvoiceStats: jest.fn(),
   upsertInvoice: jest.fn(),
+  findLiveConversionsForProformas: jest.fn(),
 }));
 
 import { requireSession } from "@/lib/api/session";
-import { POST } from "@/app/api/invoices+api";
-import { upsertInvoice } from "@/lib/invoices/service";
+import { GET, POST } from "@/app/api/invoices+api";
+import {
+  findLiveConversionsForProformas,
+  getInvoiceStats,
+  listInvoices,
+  upsertInvoice,
+} from "@/lib/invoices/service";
+import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
 const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+const mockListInvoices = listInvoices as jest.MockedFunction<typeof listInvoices>;
+const mockGetStats = getInvoiceStats as jest.MockedFunction<typeof getInvoiceStats>;
+const mockFindLiveConversions = findLiveConversionsForProformas as jest.MockedFunction<
+  typeof findLiveConversionsForProformas
+>;
 
 describe("POST /api/invoices", () => {
   beforeEach(() => {
@@ -101,5 +113,60 @@ describe("POST /api/invoices", () => {
     const [, savedInvoice] = mockUpsert.mock.calls[0];
     expect(savedInvoice.currency).toBe("HUF");
     expect(savedInvoice.exchangeRate).toBeUndefined();
+  });
+});
+
+describe("GET /api/invoices", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockGetStats.mockResolvedValue({ count: 0, thisMonthCount: 0, monthlyTotal: 0 });
+  });
+
+  function request(url = "http://localhost/api/invoices") {
+    return new Request(url);
+  }
+
+  it("returns 401 without session", async () => {
+    mockSession.mockResolvedValue(null);
+    const response = await GET(request());
+    expect(response.status).toBe(401);
+  });
+
+  it("includes convertedProformaIds computed only from the proforma rows on the page (AC12)", async () => {
+    const proforma1 = makeInvoice({ id: "proforma-1", documentType: "proforma" });
+    const proforma2 = makeInvoice({ id: "proforma-2", documentType: "proforma" });
+    const invoiceRow = makeInvoice({ id: "inv-1", documentType: "invoice" });
+    mockListInvoices.mockResolvedValue({
+      invoices: [proforma1, proforma2, invoiceRow],
+      total: 3,
+      limit: 25,
+      offset: 0,
+    });
+    mockFindLiveConversions.mockResolvedValue({ "proforma-1": "converted-inv-1" });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.convertedProformaIds).toEqual({ "proforma-1": "converted-inv-1" });
+    expect(mockFindLiveConversions).toHaveBeenCalledWith("user-1", ["proforma-1", "proforma-2"]);
+  });
+
+  it("passes an empty array (no DB query per AC11) when the page has no proforma rows", async () => {
+    const invoiceRow = makeInvoice({ id: "inv-1", documentType: "invoice" });
+    mockListInvoices.mockResolvedValue({
+      invoices: [invoiceRow],
+      total: 1,
+      limit: 25,
+      offset: 0,
+    });
+    mockFindLiveConversions.mockResolvedValue({});
+
+    const response = await GET(request());
+
+    const body = await response.json();
+    expect(body.convertedProformaIds).toEqual({});
+    expect(mockFindLiveConversions).toHaveBeenCalledWith("user-1", []);
   });
 });

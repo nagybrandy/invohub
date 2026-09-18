@@ -446,6 +446,153 @@ describe("InvoiceDetailScreen", () => {
     expect(text).toContain("invoices.detail.deleteAction");
   });
 
+  it("renders convertedFromInvoice as a pressable row that navigates to the source díjbekérő (AC9)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: makeInvoice({
+            id: "proforma-source",
+            documentType: "proforma",
+            invoiceNumber: "DBK-2026-00001",
+          }),
+          convertedToInvoices: [],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "invoice", status: "draft" }) };
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.links.convertedFrom");
+    expect(json).toContain("DBK-2026-00001");
+
+    const row = findPressableWithText(
+      tree.root,
+      'invoices.links.convertedFrom:{"number":"DBK-2026-00001"}'
+    );
+    expect(row).toBeTruthy();
+    await act(async () => {
+      row?.props.onPress?.();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/invoices/proforma-source");
+  });
+
+  it("distinguishes a live vs a cancelled conversion in the links card with different i18n keys (AC7, AC10)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: null,
+          convertedToInvoices: [
+            makeInvoice({
+              id: "draft-inv",
+              documentType: "invoice",
+              status: "draft",
+              invoiceNumber: "",
+            }),
+            makeInvoice({
+              id: "cancelled-inv",
+              documentType: "invoice",
+              status: "cancelled",
+              invoiceNumber: "INV-2026-050",
+            }),
+          ],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma" }) };
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+
+    // Both rows render, with the two different i18n keys (AC7).
+    expect(json).toContain("invoices.links.convertedTo");
+    expect(json).toContain("invoices.links.convertedToCancelled");
+    expect(json).toContain("INV-2026-050");
+
+    // The primary action is "open existing" (only the live conversion counts).
+    const primaryButton = findPressableWithText(tree.root, "invoices.convert.openExisting");
+    expect(primaryButton).toBeTruthy();
+
+    // Pressing the live row navigates to it.
+    const liveRow = findPressableWithText(
+      tree.root,
+      'invoices.links.convertedTo:{"number":"invoices.status.draft"}'
+    );
+    await act(async () => {
+      liveRow?.props.onPress?.();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/invoices/draft-inv");
+  });
+
+  it("the primary convert button calls () => void handleConvert() directly — runAction('convert', ...) appears exactly once, inside handleConvert (AC8)", () => {
+    // A structural check, not a behavioral one: F3 was that the button
+    // wrapped handleConvert in its own runAction("convert", ...) on top of
+    // handleConvert's own internal runAction("convert", ...) call — double
+    // setBusy/try-catch. Source inspection is the only way to prove the
+    // outer wrapper is gone without reimplementing runAction's internals.
+    const fs = require("fs");
+    const path = require("path");
+    const source: string = fs.readFileSync(
+      path.join(__dirname, "../../app/(app)/invoices/[id]/index.tsx"),
+      "utf8"
+    );
+
+    const runActionConvertMatches = source.match(/runAction\(\s*["']convert["']/g) ?? [];
+    expect(runActionConvertMatches).toHaveLength(1);
+
+    expect(source).toMatch(/primaryOnPress\s*=\s*\(\)\s*=>\s*void\s+handleConvert\(\)/);
+  });
+
+  it("posts to /convert exactly once per primary-button press", async () => {
+    mockApiFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [],
+          convertedFromInvoice: null,
+          convertedToInvoices: [],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/convert")) {
+        expect(init?.method).toBe("POST");
+        return { invoice: makeInvoice({ id: "converted-1", documentType: "invoice", status: "draft" }) };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.convert.action");
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const convertCalls = mockApiFetch.mock.calls.filter(([path]) => (path as string).includes("/convert"));
+    expect(convertCalls).toHaveLength(1);
+    expect(mockPush).toHaveBeenCalledWith("/invoices/converted-1/edit");
+  });
+
   it("shows a status timeline above the document preview (D6/AC11)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {

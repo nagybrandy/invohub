@@ -117,4 +117,60 @@ describe("POST /api/invoices/[id]/convert", () => {
     expect(body.invoice.id).toBe("existing-inv");
     expect(mockConvert).not.toHaveBeenCalled();
   });
+
+  it("on a DB unique-violation race (both requests passed the pre-check), re-looks up and returns the winner as a 409 instead of a 500 (AC4, AC6)", async () => {
+    mockRequireSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    const proforma = makeInvoice({ id: "proforma-1", documentType: "proforma", status: "proforma" });
+    mockGetInvoice.mockResolvedValue(proforma);
+    // Pre-check sees no existing conversion (the race window)...
+    mockFindExisting.mockResolvedValueOnce(null);
+    // ...but the insert itself hits the partial unique index because the
+    // other request won the race in between.
+    mockConvert.mockRejectedValue({
+      code: "23505",
+      message:
+        'duplicate key value violates unique constraint "invoice_converted_from_live_unique_idx"',
+    });
+    const winner = makeInvoice({ id: "winner-inv", documentType: "invoice", status: "draft" });
+    mockFindExisting.mockResolvedValueOnce(winner);
+
+    const response = await POST(request("proforma-1"), { params: Promise.resolve({ id: "proforma-1" }) });
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.code).toBe("alreadyConverted");
+    expect(body.invoice.id).toBe("winner-inv");
+    expect(mockFindExisting).toHaveBeenCalledTimes(2);
+  });
+
+  it("rethrows (never a 409 with a null invoice) when the violation fires but the re-lookup finds nothing — the winner was cancelled in between (AC5)", async () => {
+    mockRequireSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    const proforma = makeInvoice({ id: "proforma-1", documentType: "proforma", status: "proforma" });
+    mockGetInvoice.mockResolvedValue(proforma);
+    mockFindExisting.mockResolvedValueOnce(null);
+    const violation = {
+      code: "23505",
+      message:
+        'duplicate key value violates unique constraint "invoice_converted_from_live_unique_idx"',
+    };
+    mockConvert.mockRejectedValue(violation);
+    mockFindExisting.mockResolvedValueOnce(null);
+
+    await expect(
+      POST(request("proforma-1"), { params: Promise.resolve({ id: "proforma-1" }) })
+    ).rejects.toBe(violation);
+  });
+
+  it("rethrows a non-unique-violation error from convertProformaToInvoice unchanged", async () => {
+    mockRequireSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    const proforma = makeInvoice({ id: "proforma-1", documentType: "proforma", status: "proforma" });
+    mockGetInvoice.mockResolvedValue(proforma);
+    mockFindExisting.mockResolvedValueOnce(null);
+    const boom = new Error("boom");
+    mockConvert.mockRejectedValue(boom);
+
+    await expect(
+      POST(request("proforma-1"), { params: Promise.resolve({ id: "proforma-1" }) })
+    ).rejects.toBe(boom);
+  });
 });

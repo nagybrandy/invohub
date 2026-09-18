@@ -447,6 +447,7 @@ export default {
       alreadyConverted: "Ebből a díjbekérőből már készült számla: {{number}}",
       notProforma: "Csak díjbekérőből lehet számlát készíteni.",
       cancelledSource: "Törölt díjbekérőből nem készíthető számla.",
+      convertedBadge: "Számlázva",
     },
     links: {
       title: "Kapcsolódó bizonylatok",
@@ -456,6 +457,7 @@ export default {
       modifiesOf: "Helyesbíti ezt: {{number}}",
       modifiedBy: "Helyesbítve ezzel",
       convertedTo: "Ebből készült számla: {{number}}",
+      convertedToCancelled: "Ebből készült számla (sztornózva): {{number}}",
       convertedFrom: "Díjbekérő alapján: {{number}}",
     },
     edit: {
