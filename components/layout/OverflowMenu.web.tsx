@@ -18,6 +18,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { webDomProps } from "@/components/ui/web-dom-props";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import { TAP_TARGET_ICON_BOX, TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 // No @types/react-dom in this project — cast the import instead of adding a
 // new type dependency for one function.
@@ -89,7 +90,7 @@ export function OverflowMenu({ items, label = "More actions", align = "right" }:
         accessibilityLabel={label}
         onPress={handleTriggerPress}
         hitSlop={8}
-        className="h-8 w-8 items-center justify-center rounded-lg data-[hover=true]:bg-muted"
+        className={`${TAP_TARGET_ICON_BOX} rounded-lg data-[hover=true]:bg-muted`}
         // @ts-expect-error — RN Pressable doesn't type a DOM ref, but on web
         // this forwards to the real <button>/<div> node we need for
         // getBoundingClientRect().
@@ -126,7 +127,7 @@ export function OverflowMenu({ items, label = "More actions", align = "right" }:
                       close();
                       item.onPress();
                     }}
-                    className={`flex-row items-center gap-2 rounded-md px-3 py-2 data-[hover=true]:bg-muted ${
+                    className={`flex-row items-center gap-2 rounded-md px-3 py-2 data-[hover=true]:bg-muted ${TAP_TARGET_MIN_H} ${
                       item.disabled ? "opacity-40" : ""
                     }`}
                   >

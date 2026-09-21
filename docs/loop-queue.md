@@ -669,7 +669,7 @@ screenshots before writing a fix plan:
       `ERROR_CODE_I18N_KEY` in `app/(app)/invoices/[id]/index.tsx`) so the
       key stops being dead. Same pattern already filed above for
       `receipts.navMissingExchangeRate`.
-    - [ ] The invoice-detail warning card's "add rate" `Button`
+    - [x] The invoice-detail warning card's "add rate" `Button`
       (`app/(app)/invoices/[id]/index.tsx`, the `isMissingExchangeRate`
       card) has no `size` prop and no `min-h-11`/`TAP_TARGET_MIN_H` class,
       so it falls under the 44px tap-target floor established by
@@ -679,6 +679,29 @@ screenshots before writing a fix plan:
       that had the chance to apply the shared floor and didn't. Add
       `TAP_TARGET_MIN_H` (or `min-h-11`) to this button's className,
       alongside `ExchangeRateFixBanner`'s button, for consistency.
+      **Shipped** (`slice/exchange-rate-warning-button-tap-target`,
+      2026-09-21): rather than decorate this one button, the 44px floor
+      moved into `components/ui/button`'s `buttonStyle` itself (exported,
+      backed by `lib/ui/tap-target.ts`'s `TAP_TARGET_MIN_H`/
+      `TAP_TARGET_ICON_BOX`) so every `Button` in the app clears it by
+      construction — `default`/`sm`/`lg` now carry `min-h-11`, `icon` is a
+      44×44 box, and `sm`/`lg` keep their `px-3`/`text-xs`/`px-8` scale.
+      The warning-card button also keeps an explicit `TAP_TARGET_MIN_H` in
+      its className (redundant by design, matching
+      `ExchangeRateFixBanner`). While in the same file: the mark-paid
+      method picker now renders through `ChoicePill`/`ChoicePillGroup`
+      instead of a hand-rolled `Pressable` copy; the linked-document rows
+      (storno/helyesbítő/díjbekérő links) are now 44px rows with
+      `accessibilityRole="link"` instead of a ~20px text sliver; and
+      `OverflowMenu`'s trigger (where Storno/Törlés live) and its items are
+      44px. No `lib/tax/`/`lib/nav/`/`lib/m2m/` or marketing changes, no new
+      i18n keys, no schema change. New test:
+      `components/ui/button/tap-target.test.ts`; extended
+      `__tests__/screens/invoice-detail.test.tsx`,
+      `components/layout/OverflowMenu.test.tsx`,
+      `components/layout/OverflowMenu.web.test.tsx`. `npx tsc --noEmit` and
+      `npm run test:unit` (214 suites / 1355 tests) green.
+      Plan: `docs/plans/2026-09-21-exchange-rate-warning-button-tap-target.md`.
 11. [ ] Retro-correct non-HUF invoices already reported to NAV with the old
     hardcoded `exchangeRate=1` — filed by item 10
     (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the

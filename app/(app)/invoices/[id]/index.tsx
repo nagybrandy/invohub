@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Copy, Download, FileEdit, Mail, Wallet, CheckCircle2 } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
 import {
   FormControl,
   FormControlLabel,
@@ -38,6 +39,7 @@ import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 type InvoiceLinks = {
   originalInvoice: Invoice | null;
@@ -433,7 +435,7 @@ export default function InvoiceDetailScreen() {
               </Text>
               <Button
                 variant="outline"
-                className="self-start border-destructive/40"
+                className={`self-start border-destructive/40 ${TAP_TARGET_MIN_H}`}
                 onPress={() => router.push(routes.invoiceEdit(invoice.id, { focus: "exchangeRate" }))}
               >
                 <ButtonText className="text-destructive">
@@ -457,42 +459,69 @@ export default function InvoiceDetailScreen() {
             <VStack space="xs">
               <Text className="font-semibold">{t("invoices.links.title")}</Text>
               {links.originalInvoice ? (
-                <Pressable onPress={() => router.push(routes.invoiceDetail(links.originalInvoice!.id))}>
+                <Pressable
+                  onPress={() => router.push(routes.invoiceDetail(links.originalInvoice!.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.stornoOf", { number: links.originalInvoice.invoiceNumber })}
                   </Text>
                 </Pressable>
               ) : null}
               {links.modifiesInvoice ? (
-                <Pressable onPress={() => router.push(routes.invoiceDetail(links.modifiesInvoice!.id))}>
+                <Pressable
+                  onPress={() => router.push(routes.invoiceDetail(links.modifiesInvoice!.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.modifiesOf", { number: links.modifiesInvoice.invoiceNumber })}
                   </Text>
                 </Pressable>
               ) : null}
               {(links.stornoDocuments ?? []).map((doc) => (
-                <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
+                <Pressable
+                  key={doc.id}
+                  onPress={() => router.push(routes.invoiceDetail(doc.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.stornoDocument")}: {doc.invoiceNumber}
                   </Text>
                 </Pressable>
               ))}
               {(links.correctionDocuments ?? []).map((doc) => (
-                <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
+                <Pressable
+                  key={doc.id}
+                  onPress={() => router.push(routes.invoiceDetail(doc.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.modifiedBy")}: {doc.invoiceNumber || t("invoices.status.draft")}
                   </Text>
                 </Pressable>
               ))}
               {links.convertedFromInvoice ? (
-                <Pressable onPress={() => router.push(routes.invoiceDetail(links.convertedFromInvoice!.id))}>
+                <Pressable
+                  onPress={() => router.push(routes.invoiceDetail(links.convertedFromInvoice!.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.convertedFrom", { number: links.convertedFromInvoice.invoiceNumber })}
                   </Text>
                 </Pressable>
               ) : null}
               {(links.convertedToInvoices ?? []).map((doc) => (
-                <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
+                <Pressable
+                  key={doc.id}
+                  onPress={() => router.push(routes.invoiceDetail(doc.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {doc.status === "cancelled"
                       ? t("invoices.links.convertedToCancelled", {
@@ -518,21 +547,18 @@ export default function InvoiceDetailScreen() {
                 <FormControlLabel>
                   <FormControlLabelText>{t("invoices.fields.paymentMethod")}</FormControlLabelText>
                 </FormControlLabel>
-                <HStack space="sm" className="flex-wrap">
+                <ChoicePillGroup accessibilityLabel={t("invoices.fields.paymentMethod")}>
                   {MARK_PAID_METHODS.map((pm) => (
-                    <Pressable
+                    <ChoicePill
                       key={pm.value}
+                      selected={paidMethod === pm.value}
                       onPress={() => setPaidMethod(pm.value)}
-                      className={`rounded-lg border px-4 py-2 ${
-                        paidMethod === pm.value
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-background"
-                      }`}
+                      accessibilityLabel={t(pm.i18nKey)}
                     >
                       <Text size="sm" className="font-light">{t(pm.i18nKey)}</Text>
-                    </Pressable>
+                    </ChoicePill>
                   ))}
-                </HStack>
+                </ChoicePillGroup>
               </FormControl>
               <HStack space="sm">
                 <FormControl className="flex-1">
