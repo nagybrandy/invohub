@@ -622,7 +622,6 @@ export default {
     overdueToday: "a legrégebbi ma járt le",
     recentInvoices: "Legutóbbi számlák",
     allOutgoing: "Minden kimenő számla",
-    incomingInvoices: "Bejövő számlák",
     customerService: "Ügyfélszolgálat",
     newInvoice: "Új számla",
     kpi: {

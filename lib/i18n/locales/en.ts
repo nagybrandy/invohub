@@ -622,7 +622,6 @@ export default {
     overdueToday: "the oldest fell due today",
     recentInvoices: "Recent invoices",
     allOutgoing: "All outgoing invoices",
-    incomingInvoices: "Incoming invoices",
     customerService: "Customer service",
     newInvoice: "New invoice",
     kpi: {
