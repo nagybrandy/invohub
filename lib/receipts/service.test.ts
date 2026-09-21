@@ -26,7 +26,10 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import {
   calculateLineItemTotals,
   createReceipt,
+  getDailyVatAggregation,
   getPublicReceiptByToken,
+  getVatAggregationForRange,
+  markReceiptsSubmittedForRange,
   validateReceiptInput,
 } from "@/lib/receipts/service";
 
@@ -235,5 +238,108 @@ describe("createReceipt", () => {
     });
     expect(record.receiptNumber).toMatch(/^NYG-/);
     expect(mockDb.insert).toHaveBeenCalledTimes(2);
+  });
+});
+
+const rangeReceiptRow = {
+  id: "r1",
+  userId: "u1",
+  receiptNumber: "NYG-2026-001",
+  clientName: "Walk-in",
+  totalAmount: "1270",
+  currency: "HUF",
+  paymentMethod: "cash",
+  qrToken: "qr-token",
+  navSubmitted: false,
+  issuedAt: new Date("2026-07-05T10:00:00.000Z"),
+  createdAt: new Date("2026-07-05T10:00:00.000Z"),
+  updatedAt: new Date("2026-07-05T10:00:00.000Z"),
+};
+
+const rangeLineItemRow = {
+  id: "li-1",
+  receiptId: "r1",
+  description: "Kávé",
+  quantity: "1",
+  unitPrice: "1000",
+  vatRate: 27,
+  unit: "db",
+  sortOrder: 0,
+};
+
+describe("getVatAggregationForRange", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("aggregates receipts within the given instant range under the given reportDate", async () => {
+    mockDb.select
+      .mockReturnValueOnce(selectChain([rangeReceiptRow]))
+      .mockReturnValueOnce(selectChain([rangeLineItemRow]));
+
+    const result = await getVatAggregationForRange(
+      "u1",
+      new Date("2026-07-04T22:00:00.000Z"),
+      new Date("2026-07-05T21:59:59.999Z"),
+      "2026-07-05"
+    );
+
+    expect(result.reportDate).toBe("2026-07-05");
+    expect(result.receiptCount).toBe(1);
+    expect(result.startReceiptNumber).toBe("NYG-2026-001");
+    expect(result.endReceiptNumber).toBe("NYG-2026-001");
+    expect(result.vatBreakdown).toHaveLength(1);
+  });
+});
+
+describe("getDailyVatAggregation", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("still returns the same shape, delegating to getVatAggregationForRange with the local calendar day", async () => {
+    mockDb.select
+      .mockReturnValueOnce(selectChain([rangeReceiptRow]))
+      .mockReturnValueOnce(selectChain([rangeLineItemRow]));
+
+    const inputDate = new Date("2026-07-05T10:00:00.000Z");
+    const result = await getDailyVatAggregation("u1", inputDate);
+
+    // reportDate is derived the same (unchanged, environment-local-day)
+    // way the pre-existing implementation derived it — delegation must
+    // not change this behaviour, so we compute it identically here
+    // rather than hardcoding a date string that would couple this test
+    // to the test runner's own timezone.
+    const localDayStart = new Date(inputDate);
+    localDayStart.setHours(0, 0, 0, 0);
+    expect(result.reportDate).toBe(localDayStart.toISOString().slice(0, 10));
+    expect(result.receiptCount).toBe(1);
+    expect(result.startReceiptNumber).toBe("NYG-2026-001");
+    expect(result.endReceiptNumber).toBe("NYG-2026-001");
+    expect(result.vatBreakdown).toHaveLength(1);
+  });
+});
+
+describe("markReceiptsSubmittedForRange", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("issues a single update scoped to the user and the given range", async () => {
+    const whereMock = jest.fn().mockResolvedValue(undefined);
+    const setMock = jest.fn(() => ({ where: whereMock }));
+    mockDb.update.mockReturnValue({ set: setMock });
+
+    await markReceiptsSubmittedForRange(
+      "u1",
+      new Date("2026-07-04T22:00:00.000Z"),
+      new Date("2026-07-05T21:59:59.999Z")
+    );
+
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ navSubmitted: true })
+    );
+    expect(whereMock).toHaveBeenCalledTimes(1);
   });
 });

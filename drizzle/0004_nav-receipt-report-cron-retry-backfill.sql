@@ -1,0 +1,2 @@
+ALTER TABLE "nav_receipt_submission" ADD COLUMN "attempt_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+CREATE INDEX "nav_receipt_sub_company_date_idx" ON "nav_receipt_submission" USING btree ("company_id","report_date");
