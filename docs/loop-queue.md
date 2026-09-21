@@ -686,7 +686,7 @@ screenshots before writing a fix plan:
       `ERROR_CODE_I18N_KEY` in `app/(app)/invoices/[id]/index.tsx`) so the
       key stops being dead. Same pattern already filed above for
       `receipts.navMissingExchangeRate`.
-    - [ ] The invoice-detail warning card's "add rate" `Button`
+    - [x] The invoice-detail warning card's "add rate" `Button`
       (`app/(app)/invoices/[id]/index.tsx`, the `isMissingExchangeRate`
       card) has no `size` prop and no `min-h-11`/`TAP_TARGET_MIN_H` class,
       so it falls under the 44px tap-target floor established by
@@ -696,6 +696,29 @@ screenshots before writing a fix plan:
       that had the chance to apply the shared floor and didn't. Add
       `TAP_TARGET_MIN_H` (or `min-h-11`) to this button's className,
       alongside `ExchangeRateFixBanner`'s button, for consistency.
+      **Shipped** (`slice/exchange-rate-warning-button-tap-target`,
+      2026-09-21): rather than decorate this one button, the 44px floor
+      moved into `components/ui/button`'s `buttonStyle` itself (exported,
+      backed by `lib/ui/tap-target.ts`'s `TAP_TARGET_MIN_H`/
+      `TAP_TARGET_ICON_BOX`) so every `Button` in the app clears it by
+      construction — `default`/`sm`/`lg` now carry `min-h-11`, `icon` is a
+      44×44 box, and `sm`/`lg` keep their `px-3`/`text-xs`/`px-8` scale.
+      The warning-card button also keeps an explicit `TAP_TARGET_MIN_H` in
+      its className (redundant by design, matching
+      `ExchangeRateFixBanner`). While in the same file: the mark-paid
+      method picker now renders through `ChoicePill`/`ChoicePillGroup`
+      instead of a hand-rolled `Pressable` copy; the linked-document rows
+      (storno/helyesbítő/díjbekérő links) are now 44px rows with
+      `accessibilityRole="link"` instead of a ~20px text sliver; and
+      `OverflowMenu`'s trigger (where Storno/Törlés live) and its items are
+      44px. No `lib/tax/`/`lib/nav/`/`lib/m2m/` or marketing changes, no new
+      i18n keys, no schema change. New test:
+      `components/ui/button/tap-target.test.ts`; extended
+      `__tests__/screens/invoice-detail.test.tsx`,
+      `components/layout/OverflowMenu.test.tsx`,
+      `components/layout/OverflowMenu.web.test.tsx`. `npx tsc --noEmit` and
+      `npm run test:unit` (214 suites / 1355 tests) green.
+      Plan: `docs/plans/2026-09-21-exchange-rate-warning-button-tap-target.md`.
 11. [ ] Retro-correct non-HUF invoices already reported to NAV with the old
     hardcoded `exchangeRate=1` — filed by item 10
     (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the
@@ -1134,12 +1157,89 @@ Remaining for the launch gate:
       `composerGridMinWidth() === 860`), which fits the 1112px available at
       1440px (was 680px). Sticky totals bar + `previewSlot` keep INV-9/
       INV-13 (see `docs/decisions/2026-09-18-composer-items-step-full-width-grid.md`).
-- [ ] `components/notifications/NotificationPanel.tsx` has substantial
+- [x] `components/notifications/NotificationPanel.tsx` has substantial
       pre-existing hardcoded English chrome text ("Notifications", "Mark
       all read", "Refresh", empty-state copy, "Just now"/"Xh ago") — left
       untouched by the 2026-09-15 i18n fix that only covered generated
       notification *content*, not the panel's own chrome. (2026-09-15
-      audit, i18n)
+      audit, i18n) Fixed on `slice/notification-panel-i18n-chrome-text`
+      per `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`:
+      the panel now reads every chrome string through `useTranslation`
+      (`notifications.panel.*` / `notifications.when.*`, hu+en), a new
+      pure `lib/notifications/relative-time.ts` replaces the buggy
+      `formatWhen` (no more "Just now" mislabeling 55-minute-old items, no
+      more negative-hour clock-skew garbage, absolute dates go through
+      `formatDateOnly` for the HU/EN-aware format), the empty `<DrawerCloseButton />`
+      is replaced with a visible labelled 44×44 lucide `X` button, both
+      action buttons and every row Pressable clear `TAP_TARGET_MIN_H`, and
+      the redundant inner `ScrollView` (double-nested inside `DrawerBody`,
+      itself a `ScrollView`) is removed. Row *content* (titles/bodies)
+      stays English — that's the separate, still-open content-localisation
+      item below; out of scope here per the plan.
+- [~] needs sign-off (PR) (slice/notification-panel-i18n-chrome-text) —
+      AC7 of `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
+      requires the empty-state description to name exactly "lejárt
+      számlák, NAV-beküldés, emlékeztetők" (overdue invoices, NAV
+      submission, reminders). The shipped copy (`lib/i18n/locales/hu.ts` /
+      `en.ts` `notifications.panel.empty.description`,
+      commit `2cf14c2`) instead names overdue invoices, invoices
+      sent/awaiting payment, and NAV submission — because
+      `syncNotificationsFromDomain` (`lib/notifications/service.ts:136-181`)
+      only ever emits `overdue_invoice`, `invoice_sent`, and `nav_pending`;
+      `payment_reminder` is written solely by the demo-only
+      `seedDemoNotifications` (`service.ts:200`), and
+      `processPaymentReminders` (`lib/reminders/process.ts`) sends reminder
+      emails but never calls `createNotification`. So AC7's literal wording
+      does not match what the app actually does today.
+      **Round 2:** the plan file was orphaned (existed only on the
+      unrelated `fixround1-composer-line-item-horizontal-scroll-1440`
+      branch) — it is now committed to `slice/notification-panel-i18n-chrome-text`
+      itself so the AC and this note stay next to each other. The copy was
+      deliberately left unchanged again: round 1 already changed it once
+      without sign-off and review flagged that as a confirmed finding, and
+      round 1's follow-up explicitly declined to re-decide it a second
+      time; changing it a third time without a human in the loop would
+      repeat the same mistake. `tsc --noEmit` and `npm run test:unit` (215
+      suites / 1367 tests) are green either way, so this is a product-copy
+      decision, not a code defect, and per CLAUDE.md's ship rules this
+      slice should go out as a **pull request for explicit human/product
+      sign-off**, not an auto-merge by the dev-loop's Ship phase, until one
+      of the two options below is chosen. Needs one of:
+      (a) formally update AC7 (in `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
+      on this branch) to match the shipped, factually-accurate copy, since
+      reminders don't populate this panel today; or (b) wire an actual
+      `payment_reminder` notification row into `syncNotificationsFromDomain`
+      or `processPaymentReminders` (its own TDD slice — out of scope for a
+      "risk: none, presentational only" plan) and restore "emlékeztetők" to
+      the copy.
+- [ ] `components/notifications/NotificationPanel.tsx:99` — the close
+      button's `className` duplicates centering utilities already provided
+      by `TAP_TARGET_ICON_BOX`: `` `items-center justify-center rounded-full
+      ${TAP_TARGET_ICON_BOX}` `` where `TAP_TARGET_ICON_BOX`
+      (`lib/ui/tap-target.ts`) is already `"h-11 w-11 items-center
+      justify-center"` — `items-center justify-center` is written twice.
+      Harmless (class-merge dedupes it), just noise for the next reader.
+      Fix: drop the explicit `items-center justify-center` and keep
+      `className={`rounded-full ${TAP_TARGET_ICON_BOX}`}`.
+      (ship-review, notification-panel-i18n-chrome-text, ux, low)
+- [ ] The tap-target/overflow review of
+      `components/notifications/NotificationPanel.tsx` reached its
+      "no regression" conclusion by static code tracing only (Button's
+      `size="sm"` is `min-h-8` per `components/ui/button/index.tsx:53`,
+      overridden by the panel's own `TAP_TARGET_MIN_H` className per tva's
+      class-merge; `DrawerBody` is `ScrollView`-backed with base `shrink-0`
+      and the panel keeps `flex-1` with no inner `ScrollView`) — not live
+      rendered screenshots. Capturing an authenticated 375×812/1440×900
+      screenshot was blocked by this session's credential-leakage guard
+      (the repo's `.env` holds the production Neon `DATABASE_URL` per
+      CLAUDE.md) and was not attempted, so this remains an
+      unverified-by-screenshot gap, not evidence of an actual bug. Fix: a
+      reviewer with a disposable local Postgres + non-production E2E test
+      user should capture the mobile/desktop screenshots before treating
+      this as a fully verified UX pass; alternatively build a mocked-auth/
+      Storybook harness so `NotificationPanel` can be screenshotted without
+      live credentials. (ship-review, notification-panel-i18n-chrome-text,
+      ux, low)
 - [ ] Notification rows created before the 2026-09-15 i18n-key encoding
       fix (in the same DB, from earlier test runs) still render as literal
       English text — by design, only newly-synced/newly-seeded

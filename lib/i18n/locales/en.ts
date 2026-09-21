@@ -1099,6 +1099,26 @@ export default {
       more: "+{{count}} more notifications",
       dismiss: "Dismiss",
     },
+    panel: {
+      title: "Notifications",
+      unreadCount: "{{count}} unread",
+      markAllRead: "Mark all read",
+      markAllReadA11y: "Mark all notifications as read",
+      refresh: "Refresh",
+      close: "Close notifications",
+      loading: "Loading notifications",
+      empty: {
+        title: "No notifications yet",
+        description:
+          "Overdue invoices, invoices sent and awaiting payment, and NAV submission status show up here.",
+      },
+    },
+    when: {
+      justNow: "Just now",
+      minutesAgo: "{{count}} min ago",
+      hoursAgo: "{{count}}h ago",
+      yesterday: "Yesterday",
+    },
   },
   userMenu: {
     accountSettings: "Account settings",

@@ -53,4 +53,22 @@ describe("hu/en locale parity", () => {
       expect(locale.invoices.document.pageIndicator).toBeTruthy();
     }
   });
+
+  it("defines notifications.panel.* and notifications.when.* in both locales", () => {
+    for (const locale of [en, hu]) {
+      expect(locale.notifications.panel.title).toBeTruthy();
+      expect(locale.notifications.panel.unreadCount).toBeTruthy();
+      expect(locale.notifications.panel.markAllRead).toBeTruthy();
+      expect(locale.notifications.panel.markAllReadA11y).toBeTruthy();
+      expect(locale.notifications.panel.refresh).toBeTruthy();
+      expect(locale.notifications.panel.close).toBeTruthy();
+      expect(locale.notifications.panel.loading).toBeTruthy();
+      expect(locale.notifications.panel.empty.title).toBeTruthy();
+      expect(locale.notifications.panel.empty.description).toBeTruthy();
+      expect(locale.notifications.when.justNow).toBeTruthy();
+      expect(locale.notifications.when.minutesAgo).toBeTruthy();
+      expect(locale.notifications.when.hoursAgo).toBeTruthy();
+      expect(locale.notifications.when.yesterday).toBeTruthy();
+    }
+  });
 });
