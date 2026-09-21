@@ -113,6 +113,18 @@ before or alongside Phase 1 items that depend on it.
       (needs tax/legal sign-off — the document retention period and what may
       be deleted vs. anonymized must come from the lawyer review, not from a
       guessed number)
+- [ ] Ship-loop review worktrees have no way to take authenticated
+      Playwright/browser screenshots — the owner's production Neon
+      `DATABASE_URL` (`.env`) exists only in the main checkout, and
+      copying it into a review worktree to get a signed-in session would
+      run review/test traffic against production credentials, which
+      CLAUDE.md's DB rule argues against. Found while shipping
+      `slice/incoming-invoices-dashboard-button` (2026-09-21): the ship
+      report for that item relied on `tsc`/`test:unit` plus a source-level
+      trace of `components/layout/PageHeader.tsx` instead of a live
+      screenshot. Give review worktrees a non-production/test DB (seeded,
+      throwaway) so `ux-reviewer`/`continuous-audit` can capture real
+      screenshots without touching prod credentials.
 
 ## Phase 1 — Core invoicing, NAV-compliant
 
