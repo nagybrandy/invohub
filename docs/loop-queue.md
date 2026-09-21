@@ -1138,12 +1138,9 @@ Remaining for the launch gate:
       item below; out of scope here per the plan.
 - [ ] **Needs explicit human/product sign-off** — AC7 of
       `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
-      (that plan file itself is orphaned: it exists only on the unrelated
-      `fixround1-composer-line-item-horizontal-scroll-1440` branch, not on
-      `main` or `slice/notification-panel-i18n-chrome-text`) requires the
-      empty-state description to name exactly "lejárt számlák,
-      NAV-beküldés, emlékeztetők" (overdue invoices, NAV submission,
-      reminders). The shipped copy (`lib/i18n/locales/hu.ts` /
+      requires the empty-state description to name exactly "lejárt
+      számlák, NAV-beküldés, emlékeztetők" (overdue invoices, NAV
+      submission, reminders). The shipped copy (`lib/i18n/locales/hu.ts` /
       `en.ts` `notifications.panel.empty.description`,
       commit `2cf14c2`) instead names overdue invoices, invoices
       sent/awaiting payment, and NAV submission — because
@@ -1153,20 +1150,28 @@ Remaining for the launch gate:
       `seedDemoNotifications` (`service.ts:200`), and
       `processPaymentReminders` (`lib/reminders/process.ts`) sends reminder
       emails but never calls `createNotification`. So AC7's literal wording
-      does not match what the app actually does today. Deliberately left
-      as-is on this branch rather than re-deciding unilaterally a second
-      time (round 1 already changed it once without sign-off and review
-      flagged that as a confirmed finding): `tsc --noEmit` and
-      `npm run test:unit` (215 suites / 1367 tests) are green either way,
-      so this is a product-copy decision, not a code defect. Needs one of:
-      (a) formally update AC7 (on whichever branch/location becomes
-      canonical for that plan) to match the shipped, factually-accurate
-      copy, since reminders don't populate this panel today; or (b) wire
-      an actual `payment_reminder` notification row into
-      `syncNotificationsFromDomain` or `processPaymentReminders` (its own
-      TDD slice — out of scope for a "risk: none, presentational only"
-      plan) and restore "emlékeztetők" to the copy. Either way, reconcile
-      the orphaned plan file with whatever ships.
+      does not match what the app actually does today.
+      **Round 2:** the plan file was orphaned (existed only on the
+      unrelated `fixround1-composer-line-item-horizontal-scroll-1440`
+      branch) — it is now committed to `slice/notification-panel-i18n-chrome-text`
+      itself so the AC and this note stay next to each other. The copy was
+      deliberately left unchanged again: round 1 already changed it once
+      without sign-off and review flagged that as a confirmed finding, and
+      round 1's follow-up explicitly declined to re-decide it a second
+      time; changing it a third time without a human in the loop would
+      repeat the same mistake. `tsc --noEmit` and `npm run test:unit` (215
+      suites / 1367 tests) are green either way, so this is a product-copy
+      decision, not a code defect, and per CLAUDE.md's ship rules this
+      slice should go out as a **pull request for explicit human/product
+      sign-off**, not an auto-merge by the dev-loop's Ship phase, until one
+      of the two options below is chosen. Needs one of:
+      (a) formally update AC7 (in `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
+      on this branch) to match the shipped, factually-accurate copy, since
+      reminders don't populate this panel today; or (b) wire an actual
+      `payment_reminder` notification row into `syncNotificationsFromDomain`
+      or `processPaymentReminders` (its own TDD slice — out of scope for a
+      "risk: none, presentational only" plan) and restore "emlékeztetők" to
+      the copy.
 - [ ] Notification rows created before the 2026-09-15 i18n-key encoding
       fix (in the same DB, from earlier test runs) still render as literal
       English text — by design, only newly-synced/newly-seeded
