@@ -87,7 +87,7 @@ export function LineItemRow({
             />
           </Input>
           {descFocused && matches.length > 0 ? (
-            <VStack className="absolute top-9 z-10 w-full rounded-lg border border-border bg-card shadow-sm">
+            <VStack className={`absolute ${TAP_TARGET_DROPDOWN_TOP} z-10 w-full rounded-lg border border-border bg-card shadow-sm`}>
               {matches.map((product) => (
                 <Pressable
                   key={product.id}
