@@ -567,7 +567,7 @@ screenshots before writing a fix plan:
      actually guaranteed (string order + test coverage), and track a real
      computed-style/visual check (e.g. in the Playwright UX sweep) as the
      follow-up that verifies the assumption.
-   - [ ] `components/navigation/MobileAppHeader.tsx`'s new `hitSlop={8}` on
+   - [x] `components/navigation/MobileAppHeader.tsx`'s new `hitSlop={8}` on
      the notification bell (required by this slice's AC9) now meets
      `LanguageSwitcher`'s pre-existing `hitSlop={8}` across their shared
      `HStack space="sm"` (8px) gap, creating a roughly 4px contested
@@ -575,6 +575,18 @@ screenshots before writing a fix plan:
      decides which control a tap there hits. Fix with an asymmetric
      hitSlop on the bell (exclude the side facing the switcher) or widen
      the gap between the two controls.
+     **Shipped** (`slice/fix-notification-bell-language-switcher-hitslop-overlap`,
+     plan `docs/plans/2026-09-21-fix-notification-bell-language-switcher-hitslop-overlap.md`,
+     risk: none). New `hitSlopExcept()`/`touchOverlapPx()` in
+     `lib/ui/tap-target.ts` trim slop only on sides facing a neighbour;
+     the bell now excludes its right side. Planning found a worse,
+     previously unreported defect from the same root cause one level
+     down: inside `LanguageSwitcher`, the HU and EN pills sit on a 4px
+     `gap-1` with `hitSlop={8}` each, so EN's touch rect covered the
+     right 4px of the visibly-selected HU chip and won the reverse-order
+     hit test — tapping the edge of "HU" silently switched the app to
+     English. Fixed the same way, per-pill (first excludes right, last
+     excludes left). No visual change, 44px floor preserved.
    - [ ] This slice's branch is a single squashed commit
      (`git log main..slice/invoice-flow-tap-targets-44px`), so TDD
      red→green test-first ordering (AGENTS.md §9) can't be independently

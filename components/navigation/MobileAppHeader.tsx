@@ -9,7 +9,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { TAP_TARGET_ICON_BOX } from "@/lib/ui/tap-target";
+import { TAP_TARGET_ICON_BOX, hitSlopExcept } from "@/lib/ui/tap-target";
 
 // Fixed on-navy ink for icons on this always-navy header, matching AppSidebar.
 const ON_DARK_ICON = "#ffffff";
@@ -74,7 +74,10 @@ export function MobileAppHeader({
           <Pressable
             onPress={onOpenNotifications}
             className={`relative rounded-full ${TAP_TARGET_ICON_BOX}`}
-            hitSlop={8}
+            // Right side faces the LanguageSwitcher across an 8px gap — trim
+            // it to 0 so the bell's touch rect never steals a tap meant for
+            // the switcher's HU pill.
+            hitSlop={hitSlopExcept(["right"])}
             accessibilityLabel={
               unreadCount > 0 ? t("nav.notificationsUnread", { count: unreadCount }) : t("nav.notifications")
             }

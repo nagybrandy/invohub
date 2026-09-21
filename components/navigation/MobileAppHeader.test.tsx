@@ -146,7 +146,21 @@ describe("MobileAppHeader", () => {
     expect(String(bell.props.className)).toContain("w-11");
     expect(String(bell.props.className)).toContain("items-center");
     expect(String(bell.props.className)).toContain("justify-center");
-    expect(bell.props.hitSlop).toBe(8);
+    expect(bell.props.hitSlop).toEqual({ top: 8, right: 0, bottom: 8, left: 8 });
+  });
+
+  it("trims the bell's right hitSlop to 0 because it faces the language switcher", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <MobileAppHeader userName="Test User" unreadCount={0} onOpenNotifications={jest.fn()} />
+      );
+    });
+    const bell = bellWrapper(tree!);
+    expect(bell.props.hitSlop.right).toBe(0);
+    expect(bell.props.hitSlop.top).toBe(8);
+    expect(bell.props.hitSlop.bottom).toBe(8);
+    expect(bell.props.hitSlop.left).toBe(8);
   });
 
   it("shows no badge for unreadCount 0", () => {

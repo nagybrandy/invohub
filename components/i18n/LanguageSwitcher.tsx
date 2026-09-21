@@ -10,7 +10,7 @@ import {
   setAppLanguage,
   type AppLanguage,
 } from "@/lib/i18n/language";
-import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+import { TAP_TARGET_MIN_H, hitSlopExcept } from "@/lib/ui/tap-target";
 
 type LanguageSwitcherProps = {
   tone?: "onDark" | "onLight";
@@ -42,8 +42,13 @@ export function LanguageSwitcher({
       accessibilityRole="tablist"
       accessibilityLabel={t("language.switcherLabel")}
     >
-      {APP_LANGUAGES.map((language) => {
+      {APP_LANGUAGES.map((language, index) => {
         const selected = language.code === active;
+        // Each pill sits in a tight `gap-1` segmented control: trim slop on
+        // the side facing a neighbour pill (the first excludes "right", the
+        // last excludes "left", any middle pill excludes both) so an
+        // adjacent pill's outward slop never wins a tap meant for this one
+        // — see fix-notification-bell-language-switcher-hitslop-overlap.
         return (
           <Pressable
             key={language.code}
@@ -52,7 +57,13 @@ export function LanguageSwitcher({
             accessibilityState={{ selected }}
             accessibilityLabel={language.label}
             testID={`${testID}-${language.code}`}
-            hitSlop={8}
+            hitSlop={hitSlopExcept(
+              index === 0
+                ? ["right"]
+                : index === APP_LANGUAGES.length - 1
+                  ? ["left"]
+                  : ["left", "right"]
+            )}
             className={`${TAP_TARGET_MIN_H} min-w-8 items-center justify-center rounded-md px-2.5 py-1.5 ${
               selected
                 ? onDark
