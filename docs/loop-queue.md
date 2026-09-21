@@ -719,7 +719,7 @@ screenshots before writing a fix plan:
       `components/layout/OverflowMenu.web.test.tsx`. `npx tsc --noEmit` and
       `npm run test:unit` (214 suites / 1355 tests) green.
       Plan: `docs/plans/2026-09-21-exchange-rate-warning-button-tap-target.md`.
-11. [~] Built, not merged — tax/legal sign-off required before merge (PR,
+11. [~] needs sign-off (PR) — tax/legal sign-off required before merge (PR,
     not auto-ship). Retro-correct non-HUF invoices already reported to NAV
     with the old hardcoded `exchangeRate=1` — filed by item 10
     (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the
@@ -786,7 +786,8 @@ screenshots before writing a fix plan:
       or `marketing/` touched.
 
     All 7 plan ACs pass; `npx tsc --noEmit` and `npm run test:unit` (224
-    suites / 1497 tests) green. **Not merged** — per CLAUDE.md this is a
+    suites / 1502 tests, after the 2026-09-21 fix round) green. **Not
+    merged** — per CLAUDE.md this is a
     `lib/nav/` production-behaviour change that tells an EV their filed tax
     record may be wrong, so it becomes a PR for explicit human sign-off
     rather than an auto-merge; suggested reviewer checklist is in the plan
@@ -799,6 +800,18 @@ screenshots before writing a fix plan:
     only prepares the draft.
     Plan: `docs/plans/2026-09-21-retro-correct-non-huf-invoices-nav-modify.md`.
 
+- [ ] `text-destructive` title on `bg-destructive/10` is below WCAG AA
+      contrast — `NavExchangeRateAuditCard.tsx:64-66` recomputed at ~4.13:1
+      against `WCAG_AA_NORMAL_TEXT` (4.5) using `lib/theme/contrast.ts`'s own
+      formulas (`--destructive` #dc2626 over `--card` white, composited at
+      10% alpha → #fce9e9). Pre-existing pattern, not a regression — the
+      identical class combination already exists on the exchange-rate
+      missing-rate card (`app/(app)/invoices/[id]/index.tsx:428-443`,
+      pre-slice on `main`); item 11 adds a second instance of the same
+      under-contrast pattern to the same screen. Fix by darkening
+      `--destructive` or reducing the `bg-destructive` alpha delta so both
+      cards clear AA together, rather than patching per-card (2026-09-21
+      fix round, ux)
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
 verified against Áfa tv. 169. §, NAV OSA end-to-end certified with test
