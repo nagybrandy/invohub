@@ -86,4 +86,13 @@ describe("hu/en locale parity", () => {
       expect(locale.notifications.content.reminderScheduledBody).toBeTruthy();
     }
   });
+
+  // AC4 (incoming-invoices-dashboard-button): the mislabelled desktop
+  // "Bejövő számlák" button was removed, not relabelled — its only consumer
+  // is gone, so the key must not silently come back in either locale.
+  it("does not define dashboard.incomingInvoices in either locale", () => {
+    for (const locale of [en, hu]) {
+      expect((locale.dashboard as Record<string, unknown>).incomingInvoices).toBeUndefined();
+    }
+  });
 });

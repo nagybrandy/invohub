@@ -169,11 +169,17 @@ describe("Dashboard — customer service support flow", () => {
       act(() => tree.unmount());
     });
 
-    it("still shows the incoming-invoices button at desktop width (AC6, unchanged)", async () => {
+    // The mislabelled "Bejövő számlák" (incoming-invoices) button — it
+    // actually opened the *outgoing* unpaid list — was removed by
+    // slice/incoming-invoices-dashboard-button, not relabelled. This test
+    // used to pin its presence at desktop width; it now pins its absence,
+    // at both widths (see the mobile-width test above), so a future
+    // regression that reintroduces it here is caught.
+    it("does not show the incoming-invoices button at desktop width either (AC6, removed)", async () => {
       mockUseIsDesktop.mockReturnValue(true);
       const tree = await renderScreen();
 
-      expect(tree.root.findByProps({ testID: "dashboard-incoming-invoices" })).toBeTruthy();
+      expect(() => tree.root.findByProps({ testID: "dashboard-incoming-invoices" })).toThrow();
 
       act(() => tree.unmount());
     });

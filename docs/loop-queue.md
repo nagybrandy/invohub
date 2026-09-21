@@ -65,6 +65,29 @@ before or alongside Phase 1 items that depend on it.
       a11y label is now `t("nav.more")` instead of a hardcoded Hungarian
       string. Plan:
       `docs/plans/2026-09-21-dashboard-customer-service-button-handler.md`
+- [x] Dashboard "Bejövő számlák" button (`app/(app)/dashboard/index.tsx`)
+      is mislabelled: it navigates to `routes.invoicesFiltered("unpaid")`,
+      which is the *outgoing* unpaid list, while an incoming-invoice store
+      already exists (`incomingInvoice` in `db/schema.ts`,
+      `GET /api/nav/incoming`). Either build the real
+      incoming-invoices screen and point the button at it, or relabel the
+      button to what it actually opens (found 2026-09-21 while planning
+      slice/dashboard-customer-service-button-handler). Done: removed the
+      button — the "Kintlévőség" KPI card was already the same, correctly
+      labelled, better-informed destination, so a relabel would have left
+      a third control on one screen pointing at one list. Its only
+      possible real data source, `fetchIncomingInvoices`
+      (`lib/nav/client.ts`), is a hardcoded demo stub that contacts no NAV
+      environment, so a screen on top of it would have shown fabricated
+      supplier invoices as if real; `GET /api/nav/incoming?sync=true` is
+      now gated behind `isDevSeedAllowed()` (404 when disallowed,
+      `requireSession` still runs first) the same way
+      `app/api/dev/seed+api.ts` already gates the demo seed, so it can no
+      longer write invented rows into a production user's books. Nothing
+      under `lib/nav/` was touched. See
+      `docs/decisions/2026-09-21-no-incoming-invoice-screen-yet.md` and the
+      new follow-up item below (Phase 3). Plan:
+      `docs/plans/2026-09-21-incoming-invoices-dashboard-button.md`
 - [ ] NAV receipt-report cron has no retry and no backfill —
       `app/api/cron/nav-receipt-report+api.ts` only ever builds yesterday's
       `reportDate`, and a row left in `nav_receipt_submission` with a failed
@@ -1654,6 +1677,19 @@ fixtures. Never hardcode a tax figure nobody has sourced and verified.
 - [ ] Tax-professional validation of the rule files and regression
       fixtures — human sign-off, tracked here as its own checkbox, not
       assumed once the code exists
+- [ ] Real incoming (költség)számla feature — the `incoming_invoice` table
+      and `GET /api/nav/incoming` exist but the only writer is a hardcoded
+      stub (`lib/nav/client.ts` `fetchIncomingInvoices`), now dev-gated
+      (see `docs/decisions/2026-09-21-no-incoming-invoice-screen-yet.md`).
+      Doing this properly needs OSA `queryInvoiceDigest` with
+      `invoiceDirection: INBOUND` + `queryInvoiceData` against the **test**
+      environment, XML→row mapping, pagination, and/or a manual
+      cost-invoice entry form, then a screen and a nav entry. Filed under
+      Phase 3 rather than Phase 1 because its primary consumer is
+      költségelszámolás (input-VAT / cost accounting for the EV tax
+      calculator) — a real outgoing-invoicing screen for something the
+      user issues doesn't apply here; this is exclusively cost-side data
+      that only becomes useful once there's a tax calculation to feed.
 
 ## Phase 4 — NAV M2M tax-return submission
 

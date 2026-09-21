@@ -9,7 +9,7 @@ import * as React from "react";
 import { Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Headphones, Inbox } from "lucide-react-native";
+import { Headphones } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -25,7 +25,6 @@ import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { Section } from "@/components/layout/Section";
 import { StatCard } from "@/components/layout/StatCard";
 import { apiFetch } from "@/lib/api/client";
-import { useIconColors } from "@/lib/theme/icon-colors";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import { routes } from "@/lib/navigation";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
@@ -41,7 +40,6 @@ import type { InvoiceStatus } from "@/lib/invoices/types";
 
 export default function DashboardScreen() {
   const { t, i18n } = useTranslation();
-  const icons = useIconColors();
   const { summary, draftCount, outstandingCount, paidCount, loading, refresh } =
     useDashboardSummary();
   const isDesktop = useIsDesktop();
@@ -100,12 +98,7 @@ export default function DashboardScreen() {
           title={t("nav.dashboard")}
           subtitle={t("dashboard.subtitle")}
           primaryAction={
-            isDesktop ? (
-              <Button variant="outline" size="sm" onPress={() => goTo("unpaid")} testID="dashboard-incoming-invoices">
-                <Inbox size={16} color={icons.foreground} />
-                <ButtonText>{t("dashboard.incomingInvoices")}</ButtonText>
-              </Button>
-            ) : (
+            isDesktop ? undefined : (
               <Button onPress={() => router.push(routes.newInvoice)}>
                 <ButtonText>{t("dashboard.newInvoice")}</ButtonText>
               </Button>
