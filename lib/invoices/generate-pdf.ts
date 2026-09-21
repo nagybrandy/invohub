@@ -31,6 +31,7 @@ import {
 import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
 import { registerDocumentFonts, type DocumentFonts } from "@/lib/invoices/pdf-fonts";
 import { drawBrandLockup } from "@/lib/invoices/pdf-brand-mark";
+import { documentInk } from "@/lib/invoices/document-ink";
 import {
   companyInitials,
   contentBottom,
@@ -102,7 +103,7 @@ function drawFooterOnCurrentPage(
     // Narrowed from 0.5 to 0.42 of the page width to leave room for the
     // page indicator between the issuer's own footer text and the lockup
     // (AC12/AC13) without the two ever colliding.
-    doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor("#666666");
+    doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor(documentInk.muted);
     doc.text(opts.footerText, opts.left, textY, {
       width: opts.pageWidth * 0.42,
       lineBreak: false,
@@ -126,7 +127,7 @@ function drawFooterOnCurrentPage(
       align: "right",
     });
   } else if (opts.pageIndicatorText) {
-    doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor("#666666");
+    doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor(documentInk.muted);
     doc.text(opts.pageIndicatorText, opts.left, textY, {
       width: opts.pageWidth * 0.3,
       lineBreak: false,

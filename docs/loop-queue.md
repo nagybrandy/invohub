@@ -1569,7 +1569,7 @@ Remaining for the launch gate:
       `git fetch`/rebase or merge normally rather than trusting a raw
       `main..slice` diff at face value.
       (2026-09-16 ship review of slice/pdf-invohub-brand-mark, acceptance)
-- [ ] Footer attribution text stays at pre-existing low contrast (~3.17:1)
+- [x] Footer attribution text stays at pre-existing low contrast (~3.17:1)
       after gaining the mark — `lib/invoices/preview-html.ts`'s `.footer`
       rule keeps `color: #8a90a6; font-size: 0.78rem` unchanged by this
       slice (only `display:flex`/alignment/gap and a `.footer svg{flex-
@@ -1583,6 +1583,17 @@ Remaining for the launch gate:
       text is dim. Optional polish, not a blocker: on a future touch of this
       file, darken `.footer` text color (e.g. toward `#6b7280`/`#5b6178`).
       (2026-09-16 ship review of slice/pdf-invohub-brand-mark, ux)
+      Fixed: `docs/plans/2026-09-21-pdf-footer-attribution-contrast.md` —
+      new `lib/theme/contrast.ts` (WCAG 2.x `relativeLuminance`/
+      `contrastRatio`) + `lib/invoices/document-ink.ts` (`documentInk`/
+      `documentSurfaces` token module) route the footer attribution, the
+      mobile stacked-table `td::before` labels, and the PDF footer strip
+      (`generate-pdf.ts`'s `footerText`/`pageIndicatorText`, plus
+      `pdf-brand-mark.ts`'s `drawBrandLockup`) through one shared
+      `documentInk.muted` (`#5b6178`, 6.13:1 on paper) instead of the old
+      `#8a90a6` (3.17:1) / `#666666`. Colour-only; no i18n keys, no
+      `db/schema.ts` change, no rendered string change.
+      (2026-09-21 slice/pdf-footer-attribution-contrast)
 - [ ] AC6 unit test cannot actually exercise a real listener leak — the two
       "notes continuation listener cleanup (AC6)" tests in
       `lib/invoices/generate-pdf.test.ts` (lines 740-756) assert

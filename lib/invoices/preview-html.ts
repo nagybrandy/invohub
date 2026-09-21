@@ -19,6 +19,7 @@ import {
   type DocumentLabels,
   type DocumentLocale,
 } from "@/lib/invoices/document-labels";
+import { documentInk } from "@/lib/invoices/document-ink";
 import { formatExchangeRate, requiresExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
 import { normalizeHexColor } from "@/lib/invoices/pdf-template/defaults";
 import { brandMarkSvg } from "@/components/marketing/brand-mark-svg";
@@ -187,7 +188,7 @@ export function generateInvoicePreviewHtml(
   .exchange-rate-note { color: #4a4f6a; font-size: 0.8rem; }
   .vat-note { background: var(--pale-blue); color: var(--navy); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.9rem; }
   .notes { margin-bottom: 16px; color: #33364f; font-size: 0.9rem; }
-  .footer { border-top: 1px solid rgba(17, 31, 74, 0.2); padding-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #8a90a6; font-size: 0.78rem; }
+  .footer { border-top: 1px solid rgba(17, 31, 74, 0.2); padding-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: ${documentInk.muted}; font-size: 0.78rem; }
   .footer svg { flex-shrink: 0; }
   @media (max-width: 560px) {
     body { padding: 16px; }
@@ -199,7 +200,7 @@ export function generateInvoicePreviewHtml(
     tr { border: 1px solid #e5e9f5; border-radius: 10px; margin-bottom: 8px; padding: 6px 10px; }
     td { border: none; padding: 4px 0; text-align: right; }
     td.cell-desc { text-align: left; font-weight: 600; }
-    td::before { content: attr(data-label); float: left; color: #8a90a6; font-weight: 400; }
+    td::before { content: attr(data-label); float: left; color: ${documentInk.muted}; font-weight: 400; }
     td.cell-desc::before { content: none; }
     .footer { flex-wrap: wrap; }
   }
