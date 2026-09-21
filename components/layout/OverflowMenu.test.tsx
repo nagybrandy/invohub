@@ -52,6 +52,26 @@ describe("OverflowMenu", () => {
     expect(() => tree.root.findByProps({ testID: "overflow-menu-content" })).toThrow();
   });
 
+  it("trigger and menu items clear the 44px tap-target floor", () => {
+    const tree = render({
+      items: [
+        { label: "Szerkesztés", onPress: jest.fn() },
+        { label: "Törlés", onPress: jest.fn(), destructive: true },
+      ],
+    });
+    const trigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+    expect(trigger.props.className).toContain("h-11 w-11");
+    expect(trigger.props.hitSlop).toEqual(8);
+
+    act(() => {
+      trigger.props.onPress();
+    });
+    const item0 = tree.root.findByProps({ testID: "overflow-menu-item-0" });
+    const item1 = tree.root.findByProps({ testID: "overflow-menu-item-1" });
+    expect(item0.props.className).toContain("min-h-11");
+    expect(item1.props.className).toContain("min-h-11");
+  });
+
   it("renders multiple items and marks destructive ones", () => {
     const tree = render({
       items: [
