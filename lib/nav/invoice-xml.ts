@@ -394,7 +394,11 @@ export function buildNavInvoiceXml(
   }
   const rate = rateResolution.rate;
 
-  const rawDeliveryDate = invoice.invoiceDeliveryDate ?? invoice.issueDate;
+  // Precedence: an explicit NavInvoiceExtra override wins, then the real
+  // teljesítés dátuma column (fulfillmentDate), then issueDate as the last
+  // resort — this element is mandatory and must never be empty (AC5).
+  const rawDeliveryDate =
+    invoice.invoiceDeliveryDate ?? invoice.fulfillmentDate ?? invoice.issueDate;
   // Mandatory elements (minOccurs unset) — never omitted. Normalize to
   // date-only per InvoiceDateType; fall back to the raw escaped string when
   // toNavDate can't parse it, so no currently-working invoice regresses.

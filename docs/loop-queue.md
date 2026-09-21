@@ -1694,6 +1694,44 @@ Remaining for the launch gate:
       (2026-09-21 ship review of slice/pdf-broken-pagination-blank-page,
       acceptance)
 
+### Research refill 2026-09-21 (market/NAV research, product strategist)
+
+- [x] **Teljesítés dátuma is not a real field — NAV gets the issue date
+      instead** (needs tax/legal sign-off). The composer collects it
+      (`components/invoices/composer/useInvoiceComposer.ts`,
+      `StepPartner.tsx`) but `composeInvoiceNotes` in
+      `lib/invoices/client-form-fields.ts` only appends it to `notes` as the
+      text line `Teljesítés: …`; there is no column on `invoice`
+      (`db/schema.ts`), no field on `Invoice` (`lib/invoices/types.ts`), and
+      `lib/nav/invoice-xml.ts` therefore falls back to
+      `invoice.invoiceDeliveryDate ?? invoice.issueDate`, so every submitted
+      `<invoiceDeliveryDate>` is really the issue date. Teljesítés is a
+      mandatory Áfa tv. 169. § field, it is the date the AAM értékhatár is
+      measured against, and NAV's 2026-01-01 validation set adds warnings
+      when a correction moves the performance date. Add an additive nullable
+      column + domain field, thread it through create/PATCH/`lib/invoices/
+      create-from-payload.ts`, the PDF/preview, and the NAV XML; keep the
+      `issueDate` fallback only for legacy rows.
+      **Shipped** (`slice/invoice-fulfillment-date-persist-nav`,
+      2026-09-21): additive `fulfillment_date` column
+      (`drizzle/0005_invoice-fulfillment-date-persist-nav.sql`,
+      ADD COLUMN only) + `Invoice.fulfillmentDate`, read-time legacy-notes
+      fallback (`lib/invoices/fulfillment-date.ts`), NAV XML precedence
+      `invoiceDeliveryDate ?? fulfillmentDate ?? issueDate`
+      (`lib/nav/invoice-xml.ts`), PDF/HTML "Teljesítés kelte" meta segment,
+      composer persistence + reload, external-API validation/normalization,
+      and duplicate/storno/modify/díjbekérő-conversion carry-over —
+      `npx tsc --noEmit` and `npm run test:unit` both green
+      (1562 tests). This backlog entry did not yet exist on `main` when
+      this slice branched (it lives only in an unmerged sibling branch's
+      history, commit `33669d1`); inserted here, already checked off,
+      so `main` reflects the shipped state once this PR (tax/legal-gated,
+      per plan `docs/plans/2026-09-21-invoice-fulfillment-date-persist-nav.md`
+      §8) is merged. Follow-ups noted in the plan's own "Out of scope" —
+      line-item unit persistence, the 2026-01-01 NAV validation set, the
+      AAM/KATA bevételi keret meter, and notes backfill — are separate,
+      not started here.
+
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
 CSV / camt.053 import ships **before** any live bank/PSD2 connection.

@@ -25,6 +25,7 @@ import {
 import { requiresExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
+  formatDateOnly,
   formatInvoiceDueDate,
   formatInvoiceIssueDateTime,
 } from "@/lib/dates/format";
@@ -411,14 +412,19 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.y = cardsBottom + 16;
 
         // -------------------------------------------------------------
-        // Meta row (AC11): issue date, due date, payment method (only
-        // when set), currency — a single flowing row, mirrors
-        // preview-html.ts's `.meta-row`.
+        // Meta row (AC11): issue date, [fulfillment date], due date,
+        // payment method (only when set), currency — a single flowing
+        // row, mirrors preview-html.ts's `.meta-row`. The fulfillment
+        // date segment (AC6) only appears when one is actually resolved
+        // — the issue date is never printed under the teljesítés label.
         // -------------------------------------------------------------
         const metaSegments: string[] = [
           `${labels.issueDate}: ${formatInvoiceIssueDateTime(invoice)}`,
-          `${labels.dueDate}: ${formatInvoiceDueDate(invoice)}`,
         ];
+        if (invoice.fulfillmentDate) {
+          metaSegments.push(`${labels.fulfillmentDate}: ${formatDateOnly(invoice.fulfillmentDate)}`);
+        }
+        metaSegments.push(`${labels.dueDate}: ${formatInvoiceDueDate(invoice)}`);
         if (invoice.paymentMethod) {
           const paymentMethodLabel = labels.paymentMethods[invoice.paymentMethod as PaymentMethod];
           metaSegments.push(`${labels.paymentMethod}: ${paymentMethodLabel}`);

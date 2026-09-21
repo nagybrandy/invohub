@@ -113,7 +113,9 @@ export function useInvoiceComposer({
   const appliedInitialClientId = React.useRef(false);
 
   // Dates & payment ---------------------------------------------------------
-  const [fulfillmentDate, setFulfillmentDate] = React.useState(invoice?.issueDate ?? todayIso());
+  const [fulfillmentDate, setFulfillmentDate] = React.useState(
+    invoice?.fulfillmentDate ?? invoice?.issueDate ?? todayIso()
+  );
   const [issueDate, setIssueDate] = React.useState(invoice?.issueDate ?? todayIso());
   const [continuousPerformance, setContinuousPerformance] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>(
@@ -352,6 +354,7 @@ export function useInvoiceComposer({
       clientId: clientId ?? undefined,
       issueDate,
       dueDate,
+      fulfillmentDate: fulfillmentDate.trim() || undefined,
       status: invoice?.status ?? "draft",
       currency,
       exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,
@@ -369,6 +372,7 @@ export function useInvoiceComposer({
     clientId,
     issueDate,
     dueDate,
+    fulfillmentDate,
     currency,
     exchangeRate,
     lineItems,
@@ -446,6 +450,7 @@ export function useInvoiceComposer({
         clientId: clientId ?? undefined,
         issueDate,
         dueDate,
+        fulfillmentDate: fulfillmentDate.trim() || undefined,
         status,
         currency,
         exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,

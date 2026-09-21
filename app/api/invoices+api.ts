@@ -2,6 +2,7 @@
 // Invoice list and create API.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
+import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { createId } from "@/lib/id";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
@@ -20,6 +21,12 @@ function normalizeExchangeRate(
 ): number | undefined {
   if (!requiresExchangeRate(currency)) return undefined;
   return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+}
+
+/** A non-YYYY-MM-DD value (or one normalizeFulfillmentDateInput can't parse) is dropped, never persisted raw (AC10). */
+function normalizeFulfillmentDate(raw: unknown): string | undefined {
+  const normalized = normalizeFulfillmentDateInput(raw);
+  return normalized ?? undefined;
 }
 
 function parseLimit(url: URL): number {
@@ -92,6 +99,7 @@ export async function POST(request: Request) {
     clientTaxNumber: body.clientTaxNumber,
     issueDate: body.issueDate ?? now.slice(0, 10),
     dueDate: body.dueDate ?? now.slice(0, 10),
+    fulfillmentDate: normalizeFulfillmentDate(body.fulfillmentDate),
     status: body.status ?? "draft",
     currency,
     exchangeRate: normalizeExchangeRate(currency, body.exchangeRate),

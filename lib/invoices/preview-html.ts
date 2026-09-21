@@ -25,6 +25,7 @@ import { normalizeHexColor } from "@/lib/invoices/pdf-template/defaults";
 import { brandMarkSvg } from "@/components/marketing/brand-mark-svg";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
+  formatDateOnly,
   formatInvoiceDueDate,
   formatInvoiceIssueDateTime,
 } from "@/lib/dates/format";
@@ -246,6 +247,7 @@ export function generateInvoicePreviewHtml(
 
     <div class="meta-row">
       <span>${escapeHtml(labels.issueDate)}: ${escapeHtml(formatInvoiceIssueDateTime(invoice))}</span>
+      ${invoice.fulfillmentDate ? `<span>${escapeHtml(labels.fulfillmentDate)}: ${escapeHtml(formatDateOnly(invoice.fulfillmentDate))}</span>` : ""}
       <span>${escapeHtml(labels.dueDate)}: ${escapeHtml(formatInvoiceDueDate(invoice))}</span>
       ${paymentMethodLabel ? `<span>${escapeHtml(labels.paymentMethod)}: ${escapeHtml(paymentMethodLabel)}</span>` : ""}
       <span>${escapeHtml(labels.currency)}: ${escapeHtml(invoice.currency)}</span>

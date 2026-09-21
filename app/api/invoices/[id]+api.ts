@@ -2,6 +2,7 @@
 // Single invoice CRUD.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
+import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import {
   deleteInvoiceById,
   getInvoiceById,
@@ -53,11 +54,20 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as Partial<Invoice>;
+    // A non-YYYY-MM-DD value (or one that can't be parsed at all) is
+    // normalised away rather than persisted raw — same rule as POST
+    // /api/invoices and createInvoiceFromPayload (AC10). Omitting the
+    // field entirely keeps the existing value.
+    const fulfillmentDate =
+      body.fulfillmentDate !== undefined
+        ? (normalizeFulfillmentDateInput(body.fulfillmentDate) ?? undefined)
+        : existing.fulfillmentDate;
     const updated: Invoice = {
       ...existing,
       ...body,
       id,
       lineItems: body.lineItems ?? existing.lineItems,
+      fulfillmentDate,
       updatedAt: new Date().toISOString(),
     };
 

@@ -66,6 +66,15 @@ export interface Invoice {
   clientId?: string;
   issueDate: string;
   dueDate: string;
+  /**
+   * Teljesítés dátuma — ISO `YYYY-MM-DD` performance date (Áfa tv. 169. §;
+   * also the NAV `<invoiceDeliveryDate>`). Optional: when unset, callers
+   * fall back to `issueDate` (see lib/invoices/fulfillment-date.ts's
+   * resolveFulfillmentDate for the DB read-time legacy-notes fallback, and
+   * lib/nav/invoice-xml.ts's buildNavInvoiceXml for the NAV precedence
+   * chain — invoiceDeliveryDate override ?? fulfillmentDate ?? issueDate).
+   */
+  fulfillmentDate?: string;
   status: InvoiceStatus;
   currency: InvoiceCurrency;
   /** Manual HUF exchange rate for non-HUF invoices. */

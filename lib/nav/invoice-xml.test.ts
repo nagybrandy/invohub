@@ -200,6 +200,37 @@ describe("buildNavInvoiceXml", () => {
     expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-03");
   });
 
+  // AC5: fulfillmentDate drives invoiceDeliveryDate.
+  it("uses invoice.fulfillmentDate for invoiceDeliveryDate when set", () => {
+    const invoice = makeInvoice({ issueDate: "2026-05-01", fulfillmentDate: "2026-05-02" });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-02");
+  });
+
+  it("still lets an explicit NavInvoiceExtra.invoiceDeliveryDate override fulfillmentDate", () => {
+    const invoice = makeInvoice({ issueDate: "2026-05-01", fulfillmentDate: "2026-05-02" });
+    const xml = buildNavInvoiceXml(
+      { ...invoice, invoiceDeliveryDate: "2026-05-03" },
+      null
+    );
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-03");
+  });
+
+  it("falls back to issueDate when neither invoiceDeliveryDate nor fulfillmentDate are set", () => {
+    const invoice = makeInvoice({ issueDate: "2026-05-01", fulfillmentDate: undefined });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-01");
+  });
+
+  it("date-normalizes a fulfillmentDate that carries a time part", () => {
+    const invoice = makeInvoice({
+      issueDate: "2026-05-01",
+      fulfillmentDate: "2026-05-02T09:00:00Z",
+    });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-02");
+  });
+
   it("omits <invoiceReference> for a plain CREATE (no invoiceReference passed)", () => {
     const xml = buildNavInvoiceXml(makeInvoice(), null);
     expect(xml).not.toContain("<invoiceReference>");

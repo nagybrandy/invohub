@@ -675,6 +675,42 @@ describe("generateInvoicePdf — meta row (AC11)", () => {
   });
 });
 
+// AC6: the meta row prints "Teljesítés kelte: <date>" between issue date
+// and due date, only when a fulfillmentDate is resolved.
+describe("generateInvoicePdf — fulfillment date meta segment (AC6)", () => {
+  it("draws the fulfillment date segment when set", async () => {
+    const invoice = makeInvoice({ fulfillmentDate: "2026-06-03" });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(
+      mockDrawnTexts.some((t) => t.startsWith(`${labels.fulfillmentDate}:`))
+    ).toBe(true);
+  });
+
+  it("does not draw a fulfillment date segment when unset", async () => {
+    const invoice = makeInvoice({ fulfillmentDate: undefined });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(
+      mockDrawnTexts.some((t) => t.startsWith(`${labels.fulfillmentDate}:`))
+    ).toBe(false);
+  });
+
+  it("never prints the issue date value under the fulfillment-date label", async () => {
+    const invoice = makeInvoice({ fulfillmentDate: undefined, issueDate: "2026-06-01" });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.fulfillmentDate}:`))).toBe(false);
+    expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.issueDate}:`))).toBe(true);
+  });
+});
+
 // AC12: each line item row prints its own net amount.
 describe("generateInvoicePdf — line item net column (AC12)", () => {
   it("prints lineItemNetTotal(item) formatted for the invoice currency", async () => {

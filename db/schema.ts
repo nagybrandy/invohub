@@ -175,6 +175,13 @@ export const invoice = pgTable(
     clientTaxNumber: text("client_tax_number"),
     issueDate: text("issue_date").notNull(),
     dueDate: text("due_date").notNull(),
+    /**
+     * Teljesítés dátuma (ISO YYYY-MM-DD) — Áfa tv. 169. § performance date and
+     * NAV <invoiceDeliveryDate>. Nullable: legacy rows kept it inside notes as a
+     * "Teljesítés: …" line (see lib/invoices/fulfillment-date.ts), and rows with
+     * neither fall back to issueDate at read time.
+     */
+    fulfillmentDate: text("fulfillment_date"),
     status: text("status").notNull().default("draft"),
     currency: text("currency").notNull().default("HUF"),
     /** Manual HUF exchange rate for non-HUF invoices (MNB rate fetch is a follow-up). */

@@ -1,6 +1,7 @@
 // lib/invoices/mappers.ts
 // Maps between DB rows and domain Invoice types.
 import type { invoice, invoiceLineItem } from "@/db/schema";
+import { resolveFulfillmentDate } from "@/lib/invoices/fulfillment-date";
 import { resolvePaymentMethod } from "@/lib/invoices/payment-status";
 import type {
   Invoice,
@@ -56,6 +57,7 @@ export function mapInvoiceFromDb(
     clientId: row.clientId ?? undefined,
     issueDate: row.issueDate,
     dueDate: row.dueDate,
+    fulfillmentDate: resolveFulfillmentDate(row.fulfillmentDate as string | null, row.notes),
     status: row.status as InvoiceStatus,
     currency: row.currency as Invoice["currency"],
     exchangeRate: toOptionalNumber(row.exchangeRate),
@@ -109,6 +111,7 @@ export function mapInvoiceToDb(
     clientTaxNumber: inv.clientTaxNumber ?? null,
     issueDate: inv.issueDate,
     dueDate: inv.dueDate,
+    fulfillmentDate: inv.fulfillmentDate ?? null,
     status: inv.status,
     currency: inv.currency,
     exchangeRate: inv.exchangeRate != null ? String(inv.exchangeRate) : null,

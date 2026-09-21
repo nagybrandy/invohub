@@ -2,6 +2,7 @@
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
 import { documentLabels, formatDocumentAmount } from "@/lib/invoices/document-labels";
 import { documentInk } from "@/lib/invoices/document-ink";
+import { formatDateOnly } from "@/lib/dates/format";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 import {
   BRAND_MARK_DEFAULT,
@@ -282,5 +283,33 @@ describe("generateInvoicePreviewHtml — muted ink contrast", () => {
       html.match(/@media \(max-width: 560px\) \{([\s\S]*?)\n {2}\}/)?.[1] ?? "";
     const labelRule = mobileBlock.match(/td::before \{([^}]*)\}/)?.[1] ?? "";
     expect(labelRule).toContain(`color: ${documentInk.muted}`);
+  });
+});
+
+// AC7: teljesítés dátuma segment in the meta row, between issue and due date.
+describe("generateInvoicePreviewHtml — fulfillment date meta segment (AC7)", () => {
+  it("prints the fulfillment date segment between issue and due date when resolved", () => {
+    const labels = documentLabels();
+    const html = generateInvoicePreviewHtml(
+      makeInvoice({ fulfillmentDate: "2026-09-12" })
+    );
+    const metaRow = html.match(/<div class="meta-row">([\s\S]*?)<\/div>/)?.[1] ?? "";
+    expect(metaRow).toContain(`${labels.fulfillmentDate}: ${formatDateOnly("2026-09-12")}`);
+
+    const issueIndex = metaRow.indexOf(labels.issueDate);
+    const fulfillmentIndex = metaRow.indexOf(labels.fulfillmentDate);
+    const dueIndex = metaRow.indexOf(labels.dueDate);
+    expect(issueIndex).toBeGreaterThanOrEqual(0);
+    expect(fulfillmentIndex).toBeGreaterThan(issueIndex);
+    expect(dueIndex).toBeGreaterThan(fulfillmentIndex);
+  });
+
+  it("omits the fulfillment date segment entirely when none is resolved", () => {
+    const labels = documentLabels();
+    const html = generateInvoicePreviewHtml(
+      makeInvoice({ fulfillmentDate: undefined })
+    );
+    const metaRow = html.match(/<div class="meta-row">([\s\S]*?)<\/div>/)?.[1] ?? "";
+    expect(metaRow).not.toContain(`${labels.fulfillmentDate}:`);
   });
 });
