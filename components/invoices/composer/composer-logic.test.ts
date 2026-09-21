@@ -2,6 +2,7 @@
 import { makeLineItem } from "@/__tests__/fixtures/invoices";
 import {
   canEnableEmailOnSend,
+  composerDesktopLayout,
   groupVatRows,
   resolveStatusForAction,
   shouldSendOnAction,
@@ -116,6 +117,29 @@ describe("canEnableEmailOnSend (INV-2)", () => {
 
   it("is true with an e-mail", () => {
     expect(canEnableEmailOnSend("partner@ceg.hu")).toBe(true);
+  });
+});
+
+describe("composerDesktopLayout (composer-line-item-horizontal-scroll-1440)", () => {
+  it("gives the items step the full content width — no summary column, no form cap", () => {
+    expect(composerDesktopLayout("items")).toEqual({
+      showSummaryColumn: false,
+      formMaxWidth: undefined,
+    });
+  });
+
+  it("keeps the 400px sticky summary and 720px form cap on partner", () => {
+    expect(composerDesktopLayout("partner")).toEqual({
+      showSummaryColumn: true,
+      formMaxWidth: 720,
+    });
+  });
+
+  it("keeps the 400px sticky summary and 720px form cap on review", () => {
+    expect(composerDesktopLayout("review")).toEqual({
+      showSummaryColumn: true,
+      formMaxWidth: 720,
+    });
   });
 });
 

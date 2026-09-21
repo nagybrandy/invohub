@@ -1,10 +1,14 @@
 // components/invoices/composer/StepLineItems.test.tsx
-// Step 2's grid: the Egység (unit) column exists (INV-6), the VAT row is
-// never dropped from the live summary (INV-13), and picking a catalogue
-// product wires through onAddFromProduct (INV-5).
+// Step 2's grid: the merged Menny./Egység column exists (INV-6), the VAT
+// row is never dropped from the live summary (INV-13), picking a catalogue
+// product wires through onAddFromProduct (INV-5), the header/grid-width
+// come from the shared COMPOSER_GRID_COLUMNS table (composer-line-item-
+// horizontal-scroll-1440, AC5), and the totals bar is sticky and renders
+// the previewSlot it's handed (AC9, AC10).
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { StepLineItems } from "@/components/invoices/composer/StepLineItems";
+import { COMPOSER_GRID_COLUMNS, composerGridMinWidth } from "@/components/invoices/composer/grid-columns";
 import { makeLineItem } from "@/__tests__/fixtures/invoices";
 import type { Product } from "@/lib/products/service";
 
@@ -54,6 +58,7 @@ function render(overrides: Partial<React.ComponentProps<typeof StepLineItems>> =
         onAdd={onAdd}
         onAddFromProduct={onAddFromProduct}
         onRemove={onRemove}
+        previewSlot={overrides.previewSlot}
         t={t}
       />
     );
@@ -68,9 +73,67 @@ function findPressableWithText(root: TestRenderer.ReactTestInstance, text: strin
 }
 
 describe("StepLineItems", () => {
-  it("shows the Egység (unit) column header (INV-6)", () => {
+  it("shows the merged Menny./Egység column header (INV-6)", () => {
     const { tree } = render();
-    expect(JSON.stringify(tree.toJSON())).toContain("invoices.fields.unit");
+    expect(JSON.stringify(tree.toJSON())).toContain("invoices.lineItemEditor.quantityUnit");
+  });
+
+  it("renders one desktop header cell per COMPOSER_GRID_COLUMNS entry, labels via t(col.labelKey) (AC5)", () => {
+    const { tree } = render();
+    const json = JSON.stringify(tree.toJSON());
+    for (const col of COMPOSER_GRID_COLUMNS) {
+      if (col.labelKey) expect(json).toContain(col.labelKey);
+    }
+    // The header row itself is the (mocked-to-View) HStack that carries all
+    // 6 columns as direct children — same shape LineItemRow.test.tsx pins
+    // for the row beneath it, so header and row cannot drift.
+    const candidates = tree.root.findAll(
+      (node) =>
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("border-b") &&
+        node.props.className.includes("md:flex")
+    );
+    const headerRow = candidates.find((n) => Array.isArray(n.children) && n.children.length > 1);
+    expect(headerRow).toBeTruthy();
+    expect(headerRow!.children).toHaveLength(COMPOSER_GRID_COLUMNS.length);
+  });
+
+  it("takes the grid wrapper's minimum width from composerGridMinWidth(), not a hardcoded value", () => {
+    const { tree } = render();
+    const gridWrapper = tree.root.findAll(
+      (node) => typeof node.props?.style === "object" && node.props?.style?.minWidth === composerGridMinWidth()
+    );
+    expect(gridWrapper.length).toBeGreaterThan(0);
+    // The old hardcoded value must be gone entirely.
+    expect(JSON.stringify(tree.toJSON())).not.toContain("1040");
+  });
+
+  it("renders the previewSlot node inside the sticky totals bar (AC10)", () => {
+    const { Text } = require("react-native");
+    const { tree } = render({ previewSlot: <Text testID="preview-slot-probe">Teljes előnézet</Text> });
+    expect(tree.root.findByProps({ testID: "preview-slot-probe" })).toBeTruthy();
+  });
+
+  it("keeps the previewSlot wrapper desktop-only so it adds no mobile tap target (fix round 1)", () => {
+    const { Text } = require("react-native");
+    const { tree } = render({ previewSlot: <Text testID="preview-slot-probe">Teljes előnézet</Text> });
+    const probe = tree.root.findByProps({ testID: "preview-slot-probe" });
+    const wrapper = probe.parent!;
+    expect(typeof wrapper.props.className).toBe("string");
+    expect(wrapper.props.className).toContain("hidden");
+    expect(wrapper.props.className).toContain("md:flex");
+  });
+
+  it("gives the totals bar a sticky-bottom, opaque-background className (AC9)", () => {
+    const { tree } = render();
+    const stickyBar = tree.root.findAll(
+      (node) =>
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("md:sticky") &&
+        node.props.className.includes("md:bottom-0")
+    );
+    expect(stickyBar.length).toBeGreaterThan(0);
+    expect(stickyBar.some((n) => /bg-background|bg-card/.test(n.props.className))).toBe(true);
   });
 
   it("computes a live VAT row alongside Nettó/Bruttó — never just two numbers (INV-13)", () => {

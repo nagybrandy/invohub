@@ -10,6 +10,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { UNIT_OPTIONS } from "@/components/invoices/composer/composer-logic";
+import { COMPOSER_GRID_COLUMNS } from "@/components/invoices/composer/grid-columns";
 import { VatCategoryPicker } from "@/components/invoices/composer/VatCategoryPicker";
 import {
   formatCurrency,
@@ -68,9 +69,12 @@ export function LineItemRow({
 
   return (
     <VStack className="border-b border-subtle py-3 md:border-0 md:py-2" space="sm">
-      {/* Desktop grid row */}
+      {/* Desktop grid row — 6 cells, widths from COMPOSER_GRID_COLUMNS
+          (grid-columns.ts) so this can never drift from StepLineItems'
+          header (composer-line-item-horizontal-scroll-1440). */}
       <HStack space="sm" className="hidden items-start md:flex">
-        <VStack className="relative min-w-[240px] flex-1">
+        {/* description */}
+        <VStack className={`relative ${COMPOSER_GRID_COLUMNS[0].className}`}>
           <Input>
             <InputField
               testID={`lineItem-${index}-description`}
@@ -96,24 +100,27 @@ export function LineItemRow({
           ) : null}
         </VStack>
 
-        <VStack className="w-[88px]">
-          <Input>
-            <InputField
-              keyboardType="decimal-pad"
-              value={String(item.quantity)}
-              onChangeText={(value) => onChange({ quantity: Math.max(0, Number(value) || 0) })}
-              className="tabular-nums"
-            />
-          </Input>
-        </VStack>
-
-        <VStack className="relative w-[96px]">
-          <Pressable
-            onPress={() => setUnitMenuOpen((v) => !v)}
-            className="h-9 items-center justify-center rounded-lg border border-border bg-card"
-          >
-            <Text size="sm">{item.unit || "db"}</Text>
-          </Pressable>
+        {/* quantity + unit, merged — "2 óra" is one thought (INV-6) */}
+        <VStack className={`relative ${COMPOSER_GRID_COLUMNS[1].className}`}>
+          <HStack space="xs">
+            <Input className="flex-1">
+              <InputField
+                keyboardType="decimal-pad"
+                value={String(item.quantity)}
+                onChangeText={(value) => onChange({ quantity: Math.max(0, Number(value) || 0) })}
+                className="tabular-nums"
+              />
+            </Input>
+            <Pressable
+              onPress={() => setUnitMenuOpen((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={t("invoices.fields.unit")}
+              hitSlop={8}
+              className="h-9 w-[44px] items-center justify-center rounded-lg border border-border bg-card"
+            >
+              <Text size="sm">{item.unit || "db"}</Text>
+            </Pressable>
+          </HStack>
           {unitMenuOpen ? (
             <VStack className="absolute top-9 z-10 w-full rounded-lg border border-border bg-card shadow-sm">
               {UNIT_OPTIONS.map((unit) => (
@@ -132,7 +139,8 @@ export function LineItemRow({
           ) : null}
         </VStack>
 
-        <VStack className="w-[140px]">
+        {/* unit price */}
+        <VStack className={COMPOSER_GRID_COLUMNS[2].className}>
           <Input>
             <InputField
               keyboardType="decimal-pad"
@@ -143,7 +151,8 @@ export function LineItemRow({
           </Input>
         </VStack>
 
-        <VStack className="w-[160px]">
+        {/* VAT category + rate */}
+        <VStack className={COMPOSER_GRID_COLUMNS[3].className}>
           <VatCategoryPicker
             category={item.vatCategory}
             rate={item.vatRate}
@@ -155,18 +164,18 @@ export function LineItemRow({
           />
         </VStack>
 
-        <VStack className="w-[132px] items-end">
-          <Text size="sm" className="tabular-nums text-foreground">
-            {formatCurrency(lineItemNetTotal(item), currency)}
-          </Text>
-        </VStack>
-        <VStack className="w-[140px] items-end">
+        {/* amount: bruttó + nettó, merged — neither figure disappears (AC8) */}
+        <VStack className={COMPOSER_GRID_COLUMNS[4].className}>
           <Text size="sm" className="font-semibold tabular-nums text-foreground">
             {formatCurrency(lineItemGrossTotal(item), currency)}
           </Text>
+          <Text size="xs" className="tabular-nums text-muted-foreground">
+            {t("invoices.lineItemEditor.netAbbrev")} {formatCurrency(lineItemNetTotal(item), currency)}
+          </Text>
         </VStack>
 
-        <VStack className="w-11 items-center">
+        {/* delete */}
+        <VStack className={COMPOSER_GRID_COLUMNS[5].className}>
           {canDelete ? (
             <Pressable
               onPress={() => void handleRemove()}
