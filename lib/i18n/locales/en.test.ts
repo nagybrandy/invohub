@@ -71,4 +71,19 @@ describe("hu/en locale parity", () => {
       expect(locale.notifications.when.yesterday).toBeTruthy();
     }
   });
+
+  it("defines the 10 new notifications.content.* keys in both locales", () => {
+    for (const locale of [en, hu]) {
+      expect(locale.notifications.content.overdueInvoiceTitle).toBeTruthy();
+      expect(locale.notifications.content.overdueInvoiceBody).toBeTruthy();
+      expect(locale.notifications.content.invoiceSentTitle).toBeTruthy();
+      expect(locale.notifications.content.invoiceSentBody).toBeTruthy();
+      expect(locale.notifications.content.navPendingTitle).toBeTruthy();
+      expect(locale.notifications.content.navPendingBody).toBeTruthy();
+      expect(locale.notifications.content.welcomeTitle).toBeTruthy();
+      expect(locale.notifications.content.welcomeBody).toBeTruthy();
+      expect(locale.notifications.content.reminderScheduledTitle).toBeTruthy();
+      expect(locale.notifications.content.reminderScheduledBody).toBeTruthy();
+    }
+  });
 });

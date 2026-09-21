@@ -1118,6 +1118,23 @@ export default {
       hoursAgo: "{{count}} órája",
       yesterday: "Tegnap",
     },
+    // Written by lib/notifications/service.ts as i18n keys (encoded via
+    // encodeNotificationText), never as pre-rendered prose -- the server has
+    // no access to the viewer's locale. Rendered at view time through
+    // translateNotificationText(). See lib/notifications/i18n.ts.
+    content: {
+      overdueInvoiceTitle: "Lejárt: {{number}}",
+      overdueInvoiceBody: "{{clientName}} — a fizetési határidő lejárt.",
+      invoiceSentTitle: "Fizetésre vár: {{number}}",
+      invoiceSentBody: "Kiküldve: {{clientName}}.",
+      navPendingTitle: "NAV-beküldés folyamatban",
+      navPendingBody: "{{number}} a NAV visszaigazolására vár.",
+      welcomeTitle: "Üdvözlünk az InvoHubban",
+      welcomeBody:
+        "Tölts be demóadatokat a Beállításokban az összes funkció kipróbálásához.",
+      reminderScheduledTitle: "Fizetési emlékeztető ütemezve",
+      reminderScheduledBody: "Az automatikus emlékeztető 7 nap múlva megy ki.",
+    },
   },
   userMenu: {
     accountSettings: "Fiókbeállítások",

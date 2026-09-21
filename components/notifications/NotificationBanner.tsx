@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { translateNotificationText } from "@/lib/notifications/i18n";
 import type { AppNotification } from "@/lib/notifications/types";
 import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -72,7 +73,7 @@ export function NotificationBanner({
           isTruncated
           {...(isWeb() ? {} : { numberOfLines: 1 })}
         >
-          {notification.title}
+          {translateNotificationText(t, notification.title, notification.referenceKey)}
           {unreadCount > 1 ? ` ${t("notifications.banner.more", { count: unreadCount - 1 })}` : ""}
         </Text>
       </Pressable>
