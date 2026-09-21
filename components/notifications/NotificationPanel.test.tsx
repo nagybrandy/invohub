@@ -206,8 +206,8 @@ describe("NotificationPanel", () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("Nincs még értesítés");
     expect(json).toContain("lejárt számlák");
+    expect(json).toContain("fizetésre váró számlák");
     expect(json).toContain("NAV-beküldések");
-    expect(json).toContain("fizetési emlékeztetők");
   });
 
   it("loading state's ActivityIndicator has an accessibilityLabel (AC8)", () => {

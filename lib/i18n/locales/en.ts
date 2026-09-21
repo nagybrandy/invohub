@@ -1103,7 +1103,7 @@ export default {
       empty: {
         title: "No notifications yet",
         description:
-          "Overdue invoices, NAV submission status, and payment reminders show up here.",
+          "Overdue invoices, invoices sent and awaiting payment, and NAV submission status show up here.",
       },
     },
     when: {

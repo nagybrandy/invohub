@@ -1102,7 +1102,7 @@ export default {
       empty: {
         title: "Nincs még értesítés",
         description:
-          "Itt jelennek meg a lejárt számlák, a NAV-beküldések állapota és a fizetési emlékeztetők.",
+          "Itt jelennek meg a lejárt számlák, a kiküldött, fizetésre váró számlák és a NAV-beküldések állapota.",
       },
     },
     when: {
