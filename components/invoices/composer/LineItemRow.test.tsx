@@ -122,6 +122,24 @@ describe("LineItemRow — desktop grid (composer-line-item-horizontal-scroll-144
     expect(onChange).toHaveBeenCalledWith({ unit: "óra" });
   });
 
+  it("anchors the open unit-picker menu at top-11, matching the 44px row it sits under (fixround1 finding, exchange-rate-input-tap-target-mobile)", () => {
+    const { tree } = render();
+    const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
+
+    act(() => {
+      unitControl.props.onPress?.();
+    });
+
+    const menu = tree.root.findAll(
+      (node) => typeof node.props?.className === "string" && node.props.className.includes("absolute")
+    );
+    expect(menu.length).toBeGreaterThan(0);
+    for (const node of menu) {
+      expect(String(node.props.className)).toContain("top-11");
+      expect(String(node.props.className)).not.toContain("top-9");
+    }
+  });
+
   it("shows both the bruttó and nettó figures in the merged amount cell, no figure disappears (AC8)", () => {
     const { tree } = render({
       item: makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 450000, vatRate: 27, vatCategory: "normal" }),

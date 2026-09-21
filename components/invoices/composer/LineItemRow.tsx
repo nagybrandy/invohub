@@ -21,6 +21,7 @@ import type { InvoiceCurrency, InvoiceLineItem, VatCategory, VatRate } from "@/l
 import type { Product } from "@/lib/products/service";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { TAP_TARGET_DROPDOWN_TOP } from "@/lib/ui/tap-target";
 
 export function LineItemRow({
   index,
@@ -122,7 +123,7 @@ export function LineItemRow({
             </Pressable>
           </HStack>
           {unitMenuOpen ? (
-            <VStack className="absolute top-9 z-10 w-full rounded-lg border border-border bg-card shadow-sm">
+            <VStack className={`absolute ${TAP_TARGET_DROPDOWN_TOP} z-10 w-full rounded-lg border border-border bg-card shadow-sm`}>
               {UNIT_OPTIONS.map((unit) => (
                 <Pressable
                   key={unit}

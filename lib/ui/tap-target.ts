@@ -15,6 +15,16 @@ export const TAP_TARGET_H = "h-11";
 /** Square icon-button target (bell, row actions): 44x44px, centered content. */
 export const TAP_TARGET_ICON_BOX = `${TAP_TARGET_H} w-11 items-center justify-center`;
 
+/**
+ * Tailwind `top-*` offset for an absolutely-positioned dropdown/menu anchored
+ * directly below a row that is `TAP_TARGET_H` tall (e.g. a description or
+ * unit-picker menu under a 44px input). Tailwind's `top-*` and `h-*` scales
+ * share the same steps, so swapping the `h-` prefix for `top-` derives the
+ * matching offset from the same constant instead of a second literal that
+ * can drift from the row height it is meant to sit under.
+ */
+export const TAP_TARGET_DROPDOWN_TOP = TAP_TARGET_H.replace(/^h-/, "top-");
+
 /** Default outward touch slop, in px, for controls at the 44px floor. */
 export const TAP_SLOP_PX = 8;
 

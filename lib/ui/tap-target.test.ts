@@ -2,6 +2,7 @@
 import {
   MIN_TAP_TARGET_PX,
   TAP_SLOP_PX,
+  TAP_TARGET_DROPDOWN_TOP,
   TAP_TARGET_H,
   TAP_TARGET_ICON_BOX,
   TAP_TARGET_MIN_H,
@@ -28,6 +29,11 @@ describe("tap-target constants", () => {
 
   it("derives the icon-box class from TAP_TARGET_H, so the floor cannot drift back to a literal", () => {
     expect(TAP_TARGET_ICON_BOX.startsWith(TAP_TARGET_H)).toBe(true);
+  });
+
+  it("derives the dropdown top offset from TAP_TARGET_H, so a menu anchored under a 44px row can't fall back to a stale literal", () => {
+    expect(TAP_TARGET_DROPDOWN_TOP).toBe("top-11");
+    expect(TAP_TARGET_DROPDOWN_TOP).toBe(TAP_TARGET_H.replace("h-", "top-"));
   });
 
   it("defines the default outward touch slop, unchanged for every non-facing side", () => {
