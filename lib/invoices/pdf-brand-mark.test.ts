@@ -6,10 +6,12 @@ import {
   type BrandShape,
 } from "@/components/marketing/brand-mark-geometry";
 import { landingColors } from "@/components/marketing/landing-theme";
+import { documentInk } from "@/lib/invoices/document-ink";
 import {
   BRAND_MARK_PDF_SIZE,
   brandMarkWidth,
   drawBrandMark,
+  drawBrandLockup,
 } from "@/lib/invoices/pdf-brand-mark";
 
 type Call = { method: string; args: unknown[] };
@@ -37,6 +39,18 @@ function makeRecordingDoc() {
     stroke: record("stroke"),
     fillColor: record("fillColor"),
     strokeColor: record("strokeColor"),
+    // Needed by drawBrandLockup (text layout), unused by drawBrandMark.
+    font: record("font"),
+    fontSize: record("fontSize"),
+    widthOfString: (text: string) => {
+      calls.push({ method: "widthOfString", args: [text] });
+      return String(text).length * 6;
+    },
+    currentLineHeight: () => {
+      calls.push({ method: "currentLineHeight", args: [] });
+      return 10;
+    },
+    text: record("text"),
   };
 
   return { doc, calls };
@@ -225,6 +239,39 @@ describe("brandMarkWidth", () => {
 
   it("defaults to BRAND_MARK_PDF_SIZE", () => {
     expect(brandMarkWidth()).toBe(BRAND_MARK_PDF_SIZE);
+  });
+});
+
+describe("drawBrandLockup — attribution text ink (AC9/AC10)", () => {
+  it("fills the attribution text with documentInk.muted, never the old #8a90a6 (AC9)", () => {
+    const { doc, calls } = makeRecordingDoc();
+
+    drawBrandLockup(doc as never, {
+      x: 0,
+      y: 0,
+      text: "InvoHub",
+      font: "Regular",
+      fontSize: 8,
+    });
+
+    const fillColorArgs = calls.filter((c) => c.method === "fillColor").map((c) => c.args[0]);
+    expect(fillColorArgs).not.toContain("#8a90a6");
+    expect(fillColorArgs).toContain(documentInk.muted);
+  });
+
+  it("still restores the fill colour to #000000 as its last colour call (AC10)", () => {
+    const { doc, calls } = makeRecordingDoc();
+
+    drawBrandLockup(doc as never, {
+      x: 0,
+      y: 0,
+      text: "InvoHub",
+      font: "Regular",
+      fontSize: 8,
+    });
+
+    const lastFillColor = [...calls].reverse().find((c) => c.method === "fillColor");
+    expect(lastFillColor?.args[0]).toBe("#000000");
   });
 });
 

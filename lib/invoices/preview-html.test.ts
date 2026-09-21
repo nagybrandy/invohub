@@ -1,6 +1,7 @@
 // lib/invoices/preview-html.test.ts
 import { generateInvoicePreviewHtml } from "@/lib/invoices/preview-html";
 import { documentLabels, formatDocumentAmount } from "@/lib/invoices/document-labels";
+import { documentInk } from "@/lib/invoices/document-ink";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 import {
   BRAND_MARK_DEFAULT,
@@ -253,5 +254,33 @@ describe("generateInvoicePreviewHtml", () => {
     // that substring alone doesn't distinguish "no exchange-rate block" —
     // assert the absence of the exchange-rate-specific label instead.
     expect(html).not.toContain("ÁFA összege forintban");
+  });
+});
+
+describe("generateInvoicePreviewHtml — muted ink contrast", () => {
+  it("never emits the old sub-AA #8a90a6 ink (AC6)", () => {
+    const defaultHtml = generateInvoicePreviewHtml(makeInvoice());
+    expect(defaultHtml.toLowerCase()).not.toContain("#8a90a6");
+
+    const enHtml = generateInvoicePreviewHtml(makeInvoice(), {
+      locale: "en",
+      template: { titleText: "CUSTOM INVOICE", accentColor: "#ff0000" },
+    });
+    expect(enHtml.toLowerCase()).not.toContain("#8a90a6");
+  });
+
+  it("inks the footer attribution with documentInk.muted (AC7)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice());
+    const footerRule = html.match(/\n\s*\.footer \{([^}]*)\}/)?.[1] ?? "";
+    expect(footerRule).toContain("border-top");
+    expect(footerRule).toContain(`color: ${documentInk.muted}`);
+  });
+
+  it("inks the mobile table data-labels with documentInk.muted (AC8)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice());
+    const mobileBlock =
+      html.match(/@media \(max-width: 560px\) \{([\s\S]*?)\n {2}\}/)?.[1] ?? "";
+    const labelRule = mobileBlock.match(/td::before \{([^}]*)\}/)?.[1] ?? "";
+    expect(labelRule).toContain(`color: ${documentInk.muted}`);
   });
 });

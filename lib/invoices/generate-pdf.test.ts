@@ -183,6 +183,7 @@ jest.mock("@/lib/invoices/pdf-document", () => {
 import { generateInvoicePdf, invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { documentLabels, formatDocumentAmount, isWinAnsiSafe } from "@/lib/invoices/document-labels";
 import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
+import { documentInk } from "@/lib/invoices/document-ink";
 import { landingColors } from "@/components/marketing/landing-theme";
 import * as pdfFontsModule from "@/lib/invoices/pdf-fonts";
 import { CONTENT_MARGIN_BOTTOM, PAGE_MARGIN, readableTextOn, tint } from "@/lib/invoices/pdf-layout";
@@ -489,6 +490,19 @@ describe("generateInvoicePdf — InvoHub footer brand mark", () => {
 
     expect(mockFillColorCalls).toContain(landingColors.navy);
     expect(mockFillColorCalls).toContain(landingColors.cornflower);
+  });
+
+  it("draws the footer strip's own footerText and page indicator in documentInk.muted, never the old #666666 (AC11)", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({
+      invoice,
+      company: { name: "Demo Kft." },
+      template: { footerText: "Köszönjük a vásárlást" },
+    });
+
+    expect(mockFillColorCalls).not.toContain("#666666");
+    expect(mockFillColorCalls).toContain(documentInk.muted);
   });
 });
 
