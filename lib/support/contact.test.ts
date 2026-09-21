@@ -1,4 +1,6 @@
 // lib/support/contact.test.ts
+import fs from "fs";
+import path from "path";
 import {
   SUPPORT_EMAIL_ENV,
   getSupportEmail,
@@ -29,6 +31,19 @@ describe("getSupportEmail", () => {
     ["contains a space", { EXPO_PUBLIC_SUPPORT_EMAIL: "a b@c.hu" }],
   ])("returns null when %s", (_label, env) => {
     expect(getSupportEmail(env as NodeJS.ProcessEnv)).toBeNull();
+  });
+
+  it("reads its default via a literal `process.env.EXPO_PUBLIC_SUPPORT_EMAIL` member expression, not a variable-aliased bracket lookup", () => {
+    // babel-preset-expo's inline-env-vars plugin only statically recognizes
+    // and inlines the literal `process.env.<LITERAL_KEY>` pattern. A bracket
+    // lookup through a local variable (e.g. `env[SUPPORT_EMAIL_ENV]` applied
+    // directly to `process.env`) is invisible to it, so the value would
+    // silently be `undefined` in an actual Metro/EAS-bundled app even though
+    // it reads fine under plain Node/Jest. This is a source-level regression
+    // guard for that class of bug — see
+    // node_modules/babel-preset-expo/build/plugins/inline-env-vars.js.
+    const source = fs.readFileSync(path.join(__dirname, "contact.ts"), "utf8");
+    expect(source).toMatch(/process\.env\.EXPO_PUBLIC_SUPPORT_EMAIL/);
   });
 });
 

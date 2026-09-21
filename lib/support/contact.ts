@@ -14,8 +14,21 @@ export const SUPPORT_EMAIL_ENV = "EXPO_PUBLIC_SUPPORT_EMAIL";
  * Trimmed address, or null when unset/blank/not a plausible address. Never
  * falls back to a default — the caller must hide the support control when
  * this returns null.
+ *
+ * The default value below reads `process.env.EXPO_PUBLIC_SUPPORT_EMAIL` as a
+ * literal, static member expression (`process.env.<LITERAL_KEY>`) rather
+ * than a variable-aliased bracket lookup (`process.env[SUPPORT_EMAIL_ENV]`
+ * or `someVar[SUPPORT_EMAIL_ENV]`). babel-preset-expo's inline-env-vars
+ * plugin (node_modules/babel-preset-expo/build/plugins/inline-env-vars.js)
+ * only recognizes and inlines that exact literal pattern — a bracket lookup
+ * through a local variable is invisible to it, so this value would always
+ * be `undefined` in an actual Metro/EAS-bundled app (web or native) even
+ * though it works fine under plain Node (e.g. in Jest). Do not reintroduce
+ * the bracket-through-a-variable form here.
  */
-export function getSupportEmail(env: NodeJS.ProcessEnv = process.env): string | null {
+export function getSupportEmail(
+  env: Partial<NodeJS.ProcessEnv> = { EXPO_PUBLIC_SUPPORT_EMAIL: process.env.EXPO_PUBLIC_SUPPORT_EMAIL }
+): string | null {
   const raw = env[SUPPORT_EMAIL_ENV];
   if (!raw) return null;
 
