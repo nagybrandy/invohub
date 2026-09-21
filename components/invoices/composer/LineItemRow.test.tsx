@@ -146,11 +146,12 @@ describe("LineItemRow — desktop grid (composer-line-item-horizontal-scroll-144
     expect(netLine.length).toBeGreaterThan(0);
   });
 
-  it("keeps the unit control and delete control at h-9 with hitSlop 8 (>=44px effective) (AC12)", () => {
+  it("matches the unit control to the quantity input's height (h-11), keeps the delete control at h-9 with hitSlop 8 (AC12, exchange-rate-input-tap-target-mobile)", () => {
     const { tree } = render();
     const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
     expect(unitControl.props.hitSlop).toBe(8);
-    expect(String(unitControl.props.className)).toContain("h-9");
+    expect(String(unitControl.props.className)).toContain("h-11");
+    expect(String(unitControl.props.className)).not.toContain("h-9");
 
     const deleteControls = findPressableWithA11yLabel(tree.root, "invoices.lineItemEditor.deleteAction");
     const desktopDelete = deleteControls.find((n) => String(n.props.className).includes("h-9"));

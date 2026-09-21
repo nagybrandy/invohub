@@ -9,8 +9,11 @@ export const MIN_TAP_TARGET_PX = 44;
 /** Tailwind/NativeWind class for the floor: min-h-11 = 2.75rem = 44px. */
 export const TAP_TARGET_MIN_H = "min-h-11";
 
+/** Fixed 44px height, for controls whose children depend on `h-full`. */
+export const TAP_TARGET_H = "h-11";
+
 /** Square icon-button target (bell, row actions): 44x44px, centered content. */
-export const TAP_TARGET_ICON_BOX = "h-11 w-11 items-center justify-center";
+export const TAP_TARGET_ICON_BOX = `${TAP_TARGET_H} w-11 items-center justify-center`;
 
 /** Default outward touch slop, in px, for controls at the 44px floor. */
 export const TAP_SLOP_PX = 8;

@@ -116,7 +116,7 @@ export function LineItemRow({
               accessibilityRole="button"
               accessibilityLabel={t("invoices.fields.unit")}
               hitSlop={8}
-              className="h-9 w-[44px] items-center justify-center rounded-lg border border-border bg-card"
+              className="h-11 w-[44px] items-center justify-center rounded-lg border border-border bg-card"
             >
               <Text size="sm">{item.unit || "db"}</Text>
             </Pressable>

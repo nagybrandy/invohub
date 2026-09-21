@@ -9,6 +9,7 @@ import { withStyleContext } from '@gluestack-ui/utils/nativewind-utils';
 import { cssInterop } from 'nativewind';
 import type { VariantProps } from '@gluestack-ui/utils/nativewind-utils';
 import { UIIcon } from '@gluestack-ui/core/icon/creator';
+import { TAP_TARGET_H } from '@/lib/ui/tap-target';
 
 const SCOPE = 'INPUT';
 
@@ -32,9 +33,24 @@ cssInterop(UIIcon, {
   },
 });
 
-const inputStyle = tva({
-  base: 'h-9 w-full flex-row items-center rounded-lg border border-border dark:bg-input/30 bg-card shadow-xs transition-[color,box-shadow] overflow-hidden data-[focus=true]:outline-none data-[focus=true]:border-ring dark:data-[focus=true]:border-ring data-[focus=true]:web:ring-[3px] data-[focus=true]:web:ring-ring/30 data-[invalid=true]:border-destructive/40 dark:data-[invalid=true]:border-destructive/40 data-[invalid=true]:web:ring-destructive/20 dark:data-[invalid=true]:web:ring-destructive/40 data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50 px-3 gap-2',
+// The 44px floor (Apple HIG 44pt / WCAG 2.5.8 AAA) is part of the BASE
+// string, not a caller-supplied className, deliberately: Input composes with
+// tva() (twMerge), so a call site that explicitly writes its own `h-*` still
+// wins — unlike ChoicePill, whose plain-template-literal composition puts
+// its floor last so no caller className can strip it (see
+// components/ui/choice-pill/index.tsx). Inputs are a smaller, more
+// deliberate call-site surface than pills, so an explicit override staying
+// greppable is the right trade-off here. Do not "unify" the two conventions.
+const inputStyleVariants = tva({
+  base: `${TAP_TARGET_H} w-full flex-row items-center rounded-lg border border-border dark:bg-input/30 bg-card shadow-xs transition-[color,box-shadow] overflow-hidden data-[focus=true]:outline-none data-[focus=true]:border-ring dark:data-[focus=true]:border-ring data-[focus=true]:web:ring-[3px] data-[focus=true]:web:ring-ring/30 data-[invalid=true]:border-destructive/40 dark:data-[invalid=true]:border-destructive/40 data-[invalid=true]:web:ring-destructive/20 dark:data-[invalid=true]:web:ring-destructive/40 data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50 px-3 gap-2`,
 });
+// tva()'s returned function destructures its argument directly, so calling
+// it with zero arguments throws instead of resolving to the base string
+// (see components/ui/button/index.tsx's buttonStyle for the same fix). This
+// thin wrapper makes `inputStyle()` valid, for tap-target.test.ts and any
+// other caller, while every real call site keeps passing `{ class }` as
+// before.
+export const inputStyle: typeof inputStyleVariants = (props) => inputStyleVariants(props ?? {});
 
 const inputIconStyle = tva({
   base: 'justify-center items-center text-muted-foreground fill-none h-4 w-4',

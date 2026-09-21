@@ -1349,7 +1349,7 @@ Remaining for the launch gate:
       one-shot — verified the test actually catches the bug by confirming
       it fails against the pre-fix code. `npm run typecheck` and `npm run
       test:unit` green (198 suites / 1116 tests).
-- [ ] The new exchange-rate `Input` and currency pills in
+- [x] The new exchange-rate `Input` and currency pills in
       `StepPartner.tsx` are ~34px tall on mobile, below the 44px
       tap-target guideline — matches the sizing every other composer
       `Input` already uses, and the currency-selector tap-target work is
@@ -1357,6 +1357,32 @@ Remaining for the launch gate:
       the exchange-rate field isn't missed when that item is picked up.
       (2026-09-15 ship review of slice/non-huf-invoice-exchange-rate-nav-xml,
       ux)
+      **Shipped** (`slice/exchange-rate-input-tap-target-mobile`,
+      2026-09-21). The currency pills were already at 44px from
+      `slice/invoice-flow-tap-targets-44px` — this slice adds a
+      regression guard for them (pre-existing `StepPartner.test.tsx`
+      coverage now double-checked green) and fixes the real finding: the
+      exchange-rate field is one of **156** `<Input` call sites across the
+      app, and `inputStyle`'s base was `h-9` (fixed 36px), not a
+      per-call-site class. Added `TAP_TARGET_H` ("h-11") to
+      `lib/ui/tap-target.ts`, derived `TAP_TARGET_ICON_BOX` from it, and
+      used it in `components/ui/input/index.tsx`'s `inputStyle` base
+      (now exported, with a `tva()`-zero-args wrapper matching
+      `buttonStyle`'s). Every `Input` in the app — composer fields,
+      settings forms, search boxes — is now ≥44px by construction. Also
+      fixed the two 36px date controls in the same collapsed section as
+      the exchange-rate field (`DateInput.tsx`'s web branch,
+      `date-field/index.web.tsx`) and `LineItemRow.tsx`'s unit pill
+      (line ~119, kept in step with the quantity input beside it); the
+      delete control (`h-9 w-9` + `hitSlop={8}`) was left as-is by design.
+      No `lib/tax/`/`lib/nav/`/`lib/m2m/` or marketing changes, no new
+      i18n keys, no schema change. New/extended tests:
+      `lib/ui/tap-target.test.ts`, `components/ui/input/tap-target.test.ts`
+      (new), `components/invoices/composer/DateInput.test.tsx` (new — the
+      file had no test before), `components/ui/date-field/DateField.test.tsx`,
+      `components/invoices/composer/LineItemRow.test.tsx`. `npx tsc
+      --noEmit` and `npm run test:unit` (219 suites / 1431 tests) green.
+      Plan: `docs/plans/2026-09-21-exchange-rate-input-tap-target-mobile.md`.
 - [x] The new `invoices.document.exchangeRate` /
       `exchangeRateValue` / `vatInHuf` i18n keys
       (`lib/i18n/locales/en.ts`, `hu.ts`) were unused by

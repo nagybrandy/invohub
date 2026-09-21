@@ -5,6 +5,7 @@
 // app/(app)/import/index.tsx for a web-only DOM element).
 import { Platform } from "react-native";
 import { Input, InputField } from "@/components/ui/input";
+import { MIN_TAP_TARGET_PX } from "@/lib/ui/tap-target";
 
 export function DateInput({
   value,
@@ -25,7 +26,7 @@ export function DateInput({
         value={value}
         onChange={(e) => onChangeText(e.target.value)}
         style={{
-          height: 36,
+          height: MIN_TAP_TARGET_PX,
           width: "100%",
           borderRadius: 8,
           border: `1px solid ${invalid ? "#dc2626" : "var(--border)"}`,
