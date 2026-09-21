@@ -9,6 +9,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import { TAP_TARGET_ICON_BOX, TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 export type OverflowMenuItem = {
   label: string;
@@ -42,7 +43,7 @@ export function OverflowMenu({ items, label = "More actions", align = "right" }:
           setOpen((v) => !v);
         }}
         hitSlop={8}
-        className="h-8 w-8 items-center justify-center rounded-lg data-[hover=true]:bg-muted"
+        className={`${TAP_TARGET_ICON_BOX} rounded-lg data-[hover=true]:bg-muted`}
       >
         <MoreHorizontal size={18} color={icons.muted} />
       </Pressable>
@@ -66,7 +67,7 @@ export function OverflowMenu({ items, label = "More actions", align = "right" }:
                   setOpen(false);
                   item.onPress();
                 }}
-                className={`flex-row items-center gap-2 rounded-md px-3 py-2 data-[hover=true]:bg-muted ${
+                className={`flex-row items-center gap-2 rounded-md px-3 py-2 data-[hover=true]:bg-muted ${TAP_TARGET_MIN_H} ${
                   item.disabled ? "opacity-40" : ""
                 }`}
               >
