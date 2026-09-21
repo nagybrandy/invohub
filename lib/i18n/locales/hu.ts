@@ -1091,6 +1091,26 @@ export default {
       more: "+{{count}} további értesítés",
       dismiss: "Bezárás",
     },
+    panel: {
+      title: "Értesítések",
+      unreadCount: "{{count}} olvasatlan",
+      markAllRead: "Mind olvasott",
+      markAllReadA11y: "Összes értesítés megjelölése olvasottként",
+      refresh: "Frissítés",
+      close: "Értesítések bezárása",
+      loading: "Értesítések betöltése",
+      empty: {
+        title: "Nincs még értesítés",
+        description:
+          "Itt jelennek meg a lejárt számlák, a NAV-beküldések állapota és a fizetési emlékeztetők.",
+      },
+    },
+    when: {
+      justNow: "Az imént",
+      minutesAgo: "{{count}} perce",
+      hoursAgo: "{{count}} órája",
+      yesterday: "Tegnap",
+    },
   },
   userMenu: {
     accountSettings: "Fiókbeállítások",
