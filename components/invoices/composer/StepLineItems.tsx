@@ -137,7 +137,7 @@ export function StepLineItems({
         className="w-full flex-wrap items-end justify-between gap-3 border-t border-subtle pt-3 md:sticky md:bottom-0 md:z-10 md:bg-background"
         space="sm"
       >
-        {previewSlot ? <VStack>{previewSlot}</VStack> : null}
+        {previewSlot ? <VStack className="hidden md:flex">{previewSlot}</VStack> : null}
         <VStack className="ml-auto items-end gap-1" space="xs">
           <HStack className="w-full max-w-[280px] justify-between md:w-[280px]">
             <Text size="sm" className="text-muted-foreground">

@@ -114,6 +114,16 @@ describe("StepLineItems", () => {
     expect(tree.root.findByProps({ testID: "preview-slot-probe" })).toBeTruthy();
   });
 
+  it("keeps the previewSlot wrapper desktop-only so it adds no mobile tap target (fix round 1)", () => {
+    const { Text } = require("react-native");
+    const { tree } = render({ previewSlot: <Text testID="preview-slot-probe">Teljes előnézet</Text> });
+    const probe = tree.root.findByProps({ testID: "preview-slot-probe" });
+    const wrapper = probe.parent!;
+    expect(typeof wrapper.props.className).toBe("string");
+    expect(wrapper.props.className).toContain("hidden");
+    expect(wrapper.props.className).toContain("md:flex");
+  });
+
   it("gives the totals bar a sticky-bottom, opaque-background className (AC9)", () => {
     const { tree } = render();
     const stickyBar = tree.root.findAll(
