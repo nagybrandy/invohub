@@ -282,7 +282,7 @@ bugs:
   asserting `drawBrandLockup` is called with `align:"center"` and no
   left/right footer text when `template.footerText === ""`, or reword the
   comment to say the branch is unmodified from `main`.
-- [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
+- [x] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
   2026-09-16)** — the notes-only continuation page (e.g. page 2 of a
   16-item + ~2000-char-notes invoice) has no invoice-number/context
   heading: page 1 shows the table/totals/"Megjegyzés:" label plus the
@@ -294,6 +294,23 @@ bugs:
   not an AC violation — optional follow-up: draw the same
   "`<invoiceNumber>` · folytatás" banner (or a lighter "Megjegyzés
   (folytatás)" variant) at the top of a notes-only continuation page.
+  **Fixed** (`slice/pdf-notes-continuation-page-caption`, 2026-09-21) — the
+  notes body's `doc.text(invoice.notes, …)` call in `generate-pdf.ts` now
+  attaches a `pageAdded` listener scoped to just that draw (detached in a
+  `finally`, guarded against re-entrancy). pdfkit fires `pageAdded` for its
+  own internal auto-pagination *before* the line wrapper resumes emitting
+  text on the new page, so the listener draws the same
+  "`<invoiceNumber>` · folytatás" banner the line-item continuation pages
+  already get, plus a repeated "`<notesLabel>` (folytatás):" section label
+  (new i18n key `invoices.document.sectionContinued`, hu + en), then hands
+  the wrapper back the exact font/size/fill (`#444444`) it had. Verified: a
+  notes-only continuation page now reads
+  "INV-2026-LONGNOTES · folytatás" / "Megjegyzés (folytatás):" at its top
+  margin, with the body resuming below in the same colour/size as page 1;
+  the empty-notes and single-page cases draw nothing new; no
+  `pageAdded` listener survives `generateInvoicePdf()` returning.
+  `npx tsc --noEmit` and `npm run test:unit` are green (213 suites, 1350
+  tests).
 - [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
   2026-09-16)** — no note needed for app-level action: this slice only
   touched `lib/invoices/{generate-pdf.ts,pdf-layout.ts,*.test.ts}` and

@@ -488,6 +488,13 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
 
         const exemptCategories = new Set<string>();
 
+        // Shared by both continuation mechanisms that need it: the
+        // line-item loop's explicit page break just below, and the notes
+        // block's `pageAdded`-scoped listener further down. One expression
+        // so the two continuation banners can never drift apart (plan
+        // docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md §5.1).
+        const continuationBanner = `${invoice.invoiceNumber || labels.draftNumber} · ${labels.continued}`;
+
         for (const item of invoice.lineItems) {
           const netTotal = lineItemNetTotal(item);
           const lineTotal = lineItemGrossTotal(item);
@@ -511,7 +518,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             doc.addPage();
             drawContinuationCaption(doc, {
               docFonts,
-              text: `${invoice.invoiceNumber || labels.draftNumber} · ${labels.continued}`,
+              text: continuationBanner,
               fontSize: fonts.small,
               left,
               width: pageWidth,
@@ -687,14 +694,66 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           const notesHeight = doc.heightOfString(invoice.notes, { width: pageWidth });
           const lineHeight = doc.currentLineHeight();
           const reserve = labelHeight + Math.min(notesHeight, 3 * lineHeight) + 16;
-
           ensureSpace(doc, reserve);
           doc.y += 8;
           doc.font(docFonts.bold).fontSize(fonts.body).fillColor("#444444");
           doc.text(`${template.notesLabel}:`, left, doc.y);
           doc.y += fonts.body + 4;
           doc.font(docFonts.regular).fontSize(fonts.small);
-          doc.text(invoice.notes, left, doc.y, { width: pageWidth, lineGap: 3 });
+
+          // Plan docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md:
+          // the notes body below can paginate INSIDE the single doc.text()
+          // call — pdfkit's own auto-pagination (LineWrapper.nextSection(),
+          // triggered by page.margins.bottom === CONTENT_MARGIN_BOTTOM),
+          // which nothing else in this file observes. A `pageAdded`
+          // listener scoped to just this draw gets a chance to run between
+          // pdfkit's addPage() and the wrapper resuming on the new page
+          // (addPage() emits 'pageAdded' before nextSection() restores x /
+          // fillColor and before the wrapper emits any more lines), so it
+          // can draw the same banner the line-item continuation pages get
+          // plus a repeated section label, and hand the wrapper back
+          // exactly the text state (font/size/fill) it had.
+          const notesContinuedLabel = `${labels.sectionContinued.replace("{{section}}", template.notesLabel)}:`;
+          // Re-entrancy guard: doc.text() inside the listener could in
+          // principle itself trigger another 'pageAdded' — make a nested
+          // call a no-op rather than recursing. (In practice this draw
+          // starts at the top margin and never needs to paginate on its
+          // own, but the guard is one line and removes the whole class of
+          // infinite recursion.)
+          let drawingNotesHeading = false;
+          const onNotesPageAdded = () => {
+            if (drawingNotesHeading) return;
+            drawingNotesHeading = true;
+            try {
+              drawContinuationCaption(doc, {
+                docFonts,
+                text: continuationBanner,
+                fontSize: fonts.small,
+                left,
+                width: pageWidth,
+              });
+              doc.font(docFonts.bold).fontSize(fonts.body).fillColor("#444444");
+              doc.text(notesContinuedLabel, left, doc.y, { width: pageWidth });
+              doc.y += fonts.body + 4;
+              // Hand the wrapper back exactly the state it had before this
+              // listener ran (font/size/fill) — the wrapper keeps emitting
+              // the remaining lines with whatever is current when this
+              // listener returns.
+              doc.font(docFonts.regular).fontSize(fonts.small).fillColor("#444444");
+            } finally {
+              drawingNotesHeading = false;
+            }
+          };
+          doc.on("pageAdded", onNotesPageAdded);
+          try {
+            doc.text(invoice.notes, left, doc.y, { width: pageWidth, lineGap: 3 });
+          } finally {
+            // Never let this listener survive the notes draw — doc.text()
+            // above can throw (e.g. a font resolution failure), and a
+            // leaked listener would draw captions on unrelated future
+            // pages (AC6).
+            doc.off("pageAdded", onNotesPageAdded);
+          }
           // pdfkit already advances doc.y to the end of the drawn
           // (possibly paginated) text — adding heightOfString(...) again
           // here would double-count the advance.
