@@ -235,4 +235,34 @@ describe("NotificationPanel", () => {
     const scrollViews = tree.root.findAllByType(ScrollView);
     expect(scrollViews.length).toBe(0);
   });
+
+  it("renders a legacy pre-fix English row's title translated to Hungarian, with no DB write (AC8)", () => {
+    const { tree } = render({
+      notifications: [
+        makeNotification({
+          id: "n-legacy",
+          title: "Overdue: 2026/007",
+          referenceKey: "overdue:inv-1",
+        }),
+      ],
+      unreadCount: 1,
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Lejárt: 2026/007");
+    expect(json).not.toContain("Overdue: 2026/007");
+  });
+
+  it("renders an unrecognised title verbatim (AC8)", () => {
+    const { tree } = render({
+      notifications: [
+        makeNotification({
+          id: "n-custom",
+          title: "A completely custom note",
+        }),
+      ],
+      unreadCount: 1,
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("A completely custom note");
+  });
 });

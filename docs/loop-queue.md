@@ -1240,12 +1240,30 @@ Remaining for the launch gate:
       Storybook harness so `NotificationPanel` can be screenshotted without
       live credentials. (ship-review, notification-panel-i18n-chrome-text,
       ux, low)
-- [ ] Notification rows created before the 2026-09-15 i18n-key encoding
+- [x] Notification rows created before the 2026-09-15 i18n-key encoding
       fix (in the same DB, from earlier test runs) still render as literal
       English text — by design, only newly-synced/newly-seeded
       notifications get the fix. Needs a data migration to backfill, not
       just a code change, if old rows must display correctly too.
-      (2026-09-15 audit, i18n)
+      (2026-09-15 audit, i18n) — Shipped in
+      `slice/notification-backfill-i18n-legacy-rows`, per
+      `docs/plans/2026-09-21-notification-backfill-i18n-legacy-rows.md`.
+      Two halves, no raw SQL/`drizzle-kit` data migration: (1)
+      `syncNotificationsFromDomain`/`seedDemoNotifications` now store
+      `notifications.content.*` encoded keys (via
+      `lib/notifications/i18n.ts`'s `encodeNotificationText`) instead of
+      literal English prose, with `referenceKey`s unchanged so
+      `upsertByReference` updates existing rows in place; (2) a pure,
+      anchored `normalizeLegacyNotificationText` maps the 11 exact pre-fix
+      strings back to their key+params, feeding `translateNotificationText`
+      — used by `NotificationPanel`/`NotificationBanner` at render time
+      (old rows show Hungarian immediately, no DB write) and by the new
+      `backfillLegacyNotificationText(userId)`, which
+      `syncNotificationsFromDomain` now calls first to converge stored
+      rows (idempotent — a changed-rows-only `UPDATE` of
+      `title`/`body`/`updatedAt`, scoped by `userId`). 10 new
+      `notifications.content.*` hu/en keys. `npm run typecheck` and
+      `npm run test:unit` green (217 suites, 1422 tests).
 - [ ] AC3 of the hungarianize-brand-invoice-preview-pdf plan
       (`docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md:109`)
       literally reads `formatDocumentAmount(1234.5, "EUR") === "1 234,56 €"`,

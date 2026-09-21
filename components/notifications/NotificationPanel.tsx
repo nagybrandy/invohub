@@ -18,6 +18,7 @@ import {
   DrawerContent,
   DrawerHeader,
 } from "@/components/ui/drawer";
+import { translateNotificationText } from "@/lib/notifications/i18n";
 import { describeRelativeWhen, type RelativeWhen } from "@/lib/notifications/relative-time";
 import type { AppNotification } from "@/lib/notifications/types";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -156,11 +157,11 @@ export function NotificationPanel({
                         <Text
                           className={`text-sm ${item.read ? "text-foreground" : "font-semibold text-foreground"}`}
                         >
-                          {item.title}
+                          {translateNotificationText(t, item.title, item.referenceKey)}
                         </Text>
                         {item.body ? (
                           <Text size="xs" className="text-muted-foreground">
-                            {item.body}
+                            {translateNotificationText(t, item.body, item.referenceKey)}
                           </Text>
                         ) : null}
                         <Text size="xs" className="text-muted-foreground">

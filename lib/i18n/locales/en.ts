@@ -1119,6 +1119,22 @@ export default {
       hoursAgo: "{{count}}h ago",
       yesterday: "Yesterday",
     },
+    // Written by lib/notifications/service.ts as i18n keys (encoded via
+    // encodeNotificationText), never as pre-rendered prose -- the server has
+    // no access to the viewer's locale. Rendered at view time through
+    // translateNotificationText(). See lib/notifications/i18n.ts.
+    content: {
+      overdueInvoiceTitle: "Overdue: {{number}}",
+      overdueInvoiceBody: "{{clientName}} — payment past due date.",
+      invoiceSentTitle: "Awaiting payment: {{number}}",
+      invoiceSentBody: "Sent to {{clientName}}.",
+      navPendingTitle: "NAV submission pending",
+      navPendingBody: "{{number}} is waiting for NAV confirmation.",
+      welcomeTitle: "Welcome to InvoHub",
+      welcomeBody: "Load demo data from Settings to explore all features.",
+      reminderScheduledTitle: "Payment reminder scheduled",
+      reminderScheduledBody: "Automatic reminder will be sent in 7 days.",
+    },
   },
   userMenu: {
     accountSettings: "Account settings",
