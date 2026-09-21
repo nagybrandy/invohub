@@ -318,22 +318,29 @@ export async function getReceiptsByDateRange(
   return rows.map((r) => mapRow(r, itemsByReceipt.get(r.id) ?? []));
 }
 
-export async function getDailyVatAggregation(
-  userId: string,
-  date: Date
-): Promise<{
+export type VatAggregationResult = {
   reportDate: string;
   receiptCount: number;
   startReceiptNumber: string | null;
   endReceiptNumber: string | null;
   vatBreakdown: VatBreakdownEntry[];
-}> {
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
+};
 
-  const receipts = await getReceiptsByDateRange(userId, dayStart, dayEnd);
+/**
+ * Aggregates a user's receipts issued inside `[start, end]` (inclusive
+ * instants) and labels the result with `reportDate`. The caller controls
+ * both the boundaries and the label, so it works equally for the server's
+ * local calendar day (`getDailyVatAggregation`) and for an explicit
+ * Europe/Budapest calendar day (`budapestDayRange`, used by the NAV
+ * receipt-report cron).
+ */
+export async function getVatAggregationForRange(
+  userId: string,
+  start: Date,
+  end: Date,
+  reportDate: string
+): Promise<VatAggregationResult> {
+  const receipts = await getReceiptsByDateRange(userId, start, end);
 
   const allLineItems = receipts.flatMap((r) => r.lineItems);
   const totals = calculateLineItemTotals(
@@ -348,10 +355,40 @@ export async function getDailyVatAggregation(
   const sorted = receipts.sort((a, b) => a.receiptNumber.localeCompare(b.receiptNumber));
 
   return {
-    reportDate: dayStart.toISOString().slice(0, 10),
+    reportDate,
     receiptCount: receipts.length,
     startReceiptNumber: sorted[0]?.receiptNumber ?? null,
     endReceiptNumber: sorted[sorted.length - 1]?.receiptNumber ?? null,
     vatBreakdown: totals.vatBreakdown,
   };
+}
+
+export async function getDailyVatAggregation(
+  userId: string,
+  date: Date
+): Promise<VatAggregationResult> {
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  return getVatAggregationForRange(userId, dayStart, dayEnd, dayStart.toISOString().slice(0, 10));
+}
+
+/**
+ * Flips `navSubmitted` to true, in one bulk update, for every receipt of
+ * `userId` issued inside `[start, end]` — what flips the "Beküldve" badge
+ * the EV sees after a successful NAV receipt-report submission for that
+ * day, and what stops the manual submit route offering a second
+ * submission of a day the cron already reported.
+ */
+export async function markReceiptsSubmittedForRange(
+  userId: string,
+  start: Date,
+  end: Date
+): Promise<void> {
+  await db
+    .update(receipt)
+    .set({ navSubmitted: true, updatedAt: new Date() })
+    .where(and(eq(receipt.userId, userId), between(receipt.issuedAt, start, end)));
 }

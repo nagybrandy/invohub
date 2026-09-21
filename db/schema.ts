@@ -452,6 +452,12 @@ export const navReceiptSubmission = pgTable(
     }),
     reportDate: text("report_date").notNull(),
     status: text("status").notNull().default("pending"),
+    // Number of submission attempts made for this row (retry-in-place
+    // increments it instead of inserting a new row for the same
+    // companyId/reportDate — see lib/nav-receipt/daily-report-run.ts).
+    // Existing rows default to 0, which reads correctly as "never
+    // retried by the new code path".
+    attemptCount: integer("attempt_count").notNull().default(0),
     transactionId: text("transaction_id"),
     receiptCount: integer("receipt_count").notNull().default(0),
     cancelledCount: integer("cancelled_count").notNull().default(0),
@@ -467,6 +473,13 @@ export const navReceiptSubmission = pgTable(
     index("nav_receipt_sub_user_id_idx").on(table.userId),
     index("nav_receipt_sub_date_idx").on(table.reportDate),
     index("nav_receipt_sub_status_idx").on(table.status),
+    // Not a UNIQUE constraint — the manual submit route and (on the
+    // unmerged slice/e-nyugta-nav-receipt-api) blocked non-HUF
+    // currency-group rows legitimately write more than one row per
+    // (company, date). The idempotency guarantee is enforced in
+    // lib/nav-receipt/daily-report-run.ts and proven by its tests; this
+    // index just keeps that lookup cheap.
+    index("nav_receipt_sub_company_date_idx").on(table.companyId, table.reportDate),
   ]
 );
 

@@ -88,7 +88,7 @@ before or alongside Phase 1 items that depend on it.
       `docs/decisions/2026-09-21-no-incoming-invoice-screen-yet.md` and the
       new follow-up item below (Phase 3). Plan:
       `docs/plans/2026-09-21-incoming-invoices-dashboard-button.md`
-- [ ] NAV receipt-report cron has no retry and no backfill —
+- [x] NAV receipt-report cron has no retry and no backfill —
       `app/api/cron/nav-receipt-report+api.ts` only ever builds yesterday's
       `reportDate`, and a row left in `nav_receipt_submission` with a failed
       status is never re-sent, so one bad night silently loses that day's
@@ -96,6 +96,38 @@ before or alongside Phase 1 items that depend on it.
       of the 3rd calendar day, so walk a bounded backfill window (missing or
       failed dates in the last 3 days) and make submission idempotent per
       (companyId, reportDate). Distinct from the reminders-cron item above.
+      Done: the route is now auth + delegation only, calling
+      `runDailyReceiptReports()` (`lib/nav-receipt/daily-report-run.ts`),
+      which walks the last 3 Europe/Budapest calendar days oldest-first,
+      retries a `failed` or stale (>= 15 min) `pending` row in place
+      (`db.update`, `attemptCount` incremented, never a second row for the
+      same `(companyId, reportDate)`), treats a fresh `pending` row as
+      `in_flight`, always resolves a thrown NAV error to `failed` with the
+      message (never leaves a row stuck `pending`), and bulk-flips
+      `receipt.navSubmitted` for the day on a successful submission
+      (`markReceiptsSubmittedForRange`, new in `lib/receipts/service.ts`).
+      Day boundaries use the new pure `lib/dates/budapest.ts` helpers
+      (Europe/Budapest calendar day, DST-correct) instead of the server's
+      UTC day. Schema: additive `attempt_count` column + additive
+      `(company_id, report_date)` index on `nav_receipt_submission`
+      (`drizzle/0004_nav-receipt-report-cron-retry-backfill.sql`); no
+      unique constraint (see plan). No change to NAV environment selection,
+      demo exclusion, or `vercel.json`'s schedule. Plan:
+      `docs/plans/2026-09-21-nav-receipt-report-cron-retry-backfill.md`
+- [ ] Manual receipt NAV submit uses the server's UTC day and marks only
+      one receipt, while the nightly cron now uses the Europe/Budapest
+      calendar day and marks the whole day — `app/api/receipts/[id]/submit-nav+api.ts`
+      still calls `getDailyVatAggregation` (server-local day) and only sets
+      `navSubmitted` on the single receipt being submitted, so a receipt
+      issued right after local midnight can land under a different
+      `reportDate` than the cron would use for it, and a manual submission
+      does not flip the badge for the rest of that day's receipts the way
+      the cron does. Align the manual route to `getVatAggregationForRange`
+      + `budapestDayRange` and `markReceiptsSubmittedForRange`
+      (`lib/receipts/service.ts`, `lib/dates/budapest.ts` — both already
+      exist). Found while shipping
+      `slice/nav-receipt-report-cron-retry-backfill` (2026-09-21); out of
+      scope there per that slice's plan §10.2.
 - [ ] No error tracking or cron-failure alerting exists —
       `@opentelemetry/api` is a dependency but is imported nowhere, and
       `app/api/health+api.ts` is a bare liveness probe. Both Vercel crons in
