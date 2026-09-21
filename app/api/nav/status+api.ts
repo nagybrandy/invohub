@@ -9,6 +9,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { getNavClient } from "@/lib/nav/client";
 import { isNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
+import { buildNavExchangeRateAudit, type NavSubmissionAudit } from "@/lib/nav/reported-rate";
 import { resolveNavCredentials } from "@/lib/nav/resolve-credentials";
 
 export async function GET(request: Request) {
@@ -28,7 +29,13 @@ export async function GET(request: Request) {
     .where(eq(navSubmission.invoiceId, invoice.id))
     .orderBy(desc(navSubmission.createdAt));
 
-  return jsonResponse({ submissions });
+  // Sources the reported HUF VAT figure from the winning submission's
+  // persisted nav_submission.reportedVatHuf column when present, rather
+  // than only recomputing it from the invoice's current (mutable) line
+  // items — see lib/nav/reported-rate.ts#buildNavExchangeRateAudit.
+  const exchangeRateReport = buildNavExchangeRateAudit(invoice, submissions as NavSubmissionAudit[]);
+
+  return jsonResponse({ submissions, exchangeRateReport });
 }
 
 export async function POST(request: Request) {

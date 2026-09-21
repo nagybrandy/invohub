@@ -25,6 +25,10 @@ import { VStack } from "@/components/ui/vstack";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
 import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
 import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/InvoiceTimeline";
+import {
+  NavExchangeRateAuditCard,
+  type NavExchangeRateAuditReport,
+} from "@/components/invoices/NavExchangeRateAuditCard";
 import { DangerZone } from "@/components/layout/DangerZone";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -85,6 +89,10 @@ export default function InvoiceDetailScreen() {
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [links, setLinks] = React.useState<InvoiceLinks | null>(null);
   const [navSubmission, setNavSubmission] = React.useState<NavSubmissionRow | null>(null);
+  const [exchangeRateReport, setExchangeRateReport] = React.useState<NavExchangeRateAuditReport>({
+    kind: "none",
+  });
+  const [correctionBusy, setCorrectionBusy] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -102,13 +110,14 @@ export default function InvoiceDetailScreen() {
       const [invoiceData, linksData, navData] = await Promise.all([
         apiFetch<{ invoice: Invoice }>(`/api/invoices/${id}`),
         apiFetch<InvoiceLinks>(`/api/invoices/${id}/links`),
-        apiFetch<{ submissions: NavSubmissionRow[] }>(
+        apiFetch<{ submissions: NavSubmissionRow[]; exchangeRateReport?: NavExchangeRateAuditReport }>(
           `/api/nav/status?invoiceId=${encodeURIComponent(id)}`
-        ).catch(() => ({ submissions: [] })),
+        ).catch(() => ({ submissions: [], exchangeRateReport: { kind: "none" as const } })),
       ]);
       setInvoice(invoiceData.invoice);
       setLinks(linksData);
       setNavSubmission(navData.submissions[0] ?? null);
+      setExchangeRateReport(navData.exchangeRateReport ?? { kind: "none" });
       const totalAmount = invoiceData.invoice.lineItems.reduce(
         (sum, li) => sum + li.quantity * li.unitPrice * (1 + li.vatRate / 100),
         0
@@ -444,6 +453,29 @@ export default function InvoiceDetailScreen() {
               </Button>
             </VStack>
           </Card>
+        ) : null}
+
+        {/*
+          Suppressed whenever the exchange-rate-fix card above is showing:
+          when the invoice has no usable current rate, the audit card can
+          only ever render its "add the rate first" branch (currentRate is
+          always null in that state — see resolveExchangeRate), which is the
+          same "Árfolyam megadása" CTA as the card above, routing to the
+          same place. Rendering both reads as two competing destructive
+          boxes for one action; see the plan's §7 "one clear next step, not
+          two competing red boxes."
+        */}
+        {(links?.correctionDocuments?.length ?? 0) === 0 && !isMissingExchangeRate(invoice) ? (
+          <NavExchangeRateAuditCard
+            report={exchangeRateReport}
+            currency={invoice.currency}
+            busy={correctionBusy}
+            onIssueCorrection={() => {
+              setCorrectionBusy(true);
+              void handleCorrection().finally(() => setCorrectionBusy(false));
+            }}
+            onAddRate={() => router.push(routes.invoiceEdit(invoice.id, { focus: "exchangeRate" }))}
+          />
         ) : null}
 
         <InvoiceTimeline invoice={invoice} nav={nav} />

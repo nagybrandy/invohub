@@ -719,19 +719,99 @@ screenshots before writing a fix plan:
       `components/layout/OverflowMenu.web.test.tsx`. `npx tsc --noEmit` and
       `npm run test:unit` (214 suites / 1355 tests) green.
       Plan: `docs/plans/2026-09-21-exchange-rate-warning-button-tap-target.md`.
-11. [ ] Retro-correct non-HUF invoices already reported to NAV with the old
-    hardcoded `exchangeRate=1` — filed by item 10
+11. [~] needs sign-off (PR) — tax/legal sign-off required before merge (PR,
+    not auto-ship). Retro-correct non-HUF invoices already reported to NAV
+    with the old hardcoded `exchangeRate=1` — filed by item 10
     (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the
     item-3 fix, every non-HUF invoice's NAV submission reported a HUF VAT
     base computed at an implicit rate of 1, which is wrong for any invoice
     not actually in HUF. A previously reported invoice's NAV record now
-    disagrees with reality. Fixing this means emitting a NAV **MODIFY**
-    submission with the corrected HUF amounts — a real tax consequence, not
-    a UI fix. **Tax/legal-gated: needs its own plan and explicit human
-    sign-off before any code that emits a MODIFY report ships** (per
-    CLAUDE.md's phase-1 launch gate and `lib/nav/` production-behaviour
-    sign-off rule). Do not auto-ship.
+    disagrees with reality. Fully automating the fix would mean emitting a
+    NAV **MODIFY** submission with the corrected HUF amounts on the app's
+    own initiative — a real tax consequence, not a UI fix, and out of scope
+    forever for this item (see plan §9.1). **Tax/legal-gated: needs its own
+    plan and explicit human sign-off before any code that emits a MODIFY
+    report ships** (per CLAUDE.md's phase-1 launch gate and `lib/nav/`
+    production-behaviour sign-off rule).
 
+    This slice (`slice/retro-correct-non-huf-invoices-nav-modify`)
+    implements the detect/quantify/explain half the plan scoped for a human
+    review round, and deliberately stops there — it emits nothing to NAV
+    (AC6: no new call site of `submitOutgoingInvoiceToNav`,
+    `client.manageInvoice` or `buildNavInvoiceXml`; `app/api/nav/submit+api.ts`
+    unchanged; no new endpoint/cron/script; `lib/nav/environment.ts` and NAV
+    mode defaults unchanged; no `production` reference). What it adds:
+    - `nav_submission` gains three nullable audit columns
+      (`reported_currency`, `reported_exchange_rate`, `reported_vat_huf`);
+      `submitOutgoingInvoiceToNav` now records what it actually reported
+      (currency, `formatExchangeRate`-form rate, per-line-then-summed HUF
+      VAT) on every future submission, without changing `tokenExchange`/
+      `manageInvoice` call args or the `NavSubmissionResult` shape (AC1).
+    - `lib/nav/reported-rate.ts` (new, pure, no I/O):
+      `classifyNavExchangeRateReport(invoice, submissions)` — conservative
+      by construction: demo-only or no submissions, HUF invoices, and
+      storno/modify documents all classify `"none"`; a recorded rate that
+      matches is `"ok"`; a differing recorded rate is `"misreported"`
+      (`source: "recorded"`); a `null` recorded rate before
+      `NAV_EXCHANGE_RATE_FIX_AT` (the commit-instant boundary of item 3's
+      fix, `7f926f7`) is `"misreported"` at the known implicit rate of 1
+      (`source: "legacyImplicitOne"`); the same case after that instant is
+      `"unknown"` — never a guess. The latest non-demo submission by
+      `submittedAt` decides (AC2, 10/10 cases tested). `computeNavHufMisreport`
+      turns a classified rate gap into reported/correct/delta HUF net/VAT/
+      gross, converted per line then summed — the same order
+      `buildNavInvoiceXml` uses, and asserted against lines that round
+      differently the two ways so NAV's cross-sum check can't regress (AC3).
+    - `GET /api/nav/status?invoiceId=…` always returns an
+      `exchangeRateReport` field (the classification, enriched with HUF
+      amounts when `"misreported"`); auth guard, 404s and the `submissions`
+      payload are unchanged; no test needs a live Postgres connection (AC4).
+    - A new `NavExchangeRateAuditCard` (purely presentational) renders only
+      for `kind: "misreported"` on the invoice detail screen, below the
+      existing missing-rate card: shows reported vs. current rate and
+      reported vs. correct HUF VAT through the app's formatters; its button
+      runs the *existing* `handleCorrection` (`POST /api/invoices/[id]/modify`,
+      one request, then navigates to the new helyesbítő draft — the EV
+      reviews and submits it themselves) or, when there's no current rate
+      to compare against, routes to `routes.invoiceEdit(id, { focus:
+      "exchangeRate" })` instead; suppressed once a correction document
+      already exists for the invoice; every string via `t()` (AC5).
+    - New i18n block `invoices.navExchangeRateAudit.*` in `hu.ts`/`en.ts`
+      (`lib/i18n/locales/en.test.ts` green) — reviewed against the plan's
+      wording rule: facts and numbers only, no deadline, no "kötelező", no
+      Áfa tv. paragraph reference, no penalty claim, no advice.
+    - `db/schema.ts` change is additive-only: `drizzle/0004_nav_submission_reported_amounts.sql`
+      contains exactly three `ADD COLUMN` statements, no DROP/rename/
+      NOT NULL/data statement (AC7). Nothing under `lib/tax/`, `lib/m2m/`
+      or `marketing/` touched.
+
+    All 7 plan ACs pass; `npx tsc --noEmit` and `npm run test:unit` (224
+    suites / 1502 tests, after the 2026-09-21 fix round) green. **Not
+    merged** — per CLAUDE.md this is a
+    `lib/nav/` production-behaviour change that tells an EV their filed tax
+    record may be wrong, so it becomes a PR for explicit human sign-off
+    rather than an auto-merge; suggested reviewer checklist is in the plan
+    §8 (is `NAV_EXCHANGE_RATE_FIX_AT` the right boundary — commit vs.
+    deploy instant, per OQ-1; does `"misreported"` ever fire on a demo-only
+    submission; is the Hungarian copy free of advice; is the migration
+    `ADD COLUMN`-only). The auto-MODIFY-submission half of "retro-correct"
+    stays permanently out of scope for this item (plan §9.1) — the EV and
+    their accountant choose whether/when to issue the correction; InvoHub
+    only prepares the draft.
+    Plan: `docs/plans/2026-09-21-retro-correct-non-huf-invoices-nav-modify.md`.
+
+- [ ] `text-destructive` title on `bg-destructive/10` is below WCAG AA
+      contrast — `NavExchangeRateAuditCard.tsx:64-66` recomputed at ~4.13:1
+      against `WCAG_AA_NORMAL_TEXT` (4.5) using `lib/theme/contrast.ts`'s own
+      formulas (`--destructive` #dc2626 over `--card` white, composited at
+      10% alpha → #fce9e9). Pre-existing pattern, not a regression — the
+      identical class combination already exists on the exchange-rate
+      missing-rate card (`app/(app)/invoices/[id]/index.tsx:428-443`,
+      pre-slice on `main`); item 11 adds a second instance of the same
+      under-contrast pattern to the same screen. Fix by darkening
+      `--destructive` or reducing the `bg-destructive` alpha delta so both
+      cards clear AA together, rather than patching per-card (2026-09-21
+      fix round, ux)
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
 verified against Áfa tv. 169. §, NAV OSA end-to-end certified with test
