@@ -6,6 +6,7 @@
 // the very bottom (A2). Recent invoices reuse the same InvoiceListTable
 // the /invoices screen uses — one visual language, not two (A1, L1).
 import * as React from "react";
+import { Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Headphones, Inbox } from "lucide-react-native";
@@ -30,6 +31,12 @@ import { routes } from "@/lib/navigation";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 import { formatVatPeriodLabel } from "@/lib/dashboard/vat-period";
 import { useIsDesktop } from "@/lib/useIsDesktop";
+import {
+  buildSupportDiagnostics,
+  buildSupportMailtoUrl,
+  getAppVersion,
+  getSupportEmail,
+} from "@/lib/support/contact";
 import type { InvoiceStatus } from "@/lib/invoices/types";
 
 export default function DashboardScreen() {
@@ -38,6 +45,8 @@ export default function DashboardScreen() {
   const { summary, draftCount, outstandingCount, paidCount, loading, refresh } =
     useDashboardSummary();
   const isDesktop = useIsDesktop();
+  const supportEmail = getSupportEmail();
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   const currency = "HUF" as const;
   const vatPeriod = formatVatPeriodLabel(new Date(), i18n.language);
@@ -49,6 +58,35 @@ export default function DashboardScreen() {
   async function handleDeleteInvoice(id: string) {
     await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
     await refresh();
+  }
+
+  // A minimal local toast — deliberately not components/ui/toast, which
+  // pulls in react-native-reanimated and (in this environment) breaks the
+  // Jest worklets mock for every test that imports this screen. Same
+  // pattern as InvoiceComposer and the invoices list.
+  React.useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  async function handleContactSupport() {
+    if (!supportEmail) return;
+    const diagnostics = buildSupportDiagnostics({
+      locale: i18n.language,
+      platform: Platform.OS,
+      appVersion: getAppVersion(),
+    });
+    const url = buildSupportMailtoUrl({
+      email: supportEmail,
+      subject: t("dashboard.support.subject"),
+      body: `${t("dashboard.support.bodyIntro")}\n\n\n${t("dashboard.support.diagnosticsTitle")}\n${diagnostics}`,
+    });
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setToastMessage(t("dashboard.support.openFailed", { email: supportEmail }));
+    }
   }
 
   const revenueTotal = summary.revenue + summary.outstanding;
@@ -74,10 +112,17 @@ export default function DashboardScreen() {
             )
           }
           overflowActions={
-            isDesktop
-              ? [{ label: t("dashboard.customerService"), icon: Headphones, onPress: () => undefined }]
+            supportEmail
+              ? [
+                  {
+                    label: t("dashboard.customerService"),
+                    icon: Headphones,
+                    onPress: () => void handleContactSupport(),
+                  },
+                ]
               : undefined
           }
+          overflowLabel={t("nav.more")}
         />
       }
     >
@@ -191,6 +236,13 @@ export default function DashboardScreen() {
 
         <M2mDemoCard />
       </VStack>
+      {toastMessage ? (
+        <Box className="absolute left-0 right-0 top-4 z-50 items-center px-4" testID="dashboard-toast">
+          <Box className="rounded-lg bg-foreground px-4 py-2.5 shadow-lg">
+            <Text className="text-sm font-medium text-background">{toastMessage}</Text>
+          </Box>
+        </Box>
+      ) : null}
     </ScreenLayout>
   );
 }

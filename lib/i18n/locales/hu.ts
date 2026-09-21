@@ -658,6 +658,12 @@ export default {
       statusPaid: "Fizetve",
       statusOverdue: "Lejárt",
     },
+    support: {
+      subject: "InvoHub támogatás – kérdés",
+      bodyIntro: "Írd le röviden, mi történt, és mit vártál volna:",
+      diagnosticsTitle: "Technikai adatok (hagyd bent, segítenek a hibakeresésben):",
+      openFailed: "Nem sikerült megnyitni a levelezőt. Írj nekünk ide: {{email}}",
+    },
     features: {
       import: "Számlák tömeges importálása Excelből vagy CSV-ből.",
       receipts: "Elektronikus nyugták megtekintése és kiállítása.",

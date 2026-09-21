@@ -92,4 +92,23 @@ describe("PageHeader", () => {
     expect(heading.props.className).toContain("leading-[38px]");
     expect(heading.props.className).toContain("font-heading");
   });
+
+  it("labels the overflow trigger 'Továbbiak' when overflowLabel is omitted", () => {
+    const tree = render({
+      title: "Vezérlőpult",
+      overflowActions: [{ label: "Egyéb", onPress: jest.fn() }],
+    });
+    const trigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+    expect(trigger.props.accessibilityLabel).toBe("Továbbiak");
+  });
+
+  it("labels the overflow trigger with overflowLabel when given", () => {
+    const tree = render({
+      title: "Vezérlőpult",
+      overflowActions: [{ label: "Egyéb", onPress: jest.fn() }],
+      overflowLabel: "More",
+    });
+    const trigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+    expect(trigger.props.accessibilityLabel).toBe("More");
+  });
 });
