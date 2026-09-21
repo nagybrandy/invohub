@@ -1696,8 +1696,8 @@ Remaining for the launch gate:
 
 ### Research refill 2026-09-21 (market/NAV research, product strategist)
 
-- [x] **Teljesítés dátuma is not a real field — NAV gets the issue date
-      instead** (needs tax/legal sign-off). The composer collects it
+- [~] needs sign-off (PR) — **Teljesítés dátuma is not a real field — NAV
+      gets the issue date instead** (needs tax/legal sign-off). The composer collects it
       (`components/invoices/composer/useInvoiceComposer.ts`,
       `StepPartner.tsx`) but `composeInvoiceNotes` in
       `lib/invoices/client-form-fields.ts` only appends it to `notes` as the
@@ -1712,7 +1712,7 @@ Remaining for the launch gate:
       column + domain field, thread it through create/PATCH/`lib/invoices/
       create-from-payload.ts`, the PDF/preview, and the NAV XML; keep the
       `issueDate` fallback only for legacy rows.
-      **Shipped** (`slice/invoice-fulfillment-date-persist-nav`,
+      **Built, PR open for human sign-off** (`slice/invoice-fulfillment-date-persist-nav`,
       2026-09-21): additive `fulfillment_date` column
       (`drizzle/0005_invoice-fulfillment-date-persist-nav.sql`,
       ADD COLUMN only) + `Invoice.fulfillmentDate`, read-time legacy-notes
@@ -1731,6 +1731,31 @@ Remaining for the launch gate:
       line-item unit persistence, the 2026-01-01 NAV validation set, the
       AAM/KATA bevételi keret meter, and notes backfill — are separate,
       not started here.
+- [ ] Fulfillment-date hint wraps unevenly on desktop; plan's conditional
+      fallback not implemented — `components/invoices/composer/
+      StepPartner.tsx` lines 229-231 render the `fulfillmentDateHint` Text
+      unconditionally inside the first `VStack` (`min-w-[160px] flex-1`),
+      sibling to the plain issueDate/paymentDeadline `VStack`s in one
+      `HStack space="sm" className="flex-wrap"` (line 225).
+      `composer-logic.ts:36` caps the Partner step's form column at 720px
+      (`composerDesktopLayout`), and with the card's `p-4` padding and
+      `HStack` gap, the three `flex-1` columns land at roughly 220-240px
+      each; `hu.ts:300-301`'s `fulfillmentDateHint` (~93 chars, `size="xs"`)
+      wraps to multiple lines at that width while its siblings do not grow,
+      producing a visibly uneven three-column row. The plan
+      (`docs/plans/2026-09-21-invoice-fulfillment-date-persist-nav.md`,
+      §7 "UX notes") anticipated this and specified a conditional fallback
+      — render the hint below the `HStack` instead of inside the first
+      `VStack` if the wrap pushes the deadline quick-pick pills out of
+      view — which the shipped code does not implement. Downgraded from the
+      fixer's initial "medium": the date/payment section sits inside a
+      `ScrollView` (`InvoiceComposer.tsx` lines 174, 207), so the extra row
+      height only adds scroll length — the pills stay fully reachable, and
+      none of the plan's 14 acceptance criteria mention this hint's desktop
+      layout. Cosmetic only: optionally move the hint below the closing
+      `</HStack>` per the plan's own fallback guidance.
+      (2026-09-21 ship review of slice/invoice-fulfillment-date-persist-nav,
+      ux)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
