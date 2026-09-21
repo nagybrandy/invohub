@@ -1140,12 +1140,25 @@ Remaining for the launch gate:
       `composerGridMinWidth() === 860`), which fits the 1112px available at
       1440px (was 680px). Sticky totals bar + `previewSlot` keep INV-9/
       INV-13 (see `docs/decisions/2026-09-18-composer-items-step-full-width-grid.md`).
-- [ ] `components/notifications/NotificationPanel.tsx` has substantial
+- [x] `components/notifications/NotificationPanel.tsx` has substantial
       pre-existing hardcoded English chrome text ("Notifications", "Mark
       all read", "Refresh", empty-state copy, "Just now"/"Xh ago") — left
       untouched by the 2026-09-15 i18n fix that only covered generated
       notification *content*, not the panel's own chrome. (2026-09-15
-      audit, i18n)
+      audit, i18n) Fixed on `slice/notification-panel-i18n-chrome-text`
+      per `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`:
+      the panel now reads every chrome string through `useTranslation`
+      (`notifications.panel.*` / `notifications.when.*`, hu+en), a new
+      pure `lib/notifications/relative-time.ts` replaces the buggy
+      `formatWhen` (no more "Just now" mislabeling 55-minute-old items, no
+      more negative-hour clock-skew garbage, absolute dates go through
+      `formatDateOnly` for the HU/EN-aware format), the empty `<DrawerCloseButton />`
+      is replaced with a visible labelled 44×44 lucide `X` button, both
+      action buttons and every row Pressable clear `TAP_TARGET_MIN_H`, and
+      the redundant inner `ScrollView` (double-nested inside `DrawerBody`,
+      itself a `ScrollView`) is removed. Row *content* (titles/bodies)
+      stays English — that's the separate, still-open content-localisation
+      item below; out of scope here per the plan.
 - [ ] Notification rows created before the 2026-09-15 i18n-key encoding
       fix (in the same DB, from earlier test runs) still render as literal
       English text — by design, only newly-synced/newly-seeded
