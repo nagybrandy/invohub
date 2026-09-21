@@ -162,6 +162,13 @@ export default {
       vatInHuf: "VAT amount in HUF",
       continued: "continued",
       pageIndicator: "Page {{page}} of {{total}}",
+      // AC2/AC9 (pdf-notes-continuation-page-caption): the repeated section
+      // label a notes continuation page gets, e.g. "Notes (continued):" —
+      // {{section}} is the (user-configurable) template.notesLabel, never
+      // the fixed `notes` key above, and the caller appends the trailing
+      // ":" itself (same manual-interpolation pattern pageIndicator uses —
+      // documentLabels() never goes through i18next).
+      sectionContinued: "{{section}} (continued)",
     },
     pdf: "PDF",
     downloadPdf: "Download PDF",

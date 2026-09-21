@@ -13,7 +13,7 @@ import {
   tableColumns,
   totalsColumns,
 } from "@/lib/invoices/pdf-layout";
-import { PDF_FONT_SCALES, pdfFontSizes } from "@/lib/invoices/pdf-template/defaults";
+import { DEFAULT_PDF_TEMPLATE, PDF_FONT_SCALES, pdfFontSizes } from "@/lib/invoices/pdf-template/defaults";
 import { documentFontNames, registerDocumentFonts } from "@/lib/invoices/pdf-fonts";
 import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
 import * as pdfDocumentModule from "@/lib/invoices/pdf-document";
@@ -36,7 +36,21 @@ function longText(charCount: number): string {
   return base.repeat(Math.ceil(charCount / base.length)).slice(0, charCount);
 }
 
-// AC8 fixture (i): 16 line items + a ~2000-character notes value.
+// AC8 fixture (i): 16 line items + a long notes value.
+//
+// 16 rows of this description length already trip the line-item table's own
+// explicit continuation break (item 16 alone doesn't fit under the header +
+// totals-reserve budget on page 1 — see the "continuation pages (AC11)"
+// describe block below), which lands the "Megjegyzés:" label on that same
+// continuation page with most of a fresh page still free under it. Measured
+// against the current embedded fonts, a ~2000-char body (this fixture's
+// original size, and the plan's own estimate) comfortably fits in that
+// remaining room and never itself repaginates — so a genuinely reproducing
+// fixture for the notes-continuation bug (plan
+// docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md §0) needs a
+// body long enough to overflow that remaining room, not just the original
+// ~2000-char estimate. 6000 chars measures to comfortably more than the
+// room left after the label on the line-item continuation page.
 function fixtureLongNotes(): Invoice {
   return makeInvoice({
     invoiceNumber: "INV-2026-LONGNOTES",
@@ -48,7 +62,7 @@ function fixtureLongNotes(): Invoice {
         unitPrice: 12500,
       })
     ),
-    notes: longText(2000),
+    notes: longText(6000),
   });
 }
 
@@ -86,8 +100,8 @@ type RecordedTextCall = {
   // The page the call STARTED drawing on, and the page doc.y ended up on
   // once the call returned — pdfkit's own internal auto-pagination (AC1/
   // AC2: page.margins.bottom === CONTENT_MARGIN_BOTTOM) can add one or more
-  // pages *during* a single long doc.text() call (e.g. the ~2000-char notes
-  // block), so a call's start and end page can legitimately differ.
+  // pages *during* a single long doc.text() call (e.g. fixtureLongNotes()'s
+  // notes block), so a call's start and end page can legitimately differ.
   startPage: unknown;
   endPage: unknown;
   text: string;
@@ -102,6 +116,15 @@ type RecordedTextCall = {
   endY: number;
   height: number;
   marginBottom: number;
+  // Position of this call in the shared call/fillColor timeline (see
+  // `orderCounter` in withRecordedDoc) — lets a test correlate "the last
+  // fillColor set before this text call was recorded" (AC7).
+  order: number;
+};
+
+type RecordedFillColorCall = {
+  color: string;
+  order: number;
 };
 
 /**
@@ -120,9 +143,23 @@ type RecordedTextCall = {
 async function withRecordedDoc(
   invoice: Invoice,
   extra: Parameters<typeof generateInvoicePdf>[0] = { invoice }
-): Promise<{ pdf: Buffer; calls: RecordedTextCall[]; pageCount: number }> {
+): Promise<{
+  pdf: Buffer;
+  calls: RecordedTextCall[];
+  fillColorCalls: RecordedFillColorCall[];
+  pageCount: number;
+  // Page objects in creation order (a Set preserves insertion order) — lets
+  // a test find "every page after the one a given call started on" without
+  // hardcoding a page index.
+  pages: unknown[];
+}> {
   const calls: RecordedTextCall[] = [];
+  const fillColorCalls: RecordedFillColorCall[] = [];
   const pageIds = new Set<unknown>();
+  // Shared timeline across both recorded arrays (AC7) — a fillColor call
+  // recorded with a lower `order` than a text call happened strictly before
+  // it, regardless of which array it landed in.
+  let orderCounter = 0;
 
   // Capture the real implementation before spying — with Babel's CJS
   // interop, the imported `createPdfDocument` binding resolves through
@@ -134,6 +171,15 @@ async function withRecordedDoc(
     const doc = originalCreatePdfDocument(options);
     pageIds.add(doc.page);
     doc.on("pageAdded", () => pageIds.add(doc.page));
+
+    const originalFillColor = doc.fillColor.bind(doc);
+    doc.fillColor = ((color?: unknown, ...rest: unknown[]) => {
+      const result = originalFillColor(color as never, ...(rest as []));
+      if (typeof color === "string") {
+        fillColorCalls.push({ color, order: orderCounter++ });
+      }
+      return result;
+    }) as typeof doc.fillColor;
 
     const originalText = doc.text.bind(doc);
     doc.text = ((value: string, ...rest: unknown[]) => {
@@ -161,6 +207,7 @@ async function withRecordedDoc(
         endY: doc.y,
         height,
         marginBottom,
+        order: orderCounter++,
       });
       return result;
     }) as typeof doc.text;
@@ -169,7 +216,7 @@ async function withRecordedDoc(
 
   try {
     const pdf = await withPdfKitFonts(() => generateInvoicePdf({ ...extra, invoice }));
-    return { pdf, calls, pageCount: pageIds.size };
+    return { pdf, calls, fillColorCalls, pageCount: pageIds.size, pages: [...pageIds] };
   } finally {
     spy.mockRestore();
   }
@@ -250,7 +297,7 @@ describe("generateInvoicePdf — totals label width never wraps (AC6)", () => {
 
 describe("generateInvoicePdf — no content under the footer band (AC8/AC10)", () => {
   const fixtures: Array<[string, () => Invoice]> = [
-    ["16 line items + ~2000-char notes", fixtureLongNotes],
+    ["16 line items + long notes", fixtureLongNotes],
     ["40 line items", fixtureManyLines],
     ["two ÁFA-exempt lines + ~180-char exemption reason", fixtureExemptionReason],
   ];
@@ -348,6 +395,148 @@ describe("generateInvoicePdf — continuation pages (AC11)", () => {
     // The number of header draws equals the number of pages with line items
     // (page 1's initial header + one per continuation page).
     expect(headerDrawsPerPage.size).toBe(pageCount);
+  });
+});
+
+// Plan: docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md — a
+// notes-only continuation page (opened by pdfkit's own auto-pagination
+// inside the notes doc.text() call, not our explicit line-item page break)
+// gets the same "<invoiceNumber> · folytatás" banner the line-item
+// continuation pages already get, plus a repeated
+// "<notesLabel> (folytatás):" section label.
+describe("generateInvoicePdf — notes continuation pages", () => {
+  it("opens a notes continuation page with the invoice banner and a repeated notes label (AC1/AC2/AC3/AC7)", async () => {
+    const invoice = fixtureLongNotes();
+    const { calls, fillColorCalls, pages } = await withRecordedDoc(invoice, {
+      invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" },
+    });
+
+    const labels = documentLabels();
+
+    const notesCall = calls.find((c) => c.text === invoice.notes);
+    expect(notesCall).toBeDefined();
+    // Precondition (repro condition, plan §4.1): the notes body itself
+    // paginates — its label page and its last page differ. Compared as a
+    // boolean (not `.not.toBe(pageObject)`) so a failed assertion never
+    // asks Jest's diff to pretty-print a live pdfkit PDFPage — those hold
+    // circular refs back to the document and crash the worker's result
+    // serialization instead of reporting a clean failure.
+    expect(notesCall!.startPage === notesCall!.endPage).toBe(false);
+
+    const startPageIndex = pages.indexOf(notesCall!.startPage);
+    expect(startPageIndex).toBeGreaterThanOrEqual(0);
+    // Every page after the label's page is, for this fixture, a notes
+    // continuation page (notes is the last content block before the
+    // footer — see fixtureLongNotes's own doc comment).
+    const continuationPages = pages.slice(startPageIndex + 1);
+    expect(continuationPages.length).toBeGreaterThanOrEqual(1);
+
+    const continuationBanner = `${invoice.invoiceNumber || labels.draftNumber} · ${labels.continued}`;
+    // fixtureLongNotes()'s own 16th line item already trips the line-item
+    // table's pre-existing explicit page break (AC11, a different,
+    // unrelated mechanism — see the "continuation pages (AC11)" describe
+    // block above), which happens to land its own copy of this exact
+    // banner text on the label's own page (notesCall.startPage). Only a
+    // banner drawn on one of the *notes* continuation pages is this
+    // slice's concern, so the AC11 one is excluded up front rather than
+    // asserting on the combined, ambiguous count.
+    const bannerDraws = calls.filter(
+      (c) => c.text === continuationBanner && c.startPage !== notesCall!.startPage
+    );
+
+    // AC1: exactly one banner draw per continuation page, never on the
+    // label's own page, at the page's top margin.
+    expect(bannerDraws.length).toBe(continuationPages.length);
+    for (const draw of bannerDraws) {
+      // Boolean form — see the comment above on why page objects never go
+      // straight into a matcher that might need to print them.
+      expect(continuationPages.includes(draw.startPage)).toBe(true);
+      expect(draw.startY).toBe(PDF_PAGE_MARGINS.top);
+    }
+    const bannerPages = new Set(bannerDraws.map((d) => d.startPage));
+    expect(bannerPages.size).toBe(bannerDraws.length);
+
+    // AC2: exactly one repeated notes label per continuation page, below
+    // the banner.
+    const repeatedLabelText = `${labels.sectionContinued.replace("{{section}}", DEFAULT_PDF_TEMPLATE.notesLabel)}:`;
+    const labelDraws = calls.filter((c) => c.text === repeatedLabelText);
+    expect(labelDraws.length).toBe(continuationPages.length);
+    for (const page of continuationPages) {
+      const banner = bannerDraws.find((d) => d.startPage === page);
+      const label = labelDraws.find((d) => d.startPage === page);
+      expect(banner).toBeDefined();
+      expect(label).toBeDefined();
+      // AC3: the repeated label starts strictly below the banner's bottom
+      // (no overprint), and both stay comfortably inside the content area
+      // (the existing footer-collision guard above covers the notes body
+      // itself for every fixture, including this one).
+      expect(label!.startY).toBeGreaterThan(banner!.endY);
+      const bandTop = footerBandTop({ page } as never);
+      expect(banner!.endY).toBeLessThan(bandTop);
+      expect(label!.endY).toBeLessThan(bandTop);
+    }
+
+    // AC7: the last fillColor set before pdfkit resumes the wrapper (i.e.
+    // the last one recorded before the outer notes text() call itself was
+    // recorded) is #444444 — the same colour the notes body is drawn in on
+    // page 1 — so the heading draw doesn't leak #666666 into the
+    // continued body lines.
+    const priorFillColors = fillColorCalls
+      .filter((f) => f.order < notesCall!.order)
+      .sort((a, b) => a.order - b.order);
+    expect(priorFillColors.length).toBeGreaterThan(0);
+    expect(priorFillColors[priorFillColors.length - 1]!.color).toBe("#444444");
+  });
+
+  it("draws no continuation banner or repeated label when the notes fit on one page (AC4)", async () => {
+    const invoice = buildSamplePreviewInvoice();
+    const { calls, pageCount } = await withRecordedDoc(invoice, {
+      invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" },
+    });
+
+    expect(pageCount).toBe(BASELINE_PAGE_COUNT);
+
+    const labels = documentLabels();
+    const continuationBanner = `${invoice.invoiceNumber || labels.draftNumber} · ${labels.continued}`;
+    const repeatedLabelText = `${labels.sectionContinued.replace("{{section}}", DEFAULT_PDF_TEMPLATE.notesLabel)}:`;
+
+    expect(calls.some((c) => c.text === continuationBanner)).toBe(false);
+    expect(calls.some((c) => c.text === repeatedLabelText)).toBe(false);
+  });
+
+  it("leaves the 40-item line-item continuation behaviour unchanged for a notes-less invoice (AC5)", async () => {
+    const invoice = fixtureManyLines();
+    const { calls, pageCount } = await withRecordedDoc(invoice, {
+      invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" },
+    });
+
+    expect(pageCount).toBeGreaterThanOrEqual(2);
+
+    const labels = documentLabels();
+    const captionText = `${invoice.invoiceNumber} · ${labels.continued}`;
+    const captionDraws = calls.filter((c) => c.text === captionText);
+    // Unchanged from the AC11 continuation-pages describe block above:
+    // once per continuation page, never doubled by a notes listener that
+    // was never attached (invoice.notes === "" for this fixture).
+    expect(captionDraws.length).toBe(pageCount - 1);
+
+    const repeatedLabelText = `${labels.sectionContinued.replace("{{section}}", DEFAULT_PDF_TEMPLATE.notesLabel)}:`;
+    expect(calls.some((c) => c.text === repeatedLabelText)).toBe(false);
+  });
+
+  it("uses labels.draftNumber in the banner for an unfinalized invoice with paginating notes (AC8)", async () => {
+    const invoice = { ...fixtureLongNotes(), invoiceNumber: "" };
+    const { calls } = await withRecordedDoc(invoice, {
+      invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" },
+    });
+
+    const labels = documentLabels();
+    const draftBanner = `${labels.draftNumber} · ${labels.continued}`;
+    expect(calls.some((c) => c.text === draftBanner)).toBe(true);
   });
 });
 

@@ -16,6 +16,14 @@ let mockLastShape: { x: number; y: number; width: number; height: number; radius
 // with `margins: { ..., bottom: CONTENT_MARGIN_BOTTOM }` instead of the old
 // `margin: 48` shorthand.
 let mockConstructorOptions: Array<Record<string, unknown> | undefined> = [];
+// Plan: docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md §4.2 —
+// every MockPDFDocument instance createPdfDocument() hands back, so a test
+// can assert `listenerCount("pageAdded")` is 0 after generation (AC6, no
+// leaked notes-continuation listener). Typed structurally (not as
+// MockPDFDocument, which is declared inside the jest.mock factory below and
+// so isn't a type this outer scope can name) — every value pushed onto it
+// really is a MockPDFDocument, which extends EventEmitter.
+let mockDocs: Array<{ listenerCount(event: string): number }> = [];
 
 jest.mock("@/lib/invoices/pdf-document", () => {
   const { EventEmitter } = require("events");
@@ -162,7 +170,11 @@ jest.mock("@/lib/invoices/pdf-document", () => {
   const actual = jest.requireActual("@/lib/invoices/pdf-document");
 
   return {
-    createPdfDocument: (options?: Record<string, unknown>) => new MockPDFDocument(options),
+    createPdfDocument: (options?: Record<string, unknown>) => {
+      const doc = new MockPDFDocument(options);
+      mockDocs.push(doc);
+      return doc;
+    },
     withPdfKitFonts: (run: () => unknown) => run(),
     collectSearchRoots: actual.collectSearchRoots,
   };
@@ -186,6 +198,7 @@ beforeEach(() => {
   mockConstructorOptions = [];
   mockRectCalls = [];
   mockLastShape = null;
+  mockDocs = [];
 });
 
 describe("invoicePdfFilename", () => {
@@ -715,5 +728,31 @@ describe("generateInvoicePdf — status chip (AC15)", () => {
     expect(Object.values(labels.status)).not.toContain(
       mockDrawnTexts.find((t) => Object.values(labels.status).includes(t))
     );
+  });
+});
+
+// Plan: docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md §4.2
+// (AC6) — the notes continuation heading is drawn from a `pageAdded`
+// listener scoped to the duration of the notes doc.text() call. It must be
+// detached (in a `finally`) before generateInvoicePdf() returns, for an
+// invoice with notes and for one without, or it would keep drawing captions
+// on unrelated future pages of a long-lived doc.
+describe("generateInvoicePdf — notes continuation listener cleanup (AC6)", () => {
+  it("leaves no pageAdded listener attached after generating a PDF with notes", async () => {
+    const invoice = makeInvoice({ notes: "Some notes that may or may not paginate." });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDocs).toHaveLength(1);
+    expect(mockDocs[0]!.listenerCount("pageAdded")).toBe(0);
+  });
+
+  it("leaves no pageAdded listener attached after generating a PDF without notes", async () => {
+    const invoice = makeInvoice({ notes: "" });
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDocs).toHaveLength(1);
+    expect(mockDocs[0]!.listenerCount("pageAdded")).toBe(0);
   });
 });
