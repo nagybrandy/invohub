@@ -21,6 +21,7 @@ import type { InvoiceCurrency, InvoiceLineItem, VatCategory, VatRate } from "@/l
 import type { Product } from "@/lib/products/service";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { TAP_TARGET_DROPDOWN_TOP } from "@/lib/ui/tap-target";
 
 export function LineItemRow({
   index,
@@ -86,7 +87,7 @@ export function LineItemRow({
             />
           </Input>
           {descFocused && matches.length > 0 ? (
-            <VStack className="absolute top-9 z-10 w-full rounded-lg border border-border bg-card shadow-sm">
+            <VStack className={`absolute ${TAP_TARGET_DROPDOWN_TOP} z-10 w-full rounded-lg border border-border bg-card shadow-sm`}>
               {matches.map((product) => (
                 <Pressable
                   key={product.id}
@@ -116,13 +117,13 @@ export function LineItemRow({
               accessibilityRole="button"
               accessibilityLabel={t("invoices.fields.unit")}
               hitSlop={8}
-              className="h-9 w-[44px] items-center justify-center rounded-lg border border-border bg-card"
+              className="h-11 w-[44px] items-center justify-center rounded-lg border border-border bg-card"
             >
               <Text size="sm">{item.unit || "db"}</Text>
             </Pressable>
           </HStack>
           {unitMenuOpen ? (
-            <VStack className="absolute top-9 z-10 w-full rounded-lg border border-border bg-card shadow-sm">
+            <VStack className={`absolute ${TAP_TARGET_DROPDOWN_TOP} z-10 w-full rounded-lg border border-border bg-card shadow-sm`}>
               {UNIT_OPTIONS.map((unit) => (
                 <Pressable
                   key={unit}

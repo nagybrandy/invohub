@@ -122,6 +122,57 @@ describe("LineItemRow — desktop grid (composer-line-item-horizontal-scroll-144
     expect(onChange).toHaveBeenCalledWith({ unit: "óra" });
   });
 
+  it("anchors the open unit-picker menu at top-11, matching the 44px row it sits under (fixround1 finding, exchange-rate-input-tap-target-mobile)", () => {
+    const { tree } = render();
+    const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
+
+    act(() => {
+      unitControl.props.onPress?.();
+    });
+
+    const menu = tree.root.findAll(
+      (node) => typeof node.props?.className === "string" && node.props.className.includes("absolute")
+    );
+    expect(menu.length).toBeGreaterThan(0);
+    for (const node of menu) {
+      expect(String(node.props.className)).toContain("top-11");
+      expect(String(node.props.className)).not.toContain("top-9");
+    }
+  });
+
+  it("anchors the description-autocomplete dropdown at top-11, matching the 44px row it sits under (fixround2 finding, exchange-rate-input-tap-target-mobile)", () => {
+    const products: Product[] = [
+      {
+        id: "p1",
+        userId: "u1",
+        name: "Tanácsadás óra",
+        unitPrice: 15000,
+        unit: "óra",
+        vatRate: 27,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    const { tree } = render({
+      item: makeLineItem({ description: "Tan", quantity: 1, unitPrice: 450000, vatRate: 27 }),
+      products,
+    });
+
+    const descriptionField = tree.root.findByProps({ testID: "lineItem-0-description" });
+    act(() => {
+      descriptionField.props.onFocus?.();
+    });
+
+    const menu = tree.root.findAll(
+      (node) => typeof node.props?.className === "string" && node.props.className.includes("absolute")
+    );
+    expect(menu.length).toBeGreaterThan(0);
+    for (const node of menu) {
+      expect(String(node.props.className)).toContain("top-11");
+      expect(String(node.props.className)).not.toContain("top-9");
+    }
+  });
+
   it("shows both the bruttó and nettó figures in the merged amount cell, no figure disappears (AC8)", () => {
     const { tree } = render({
       item: makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 450000, vatRate: 27, vatCategory: "normal" }),
@@ -146,11 +197,12 @@ describe("LineItemRow — desktop grid (composer-line-item-horizontal-scroll-144
     expect(netLine.length).toBeGreaterThan(0);
   });
 
-  it("keeps the unit control and delete control at h-9 with hitSlop 8 (>=44px effective) (AC12)", () => {
+  it("matches the unit control to the quantity input's height (h-11), keeps the delete control at h-9 with hitSlop 8 (AC12, exchange-rate-input-tap-target-mobile)", () => {
     const { tree } = render();
     const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
     expect(unitControl.props.hitSlop).toBe(8);
-    expect(String(unitControl.props.className)).toContain("h-9");
+    expect(String(unitControl.props.className)).toContain("h-11");
+    expect(String(unitControl.props.className)).not.toContain("h-9");
 
     const deleteControls = findPressableWithA11yLabel(tree.root, "invoices.lineItemEditor.deleteAction");
     const desktopDelete = deleteControls.find((n) => String(n.props.className).includes("h-9"));

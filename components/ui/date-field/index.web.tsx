@@ -4,6 +4,7 @@
 // (spec §2.3). webDomProps before spreading rest props (AGENTS.md §2).
 import { webDomProps } from "@/components/ui/web-dom-props";
 import type { DateFieldProps } from "@/components/ui/date-field";
+import { TAP_TARGET_H } from "@/lib/ui/tap-target";
 
 export type { DateFieldProps } from "@/components/ui/date-field";
 
@@ -29,7 +30,7 @@ export function DateField({
       max={max}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
-      className={`h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground shadow-xs outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 ${className}`.trim()}
+      className={`${TAP_TARGET_H} w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground shadow-xs outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 ${className}`.trim()}
       {...webDomProps(rest)}
     />
   );

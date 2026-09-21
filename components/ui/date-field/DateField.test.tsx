@@ -68,4 +68,11 @@ describe("DateField (web)", () => {
     const input = tree.root.findByProps({ "data-testid": "date-field" });
     expect(input.props.style).toBeUndefined();
   });
+
+  it("is at least 44px tall (tap-target floor), not the old 36px h-9", () => {
+    const tree = renderWeb({ value: "2026-09-14", onChange: jest.fn() });
+    const input = tree.root.findByProps({ "data-testid": "date-field" });
+    expect(input.props.className).toContain("h-11");
+    expect(input.props.className).not.toContain("h-9");
+  });
 });
