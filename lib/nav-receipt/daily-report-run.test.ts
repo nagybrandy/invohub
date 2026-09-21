@@ -18,7 +18,7 @@ jest.mock("@/db/schema", () => ({
 jest.mock("@/lib/id", () => ({ createId: jest.fn(() => "sub-new") }));
 jest.mock("@/lib/nav-receipt/report", () => ({ submitDailyReceiptReport: jest.fn() }));
 jest.mock("@/lib/nav/credentials", () => ({
-  decryptNavSecretOrPassthrough: (v: string | null | undefined) => v ?? undefined,
+  decryptNavSecretOrPassthrough: jest.fn((v: string | null | undefined) => v ?? undefined),
 }));
 jest.mock("@/lib/receipts/service", () => ({
   getVatAggregationForRange: jest.fn(),
@@ -26,6 +26,7 @@ jest.mock("@/lib/receipts/service", () => ({
 }));
 
 import { runDailyReceiptReports } from "@/lib/nav-receipt/daily-report-run";
+import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
 import {
   getVatAggregationForRange,
@@ -33,6 +34,10 @@ import {
 } from "@/lib/receipts/service";
 
 const { db } = jest.requireMock("@/db");
+
+const mockDecrypt = decryptNavSecretOrPassthrough as jest.MockedFunction<
+  typeof decryptNavSecretOrPassthrough
+>;
 
 const mockSubmit = submitDailyReceiptReport as jest.MockedFunction<
   typeof submitDailyReceiptReport
@@ -121,6 +126,41 @@ describe("runDailyReceiptReports", () => {
     db.select
       .mockReturnValueOnce(companiesSelect([makeCompany()]))
       .mockReturnValueOnce(submissionsSelect([submittedRow]));
+
+    const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+
+    expect(result.results).toEqual([
+      { companyId: "comp-1", reportDate: "2026-07-07", status: "already_submitted" },
+    ]);
+    expect(mockSubmit).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it("already_submitted: a newer failed row does not hide an older submitted row for the same pair — no re-send (regression)", async () => {
+    const olderSubmittedRow = {
+      id: "sub-old",
+      companyId: "comp-1",
+      reportDate: "2026-07-07",
+      status: "submitted",
+      attemptCount: 1,
+      updatedAt: new Date("2026-07-07T05:00:00.000Z"),
+    };
+    // A later manual submit (app/api/receipts/[id]/submit-nav+api.ts) can
+    // legitimately write a second row for the same (companyId, reportDate)
+    // that ends up "failed" and newer than the "submitted" row — there is
+    // deliberately no unique DB constraint preventing this.
+    const newerFailedRow = {
+      id: "sub-new",
+      companyId: "comp-1",
+      reportDate: "2026-07-07",
+      status: "failed",
+      attemptCount: 1,
+      updatedAt: new Date("2026-07-07T08:00:00.000Z"),
+    };
+    db.select
+      .mockReturnValueOnce(companiesSelect([makeCompany()]))
+      .mockReturnValueOnce(submissionsSelect([olderSubmittedRow, newerFailedRow]));
 
     const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
 
@@ -222,6 +262,68 @@ describe("runDailyReceiptReports", () => {
     // The failed row must be written to "failed", never left "pending".
     const failedUpdateCalls = (db.update as jest.Mock).mock.results.map((r) => r.value);
     expect(failedUpdateCalls.length).toBeGreaterThan(0);
+  });
+
+  it("a decryption failure resolves the row to failed and still processes the remaining companies (regression, AC5)", async () => {
+    mockDecrypt.mockImplementationOnce(() => {
+      throw new Error("NAV_CREDENTIALS_KEY nincs beállítva.");
+    });
+
+    db.select
+      .mockReturnValueOnce(companiesSelect([makeCompany({ id: "comp-a" }), makeCompany({ id: "comp-b" })]))
+      .mockReturnValueOnce(submissionsSelect([]))
+      .mockReturnValueOnce(submissionsSelect([]));
+
+    const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+
+    const failedEntry = result.results.find((r) => r.companyId === "comp-a");
+    const okEntry = result.results.find((r) => r.companyId === "comp-b");
+
+    expect(failedEntry).toMatchObject({
+      status: "failed",
+      error: "NAV_CREDENTIALS_KEY nincs beállítva.",
+    });
+    expect(okEntry).toMatchObject({ status: "submitted" });
+    // The row must never be left "pending", and submitDailyReceiptReport
+    // must never be called for the company whose credentials failed to
+    // decrypt.
+    expect(mockSubmit).toHaveBeenCalledTimes(1);
+    const failedRowUpdate = (db.update as jest.Mock).mock.calls.length;
+    expect(failedRowUpdate).toBeGreaterThan(0);
+  });
+
+  it("a DB write failure right after a successful NAV submission does not get miscoded as failed (regression)", async () => {
+    db.select
+      .mockReturnValueOnce(companiesSelect([makeCompany()]))
+      .mockReturnValueOnce(submissionsSelect([]));
+
+    // There is no existing row for this (companyId, reportDate), so the
+    // pre-NAV-call write is a db.insert (already mocked to succeed in
+    // beforeEach); the only db.update call is the post-success write that
+    // records the NAV result, which fails here (e.g. a transient DB
+    // connection drop unrelated to NAV).
+    db.update.mockReturnValue({
+      set: jest.fn().mockReturnValue({
+        where: jest.fn().mockRejectedValue(new Error("connection terminated")),
+      }),
+    });
+
+    const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+
+    // NAV already accepted the report (mockSubmit resolves ok:true by
+    // default) — the row must be reported as submitted, carrying the real
+    // transactionId, never silently downgraded to "failed" (which would
+    // make the next run's retry-in-place re-send an already-accepted
+    // report to NAV).
+    expect(result.results[0]).toMatchObject({
+      status: "submitted",
+      transactionId: "TX-1",
+    });
+    expect(result.failed).toBe(0);
+    expect(result.submitted).toBe(1);
+    // markReceiptsSubmittedForRange must not run off a write that never
+    // actually recorded "submitted".
+    expect(mockMark).not.toHaveBeenCalled();
   });
 
   it("skips a date with zero receipts (no insert), and flags demo/missing-credential companies (AC6)", async () => {

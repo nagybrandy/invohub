@@ -74,6 +74,18 @@ function newestRowFor(rows: NavReceiptSubmissionRow[], reportDate: string): NavR
   );
 }
 
+/** Per plan §2.2: "any row status = 'submitted' -> nothing, no NAV call, no
+ * insert" -- not just the newest row. The manual submit route
+ * (app/api/receipts/[id]/submit-nav+api.ts) can legitimately write a second,
+ * later row for the same (companyId, reportDate) that ends up "failed"
+ * (there is deliberately no unique DB constraint, see
+ * db/schema.ts's nav_receipt_sub_company_date_idx comment), which would
+ * otherwise be newer than an earlier "submitted" row and hide it from
+ * newestRowFor. */
+function hasSubmittedRow(rows: NavReceiptSubmissionRow[], reportDate: string): boolean {
+  return rows.some((r) => r.reportDate === reportDate && r.status === "submitted");
+}
+
 export async function runDailyReceiptReports(options?: {
   now?: Date;
   backfillDays?: number;
@@ -115,7 +127,7 @@ export async function runDailyReceiptReports(options?: {
 
       const newest = newestRowFor(existingRows, reportDate);
 
-      if (newest?.status === "submitted") {
+      if (hasSubmittedRow(existingRows, reportDate)) {
         results.push({ companyId: comp.id, reportDate, status: "already_submitted" });
         continue;
       }
@@ -183,18 +195,37 @@ export async function runDailyReceiptReports(options?: {
 
       // navTechnicalPassword/navXmlSignKey are AES-256-GCM encrypted at rest
       // (lib/nav/credentials.ts) — decrypt before use; legacy plaintext rows
-      // pass through unchanged.
-      const credentials: NavReceiptCredentials = {
-        technicalUser: comp.navTechnicalUser!,
-        technicalPassword:
-          decryptNavSecretOrPassthrough(comp.navTechnicalPassword) ?? comp.navTechnicalPassword!,
-        signingKey: decryptNavSecretOrPassthrough(comp.navXmlSignKey) ?? comp.navXmlSignKey!,
-        taxNumber: comp.taxNumber!,
-      };
+      // pass through unchanged. Decryption can throw (unset/invalid
+      // NAV_CREDENTIALS_KEY, tampered/corrupted ciphertext) — that must
+      // resolve this row like any other per-company failure (see the catch
+      // below), not abort the whole run and leave the row stuck "pending".
+      let credentials: NavReceiptCredentials;
+      try {
+        credentials = {
+          technicalUser: comp.navTechnicalUser!,
+          technicalPassword:
+            decryptNavSecretOrPassthrough(comp.navTechnicalPassword) ?? comp.navTechnicalPassword!,
+          signingKey: decryptNavSecretOrPassthrough(comp.navXmlSignKey) ?? comp.navXmlSignKey!,
+          taxNumber: comp.taxNumber!,
+        };
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : "Unknown error";
+        const finishedAt = new Date();
+
+        await db
+          .update(navReceiptSubmission)
+          .set({ status: "failed", errorMessage: errorMsg, updatedAt: finishedAt })
+          .where(eq(navReceiptSubmission.id, submissionId));
+
+        failed += 1;
+        results.push({ companyId: comp.id, reportDate, status: "failed", error: errorMsg, attemptCount });
+        continue;
+      }
       const env: NavReceiptEnvironment = comp.navEnvironment === "production" ? "production" : "test";
 
+      let navResult;
       try {
-        const navResult = await submitDailyReceiptReport(
+        navResult = await submitDailyReceiptReport(
           {
             taxNumber: comp.taxNumber!,
             softwareId: comp.navReceiptSoftwareId ?? "INVOHUB-DEFAULT",
@@ -215,41 +246,16 @@ export async function runDailyReceiptReports(options?: {
           credentials,
           env
         );
-
-        const finalStatus = navResult.ok ? "submitted" : "failed";
-        const finishedAt = new Date();
-
-        await db
-          .update(navReceiptSubmission)
-          .set({
-            status: finalStatus,
-            transactionId: navResult.transactionId ?? null,
-            errorMessage: navResult.error ?? null,
-            submittedAt: navResult.ok ? finishedAt : null,
-            updatedAt: finishedAt,
-          })
-          .where(eq(navReceiptSubmission.id, submissionId));
-
-        if (navResult.ok) {
-          await markReceiptsSubmittedForRange(comp.userId, start, end);
-          submitted += 1;
-        } else {
-          failed += 1;
-        }
-
-        results.push({
-          companyId: comp.id,
-          reportDate,
-          status: finalStatus,
-          transactionId: navResult.transactionId,
-          error: navResult.error,
-          attemptCount,
-        });
       } catch (e) {
-        // Never leave the row stuck "pending" — a thrown error (NAV
-        // timeout, network failure, …) must still resolve to "failed" so a
-        // later run's retry-in-place picks it up. One company's outage
-        // must not skip the next company or date.
+        // Never leave the row stuck "pending" — a thrown error from the NAV
+        // call itself (timeout, network failure, …) must still resolve to
+        // "failed" so a later run's retry-in-place picks it up. One
+        // company's outage must not skip the next company or date. This
+        // catch is scoped to the NAV call only — a failure recording the
+        // *result* of a successful call is handled separately below, since
+        // that is not a NAV-level failure and must never be miscoded as one
+        // (that would make retry-in-place re-send an already-accepted
+        // report).
         const errorMsg = e instanceof Error ? e.message : "Unknown error";
         const finishedAt = new Date();
 
@@ -270,7 +276,96 @@ export async function runDailyReceiptReports(options?: {
           error: errorMsg,
           attemptCount,
         });
+        continue;
       }
+
+      const finalStatus = navResult.ok ? "submitted" : "failed";
+      const finishedAt = new Date();
+
+      try {
+        await db
+          .update(navReceiptSubmission)
+          .set({
+            status: finalStatus,
+            transactionId: navResult.transactionId ?? null,
+            errorMessage: navResult.error ?? null,
+            submittedAt: navResult.ok ? finishedAt : null,
+            updatedAt: finishedAt,
+          })
+          .where(eq(navReceiptSubmission.id, submissionId));
+      } catch (writeError) {
+        const writeErrorMsg = writeError instanceof Error ? writeError.message : "Unknown error";
+
+        if (!navResult.ok) {
+          // NAV itself already rejected this report, so nothing is lost by
+          // treating this as an ordinary failure — the row's on-disk status
+          // is still whatever it was before this write attempt (a "pending"
+          // written above), which retry-in-place will still pick up next
+          // run exactly like any other failed attempt.
+          failed += 1;
+          results.push({
+            companyId: comp.id,
+            reportDate,
+            status: "failed",
+            error: `NAV rejected (${navResult.error ?? "unknown reason"}) and recording the result also failed: ${writeErrorMsg}`,
+            attemptCount,
+          });
+          continue;
+        }
+
+        // NAV already accepted this report — do NOT reclassify the row as
+        // "failed" here. That is exactly the double-submission risk this
+        // cron exists to avoid: retry-in-place only skips rows it can see
+        // are "submitted", and a wrongly-"failed" row would be re-sent to a
+        // real government API next run. Leave the row's on-disk status
+        // ("pending", written above before the NAV call) untouched, surface
+        // the write failure for operator visibility, and keep going so this
+        // one row's outage doesn't stall the rest of the run.
+        submitted += 1;
+        results.push({
+          companyId: comp.id,
+          reportDate,
+          status: "submitted",
+          transactionId: navResult.transactionId,
+          error: `NAV accepted (transactionId ${navResult.transactionId ?? "unknown"}) but recording the result failed and the row could not be marked submitted: ${writeErrorMsg}`,
+          attemptCount,
+        });
+        continue;
+      }
+
+      if (navResult.ok) {
+        try {
+          await markReceiptsSubmittedForRange(comp.userId, start, end);
+        } catch (markError) {
+          // The submission row is already safely persisted as "submitted"
+          // above — failing to flip the receipts' navSubmitted badge is a
+          // secondary, non-idempotency-risking failure. Log it in the
+          // result and move on.
+          const markErrorMsg = markError instanceof Error ? markError.message : "Unknown error";
+          submitted += 1;
+          results.push({
+            companyId: comp.id,
+            reportDate,
+            status: "submitted",
+            transactionId: navResult.transactionId,
+            error: `Submitted to NAV but failed to flag receipts as submitted: ${markErrorMsg}`,
+            attemptCount,
+          });
+          continue;
+        }
+        submitted += 1;
+      } else {
+        failed += 1;
+      }
+
+      results.push({
+        companyId: comp.id,
+        reportDate,
+        status: finalStatus,
+        transactionId: navResult.transactionId,
+        error: navResult.error,
+        attemptCount,
+      });
     }
   }
 
