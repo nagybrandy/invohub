@@ -129,6 +129,21 @@ describe("InvoiceDetailScreen", () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("invoices.links.title");
     expect(json).toContain("INV-2026-000");
+
+    // Linked-document rows are 44px tap targets with link semantics (AC6),
+    // not a 20px text sliver.
+    const stornoOfRow = findPressableWithText(
+      tree.root,
+      'invoices.links.stornoOf:{"number":"INV-2026-000"}'
+    );
+    expect(stornoOfRow).toBeTruthy();
+    expect(String(stornoOfRow!.props.className)).toContain("min-h-11");
+    expect(stornoOfRow!.props.accessibilityRole).toBe("link");
+
+    await act(async () => {
+      stornoOfRow?.props.onPress?.();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/invoices/inv-0");
   }, 30000);
 
   it("mark-paid panel toggles and posts payment on confirm", async () => {
@@ -164,6 +179,84 @@ describe("InvoiceDetailScreen", () => {
 
     const markPaidCall = mockApiFetch.mock.calls.find(([path]) => path.includes("/mark-paid"));
     expect(markPaidCall).toBeTruthy();
+  });
+
+  it("every mark-paid method choice is a 44px radio, and selecting one carries through to the mark-paid POST body", async () => {
+    mockApiFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/mark-paid")) {
+        expect(init?.method).toBe("POST");
+        return { invoice: makeInvoice({ id: "inv-1", status: "paid" }) };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+
+    const toggleButton = findPressableWithText(tree.root, "invoices.markPaid.action");
+    await act(async () => {
+      toggleButton?.props.onPress?.();
+    });
+
+    // ChoicePill renders its own <Pressable> (mocked to mockUi.Pressable)
+    // with className/accessibilityRole computed internally — unlike a
+    // top-level Button, the composite ChoicePill node itself also carries an
+    // onPress prop, so findPressableWithText's generic "first onPress match"
+    // would grab the wrong (outer) node. Match the actual rendered
+    // mockUi.Pressable composite instead, which is the one that carries the
+    // computed className/accessibilityRole.
+    function findChoicePillWithText(text: string) {
+      return tree.root
+        .findAll((node) => node.type === mockUi.Pressable)
+        .find((node) => node.findAll((child) => child.props?.children === text).length > 0);
+    }
+
+    const methodKeys = [
+      "invoices.paymentMethods.transfer",
+      "invoices.paymentMethods.cash",
+      "invoices.paymentMethods.card",
+      "invoices.paymentMethods.other",
+    ];
+    const methodPills = methodKeys.map((key) => {
+      const pill = findChoicePillWithText(key);
+      expect(pill).toBeTruthy();
+      return pill!;
+    });
+    methodPills.forEach((pill) => {
+      expect(String(pill.props.className)).toContain("min-h-11");
+      expect(pill.props.accessibilityRole).toBe("radio");
+    });
+
+    const cashPill = findChoicePillWithText("invoices.paymentMethods.cash")!;
+    await act(async () => {
+      cashPill.props.onPress?.();
+    });
+
+    const selectedPill = findChoicePillWithText("invoices.paymentMethods.cash")!;
+    expect(String(selectedPill.props.className)).toContain("border-primary bg-primary/10");
+    ["invoices.paymentMethods.transfer", "invoices.paymentMethods.card", "invoices.paymentMethods.other"].forEach(
+      (key) => {
+        const unselectedPill = findChoicePillWithText(key)!;
+        expect(String(unselectedPill.props.className)).toContain("border-border bg-background");
+      }
+    );
+
+    const confirmButton = findPressableWithText(tree.root, "invoices.markPaid.confirm");
+    await act(async () => {
+      confirmButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const markPaidCall = mockApiFetch.mock.calls.find(([path]) => (path as string).includes("/mark-paid"));
+    expect(markPaidCall).toBeTruthy();
+    const body = JSON.parse((markPaidCall![1] as RequestInit).body as string);
+    expect(body.paymentMethod).toBe("cash");
   });
 
   it("the mark-paid button is disabled for a draft invoice", async () => {
@@ -618,6 +711,28 @@ describe("InvoiceDetailScreen", () => {
       addRateButton?.props.onPress?.();
     });
     expect(mockPush).toHaveBeenCalledWith("/invoices/inv-1/edit?focus=exchangeRate");
+  });
+
+  it("the exchange-rate warning card's action clears the 44px floor", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return {
+        invoice: makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: undefined }),
+      };
+    });
+
+    const tree = await renderScreen();
+    const addRateButton = findPressableWithText(tree.root, "invoices.exchangeRateFix.addRate");
+    expect(addRateButton).toBeTruthy();
+    expect(String(addRateButton!.props.className)).toContain("min-h-11");
+    expect(String(addRateButton!.props.className)).toContain("self-start");
+    expect(String(addRateButton!.props.className)).toContain("border-destructive/40");
+    expect(addRateButton!.props.size).toBeUndefined();
   });
 
   it("renders no warning card for a HUF invoice (AC5.2)", async () => {
