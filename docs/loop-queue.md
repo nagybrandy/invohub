@@ -587,6 +587,28 @@ screenshots before writing a fix plan:
      hit test — tapping the edge of "HU" silently switched the app to
      English. Fixed the same way, per-pill (first excludes right, last
      excludes left). No visual change, 44px floor preserved.
+     - [ ] Ship-review follow-up (low, from the ship review of
+       `slice/fix-notification-bell-language-switcher-hitslop-overlap`):
+       this fix's branch is a single squashed commit (`git log
+       main..slice/fix-notification-bell-language-switcher-hitslop-overlap`
+       → one commit, `b82c8c6` "fix(header): trim hitSlop on sides
+       facing a neighbour control") containing the new tests,
+       implementation, and the loop-queue update together, so TDD
+       red→green ordering can't be independently verified from git
+       history. Re-verified: this reproduces, without a new self-note,
+       the exact same caveat already recorded just below for the prior
+       slice (`slice/invoice-flow-tap-targets-44px`) that this one is a
+       follow-up to. Not a functional defect: `tsc --noEmit` is clean
+       and `npm run test:unit` passes all 213 suites / 1344 tests,
+       including the new `lib/ui/tap-target.test.ts`, the
+       `LanguageSwitcher.test.tsx` touch-geometry describe block, and
+       the `MobileAppHeader.test.tsx` AC9 hitSlop assertions, all of
+       which independently verify the shipped behavior regardless of
+       commit history. No action required to ship; if strict TDD
+       provenance matters, future slices could preserve a red-commit
+       checkpoint before squashing, or note test-first intent
+       explicitly in the commit body (already partially done here via
+       the descriptive commit message).
    - [ ] This slice's branch is a single squashed commit
      (`git log main..slice/invoice-flow-tap-targets-44px`), so TDD
      red→green test-first ordering (AGENTS.md §9) can't be independently
