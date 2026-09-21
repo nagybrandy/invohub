@@ -4,6 +4,7 @@
 // gross amounts were (AC3). No I/O, no mocks — plain objects only.
 // docs/plans/2026-09-21-retro-correct-non-huf-invoices-nav-modify.md
 import {
+  buildNavExchangeRateAudit,
   classifyNavExchangeRateReport,
   computeNavHufMisreport,
   NAV_EXCHANGE_RATE_FIX_AT,
@@ -185,5 +186,70 @@ describe("computeNavHufMisreport", () => {
     expect(result.reportedVatHuf).toBe(0);
     expect(result.correctVatHuf).toBe(0);
     expect(result.deltaVatHuf).toBe(0);
+  });
+
+  it("gross === net + VAT, matching buildNavInvoiceXml's own summation order, even where an independently-rounded per-line gross would disagree", () => {
+    // net=1.0003, vat=0.270081 @ rate 398.53: toHufAmount(net,rate)=398.65,
+    // toHufAmount(vat,rate)=107.64, sum=506.29 — but toHufAmount(net+vat,
+    // rate) (the old, wrong per-line-gross approach) rounds to 506.28. This
+    // is the invoice-xml.ts divergence this function must not reintroduce.
+    const lineItems = [makeLineItem({ quantity: 1, unitPrice: 1.0003, vatRate: 27, vatCategory: "normal" })];
+
+    const result = computeNavHufMisreport({ lineItems, reportedRate: 398.53, currentRate: 398.53 });
+
+    expect(result.reportedNetHuf).toBe(398.65);
+    expect(result.reportedVatHuf).toBe(107.64);
+    expect(result.reportedGrossHuf).toBe(result.reportedNetHuf + result.reportedVatHuf);
+    expect(result.reportedGrossHuf).toBeCloseTo(506.29, 8);
+    expect(result.reportedGrossHuf).not.toBeCloseTo(506.28, 8); // the old, independently-rounded figure
+    expect(result.correctGrossHuf).toBe(result.correctNetHuf! + result.correctVatHuf!);
+  });
+});
+
+describe("buildNavExchangeRateAudit", () => {
+  it("sources reportedVatHuf from the winning submission's persisted column, not a recomputation from the invoice's (possibly since-edited) current line items", () => {
+    // The invoice's line items today would recompute a *different* reported
+    // VAT (100 EUR net @ 27% -> 27 HUF at rate 1) than what NAV's copy
+    // actually held at submission time (the persisted column says 55).
+    const invoice = makeInvoice({
+      currency: "EUR",
+      exchangeRate: 400,
+      lineItems: [makeLineItem({ quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" })],
+    });
+    const submissions = [makeSubmission({ reportedExchangeRate: "1", reportedVatHuf: "55" })];
+
+    const result = buildNavExchangeRateAudit(invoice, submissions);
+
+    expect(result.kind).toBe("misreported");
+    expect((result as { reportedVatHuf: number }).reportedVatHuf).toBe(55);
+    // deltaVatHuf follows the persisted figure, not the stale recomputed one.
+    expect((result as { correctVatHuf: number }).correctVatHuf).toBe(10800);
+    expect((result as { deltaVatHuf: number }).deltaVatHuf).toBe(10745);
+  });
+
+  it("falls back to the lineItems-based recomputation for a legacy row with no persisted reportedVatHuf", () => {
+    const invoice = makeInvoice({
+      currency: "EUR",
+      exchangeRate: 400,
+      lineItems: [makeLineItem({ quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" })],
+    });
+    const submissions = [
+      makeSubmission({
+        reportedExchangeRate: null,
+        submittedAt: BEFORE_FIX,
+        createdAt: BEFORE_FIX,
+        reportedVatHuf: null,
+      }),
+    ];
+
+    const result = buildNavExchangeRateAudit(invoice, submissions);
+
+    expect(result.kind).toBe("misreported");
+    expect((result as { reportedVatHuf: number }).reportedVatHuf).toBe(27);
+  });
+
+  it("passes through none/ok/unknown unchanged", () => {
+    const invoice = makeInvoice({ currency: "EUR", exchangeRate: 398.5 });
+    expect(buildNavExchangeRateAudit(invoice, [])).toEqual({ kind: "none" });
   });
 });

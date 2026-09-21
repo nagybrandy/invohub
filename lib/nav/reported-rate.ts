@@ -3,7 +3,7 @@
 // against the invoice as it stands today — and the resulting HUF amount
 // difference. No NAV call, no database access; see
 // docs/plans/2026-09-21-retro-correct-non-huf-invoices-nav-modify.md.
-import { lineItemGrossTotal, lineItemNetTotal, lineItemVatAmount } from "@/lib/invoices/calculations";
+import { lineItemNetTotal, lineItemVatAmount } from "@/lib/invoices/calculations";
 import { resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
 import type { Invoice, InvoiceLineItem } from "@/lib/invoices/types";
 
@@ -41,6 +41,13 @@ export type NavSubmissionAudit = {
   reportedCurrency: string | null;
   /** Numeric string (formatExchangeRate form) or null for a pre-this-slice row. */
   reportedExchangeRate: string | number | null;
+  /**
+   * The actual summed HUF VAT this submission's XML carried (AC1.4),
+   * persisted by `submitOutgoingInvoiceToNav`. Optional/null for a row
+   * written before this slice's migration — those fall back to the
+   * lineItems-based recomputation in `computeNavHufMisreport`.
+   */
+  reportedVatHuf?: string | number | null;
 };
 
 export type NavExchangeRateReportSource = "recorded" | "legacyImplicitOne";
@@ -146,6 +153,11 @@ function sumLinesToHuf(
  * buildNavInvoiceXml's own summation order so the two numbers can never
  * disagree). No tax rule, rate source or rounding policy of its own beyond
  * `toHufAmount`'s existing 2-decimal rounding.
+ *
+ * Gross is net + VAT (not an independently-rounded per-line gross sum) —
+ * this mirrors buildNavInvoiceXml's own `grossTotalHuf = netTotalHuf +
+ * vatTotalHuf` (lib/nav/invoice-xml.ts) so the two numbers can never
+ * disagree by a rounding cent (see lib/nav/reported-rate.test.ts).
  */
 export function computeNavHufMisreport({
   lineItems,
@@ -154,14 +166,12 @@ export function computeNavHufMisreport({
 }: NavHufMisreportInput): NavHufMisreport {
   const reportedNetHuf = sumLinesToHuf(lineItems, reportedRate, lineItemNetTotal);
   const reportedVatHuf = sumLinesToHuf(lineItems, reportedRate, lineItemVatAmount);
-  const reportedGrossHuf = sumLinesToHuf(lineItems, reportedRate, lineItemGrossTotal);
+  const reportedGrossHuf = reportedNetHuf + reportedVatHuf;
 
   const hasCurrentRate = currentRate !== null;
   const correctNetHuf = hasCurrentRate ? sumLinesToHuf(lineItems, currentRate, lineItemNetTotal) : null;
   const correctVatHuf = hasCurrentRate ? sumLinesToHuf(lineItems, currentRate, lineItemVatAmount) : null;
-  const correctGrossHuf = hasCurrentRate
-    ? sumLinesToHuf(lineItems, currentRate, lineItemGrossTotal)
-    : null;
+  const correctGrossHuf = correctNetHuf !== null && correctVatHuf !== null ? correctNetHuf + correctVatHuf : null;
 
   return {
     reportedNetHuf,
@@ -173,5 +183,51 @@ export function computeNavHufMisreport({
     reportedGrossHuf,
     correctGrossHuf,
     deltaGrossHuf: correctGrossHuf === null ? null : correctGrossHuf - reportedGrossHuf,
+  };
+}
+
+export type NavExchangeRateAuditResult = NavExchangeRateReport & Partial<NavHufMisreport>;
+
+/**
+ * Classifies `invoice` against `submissions` (`classifyNavExchangeRateReport`)
+ * and, when misreported, enriches it with the HUF amounts. Prefers the
+ * *actually reported* VAT figure durably recorded on the winning submission
+ * row (`reportedVatHuf`, AC1.4) over recomputing it from the invoice's
+ * current — and editable — line items: `reportedVatHuf` is what NAV's copy
+ * of the invoice really holds and must not silently drift if the invoice is
+ * edited after submission. Net and gross were never persisted (only VAT is
+ * a stored column, see `db/schema.ts`), so they — and the VAT figure for a
+ * legacy row with no stored value — remain an approximation computed from
+ * the invoice's current line items at the reported rate, exactly as
+ * `computeNavHufMisreport` always did.
+ */
+export function buildNavExchangeRateAudit(
+  invoice: Pick<Invoice, "currency" | "exchangeRate" | "documentType" | "lineItems">,
+  submissions: NavSubmissionAudit[]
+): NavExchangeRateAuditResult {
+  const classification = classifyNavExchangeRateReport(invoice, submissions);
+  if (classification.kind !== "misreported") return classification;
+
+  const amounts = computeNavHufMisreport({
+    lineItems: invoice.lineItems,
+    reportedRate: classification.reportedRate,
+    currentRate: classification.currentRate,
+  });
+
+  const winningSubmission = latestNonDemoSubmission(submissions);
+  const persistedReportedVatHuf =
+    winningSubmission?.reportedVatHuf === null || winningSubmission?.reportedVatHuf === undefined
+      ? null
+      : Number(winningSubmission.reportedVatHuf);
+
+  if (persistedReportedVatHuf === null || Number.isNaN(persistedReportedVatHuf)) {
+    return { ...classification, ...amounts };
+  }
+
+  return {
+    ...classification,
+    ...amounts,
+    reportedVatHuf: persistedReportedVatHuf,
+    deltaVatHuf: amounts.correctVatHuf === null ? null : amounts.correctVatHuf - persistedReportedVatHuf,
   };
 }

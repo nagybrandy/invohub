@@ -107,6 +107,42 @@ describe("GET /api/nav/status — exchangeRateReport (AC4)", () => {
     expect(body.exchangeRateReport.deltaVatHuf).toBe(10773);
   });
 
+  it("reads the reported HUF VAT back from the persisted nav_submission.reportedVatHuf column instead of recomputing it from the invoice's current line items", async () => {
+    // The invoice's line items today would recompute a different reported
+    // VAT (100 EUR net @ 27% -> 27 at rate 1) than what NAV's copy actually
+    // held — the persisted column (55) must win.
+    mockGetInvoiceById.mockResolvedValue(
+      makeInvoice({
+        id: "inv-1",
+        currency: "EUR",
+        exchangeRate: 400,
+        lineItems: [
+          { id: "l1", description: "A", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" },
+        ],
+      }) as never
+    );
+    mockSubmissionRows([
+      {
+        mode: "test",
+        status: "done",
+        submittedAt: "2026-09-16T00:00:00.000Z",
+        createdAt: "2026-09-16T00:00:00.000Z",
+        reportedCurrency: "EUR",
+        reportedExchangeRate: "1",
+        reportedVatHuf: "55",
+      },
+    ]);
+
+    const res = await GET(makeRequest("inv-1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.exchangeRateReport.kind).toBe("misreported");
+    expect(body.exchangeRateReport.reportedVatHuf).toBe(55);
+    expect(body.exchangeRateReport.correctVatHuf).toBe(10800);
+    expect(body.exchangeRateReport.deltaVatHuf).toBe(10745);
+  });
+
   it("4.1 — ok classification carries no HUF amounts", async () => {
     mockGetInvoiceById.mockResolvedValue(
       makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: 398.5 }) as never

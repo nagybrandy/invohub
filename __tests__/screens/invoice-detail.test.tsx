@@ -820,7 +820,7 @@ describe("InvoiceDetailScreen", () => {
     alertSpy.mockRestore();
   });
 
-  it("routes to the composer with focus=exchangeRate instead of the correction flow when currentRate is null (AC5.4)", async () => {
+  it("suppresses the NAV audit card (not just its CTA) when currentRate is null, deferring to the exchange-rate-fix card instead — no duplicate 'add rate' button (AC5.4)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
         return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
@@ -840,9 +840,20 @@ describe("InvoiceDetailScreen", () => {
     });
 
     const tree = await renderScreen();
-    const auditButton = tree.root.findByProps({ testID: "nav-exchange-rate-audit-primary-action" });
+
+    // Only the exchange-rate-fix card's CTA exists — the audit card (which,
+    // with currentRate null, could only ever repeat the same "add the rate"
+    // button) must not render at all.
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.exchangeRateFix.detailTitle");
+    expect(json).not.toContain("invoices.navExchangeRateAudit.title");
+    expect(json).not.toContain("invoices.navExchangeRateAudit.missingRateBody");
+    expect(() => tree.root.findByProps({ testID: "nav-exchange-rate-audit-primary-action" })).toThrow();
+
+    const addRateButton = findPressableWithText(tree.root, "invoices.exchangeRateFix.addRate");
+    expect(addRateButton).toBeTruthy();
     await act(async () => {
-      auditButton.props.onPress?.();
+      addRateButton?.props.onPress?.();
     });
 
     expect(mockPush).toHaveBeenCalledWith("/invoices/inv-1/edit?focus=exchangeRate");

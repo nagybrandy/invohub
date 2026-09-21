@@ -455,7 +455,17 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
-        {(links?.correctionDocuments?.length ?? 0) === 0 ? (
+        {/*
+          Suppressed whenever the exchange-rate-fix card above is showing:
+          when the invoice has no usable current rate, the audit card can
+          only ever render its "add the rate first" branch (currentRate is
+          always null in that state — see resolveExchangeRate), which is the
+          same "Árfolyam megadása" CTA as the card above, routing to the
+          same place. Rendering both reads as two competing destructive
+          boxes for one action; see the plan's §7 "one clear next step, not
+          two competing red boxes."
+        */}
+        {(links?.correctionDocuments?.length ?? 0) === 0 && !isMissingExchangeRate(invoice) ? (
           <NavExchangeRateAuditCard
             report={exchangeRateReport}
             currency={invoice.currency}
