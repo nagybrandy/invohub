@@ -658,6 +658,12 @@ export default {
       statusPaid: "Paid",
       statusOverdue: "Overdue",
     },
+    support: {
+      subject: "InvoHub support – question",
+      bodyIntro: "Briefly describe what happened and what you expected:",
+      diagnosticsTitle: "Technical details (please leave these in — they help us debug):",
+      openFailed: "Could not open your mail app. Write to us at {{email}}",
+    },
     features: {
       import: "Bulk import invoices from Excel or CSV.",
       receipts: "View and issue electronic receipts.",

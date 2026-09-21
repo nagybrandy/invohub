@@ -52,11 +52,19 @@ before or alongside Phase 1 items that depend on it.
       hashes compared over an HTTP round trip, but a real departure from
       constant-time comparison discipline in the `app/api/v1/*` auth path
       (2026-09-14 audit, security)
-- [ ] Dashboard "Customer service" button (`app/(app)/dashboard/index.tsx`)
+- [x] Dashboard "Customer service" button (`app/(app)/dashboard/index.tsx`)
       has no `onPress` handler, unlike the neighboring incoming-invoices
       button — wire it to a support contact flow (mailto, chat widget,
       help page) or remove it until one exists (2026-09-14 audit,
-      ux-desktop)
+      ux-desktop). Done: wired to a mailto flow
+      (`lib/support/contact.ts`) gated on `EXPO_PUBLIC_SUPPORT_EMAIL`
+      (`.env.example`) — hidden entirely, trigger included, while unset;
+      reachable on mobile too (previously desktop-only); local toast on
+      `Linking.openURL` failure. `PageHeader` gained an optional
+      `overflowLabel` prop (defaults to "Továbbiak") so the trigger's
+      a11y label is now `t("nav.more")` instead of a hardcoded Hungarian
+      string. Plan:
+      `docs/plans/2026-09-21-dashboard-customer-service-button-handler.md`
 - [ ] NAV receipt-report cron has no retry and no backfill —
       `app/api/cron/nav-receipt-report+api.ts` only ever builds yesterday's
       `reportDate`, and a row left in `nav_receipt_submission` with a failed
