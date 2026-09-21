@@ -1136,8 +1136,8 @@ Remaining for the launch gate:
       itself a `ScrollView`) is removed. Row *content* (titles/bodies)
       stays English — that's the separate, still-open content-localisation
       item below; out of scope here per the plan.
-- [ ] **Needs explicit human/product sign-off** — AC7 of
-      `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
+- [~] needs sign-off (PR) (slice/notification-panel-i18n-chrome-text) —
+      AC7 of `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
       requires the empty-state description to name exactly "lejárt
       számlák, NAV-beküldés, emlékeztetők" (overdue invoices, NAV
       submission, reminders). The shipped copy (`lib/i18n/locales/hu.ts` /
@@ -1172,6 +1172,34 @@ Remaining for the launch gate:
       or `processPaymentReminders` (its own TDD slice — out of scope for a
       "risk: none, presentational only" plan) and restore "emlékeztetők" to
       the copy.
+- [ ] `components/notifications/NotificationPanel.tsx:99` — the close
+      button's `className` duplicates centering utilities already provided
+      by `TAP_TARGET_ICON_BOX`: `` `items-center justify-center rounded-full
+      ${TAP_TARGET_ICON_BOX}` `` where `TAP_TARGET_ICON_BOX`
+      (`lib/ui/tap-target.ts`) is already `"h-11 w-11 items-center
+      justify-center"` — `items-center justify-center` is written twice.
+      Harmless (class-merge dedupes it), just noise for the next reader.
+      Fix: drop the explicit `items-center justify-center` and keep
+      `className={`rounded-full ${TAP_TARGET_ICON_BOX}`}`.
+      (ship-review, notification-panel-i18n-chrome-text, ux, low)
+- [ ] The tap-target/overflow review of
+      `components/notifications/NotificationPanel.tsx` reached its
+      "no regression" conclusion by static code tracing only (Button's
+      `size="sm"` is `min-h-8` per `components/ui/button/index.tsx:53`,
+      overridden by the panel's own `TAP_TARGET_MIN_H` className per tva's
+      class-merge; `DrawerBody` is `ScrollView`-backed with base `shrink-0`
+      and the panel keeps `flex-1` with no inner `ScrollView`) — not live
+      rendered screenshots. Capturing an authenticated 375×812/1440×900
+      screenshot was blocked by this session's credential-leakage guard
+      (the repo's `.env` holds the production Neon `DATABASE_URL` per
+      CLAUDE.md) and was not attempted, so this remains an
+      unverified-by-screenshot gap, not evidence of an actual bug. Fix: a
+      reviewer with a disposable local Postgres + non-production E2E test
+      user should capture the mobile/desktop screenshots before treating
+      this as a fully verified UX pass; alternatively build a mocked-auth/
+      Storybook harness so `NotificationPanel` can be screenshotted without
+      live credentials. (ship-review, notification-panel-i18n-chrome-text,
+      ux, low)
 - [ ] Notification rows created before the 2026-09-15 i18n-key encoding
       fix (in the same DB, from earlier test runs) still render as literal
       English text — by design, only newly-synced/newly-seeded
