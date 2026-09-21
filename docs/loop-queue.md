@@ -1422,6 +1422,30 @@ Remaining for the launch gate:
       text is dim. Optional polish, not a blocker: on a future touch of this
       file, darken `.footer` text color (e.g. toward `#6b7280`/`#5b6178`).
       (2026-09-16 ship review of slice/pdf-invohub-brand-mark, ux)
+- [ ] AC6 unit test cannot actually exercise a real listener leak — the two
+      "notes continuation listener cleanup (AC6)" tests in
+      `lib/invoices/generate-pdf.test.ts` (lines 740-756) assert
+      `mockDocs[0].listenerCount('pageAdded')` is 0 after
+      `generateInvoicePdf()`, but the jest.mock factory's `addPage()`
+      (~lines 146-149) is a no-op and `text()` (~lines 199-205) never calls
+      `addPage()` or emits `'pageAdded'`, so the mock never fires the event
+      this feature is built around. In `lib/invoices/generate-pdf.ts`
+      (lines 747-756), `doc.on('pageAdded', onNotesPageAdded)` is paired
+      with `doc.off('pageAdded', onNotesPageAdded)` inside a `finally` block
+      that runs unconditionally regardless of whether `pageAdded` ever
+      fired — so this test would pass identically whether the on/off
+      pairing were implemented correctly or removed/broken entirely. The
+      real pdfkit-backed `generate-pdf.integration.test.ts` exercises real
+      pagination for AC1/2/3/7/8, but no test (mock or integration) asserts
+      zero leaked listeners against a document where `'pageAdded'` actually
+      fired. Optional hardening: add a real-pdfkit assertion in
+      `generate-pdf.integration.test.ts`, e.g.
+      `doc.listenerCount('pageAdded') === 0` on the real document returned
+      via the recorded-doc helper, for an invoice whose notes actually
+      paginate, so AC6 is verified against real pagination rather than only
+      a mock that never emits the event.
+      (2026-09-21 ship review of slice/pdf-broken-pagination-blank-page,
+      acceptance)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
