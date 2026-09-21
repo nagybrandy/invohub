@@ -767,6 +767,137 @@ describe("InvoiceDetailScreen", () => {
     expect(json).not.toContain("invoices.exchangeRateFix.detailTitle");
   });
 
+  it("renders the NAV exchange-rate audit card when misreported, and its button POSTs /modify exactly once and navigates to the draft (AC5.3)", async () => {
+    mockApiFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return {
+          submissions: [{ status: "done", transactionId: "TX-1" }],
+          exchangeRateReport: {
+            kind: "misreported",
+            reportedRate: 1,
+            currentRate: 400,
+            source: "legacyImplicitOne",
+            reportedVatHuf: 27,
+            correctVatHuf: 10800,
+            deltaVatHuf: 10773,
+            reportedNetHuf: 100,
+            correctNetHuf: 40000,
+            deltaNetHuf: 39900,
+            reportedGrossHuf: 127,
+            correctGrossHuf: 50800,
+            deltaGrossHuf: 50673,
+          },
+        };
+      }
+      if (path.includes("/modify")) {
+        return { invoice: makeInvoice({ id: "modify-1", documentType: "modify" }) };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: 400, status: "sent" }) };
+    });
+
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation((_title, _msg, buttons) => {
+      const confirm = buttons?.find((b) => b.text === "invoices.correction.confirm");
+      confirm?.onPress?.();
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.navExchangeRateAudit.title");
+
+    const auditButton = tree.root.findByProps({ testID: "nav-exchange-rate-audit-primary-action" });
+    await act(async () => {
+      auditButton.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const modifyCalls = mockApiFetch.mock.calls.filter(([path]) => (path as string).includes("/modify"));
+    expect(modifyCalls).toHaveLength(1);
+    expect(mockPush).toHaveBeenCalledWith("/invoices/modify-1/edit");
+    alertSpy.mockRestore();
+  });
+
+  it("routes to the composer with focus=exchangeRate instead of the correction flow when currentRate is null (AC5.4)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return {
+          submissions: [],
+          exchangeRateReport: {
+            kind: "misreported",
+            reportedRate: 1,
+            currentRate: null,
+            source: "legacyImplicitOne",
+          },
+        };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: undefined }) };
+    });
+
+    const tree = await renderScreen();
+    const auditButton = tree.root.findByProps({ testID: "nav-exchange-rate-audit-primary-action" });
+    await act(async () => {
+      auditButton.props.onPress?.();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/invoices/inv-1/edit?focus=exchangeRate");
+    const modifyCalls = mockApiFetch.mock.calls.filter(([path]) => (path as string).includes("/modify"));
+    expect(modifyCalls).toHaveLength(0);
+  });
+
+  it("does not render the NAV exchange-rate audit card when a correction document already exists (AC5.5)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return {
+          originalInvoice: null,
+          modifiesInvoice: null,
+          stornoDocuments: [],
+          correctionDocuments: [{ id: "modify-1", invoiceNumber: "INV-2026-777" }],
+        };
+      }
+      if (path.includes("/api/nav/status")) {
+        return {
+          submissions: [{ status: "done", transactionId: "TX-1" }],
+          exchangeRateReport: {
+            kind: "misreported",
+            reportedRate: 1,
+            currentRate: 400,
+            source: "legacyImplicitOne",
+            reportedVatHuf: 27,
+            correctVatHuf: 10800,
+            deltaVatHuf: 10773,
+          },
+        };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: 400 }) };
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.navExchangeRateAudit.title");
+  });
+
+  it("does not render the NAV exchange-rate audit card for kind: ok/unknown/none", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [], exchangeRateReport: { kind: "ok" } };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", currency: "EUR", exchangeRate: 400 }) };
+    });
+
+    const tree = await renderScreen();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.navExchangeRateAudit.title");
+  });
+
   it("shows a status timeline above the document preview (D6/AC11)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {

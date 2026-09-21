@@ -291,6 +291,16 @@ export const navSubmission = pgTable(
     submittedAt: timestamp("submitted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    // Audit trail of what this submission actually reported to NAV — added
+    // retroactively (see lib/nav/reported-rate.ts); NULL on every row
+    // written before this migration, which is itself the signal a
+    // pre-this-slice submission's rate can't be proven either way.
+    /** Invoice currency as reported to NAV in this submission. */
+    reportedCurrency: text("reported_currency"),
+    /** <exchangeRate> as actually emitted in this submission's XML. */
+    reportedExchangeRate: numeric("reported_exchange_rate", { precision: 12, scale: 6 }),
+    /** Summed per-line HUF VAT as actually reported (…HUF elements). */
+    reportedVatHuf: numeric("reported_vat_huf", { precision: 14, scale: 2 }),
   },
   (table) => [index("nav_submission_invoice_id_idx").on(table.invoiceId)]
 );

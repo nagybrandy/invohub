@@ -184,4 +184,89 @@ describe("submitOutgoingInvoiceToNav", () => {
     expect(mockTokenExchange).not.toHaveBeenCalled();
     expect(db.insert).not.toHaveBeenCalled();
   });
+
+  // AC1: a submission records what it actually reported to NAV.
+  describe("records what it reported (AC1)", () => {
+    function insertedValues(): Record<string, unknown> {
+      const { db } = require("@/db") as { db: { insert: jest.Mock } };
+      const valuesMock = db.insert.mock.results[0].value.values as jest.Mock;
+      return valuesMock.mock.calls[0][0];
+    }
+
+    it("1.2 — records reportedCurrency + reportedExchangeRate (formatExchangeRate form) for a non-HUF invoice", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({
+        currency: "EUR",
+        exchangeRate: 398.5,
+        lineItems: [{ id: "l1", description: "Consulting", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+      });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      const values = insertedValues();
+      expect(values.reportedCurrency).toBe("EUR");
+      expect(values.reportedExchangeRate).toBe("398.5");
+    });
+
+    it("1.3 — records reportedExchangeRate \"1\" for a HUF invoice", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({ currency: "HUF" });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      const values = insertedValues();
+      expect(values.reportedCurrency).toBe("HUF");
+      expect(values.reportedExchangeRate).toBe("1");
+    });
+
+    it("1.4 — reportedVatHuf equals the summed per-line HUF VAT (converted per line, then summed)", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({
+        currency: "EUR",
+        exchangeRate: 400,
+        lineItems: [
+          { id: "l1", description: "A", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" },
+          { id: "l2", description: "B", quantity: 1, unitPrice: 50, vatRate: 27, vatCategory: "normal" },
+        ],
+      });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      const values = insertedValues();
+      // per line: 27 EUR VAT * 400 = 10800; 13.5 EUR VAT * 400 = 5400 -> 16200
+      expect(values.reportedVatHuf).toBe("16200.00");
+    });
+
+    it("1.4b — exempt (AAM) lines report zero HUF VAT", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({
+        currency: "EUR",
+        exchangeRate: 400,
+        lineItems: [{ id: "l1", description: "A", quantity: 1, unitPrice: 100, vatRate: 0, vatCategory: "AAM" }],
+      });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      expect(insertedValues().reportedVatHuf).toBe("0.00");
+    });
+
+    it("1.5 — tokenExchange/manageInvoice are each still called exactly once with identical args, result shape unchanged", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({ currency: "EUR", exchangeRate: 398.5 });
+
+      const result = await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      expect(mockTokenExchange).toHaveBeenCalledTimes(1);
+      expect(mockTokenExchange).toHaveBeenCalledWith(null);
+      expect(mockManageInvoice).toHaveBeenCalledTimes(1);
+      expect(mockManageInvoice).toHaveBeenCalledWith(
+        null,
+        "tok-abc",
+        expect.arrayContaining([expect.objectContaining({ index: 1, operation: "CREATE" })])
+      );
+      expect(Object.keys(result).sort()).toEqual(
+        ["invoiceXml", "mode", "status", "submissionId", "transactionId"].sort()
+      );
+    });
+  });
 });

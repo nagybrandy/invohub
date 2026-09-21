@@ -227,6 +227,20 @@ export default {
         "Ez a számla {{currency}} pénznemű, de nincs hozzá rögzítve árfolyam. A NAV Online Számla adatszolgáltatás forintban kéri az áfaértéket, ezért a beküldés addig nem lehetséges, amíg meg nem adod az árfolyamot.",
       addRate: "Árfolyam megadása",
     },
+    navExchangeRateAudit: {
+      title: "A NAV-nak hibás árfolyamon jelentettük be",
+      body: "Ezt a {{currency}} számlát {{reportedRate}} árfolyamon küldtük be a NAV Online Számla rendszerébe, a számlán szereplő árfolyam viszont {{currentRate}}. A NAV-nál nyilvántartott forintos áfaérték ezért {{reportedVat}} a helyes {{correctVat}} helyett.",
+      legacyNote:
+        "A számla beküldésekor az InvoHub minden deviza számlát 1-es árfolyamon jelentett be — ezt azóta javítottuk.",
+      missingRateBody:
+        "Ezt a {{currency}} számlát 1-es árfolyamon küldtük be a NAV-nak, a számlán viszont nincs rögzítve árfolyam, ezért a helyes forintösszeget nem tudjuk kiszámolni. Add meg az árfolyamot, utána látszik az eltérés.",
+      correctionHint:
+        "Az InvoHub elő tud készíteni egy helyesbítő számlát a javított forintösszegekkel. A helyesbítőt te nézed át és te küldöd be — az InvoHub magától semmit nem jelent be újra a NAV-nak.",
+      issueCorrection: "Helyesbítő előkészítése",
+      addRate: "Árfolyam megadása",
+      reportedLabel: "Bejelentett árfolyam",
+      currentLabel: "Számla árfolyama",
+    },
     nav: {
       title: "NAV Online Számla",
       demoBadge: "Demó mód — nem valódi NAV jelentés",

@@ -6,6 +6,8 @@ import { db } from "@/db";
 import { navSubmission } from "@/db/schema";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
+import { lineItemVatAmount } from "@/lib/invoices/calculations";
+import { formatExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
 import { getInvoiceById } from "@/lib/invoices/service";
 import type { Invoice } from "@/lib/invoices/types";
 import { getNavClient } from "@/lib/nav/client";
@@ -101,6 +103,22 @@ export async function submitOutgoingInvoiceToNav(
   const submissionId = createId();
   const status = "sent";
 
+  // Records what this submission actually reported to NAV — the audit
+  // trail lib/nav/reported-rate.ts reads. Guaranteed ok: buildNavInvoiceXml
+  // above already threw on an unusable rate, so this never falls to
+  // `resolveExchangeRate`'s error branch here.
+  const rateResolution = resolveExchangeRate(invoice);
+  const reportedRate = rateResolution.ok ? rateResolution.rate : 1;
+  // Per line, then summed — the same order buildNavInvoiceXml's
+  // <lineVatAmountHUF>/summary totals use, so the two numbers can never
+  // disagree (exempt/reverse-charge lines already carry vatRate 0 via
+  // resolveVatRate, matching invoice-xml.ts's isZeroVatTreatment for the
+  // no-lineExtras case this call always takes).
+  const reportedVatHuf = invoice.lineItems.reduce(
+    (sum, line) => sum + toHufAmount(lineItemVatAmount(line), reportedRate),
+    0
+  );
+
   await db.insert(navSubmission).values({
     id: submissionId,
     invoiceId: invoice.id,
@@ -110,6 +128,9 @@ export async function submitOutgoingInvoiceToNav(
     submittedAt: now,
     createdAt: now,
     updatedAt: now,
+    reportedCurrency: invoice.currency,
+    reportedExchangeRate: formatExchangeRate(reportedRate),
+    reportedVatHuf: reportedVatHuf.toFixed(2),
   });
 
   return { submissionId, status, transactionId, invoiceXml, mode };

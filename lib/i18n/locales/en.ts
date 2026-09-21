@@ -226,6 +226,20 @@ export default {
         "This invoice is in {{currency}} but has no exchange rate. NAV Online Számla requires the VAT amount in forint, so it cannot be submitted until you enter the rate.",
       addRate: "Add exchange rate",
     },
+    navExchangeRateAudit: {
+      title: "Reported to NAV at the wrong exchange rate",
+      body: "This {{currency}} invoice was submitted to NAV Online Számla at an exchange rate of {{reportedRate}}, but the invoice's rate is {{currentRate}}. The forint VAT amount on file at NAV is therefore {{reportedVat}} instead of the correct {{correctVat}}.",
+      legacyNote:
+        "When this invoice was submitted, InvoHub reported every foreign-currency invoice at a rate of 1 — this has since been fixed.",
+      missingRateBody:
+        "This {{currency}} invoice was submitted to NAV at a rate of 1, but the invoice has no exchange rate, so the correct forint amount cannot be calculated. Enter the rate to see the difference.",
+      correctionHint:
+        "InvoHub can prepare a correction invoice with the corrected forint amounts. You review and submit it — InvoHub never re-reports anything to NAV on its own.",
+      issueCorrection: "Prepare correction invoice",
+      addRate: "Add exchange rate",
+      reportedLabel: "Reported rate",
+      currentLabel: "Invoice rate",
+    },
     nav: {
       title: "NAV Online Számla",
       demoBadge: "Demo mode — not a real NAV report",

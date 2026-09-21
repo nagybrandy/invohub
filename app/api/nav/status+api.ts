@@ -9,6 +9,11 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { getNavClient } from "@/lib/nav/client";
 import { isNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
+import {
+  classifyNavExchangeRateReport,
+  computeNavHufMisreport,
+  type NavSubmissionAudit,
+} from "@/lib/nav/reported-rate";
 import { resolveNavCredentials } from "@/lib/nav/resolve-credentials";
 
 export async function GET(request: Request) {
@@ -28,7 +33,20 @@ export async function GET(request: Request) {
     .where(eq(navSubmission.invoiceId, invoice.id))
     .orderBy(desc(navSubmission.createdAt));
 
-  return jsonResponse({ submissions });
+  const classification = classifyNavExchangeRateReport(invoice, submissions as NavSubmissionAudit[]);
+  const exchangeRateReport =
+    classification.kind === "misreported"
+      ? {
+          ...classification,
+          ...computeNavHufMisreport({
+            lineItems: invoice.lineItems,
+            reportedRate: classification.reportedRate,
+            currentRate: classification.currentRate,
+          }),
+        }
+      : classification;
+
+  return jsonResponse({ submissions, exchangeRateReport });
 }
 
 export async function POST(request: Request) {
