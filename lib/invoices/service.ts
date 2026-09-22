@@ -317,6 +317,38 @@ export async function upsertInvoice(
   return saved;
 }
 
+export type FinalizeInvoiceResult =
+  | { ok: true; invoice: Invoice }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "not_draft" };
+
+/**
+ * Turns a draft into an issued document — the same "Véglegesítés" action
+ * the composer offers (components/invoices/composer/composer-logic.ts's
+ * resolveStatusForAction for action "finalize": proforma stays "proforma",
+ * everything else becomes "unpaid"). Numbering goes through the exact same
+ * path as everywhere else — upsertInvoice's assignInvoiceNumberIfNeeded —
+ * never a second numbering path. Refuses anything that isn't currently a
+ * draft (already-finalized documents keep their number forever).
+ */
+export async function finalizeInvoice(
+  userId: string,
+  id: string
+): Promise<FinalizeInvoiceResult> {
+  const existing = await getInvoiceById(userId, id);
+  if (!existing) return { ok: false, reason: "not_found" };
+  if (existing.status !== "draft") return { ok: false, reason: "not_draft" };
+
+  const nextStatus: Invoice["status"] =
+    existing.documentType === "proforma" ? "proforma" : "unpaid";
+  const saved = await upsertInvoice(userId, {
+    ...existing,
+    status: nextStatus,
+    updatedAt: new Date().toISOString(),
+  });
+  return { ok: true, invoice: saved };
+}
+
 export async function deleteInvoiceById(
   userId: string,
   id: string
@@ -327,6 +359,27 @@ export async function deleteInvoiceById(
     .delete(invoice)
     .where(and(eq(invoice.id, id), eq(invoice.userId, userId)));
   return true;
+}
+
+export type DeleteDraftInvoiceResult = "not_found" | "not_draft" | "deleted";
+
+/**
+ * DELETE /api/v1/invoices/:id — draft only. Continuous numbering means a
+ * finalized document must never be deletable, so this refuses anything
+ * that isn't currently a draft instead of falling through to
+ * deleteInvoiceById (which has no such guard — it backs the internal,
+ * session-authenticated route where the UI never offers delete on a
+ * finalized document either, but enforces it in the screen, not the API).
+ */
+export async function deleteDraftInvoiceById(
+  userId: string,
+  id: string
+): Promise<DeleteDraftInvoiceResult> {
+  const existing = await getInvoiceById(userId, id);
+  if (!existing) return "not_found";
+  if (existing.status !== "draft") return "not_draft";
+  await deleteInvoiceById(userId, id);
+  return "deleted";
 }
 
 /** Draft copy with a blank number — it only gets one once finalized (never "-COPY"). */

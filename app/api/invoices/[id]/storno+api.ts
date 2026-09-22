@@ -1,9 +1,10 @@
 // app/api/invoices/[id]/storno+api.ts
 // Create a storno (cancellation) invoice from an existing one, and flip the
-// original invoice to status "cancelled" (see lib/invoices/service.ts).
+// original invoice to status "cancelled" — guard + orchestration shared
+// with the external v1 route via lib/invoices/storno-handler.ts.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
-import { createStornoInvoice, getInvoiceById } from "@/lib/invoices/service";
+import { performStorno } from "@/lib/invoices/storno-handler";
 
 type Params = { id: string };
 
@@ -15,17 +16,17 @@ export async function POST(
   if (!session) return unauthorizedResponse();
 
   const id = await resolveIdParam(request, params);
-  const existing = await getInvoiceById(session.user.id, id);
-  if (!existing) {
-    return jsonResponse({ error: "Not found" }, 404);
-  }
-  if (existing.documentType === "proforma") {
-    return jsonResponse({ code: "proformaNotStornoable" }, 400);
-  }
-  if (existing.status === "cancelled") {
+  const result = await performStorno(session.user.id, id);
+
+  if (!result.ok) {
+    if (result.reason === "not_found") {
+      return jsonResponse({ error: "Not found" }, 404);
+    }
+    if (result.reason === "proforma") {
+      return jsonResponse({ code: "proformaNotStornoable" }, 400);
+    }
     return jsonResponse({ error: "Invoice is already cancelled." }, 400);
   }
 
-  const saved = await createStornoInvoice(session.user.id, existing);
-  return jsonResponse({ invoice: saved }, 201);
+  return jsonResponse({ invoice: result.invoice }, 201);
 }

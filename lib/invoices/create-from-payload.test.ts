@@ -2,6 +2,7 @@
 jest.mock("@/lib/invoices/service", () => ({
   listInvoices: jest.fn(),
   upsertInvoice: jest.fn(),
+  getInvoiceById: jest.fn(),
 }));
 
 jest.mock("@/lib/companies/service", () => ({
@@ -10,13 +11,16 @@ jest.mock("@/lib/companies/service", () => ({
 
 import {
   createInvoiceFromPayload,
+  updateDraftInvoiceFromPayload,
   validateExternalInvoiceInput,
   type ExternalInvoiceInput,
 } from "@/lib/invoices/create-from-payload";
-import { upsertInvoice } from "@/lib/invoices/service";
+import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
+import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockUpsertInvoice = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+const mockGetInvoiceById = getInvoiceById as jest.MockedFunction<typeof getInvoiceById>;
 const mockGetCompanyByUserId = getCompanyByUserId as jest.MockedFunction<
   typeof getCompanyByUserId
 >;
@@ -218,5 +222,54 @@ describe("createInvoiceFromPayload", () => {
   it("leaves paymentMethod undefined when omitted — no silent transfer default", async () => {
     const saved = await createInvoiceFromPayload("user-1", input);
     expect(saved.paymentMethod).toBeUndefined();
+  });
+});
+
+describe("updateDraftInvoiceFromPayload", () => {
+  const validBody: Partial<ExternalInvoiceInput> = {
+    clientName: "Updated Kft.",
+    lineItems: [{ description: "New line", quantity: 2, unitPrice: 5000 }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetCompanyByUserId.mockResolvedValue(null);
+    mockUpsertInvoice.mockImplementation((_uid, inv) => Promise.resolve(inv));
+  });
+
+  it("returns not_found when the invoice doesn't exist (or belongs to another user)", async () => {
+    mockGetInvoiceById.mockResolvedValue(null);
+    const result = await updateDraftInvoiceFromPayload("user-1", "missing", validBody);
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("returns not_draft for a finalized invoice, without ever calling upsertInvoice", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "sent" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", validBody);
+    expect(result).toEqual({ ok: false, reason: "not_draft" });
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("returns a validation error using the same rules as create, without calling upsertInvoice", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      clientName: "",
+      lineItems: [],
+    });
+    expect(result).toMatchObject({ ok: false, reason: "validation" });
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("updates a draft's fields and persists via upsertInvoice", async () => {
+    mockGetInvoiceById.mockResolvedValue(
+      makeInvoice({ id: "inv-1", status: "draft", clientName: "Old Kft." })
+    );
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", validBody);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.invoice.clientName).toBe("Updated Kft.");
+    expect(result.invoice.lineItems[0].description).toBe("New line");
+    expect(mockUpsertInvoice).toHaveBeenCalledTimes(1);
   });
 });

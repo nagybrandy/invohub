@@ -1,20 +1,39 @@
 // app/api/v1/invoices/[id]/nav+api.ts
-// External API: forward an existing invoice to NAV using API key auth.
+// External API: NAV submission status (GET) and forwarding (POST) for an
+// existing invoice, using API key auth.
 import {
   jsonApiResponse,
-  requireApiKey,
+  requireApiKeyForV1,
 } from "@/lib/api/api-key-auth";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { getInvoiceById } from "@/lib/invoices/service";
+import { listNavSubmissionsForInvoice } from "@/lib/nav/list-submissions";
 import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
 
 type Params = { id: string };
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<Params> }
+) {
+  const auth = await requireApiKeyForV1(request);
+  if (!auth.ok) return auth.response;
+
+  const id = await resolveIdParam(request, params);
+  const invoice = await getInvoiceById(auth.userId, id);
+  if (!invoice) {
+    return jsonApiResponse({ error: "Invoice not found." }, 404);
+  }
+
+  const submissions = await listNavSubmissionsForInvoice(invoice.id);
+  return jsonApiResponse({ submissions });
+}
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<Params> }
 ) {
-  const auth = await requireApiKey(request);
+  const auth = await requireApiKeyForV1(request);
   if (!auth.ok) return auth.response;
 
   const id = await resolveIdParam(request, params);
