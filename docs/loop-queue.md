@@ -32,9 +32,11 @@ before or alongside Phase 1 items that depend on it.
       confirm `lib/nav/credentials.ts`, `lib/m2m/credentials.ts`, and
       `lib/api-keys/crypto.ts` actually encrypt at rest (check the
       primitive, not just the file name) and never log a raw secret
-- [ ] Tax-audit export size/row limit — confirm `lib/export/tax-audit.ts`
+- [x] Tax-audit export size/row limit — confirm `lib/export/tax-audit.ts`
       and its API route are scoped per-user and bounded, not an unbounded
-      dump
+      dump. Superseded (slice/tax-audit-data-export): the CSV export was
+      removed; its replacement `lib/invoices/tax-audit-export/generate.ts`
+      is session-scoped and capped at 5000 invoices per file.
 - [ ] i18n gap sweep — use `.claude/skills/i18n-sync/SKILL.md` to enumerate
       every screen still missing translation coverage and file the gaps as
       sub-items here once the sweep names them (a prior audit flagged ~11
@@ -1722,6 +1724,19 @@ Remaining for the launch gate:
       a mock that never emits the event.
       (2026-09-21 ship review of slice/pdf-broken-pagination-blank-page,
       acceptance)
+
+- [~] folyamatban — PR for human sign-off (slice/tax-audit-data-export)
+      **Adóhatósági ellenőrzési adatszolgáltatás** (23/2014. (VI. 30.) NGM
+      rendelet 8. § (1) c), 11/A. §): built-in export of issued invoices by
+      date range or invoice-number range, in the decree's 3. melléklet XML
+      schema (NAV `23_2014_szamlasema.xsd`, saved under
+      `lib/invoices/tax-audit-export/schema/`). Replaces the old CSV
+      "Adóellenőrzési export", which was not in the prescribed format and
+      also exported drafts/proformas. TAX/LEGAL-GATED: the field mapping
+      (teljdatum = issue date, single-line address in kozterulet_neve,
+      HUF-only adoertek on foreign-currency invoices, exempt rows at
+      adokulcs 0, no EV nyilvántartási szám) needs owner / tax-professional
+      sign-off before merge.
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
