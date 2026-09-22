@@ -43,6 +43,7 @@ import {
   upsertInvoice,
 } from "@/lib/invoices/service";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
@@ -216,6 +217,31 @@ describe("PATCH /api/invoices/[id]", () => {
     expect(response.status).toBe(422);
     expect(body.code).toBe("companyProfileIncomplete");
     expect(body.missingFields).toEqual(["taxNumber", "zipCode", "city", "address"]);
+  });
+
+  it("returns 409 invoiceFinalized (not 500) when a concurrent request finalized the same draft first", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockGet.mockResolvedValue(
+      makeInvoice({
+        id: "inv-1",
+        status: "draft",
+        invoiceNumber: "",
+        clientZipCode: "1011",
+        clientCity: "Budapest",
+        clientAddress: "Fő utca 1.",
+      })
+    );
+    mockUpsert.mockRejectedValue(new InvoiceAlreadyFinalizedError("INV-2026-00001"));
+
+    const response = await PATCH(patchRequest("inv-1", { status: "unpaid" }), {
+      params: { id: "inv-1" },
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe("invoiceFinalized");
+    // The loser of the race must never report its own finalize to NAV.
+    expect(mockAutoSubmit).not.toHaveBeenCalled();
   });
 });
 

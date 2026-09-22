@@ -8,6 +8,7 @@ import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
 import { invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
 import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
@@ -88,6 +89,15 @@ export async function sendInvoiceNotificationEmail(
           error: "Company profile is incomplete.",
           code: "companyProfileIncomplete",
           missingFields: error.missingFields,
+        };
+      }
+      if (error instanceof InvoiceAlreadyFinalizedError) {
+        // A concurrent request finalized this draft first; it owns the
+        // number, the NAV report and the send — nothing to do here.
+        return {
+          ok: false,
+          error: "This invoice is already finalized.",
+          code: "invoiceFinalized",
         };
       }
       throw error;
