@@ -8,6 +8,11 @@ import { schema } from "@/db/schema";
 import { authUserAdditionalFields } from "@/lib/auth-user-fields";
 import { resolveSignupRole } from "@/lib/auth-signup-role";
 import { getAuthTrustedOrigins } from "@/lib/auth-trusted-origins";
+import {
+  blockUserHardDelete,
+  makeClosedAccountSessionGuard,
+} from "@/lib/account/auth-guards";
+import { isAccountClosed } from "@/lib/account/closure";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -22,6 +27,15 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: authUserAdditionalFields,
+    // Invoice retention (Áfa tv. 179. §, Számv. tv. 169. § (2)): the user row
+    // must never be hard-deleted — every FK from `user` cascades into issued
+    // invoices. /delete-user stays disabled (404); if someone ever enables
+    // it, beforeDelete still refuses. Account deletion = closeAccount()
+    // (lib/account/closure.ts), exposed via the admin API.
+    deleteUser: {
+      enabled: false,
+      beforeDelete: blockUserHardDelete,
+    },
   },
   databaseHooks: {
     user: {
@@ -35,6 +49,16 @@ export const auth = betterAuth({
           const resolved = resolveSignupRole((user as { signupRole?: unknown }).signupRole);
           return { data: { ...user, role: resolved, signupRole: resolved } };
         },
+      },
+      // Backstop for any adapter-level user delete (plugins, callbacks).
+      delete: {
+        before: blockUserHardDelete,
+      },
+    },
+    session: {
+      create: {
+        // A closed account can never get a new session.
+        before: makeClosedAccountSessionGuard(isAccountClosed),
       },
     },
   },
