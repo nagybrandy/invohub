@@ -560,6 +560,7 @@ export default {
       emailReminder: "Email reminder",
       revolut: "Payment link (Revolut)",
       barion: "Payment link (Barion)",
+      paymentProviderUnavailable: "This payment provider isn't available yet.",
       overflowLabel: "More",
     },
   },
