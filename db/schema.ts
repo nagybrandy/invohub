@@ -25,6 +25,21 @@ export const user = pgTable("user", {
   // server-side (lib/auth-signup-role.ts) before it ever reaches `role`.
   // Informational only — never itself an authorization check.
   signupRole: text("signup_role").notNull().default("entrepreneur"),
+  /**
+   * Account closure (lib/account/closure.ts). The user row is NEVER hard
+   * deleted while issued invoices must be retained (Áfa tv. 179. §, Art.
+   * 78. § / 202. §, Számv. tv. 169. § (2) — see
+   * docs/decisions/2026-09-22-invoice-retention-on-account-deletion.md).
+   * Closure revokes login and anonymizes personal data; `closedAt` marks it.
+   * Nullable/additive: null = active account.
+   */
+  closedAt: timestamp("closed_at"),
+  /**
+   * End of the retention window for this closed account's retained
+   * documents (31 Dec of the 8th year after the latest issued document /
+   * closure year). Informational until a purge job exists (TODO in the ADR).
+   */
+  retentionUntil: timestamp("retention_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
