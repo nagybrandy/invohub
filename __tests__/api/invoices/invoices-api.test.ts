@@ -44,6 +44,7 @@ import {
   upsertInvoice,
 } from "@/lib/invoices/service";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
@@ -197,6 +198,29 @@ describe("POST /api/invoices", () => {
     expect(response.status).toBe(422);
     expect(body.code).toBe("companyProfileIncomplete");
     expect(body.missingFields).toEqual(["taxNumber", "zipCode", "city", "address"]);
+  });
+
+  it("returns 409 invoiceFinalized when the posted id was already finalized by a concurrent request", async () => {
+    mockUpsert.mockRejectedValue(new InvoiceAlreadyFinalizedError("INV-2026-00001"));
+
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          id: "inv-race",
+          clientName: "Acme Kft.",
+          clientZipCode: "1011",
+          clientCity: "Budapest",
+          clientAddress: "Fő utca 1.",
+          status: "unpaid",
+          lineItems: [],
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe("invoiceFinalized");
   });
 
   it("passes the buyer address snapshot fields through for a draft (Áfa tv. 169. § e)", async () => {

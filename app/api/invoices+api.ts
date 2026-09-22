@@ -2,6 +2,7 @@
 // Invoice list and create API.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { createId } from "@/lib/id";
@@ -165,6 +166,17 @@ export async function POST(request: Request) {
           missingFields: error.missingFields,
         },
         422
+      );
+    }
+    if (error instanceof InvoiceAlreadyFinalizedError) {
+      // Lost a race against a concurrent finalize of the same draft: the
+      // numbering transaction rolled back without taking a number.
+      return jsonResponse(
+        {
+          error: "This invoice is already finalized and can no longer be edited.",
+          code: "invoiceFinalized",
+        },
+        409
       );
     }
     throw error;

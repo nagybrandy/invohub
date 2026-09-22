@@ -403,6 +403,7 @@ export default {
         "Nincs beállítva e-mail sablon a számlákhoz — ellenőrizd a Beállításokat, és próbáld újra.",
       pdfFailed: "Nem sikerült elkészíteni a számla PDF-jét — próbáld újra kicsit később.",
       emailSendFailed: "Nem sikerült elküldeni az e-mailt — próbáld újra kicsit később.",
+      invoiceAlreadyFinalized: "Ezt a számlát közben már véglegesítették — frissítsd az oldalt.",
     },
     autoSaved: "Automatikusan mentve piszkozatként",
     autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",

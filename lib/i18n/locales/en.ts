@@ -404,6 +404,7 @@ export default {
         "No e-mail template is set up for invoices — check Settings and try again.",
       pdfFailed: "Couldn't generate the invoice PDF — try again in a moment.",
       emailSendFailed: "The e-mail couldn't be sent — try again in a moment.",
+      invoiceAlreadyFinalized: "This invoice was already finalized in the meantime — refresh the page.",
     },
     autoSaved: "Auto-saved as draft",
     autoSavedAt: "Auto-saved as draft at {{time}}",

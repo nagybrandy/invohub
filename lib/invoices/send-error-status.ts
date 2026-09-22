@@ -8,6 +8,8 @@ const STATUS_BY_CODE: Record<string, number> = {
   companyProfileIncomplete: 422,
   buyerAddressMissing: 422,
   noRecipient: 422,
+  // Another request finalized the same draft first (atomic numbering).
+  invoiceFinalized: 409,
   templateNotFound: 500,
   pdfFailed: 500,
   // 502: InvoHub's own request was fine, the downstream SMTP send failed.

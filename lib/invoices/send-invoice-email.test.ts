@@ -52,6 +52,7 @@ import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockGetInvoice = getInvoiceById as jest.MockedFunction<typeof getInvoiceById>;
@@ -107,6 +108,20 @@ describe("sendInvoiceNotificationEmail", () => {
     expect(result.code).toBe("companyProfileIncomplete");
     expect(result.missingFields).toEqual(["taxNumber", "address"]);
     expect(mockBuildPdf).not.toHaveBeenCalled();
+  });
+
+  it("returns an invoiceFinalized failure (no email, no NAV) when a concurrent request finalized the draft first", async () => {
+    const invoice = makeInvoice({ status: "draft", invoiceNumber: "", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["buyer@example.com"]);
+    mockUpsert.mockRejectedValue(new InvoiceAlreadyFinalizedError("INV-2026-00001"));
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("invoiceFinalized");
+    expect(mockBuildPdf).not.toHaveBeenCalled();
+    expect(mockAutoSubmit).not.toHaveBeenCalled();
   });
 
   it("returns error when recipient cannot be resolved", async () => {

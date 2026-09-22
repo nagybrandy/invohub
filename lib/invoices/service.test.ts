@@ -58,11 +58,34 @@ let mockSelectQueue: unknown[][] = [];
 /** Queue of `lastNumber` values for the numbering module's insert-on-conflict upsert. */
 let mockSequenceQueue: number[] = [];
 
+/**
+ * Rows returned by `tx.select(...).where(...).for("update")` — the finalize
+ * transaction's lock on the invoice row. Empty (the default) means "not
+ * finalized by anyone else", so the finalize proceeds.
+ */
+let mockLockQueue: unknown[][] = [];
+
+/**
+ * `where()` result: awaitable (shifts mockSelectQueue lazily, on await) and
+ * chainable via `.for("update")` (shifts mockLockQueue instead), so the
+ * transaction's row-lock read never consumes a plain-select queue entry.
+ */
+function mockWhereResult() {
+  let pending: Promise<unknown[]> | undefined;
+  const rows = () => (pending ??= Promise.resolve(mockSelectQueue.shift() ?? []));
+  return {
+    then: (onFulfilled?: (v: unknown[]) => unknown, onRejected?: (e: unknown) => unknown) =>
+      rows().then(onFulfilled, onRejected),
+    catch: (onRejected?: (e: unknown) => unknown) => rows().catch(onRejected),
+    for: jest.fn(() => Promise.resolve(mockLockQueue.shift() ?? [])),
+  };
+}
+
 jest.mock("@/db", () => ({
   db: {
     select: jest.fn(() => ({
       from: jest.fn(() => ({
-        where: jest.fn(() => Promise.resolve(mockSelectQueue.shift() ?? [])),
+        where: jest.fn(() => mockWhereResult()),
       })),
     })),
     insert: jest.fn(() => ({
@@ -90,6 +113,15 @@ jest.mock("@/db", () => ({
       where: jest.fn(() => Promise.resolve(undefined)),
     })),
   },
+}));
+
+// The finalize transaction (db/transaction.ts) runs against the same mocked
+// db, so every existing assertion on db.insert/update/delete keeps holding;
+// lib/invoices/atomic-numbering.test.ts covers commit/rollback semantics.
+jest.mock("@/db/transaction", () => ({
+  runInTransaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
+    fn(jest.requireMock("@/db").db)
+  ),
 }));
 
 // Every service.ts test in this file numbers a document (or doesn't) via
@@ -155,6 +187,7 @@ jest.mock("@/lib/id", () => ({
 
 beforeEach(() => {
   mockSelectQueue = [];
+  mockLockQueue = [];
   mockSequenceQueue = [];
   mockDb.select.mockClear();
   mockDb.insert.mockClear();

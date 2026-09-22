@@ -72,6 +72,21 @@ describe("POST /api/invoices/[id]/send", () => {
     expect(body.missingFields).toEqual(["taxNumber", "address"]);
   });
 
+  it("returns 409 with code invoiceFinalized when a concurrent request finalized the draft first", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockSend.mockResolvedValue({
+      ok: false,
+      error: "This invoice is already finalized.",
+      code: "invoiceFinalized",
+    });
+
+    const response = await POST(request(), { params: Promise.resolve({ id: "inv-1" }) });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe("invoiceFinalized");
+  });
+
   it("returns 404 when the invoice is not found", async () => {
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockSend.mockResolvedValue({ ok: false, error: "Invoice not found." });

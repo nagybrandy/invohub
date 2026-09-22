@@ -1,8 +1,11 @@
 // lib/invoices/service.ts
 // Server-side invoice CRUD against Neon via Drizzle.
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
+import { runInTransaction } from "@/db/transaction";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { getMissingCompanyProfileFields } from "@/lib/companies/completeness";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
@@ -29,6 +32,8 @@ import type {
   PaymentMethod,
 } from "@/lib/invoices/types";
 import { hasBuyerAddress, hasInvoiceNumber } from "@/lib/invoices/types";
+
+export { InvoiceAlreadyFinalizedError };
 
 export type InvoiceListOptions = {
   limit?: number;
@@ -258,7 +263,7 @@ function issueYearOf(isoDate: string): number {
 }
 
 /**
- * Thrown by assignInvoiceNumberIfNeeded (the single choke point every
+ * Thrown by upsertInvoice (the single choke point every
  * finalize path — upsertInvoice, finalizeInvoice, createInvoiceFromPayload,
  * updateDraftInvoiceFromPayload, sendInvoiceNotificationEmail's
  * finalize-on-send — goes through) when a document is about to be assigned
@@ -281,66 +286,131 @@ export class CompanyProfileIncompleteError extends Error {
 /**
  * Numbers are assigned at finalize time: a draft keeps invoiceNumber == "" so
  * duplicating/editing it never burns a sequence slot. The moment status
- * moves off "draft", allocate the next number atomically (see
- * lib/invoices/numbering.ts) unless one is already set — but only once the
- * seller's own company profile has the mandatory fields a legal invoice
- * must carry (throws CompanyProfileIncompleteError otherwise).
+ * moves off "draft", the next number is allocated (see
+ * lib/invoices/numbering.ts) unless one is already set.
  */
-async function assignInvoiceNumberIfNeeded(
-  userId: string,
-  data: Invoice
-): Promise<Invoice> {
-  if (data.status === "draft" || hasInvoiceNumber(data)) {
-    return data;
-  }
+function needsNumberAssignment(data: Invoice): boolean {
+  return data.status !== "draft" && !hasInvoiceNumber(data);
+}
+
+function isIssuedAndNumbered(row: Pick<Invoice, "status" | "invoiceNumber">): boolean {
+  return row.status !== "draft" && hasInvoiceNumber(row);
+}
+
+/**
+ * A legal invoice may only get a number once the seller's own company
+ * profile has the mandatory Áfa tv. 169. § fields (throws
+ * CompanyProfileIncompleteError otherwise).
+ */
+async function assertCompanyProfileComplete(userId: string): Promise<void> {
   const company = await getCompanyByUserId(userId);
   const missingFields = getMissingCompanyProfileFields(company);
   if (missingFields.length > 0) {
     throw new CompanyProfileIncompleteError(missingFields);
   }
-  const invoiceNumber = await generateNextInvoiceNumber(
-    userId,
-    data.documentType,
-    issueYearOf(data.issueDate)
-  );
-  return { ...data, invoiceNumber };
 }
 
-export async function upsertInvoice(
+/** The neon-http `db` or a runInTransaction `tx` — both drizzle PgDatabase instances. */
+type InvoiceWriter = Pick<PgDatabase<PgQueryResultHKT, any, any>, "insert" | "update" | "delete">;
+
+/** Writes the invoice row and replaces its line items through `executor`. */
+async function writeInvoiceRows(
+  executor: InvoiceWriter,
   userId: string,
-  data: Invoice
-): Promise<Invoice> {
-  const now = new Date();
-  const existing = await getInvoiceById(userId, data.id);
-  const withNumber = await assignInvoiceNumberIfNeeded(userId, data);
+  data: Invoice,
+  existing: Invoice | null,
+  now: Date
+): Promise<void> {
   const row = mapInvoiceToDb(
     {
-      ...withNumber,
-      createdAt: existing?.createdAt ?? withNumber.createdAt,
+      ...data,
+      createdAt: existing?.createdAt ?? data.createdAt,
       updatedAt: now.toISOString(),
     },
     userId
   );
 
   if (existing) {
-    await db.update(invoice).set({ ...row, updatedAt: now }).where(eq(invoice.id, data.id));
-    await db.delete(invoiceLineItem).where(eq(invoiceLineItem.invoiceId, data.id));
+    await executor
+      .update(invoice)
+      .set({ ...row, updatedAt: now })
+      .where(and(eq(invoice.id, data.id), eq(invoice.userId, userId)));
+    await executor.delete(invoiceLineItem).where(eq(invoiceLineItem.invoiceId, data.id));
   } else {
-    await db.insert(invoice).values({
+    await executor.insert(invoice).values({
       ...row,
       createdAt: now,
       updatedAt: now,
     });
   }
 
-  if (withNumber.lineItems.length > 0) {
-    await db.insert(invoiceLineItem).values(
-      withNumber.lineItems.map((item, index) => ({
+  if (data.lineItems.length > 0) {
+    await executor.insert(invoiceLineItem).values(
+      data.lineItems.map((item, index) => ({
         ...mapLineItemToDb(item, data.id, index),
         createdAt: now,
         updatedAt: now,
       }))
     );
+  }
+}
+
+/**
+ * Saves an invoice. When the save finalizes it (status off "draft", no number
+ * yet) this is the single choke point every finalize path goes through —
+ * finalizeInvoice, POST/PATCH /api/invoices, createInvoiceFromPayload,
+ * updateDraftInvoiceFromPayload, sendInvoiceNotificationEmail's
+ * finalize-on-send, storno — and it is gapless (23/2014. NGM rendelet
+ * 8. § (1) a)):
+ *
+ * 1. Every check that can refuse the finalize runs BEFORE the transaction
+ *    (finalized lock, company profile); callers check buyer address and
+ *    fill exchange rates before calling in.
+ * 2. One transaction (db/transaction.ts) then: locks the invoice row and
+ *    re-checks it was not finalized concurrently, increments
+ *    document_sequence (row lock held until COMMIT, so concurrent
+ *    finalizations in the same series get consecutive numbers), writes the
+ *    invoice with its number and status, and replaces its line items.
+ *    Any failure rolls the counter back with everything else — no burnt
+ *    number, no numbered invoice without its lines.
+ * 3. NAV auto-submit is the callers' job, after this returns (i.e. after
+ *    COMMIT) — never inside the transaction.
+ *
+ * A save that doesn't assign a number (drafts, mark-paid, …) never touches
+ * document_sequence and writes through the HTTP client as before.
+ */
+export async function upsertInvoice(
+  userId: string,
+  data: Invoice
+): Promise<Invoice> {
+  const now = new Date();
+  const existing = await getInvoiceById(userId, data.id);
+
+  if (!needsNumberAssignment(data)) {
+    await writeInvoiceRows(db, userId, data, existing, now);
+  } else {
+    // --- Validation: everything that can throw, before the transaction. ---
+    if (existing && isIssuedAndNumbered(existing)) {
+      throw new InvoiceAlreadyFinalizedError(existing.invoiceNumber);
+    }
+    await assertCompanyProfileComplete(userId);
+    const year = issueYearOf(data.issueDate);
+
+    // --- Atomic: number + invoice row + line items, or nothing. ---
+    await runInTransaction(async (tx) => {
+      if (existing) {
+        const [locked] = await tx
+          .select({ invoiceNumber: invoice.invoiceNumber, status: invoice.status })
+          .from(invoice)
+          .where(and(eq(invoice.id, data.id), eq(invoice.userId, userId)))
+          .for("update");
+        if (locked && isIssuedAndNumbered(locked as Pick<Invoice, "status" | "invoiceNumber">)) {
+          throw new InvoiceAlreadyFinalizedError(locked.invoiceNumber);
+        }
+      }
+      const invoiceNumber = await generateNextInvoiceNumber(userId, data.documentType, year, tx);
+      await writeInvoiceRows(tx, userId, { ...data, invoiceNumber }, existing, now);
+    });
   }
 
   const saved = await getInvoiceById(userId, data.id);
@@ -360,14 +430,14 @@ export type FinalizeInvoiceResult =
  * the composer offers (components/invoices/composer/composer-logic.ts's
  * resolveStatusForAction for action "finalize": proforma stays "proforma",
  * everything else becomes "unpaid"). Numbering goes through the exact same
- * path as everywhere else — upsertInvoice's assignInvoiceNumberIfNeeded —
+ * path as everywhere else — upsertInvoice's atomic numbering transaction —
  * never a second numbering path. Refuses anything that isn't currently a
  * draft (already-finalized documents keep their number forever), and
  * refuses (without allocating a number) an invoice whose buyer name/address
  * is incomplete — Áfa tv. 169. § e) requires both on the finished document
  * (see hasBuyerAddress in lib/invoices/types.ts), and refuses to assign a
  * number at all when the seller's company profile is incomplete
- * (CompanyProfileIncompleteError from assignInvoiceNumberIfNeeded).
+ * (CompanyProfileIncompleteError from upsertInvoice, raised before any number is allocated).
  */
 export async function finalizeInvoice(
   userId: string,
@@ -397,6 +467,11 @@ export async function finalizeInvoice(
   } catch (error) {
     if (error instanceof CompanyProfileIncompleteError) {
       return { ok: false, reason: "company_profile_incomplete", missingFields: error.missingFields };
+    }
+    // Lost a race against a concurrent finalize of the same draft — the
+    // transaction rolled back without taking a number.
+    if (error instanceof InvoiceAlreadyFinalizedError) {
+      return { ok: false, reason: "not_draft" };
     }
     throw error;
   }

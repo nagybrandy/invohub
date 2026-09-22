@@ -23,3 +23,9 @@ describe("statusForSendFailure", () => {
     expect(statusForSendFailure({})).toBe(500);
   });
 });
+
+describe("statusForSendFailure — concurrent finalize", () => {
+  it("maps invoiceFinalized (another request finalized the draft first) to 409", () => {
+    expect(statusForSendFailure({ code: "invoiceFinalized" })).toBe(409);
+  });
+});

@@ -16,4 +16,5 @@ export const SEND_INVOICE_ERROR_I18N_KEY: Record<string, string> = {
   templateNotFound: "invoices.errors.templateNotFound",
   pdfFailed: "invoices.errors.pdfFailed",
   emailSendFailed: "invoices.errors.emailSendFailed",
+  invoiceFinalized: "invoices.errors.invoiceAlreadyFinalized",
 };
