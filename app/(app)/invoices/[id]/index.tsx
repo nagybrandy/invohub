@@ -22,7 +22,7 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
+import { InvoicePdfPreview } from "@/components/invoices/InvoicePdfPreview";
 import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
 import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/InvoiceTimeline";
 import { DangerZone } from "@/components/layout/DangerZone";
@@ -40,6 +40,7 @@ import { useRouteParam } from "@/lib/routing/route-param";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
 import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 
 type InvoiceLinks = {
   originalInvoice: Invoice | null;
@@ -82,6 +83,7 @@ export default function InvoiceDetailScreen() {
   const navError = useRouteParam("navError");
   const { t } = useTranslation();
   const icons = useIconColors();
+  const isDesktop = useIsDesktop();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [links, setLinks] = React.useState<InvoiceLinks | null>(null);
   const [navSubmission, setNavSubmission] = React.useState<NavSubmissionRow | null>(null);
@@ -537,7 +539,13 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
-        <InvoiceDocumentPreview invoice={invoice} invoiceId={id} layout="single" />
+        <InvoicePdfPreview
+          source={{ kind: "saved", invoiceId: invoice.id, version: invoice.updatedAt }}
+          filename={`${invoice.invoiceNumber || "invoice"}.pdf`}
+          openLabel={t("invoices.list.pdfAction")}
+          openTestID="invoice-preview-download-pdf"
+          height={isDesktop ? 900 : 560}
+        />
 
         {showMarkPaid ? (
           <Card className="p-4">

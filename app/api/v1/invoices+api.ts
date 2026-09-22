@@ -10,6 +10,7 @@ import {
   createInvoiceFromPayload,
   type ExternalInvoiceInput,
 } from "@/lib/invoices/create-from-payload";
+import { BuyerAddressMissingError } from "@/lib/invoices/errors";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
 import { CompanyProfileIncompleteError, listInvoices } from "@/lib/invoices/service";
@@ -99,6 +100,9 @@ async function createInvoiceAndSideEffects(
       },
     };
   } catch (e) {
+    if (e instanceof BuyerAddressMissingError) {
+      return { status: 422, body: { error: e.message, code: e.code } };
+    }
     if (e instanceof CompanyProfileIncompleteError) {
       return {
         status: 422,

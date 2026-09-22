@@ -33,8 +33,13 @@ jest.mock("@/lib/useIsDesktop", () => ({
   useIsDesktop: () => mockUseIsDesktop(),
 }));
 
-jest.mock("@/components/invoices/InvoiceDocumentPreview", () => ({
-  InvoiceDocumentPreview: () => null,
+// The live/saved PDF preview (InvoicePdfPreview, ComposerPreviewButton's
+// drawer) renders the real PDF over the network — irrelevant here.
+jest.mock("@/components/invoices/InvoicePdfPreview", () => ({
+  InvoicePdfPreview: () => null,
+}));
+jest.mock("@/components/invoices/composer/ComposerPreviewButton", () => ({
+  ComposerPreviewButton: () => null,
 }));
 
 const mockConfirmAsync = jest.fn();

@@ -27,7 +27,7 @@ import type {
   InvoiceDocumentType,
   PaymentMethod,
 } from "@/lib/invoices/types";
-import { hasInvoiceNumber } from "@/lib/invoices/types";
+import { hasBuyerAddress, hasInvoiceNumber } from "@/lib/invoices/types";
 
 export type InvoiceListOptions = {
   limit?: number;
@@ -351,6 +351,7 @@ export type FinalizeInvoiceResult =
   | { ok: true; invoice: Invoice }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_draft" }
+  | { ok: false; reason: "buyer_address_missing" }
   | { ok: false; reason: "company_profile_incomplete"; missingFields: string[] };
 
 /**
@@ -361,8 +362,11 @@ export type FinalizeInvoiceResult =
  * path as everywhere else — upsertInvoice's assignInvoiceNumberIfNeeded —
  * never a second numbering path. Refuses anything that isn't currently a
  * draft (already-finalized documents keep their number forever), and
- * refuses to assign a number at all when the seller's company profile is
- * incomplete (CompanyProfileIncompleteError from assignInvoiceNumberIfNeeded).
+ * refuses (without allocating a number) an invoice whose buyer name/address
+ * is incomplete — Áfa tv. 169. § e) requires both on the finished document
+ * (see hasBuyerAddress in lib/invoices/types.ts), and refuses to assign a
+ * number at all when the seller's company profile is incomplete
+ * (CompanyProfileIncompleteError from assignInvoiceNumberIfNeeded).
  */
 export async function finalizeInvoice(
   userId: string,
@@ -371,6 +375,14 @@ export async function finalizeInvoice(
   const existing = await getInvoiceById(userId, id);
   if (!existing) return { ok: false, reason: "not_found" };
   if (existing.status !== "draft") return { ok: false, reason: "not_draft" };
+  // A proforma (díjbekérő) is never an accounting document under Áfa tv.
+  // 169. § — this branch normally never runs for one anyway, since the
+  // composer never leaves a proforma in status "draft" (resolveStatusForAction
+  // resolves it straight to "proforma"), but the external API can create a
+  // draft with an arbitrary documentType, so check explicitly.
+  if (existing.documentType !== "proforma" && !hasBuyerAddress(existing)) {
+    return { ok: false, reason: "buyer_address_missing" };
+  }
 
   const nextStatus: Invoice["status"] =
     existing.documentType === "proforma" ? "proforma" : "unpaid";

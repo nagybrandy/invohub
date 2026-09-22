@@ -120,6 +120,55 @@ describe("PartnerPicker (INV-18)", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("submits name, email, taxNumber and the address fields together (Áfa tv. 169. § e)", async () => {
+    const { tree, onCreateNew } = render({ clients: makeClients(1), value: "new co" });
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const addTrigger = tree.root
+      .findAll((node) => typeof node.props?.onPress === "function")
+      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartner").length > 0);
+    act(() => {
+      addTrigger?.props.onPress?.();
+    });
+
+    function setField(testID: string, text: string) {
+      const field = findByTestId(tree.root, testID);
+      act(() => {
+        field.props.onChangeText?.(text);
+      });
+    }
+
+    setField("composer-new-partner-zip", "1011");
+    setField("composer-new-partner-city", "Budapest");
+    setField("composer-new-partner-address", "Fő utca 1.");
+
+    const confirm = tree.root
+      .findAll((node) => typeof node.props?.onPress === "function")
+      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartnerConfirm").length > 0);
+
+    // The name field is required to submit — fill it via its placeholder.
+    const nameField = tree.root.findAll((node) => node.props?.placeholder === "invoices.composer.newPartnerName")[0];
+    act(() => {
+      nameField.props.onChangeText?.("New Co Kft.");
+    });
+
+    await act(async () => {
+      await confirm?.props.onPress?.();
+    });
+
+    expect(onCreateNew).toHaveBeenCalledWith({
+      name: "New Co Kft.",
+      email: "",
+      taxNumber: "",
+      zip: "1011",
+      city: "Budapest",
+      address: "Fő utca 1.",
+    });
+  });
+
   it("shows recent partners as chips when the field is empty and focused", () => {
     const clients = makeClients(4);
     const { tree } = render({ clients, recentClients: clients, value: "" });

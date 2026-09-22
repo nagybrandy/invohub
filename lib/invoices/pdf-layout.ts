@@ -167,7 +167,18 @@ export type TableColumns = {
   totalWidth: number;
 };
 
-export function tableColumns(doc: Doc): TableColumns {
+/** Measured widest cell per numeric column (see tableColumns). */
+export type TableContentWidths = Partial<{
+  quantity: number;
+  unitPrice: number;
+  net: number;
+  vat: number;
+  total: number;
+}>;
+
+const MIN_DESCRIPTION_WIDTH = 150;
+
+export function tableColumns(doc: Doc, content: TableContentWidths = {}): TableColumns {
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const left = doc.page.margins.left;
   const right = left + pageWidth;
@@ -179,12 +190,32 @@ export function tableColumns(doc: Doc): TableColumns {
   // one line at the table's bold header font size. netWidth mirrors
   // unitWidth — "Nettó" is a short label but the column holds a formatted
   // money amount, same as Egységár/Bruttó (AC3).
+  //
+  // `content` carries the measured widest value per column: a column grows
+  // to fit it (never shrinks below its default) so a large amount such as
+  // "1 250 000,00 €" stays on one line; the growth is capped so the
+  // description column keeps at least MIN_DESCRIPTION_WIDTH.
   const gap = 8;
-  const totalWidth = 72;
-  const vatWidth = 34;
-  const netWidth = 62;
-  const unitWidth = 58;
-  const qtyWidth = 60;
+  const defaults = { total: 72, vat: 34, net: 62, unitPrice: 58, quantity: 60 };
+  const extra = (key: keyof typeof defaults) =>
+    Math.max(0, Math.ceil((content[key] ?? 0) + 1) - defaults[key]);
+  const extras = {
+    total: extra("total"),
+    vat: extra("vat"),
+    net: extra("net"),
+    unitPrice: extra("unitPrice"),
+    quantity: extra("quantity"),
+  };
+  const fixed = Object.values(defaults).reduce((a, b) => a + b, 0) + gap * 5;
+  const room = Math.max(0, pageWidth - fixed - MIN_DESCRIPTION_WIDTH);
+  const wanted = Object.values(extras).reduce((a, b) => a + b, 0);
+  const scale = wanted > room ? room / wanted : 1;
+
+  const totalWidth = defaults.total + extras.total * scale;
+  const vatWidth = defaults.vat + extras.vat * scale;
+  const netWidth = defaults.net + extras.net * scale;
+  const unitWidth = defaults.unitPrice + extras.unitPrice * scale;
+  const qtyWidth = defaults.quantity + extras.quantity * scale;
 
   const totalX = right - totalWidth;
   const vatX = totalX - gap - vatWidth;
@@ -287,7 +318,17 @@ export function drawTableRow(
 
   const descHeight = doc.heightOfString(row.description, { width: cols.descWidth, lineGap: 2 });
   const singleLine = doc.currentLineHeight();
-  const rowHeight = Math.max(descHeight, singleLine) + 9;
+  // Every cell is measured, not just the description: a numeric value that
+  // still wraps (a squeezed column) grows the row instead of running into
+  // the next one.
+  const cellHeights = [
+    doc.heightOfString(row.quantity, { width: cols.qtyWidth }),
+    doc.heightOfString(row.unitPrice, { width: cols.unitWidth }),
+    doc.heightOfString(row.net, { width: cols.netWidth }),
+    doc.heightOfString(row.vat, { width: cols.vatWidth }),
+    doc.heightOfString(row.total, { width: cols.totalWidth }),
+  ];
+  const rowHeight = Math.max(descHeight, singleLine, ...cellHeights) + 9;
 
   doc.fillColor("#14162b");
   doc.text(row.description, cols.left, y, { width: cols.descWidth, lineGap: 2 });

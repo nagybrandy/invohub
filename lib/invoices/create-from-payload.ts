@@ -2,10 +2,13 @@
 // Validates and builds an Invoice from API / external payloads.
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
+import { BuyerAddressMissingError } from "@/lib/invoices/errors";
+import { hasBuyerAddress, requiresCompleteBuyerAddress } from "@/lib/invoices/types";
 import type {
   Invoice,
   InvoiceCurrency,
@@ -17,6 +20,11 @@ import type {
   VatRate,
 } from "@/lib/invoices/types";
 import { createId } from "@/lib/id";
+
+// Re-exported so existing importers of create-from-payload.ts keep working
+// (BuyerAddressMissingError previously lived here) — see lib/invoices/errors.ts
+// for why the class itself was moved to a DB-import-free module.
+export { BuyerAddressMissingError };
 
 const STATUSES: InvoiceStatus[] = [
   "draft",
@@ -44,6 +52,8 @@ export type ExternalLineItemInput = {
   vatRate?: VatRate;
   vatCategory?: VatCategory;
   vatExemptionReason?: string;
+  /** Unit of measure (db/óra/nap/…), shown next to quantity on PDF/HTML. */
+  unit?: string;
 };
 
 export type ExternalInvoiceInput = {
@@ -51,6 +61,12 @@ export type ExternalInvoiceInput = {
   documentType?: InvoiceDocumentType;
   clientName: string;
   clientTaxNumber?: string;
+  /** Buyer address SNAPSHOT (Áfa tv. 169. § e) — required to finalize (status other than "draft"). */
+  clientZipCode?: string;
+  clientCity?: string;
+  clientAddress?: string;
+  clientCountry?: string;
+  clientEuVatNumber?: string;
   issueDate?: string;
   dueDate?: string;
   status?: InvoiceStatus;
@@ -104,14 +120,19 @@ export function validateExternalInvoiceInput(
   if (body.currency && body.currency !== "EUR" && body.currency !== "HUF") {
     return "currency must be EUR or HUF.";
   }
-  if (body.currency && requiresExchangeRate(body.currency)) {
-    if (
-      typeof body.exchangeRate !== "number" ||
+  // exchangeRate is no longer required for a non-HUF currency — the server
+  // fetches the official MNB rate when it's omitted (see
+  // lib/invoices/exchange-rate-autofill.ts). If the caller does supply one,
+  // it still has to be a usable number.
+  if (
+    body.currency &&
+    requiresExchangeRate(body.currency) &&
+    body.exchangeRate !== undefined &&
+    (typeof body.exchangeRate !== "number" ||
       !Number.isFinite(body.exchangeRate) ||
-      body.exchangeRate <= 0
-    ) {
-      return "exchangeRate must be a number greater than zero for a non-HUF currency.";
-    }
+      body.exchangeRate <= 0)
+  ) {
+    return "exchangeRate must be a number greater than zero for a non-HUF currency.";
   }
   if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
     return `paymentMethod must be one of ${PAYMENT_METHODS.join(", ")}.`;
@@ -140,6 +161,7 @@ export function mapLineItems(
       vatRate: vatCategory === "normal" ? item.vatRate ?? 27 : 0,
       vatCategory,
       vatExemptionReason: item.vatExemptionReason,
+      unit: item.unit,
     };
   });
 }
@@ -157,6 +179,12 @@ export async function createInvoiceFromPayload(
   const now = new Date().toISOString();
   const currency: InvoiceCurrency =
     body.currency ?? (company?.country === "HU" || !company?.country ? "HUF" : "EUR");
+  const issueDate = body.issueDate ?? now.slice(0, 10);
+  // Server safety net (item 6): a non-HUF create with no (valid) caller-
+  // supplied rate gets the official MNB rate instead of being left empty.
+  const exchangeRate = requiresExchangeRate(currency)
+    ? await autofillMissingExchangeRate({ currency, exchangeRate: body.exchangeRate, issueDate })
+    : undefined;
   const invoice: Invoice = {
     id: createId(),
     // Left blank on drafts — lib/invoices/service.ts assigns a number atomically at finalize time.
@@ -164,17 +192,29 @@ export async function createInvoiceFromPayload(
     documentType: body.documentType ?? "invoice",
     clientName: body.clientName.trim(),
     clientTaxNumber: body.clientTaxNumber?.trim(),
-    issueDate: body.issueDate ?? now.slice(0, 10),
+    clientZipCode: body.clientZipCode?.trim(),
+    clientCity: body.clientCity?.trim(),
+    clientAddress: body.clientAddress?.trim(),
+    clientCountry: body.clientCountry?.trim(),
+    clientEuVatNumber: body.clientEuVatNumber?.trim(),
+    issueDate,
     dueDate: body.dueDate ?? body.issueDate ?? now.slice(0, 10),
     status: body.status ?? "draft",
     currency,
-    exchangeRate: requiresExchangeRate(currency) ? body.exchangeRate : undefined,
+    exchangeRate,
     lineItems: mapLineItems(body.lineItems, company?.vatExempt ?? false),
     notes: body.notes,
     paymentMethod: body.paymentMethod,
     createdAt: now,
     updatedAt: now,
   };
+
+  // Áfa tv. 169. § e) — a finalized (non-draft) document must show the
+  // buyer's name and address. A draft may still be incomplete, and a
+  // proforma (díjbekérő) is never gated — it isn't an accounting document.
+  if (requiresCompleteBuyerAddress(invoice) && !hasBuyerAddress(invoice)) {
+    throw new BuyerAddressMissingError();
+  }
 
   return upsertInvoice(userId, invoice);
 }
@@ -184,6 +224,7 @@ export type UpdateDraftInvoiceResult =
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_draft" }
   | { ok: false; reason: "validation"; message: string }
+  | { ok: false; reason: "buyer_address_missing" }
   | { ok: false; reason: "company_profile_incomplete"; missingFields: string[] };
 
 /**
@@ -214,6 +255,11 @@ export async function updateDraftInvoiceFromPayload(
     documentType: body.documentType ?? existing.documentType,
     clientName: body.clientName!.trim(),
     clientTaxNumber: body.clientTaxNumber?.trim() ?? existing.clientTaxNumber,
+    clientZipCode: body.clientZipCode?.trim() ?? existing.clientZipCode,
+    clientCity: body.clientCity?.trim() ?? existing.clientCity,
+    clientAddress: body.clientAddress?.trim() ?? existing.clientAddress,
+    clientCountry: body.clientCountry?.trim() ?? existing.clientCountry,
+    clientEuVatNumber: body.clientEuVatNumber?.trim() ?? existing.clientEuVatNumber,
     issueDate: body.issueDate ?? existing.issueDate,
     dueDate: body.dueDate ?? body.issueDate ?? existing.dueDate,
     status: body.status ?? existing.status,
@@ -226,6 +272,12 @@ export async function updateDraftInvoiceFromPayload(
     paymentMethod: body.paymentMethod ?? existing.paymentMethod,
     updatedAt: new Date().toISOString(),
   };
+
+  // Áfa tv. 169. § e) — an update that finalizes the draft (status moves
+  // off "draft") must carry a complete buyer name+address.
+  if (requiresCompleteBuyerAddress(updated) && !hasBuyerAddress(updated)) {
+    return { ok: false, reason: "buyer_address_missing" };
+  }
 
   try {
     const saved = await upsertInvoice(userId, updated);

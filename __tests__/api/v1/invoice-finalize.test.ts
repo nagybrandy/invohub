@@ -10,6 +10,11 @@ jest.mock("@/lib/api/resolve-id-param", () => ({
 
 jest.mock("@/lib/invoices/service", () => ({
   finalizeInvoice: jest.fn(),
+  upsertInvoice: jest.fn(),
+}));
+
+jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
+  autofillMissingExchangeRate: jest.fn(),
 }));
 
 jest.mock("@/lib/api/idempotency", () => ({
@@ -21,11 +26,16 @@ jest.mock("@/lib/api/idempotency", () => ({
 
 import { POST } from "@/app/api/v1/invoices/[id]/finalize+api";
 import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
-import { finalizeInvoice } from "@/lib/invoices/service";
+import { finalizeInvoice, upsertInvoice } from "@/lib/invoices/service";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockAuth = requireApiKeyForV1 as jest.MockedFunction<typeof requireApiKeyForV1>;
 const mockFinalize = finalizeInvoice as jest.MockedFunction<typeof finalizeInvoice>;
+const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+const mockAutofill = autofillMissingExchangeRate as jest.MockedFunction<
+  typeof autofillMissingExchangeRate
+>;
 
 function authOk(userId = "user-1") {
   mockAuth.mockResolvedValue({ ok: true, userId, apiKey: { id: "key-1", userId } as never } as never);
@@ -84,6 +94,15 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     expect(body.missingFields).toEqual(["taxNumber", "address"]);
   });
 
+  it("returns 422 with code buyerAddressMissing without allocating a number", async () => {
+    authOk();
+    mockFinalize.mockResolvedValue({ ok: false, reason: "buyer_address_missing" });
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
+  });
+
   it("returns 200 with the finalized (numbered) invoice", async () => {
     authOk("user-1");
     const finalized = makeInvoice({ id: "inv-1", status: "unpaid", invoiceNumber: "INV-2026-00007" });
@@ -95,5 +114,76 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     expect(response.status).toBe(200);
     expect(body.invoice.invoiceNumber).toBe("INV-2026-00007");
     expect(mockFinalize).toHaveBeenCalledWith("user-1", "inv-1");
+  });
+
+  it("auto-fills the MNB rate when finalizing leaves a non-HUF invoice with no rate", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({
+      id: "inv-1",
+      status: "unpaid",
+      currency: "EUR",
+      exchangeRate: undefined,
+    });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutofill.mockResolvedValue(397.5);
+    mockUpsert.mockResolvedValue({ ...finalized, exchangeRate: 397.5 });
+
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.invoice.exchangeRate).toBe(397.5);
+    expect(mockUpsert).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ id: "inv-1", exchangeRate: 397.5 })
+    );
+  });
+
+  it("never calls the autofill helper for a HUF invoice", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({ id: "inv-1", status: "unpaid", currency: "HUF" });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+
+    await POST(req("inv-1"), params("inv-1"));
+
+    expect(mockAutofill).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("leaves the invoice as-is when MNB returns nothing (existing banner fallback)", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({
+      id: "inv-1",
+      status: "unpaid",
+      currency: "EUR",
+      exchangeRate: undefined,
+    });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutofill.mockResolvedValue(undefined);
+
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.invoice.exchangeRate).toBeUndefined();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("never re-fetches when the finalized invoice already has a valid rate", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({
+      id: "inv-1",
+      status: "unpaid",
+      currency: "EUR",
+      exchangeRate: 390.5,
+    });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.invoice.exchangeRate).toBe(390.5);
+    expect(mockAutofill).not.toHaveBeenCalled();
   });
 });

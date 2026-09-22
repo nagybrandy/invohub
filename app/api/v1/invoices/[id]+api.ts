@@ -59,6 +59,16 @@ export async function PATCH(
         409
       );
     }
+    if (result.reason === "buyer_address_missing") {
+      return jsonApiResponse(
+        {
+          error:
+            "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+          code: "buyerAddressMissing",
+        },
+        422
+      );
+    }
     if (result.reason === "company_profile_incomplete") {
       return jsonApiResponse(
         {

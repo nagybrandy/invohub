@@ -3,9 +3,12 @@ import { makeLineItem } from "@/__tests__/fixtures/invoices";
 import {
   canEnableEmailOnSend,
   composerDesktopLayout,
+  composerPreviewLayout,
+  SIDE_PREVIEW_BREAKPOINT,
   groupVatRows,
   resolveStatusForAction,
   shouldSendOnAction,
+  validateBuyerAddressStep,
   validateDueDate,
   validateExchangeRateInput,
   validateLineItemsStep,
@@ -51,6 +54,30 @@ describe("validatePartnerStep (INV-4)", () => {
 
   it("accepts a non-empty partner name", () => {
     expect(validatePartnerStep("Tech Solutions Kft.")).toEqual({ valid: true });
+  });
+});
+
+describe("validateBuyerAddressStep (Áfa tv. 169. § e)", () => {
+  const complete = { clientZip: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." };
+
+  it("accepts when zip, city and address are all filled in", () => {
+    expect(validateBuyerAddressStep(complete)).toEqual({ valid: true });
+  });
+
+  it("rejects a missing zip code, focusing clientZip", () => {
+    expect(validateBuyerAddressStep({ ...complete, clientZip: "" })).toEqual({
+      valid: false,
+      errorKey: "invoices.errors.buyerAddressRequired",
+      focusField: "clientZip",
+    });
+  });
+
+  it("rejects a missing city", () => {
+    expect(validateBuyerAddressStep({ ...complete, clientCity: "  " }).valid).toBe(false);
+  });
+
+  it("rejects a missing street address", () => {
+    expect(validateBuyerAddressStep({ ...complete, clientAddress: "" }).valid).toBe(false);
   });
 });
 
@@ -164,5 +191,25 @@ describe("groupVatRows (INV-13)", () => {
 
   it("ignores blank line items", () => {
     expect(groupVatRows([makeLineItem({ description: "" })])).toEqual([]);
+  });
+});
+
+describe("composerPreviewLayout (live side PDF preview)", () => {
+  it("shows the PDF beside the form from 1024px", () => {
+    expect(composerPreviewLayout({ width: 1024, height: 800 }, false)).toMatchObject({ side: true, sideAvailable: true });
+    expect(composerPreviewLayout({ width: 1023, height: 800 }, false)).toMatchObject({ side: false, sideAvailable: false });
+    expect(SIDE_PREVIEW_BREAKPOINT).toBe(1024);
+  });
+
+  it("lets the user hide the side panel on a wide screen", () => {
+    expect(composerPreviewLayout({ width: 1440, height: 900 }, true)).toMatchObject({ side: false, sideAvailable: true });
+  });
+
+  it("widens the panel on bigger screens and keeps the frame at least half a page tall", () => {
+    expect(composerPreviewLayout({ width: 1100, height: 900 }, false).previewWidth).toBe(380);
+    expect(composerPreviewLayout({ width: 1440, height: 900 }, false).previewWidth).toBe(460);
+    expect(composerPreviewLayout({ width: 1920, height: 1080 }, false).previewWidth).toBe(560);
+    expect(composerPreviewLayout({ width: 1440, height: 900 }, false).previewHeight).toBe(750);
+    expect(composerPreviewLayout({ width: 1440, height: 500 }, false).previewHeight).toBe(480);
   });
 });

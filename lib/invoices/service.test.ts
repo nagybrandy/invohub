@@ -11,6 +11,11 @@ function dbInvoiceRow(overrides: Record<string, unknown> = {}) {
     documentType: "invoice",
     clientName: "Acme Kft.",
     clientTaxNumber: "12345678-1-23",
+    clientZipCode: "1011",
+    clientCity: "Budapest",
+    clientAddress: "Fő utca 1.",
+    clientCountry: "Magyarország",
+    clientEuVatNumber: null,
     issueDate: "2026-06-01",
     dueDate: "2026-06-15",
     status: "draft",
@@ -539,6 +544,25 @@ describe("finalizeInvoice", () => {
     expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
+  it("returns buyer_address_missing without allocating a number when the buyer has no address (Áfa tv. 169. § e)", async () => {
+    mockSelectQueue = [
+      [
+        dbInvoiceRow({
+          id: "inv-1",
+          status: "draft",
+          invoiceNumber: "",
+          clientZipCode: null,
+          clientCity: null,
+          clientAddress: null,
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({ ok: false, reason: "buyer_address_missing" });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
   it("finalizes a draft invoice to status unpaid and allocates the next number", async () => {
     mockSequenceQueue = [7];
     mockSelectQueue = [
@@ -627,6 +651,33 @@ describe("finalizeInvoice", () => {
     });
     expect(mockDb.insert).not.toHaveBeenCalled();
     expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("finalizes a proforma with no buyer address at all — a díjbekérő isn't an accounting document", async () => {
+    mockSequenceQueue = [1];
+    const proformaRowNoAddress = (overrides: Record<string, unknown> = {}) =>
+      dbInvoiceRow({
+        id: "proforma-1",
+        documentType: "proforma",
+        clientZipCode: null,
+        clientCity: null,
+        clientAddress: null,
+        ...overrides,
+      });
+    mockSelectQueue = [
+      [proformaRowNoAddress({ status: "draft", invoiceNumber: "" })],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [proformaRowNoAddress({ status: "draft", invoiceNumber: "" })],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [proformaRowNoAddress({ status: "proforma", invoiceNumber: "DBK-2026-00001" })],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "proforma-1");
+    expect(result).toEqual({
+      ok: true,
+      invoice: expect.objectContaining({ status: "proforma", invoiceNumber: "DBK-2026-00001" }),
+    });
   });
 });
 

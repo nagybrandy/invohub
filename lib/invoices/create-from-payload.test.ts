@@ -24,7 +24,12 @@ jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
+  autofillMissingExchangeRate: jest.fn(),
+}));
+
 import {
+  BuyerAddressMissingError,
   createInvoiceFromPayload,
   updateDraftInvoiceFromPayload,
   validateExternalInvoiceInput,
@@ -32,12 +37,16 @@ import {
 } from "@/lib/invoices/create-from-payload";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockUpsertInvoice = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
 const mockGetInvoiceById = getInvoiceById as jest.MockedFunction<typeof getInvoiceById>;
 const mockGetCompanyByUserId = getCompanyByUserId as jest.MockedFunction<
   typeof getCompanyByUserId
+>;
+const mockAutofill = autofillMissingExchangeRate as jest.MockedFunction<
+  typeof autofillMissingExchangeRate
 >;
 
 describe("validateExternalInvoiceInput", () => {
@@ -98,10 +107,8 @@ describe("validateExternalInvoiceInput", () => {
     ).toContain("vatCategory");
   });
 
-  it("requires exchangeRate for a non-HUF currency (AC11)", () => {
-    expect(
-      validateExternalInvoiceInput({ ...valid, currency: "EUR" })
-    ).toContain("exchangeRate");
+  it("no longer requires exchangeRate for a non-HUF currency — the server auto-fetches the MNB rate", () => {
+    expect(validateExternalInvoiceInput({ ...valid, currency: "EUR" })).toBeNull();
   });
 
   it("accepts a non-HUF currency with a positive exchangeRate (AC11)", () => {
@@ -160,6 +167,14 @@ describe("createInvoiceFromPayload", () => {
     jest.clearAllMocks();
     mockGetCompanyByUserId.mockResolvedValue(null);
     mockUpsertInvoice.mockImplementation((_uid, inv) => Promise.resolve(inv));
+    // Mirrors the real fallback logic (network fetch itself is covered by
+    // exchange-rate-autofill.test.ts) so existing HUF-default fixtures here
+    // never accidentally depend on a real MNB call.
+    mockAutofill.mockImplementation(async ({ exchangeRate }) =>
+      typeof exchangeRate === "number" && Number.isFinite(exchangeRate) && exchangeRate > 0
+        ? exchangeRate
+        : undefined
+    );
   });
 
   it("leaves invoiceNumber blank so it's assigned at finalize", async () => {
@@ -222,6 +237,28 @@ describe("createInvoiceFromPayload", () => {
     expect(saved.exchangeRate).toBe(390.5);
   });
 
+  it("auto-fills the MNB rate when a non-HUF payload omits exchangeRate (safety net)", async () => {
+    mockAutofill.mockResolvedValue(397.5);
+
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      currency: "EUR",
+      issueDate: "2026-09-22",
+    });
+
+    expect(saved.exchangeRate).toBe(397.5);
+    expect(mockAutofill).toHaveBeenCalledWith({
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+    });
+  });
+
+  it("never calls the MNB autofill helper for a HUF invoice", async () => {
+    await createInvoiceFromPayload("user-1", input);
+    expect(mockAutofill).not.toHaveBeenCalled();
+  });
+
   it("rejects a non-HUF payload with an invalid exchangeRate before ever calling upsertInvoice", async () => {
     await expect(
       createInvoiceFromPayload("user-1", { ...input, currency: "EUR", exchangeRate: -1 })
@@ -237,6 +274,59 @@ describe("createInvoiceFromPayload", () => {
   it("leaves paymentMethod undefined when omitted — no silent transfer default", async () => {
     const saved = await createInvoiceFromPayload("user-1", input);
     expect(saved.paymentMethod).toBeUndefined();
+  });
+
+  it("passes the buyer address snapshot and line-item unit through", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+      clientCountry: "Magyarország",
+      clientEuVatNumber: "HU12345678",
+      lineItems: [{ description: "Consulting", quantity: 1, unitPrice: 10000, unit: "óra" }],
+    });
+    expect(saved.clientZipCode).toBe("1011");
+    expect(saved.clientCity).toBe("Budapest");
+    expect(saved.clientAddress).toBe("Fő utca 1.");
+    expect(saved.clientCountry).toBe("Magyarország");
+    expect(saved.clientEuVatNumber).toBe("HU12345678");
+    expect(saved.lineItems[0].unit).toBe("óra");
+  });
+
+  it("allows a draft (default status) with no buyer address at all", async () => {
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.status).toBe("draft");
+    expect(saved.clientAddress).toBeUndefined();
+  });
+
+  it("throws BuyerAddressMissingError when creating already-finalized without a complete address (Áfa tv. 169. § e)", async () => {
+    await expect(
+      createInvoiceFromPayload("user-1", { ...input, status: "sent" })
+    ).rejects.toBeInstanceOf(BuyerAddressMissingError);
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("never requires a buyer address for a proforma (díjbekérő) — not an accounting document", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      documentType: "proforma",
+      status: "proforma",
+    });
+    expect(saved.status).toBe("proforma");
+    expect(mockUpsertInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it("succeeds creating already-finalized once the buyer address is complete", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      status: "sent",
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+    });
+    expect(saved.status).toBe("sent");
+    expect(mockUpsertInvoice).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -299,6 +389,9 @@ describe("updateDraftInvoiceFromPayload", () => {
     const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
       ...validBody,
       status: "sent",
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
     });
 
     expect(result).toEqual({
@@ -306,5 +399,46 @@ describe("updateDraftInvoiceFromPayload", () => {
       reason: "company_profile_incomplete",
       missingFields: ["taxNumber", "address"],
     });
+  });
+
+  it("carries the buyer address snapshot and line-item unit through an update", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+      lineItems: [{ description: "New line", quantity: 2, unitPrice: 5000, unit: "db" }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.invoice.clientZipCode).toBe("1011");
+    expect(result.invoice.clientCity).toBe("Budapest");
+    expect(result.invoice.clientAddress).toBe("Fő utca 1.");
+    expect(result.invoice.lineItems[0].unit).toBe("db");
+  });
+
+  it("returns buyer_address_missing when finalizing via update without a complete address", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      status: "unpaid",
+    });
+    expect(result).toEqual({ ok: false, reason: "buyer_address_missing" });
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("finalizes via update once the buyer address is complete", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      status: "unpaid",
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.invoice.status).toBe("unpaid");
   });
 });

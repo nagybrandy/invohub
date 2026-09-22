@@ -31,8 +31,8 @@ jest.mock("@/lib/api/client", () => {
   };
 });
 
-jest.mock("@/components/invoices/InvoiceDocumentPreview", () => ({
-  InvoiceDocumentPreview: () => null,
+jest.mock("@/components/invoices/InvoicePdfPreview", () => ({
+  InvoicePdfPreview: () => null,
 }));
 
 jest.mock("@/components/layout/PageHeader", () => {

@@ -1,6 +1,7 @@
 // app/api/invoices+api.ts
 // Invoice list and create API.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { createId } from "@/lib/id";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
@@ -12,7 +13,7 @@ import {
   listInvoices,
   upsertInvoice,
 } from "@/lib/invoices/service";
-import type { Invoice } from "@/lib/invoices/types";
+import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
 
 /** Only a positive, finite rate on a non-HUF invoice is ever persisted. */
 function normalizeExchangeRate(
@@ -84,6 +85,15 @@ export async function POST(request: Request) {
   const body = (await request.json()) as Partial<Invoice>;
   const now = new Date().toISOString();
   const currency = body.currency ?? "HUF";
+  const issueDate = body.issueDate ?? now.slice(0, 10);
+  // Server safety net (item 6): a non-HUF create with no (valid) manual
+  // rate gets the official MNB rate instead of being left empty — same
+  // fallback-to-undefined-on-failure as everywhere else this helper is used.
+  const exchangeRate = await autofillMissingExchangeRate({
+    currency,
+    exchangeRate: normalizeExchangeRate(currency, body.exchangeRate),
+    issueDate,
+  });
   const invoice: Invoice = {
     id: body.id ?? createId(),
     // Left blank when not explicit — assigned atomically at finalize (see lib/invoices/service.ts).
@@ -91,17 +101,37 @@ export async function POST(request: Request) {
     documentType: body.documentType ?? "invoice",
     clientName: body.clientName ?? "",
     clientTaxNumber: body.clientTaxNumber,
-    issueDate: body.issueDate ?? now.slice(0, 10),
+    clientZipCode: body.clientZipCode,
+    clientCity: body.clientCity,
+    clientAddress: body.clientAddress,
+    clientCountry: body.clientCountry,
+    clientEuVatNumber: body.clientEuVatNumber,
+    issueDate,
     dueDate: body.dueDate ?? now.slice(0, 10),
     status: body.status ?? "draft",
     currency,
-    exchangeRate: normalizeExchangeRate(currency, body.exchangeRate),
+    exchangeRate,
     lineItems: body.lineItems ?? [],
     notes: body.notes,
     paymentMethod: body.paymentMethod,
     createdAt: body.createdAt ?? now,
     updatedAt: now,
   };
+
+  // Áfa tv. 169. § e) — the composer resolves status directly (no separate
+  // "finalize" call for the internal API — see resolveStatusForAction in
+  // components/invoices/composer/composer-logic.ts), so a save whose status
+  // already leaves "draft" is a finalize and needs a complete buyer address.
+  if (requiresCompleteBuyerAddress(invoice) && !hasBuyerAddress(invoice)) {
+    return jsonResponse(
+      {
+        error:
+          "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+        code: "buyerAddressMissing",
+      },
+      422
+    );
+  }
 
   try {
     const saved = await upsertInvoice(session.user.id, invoice);

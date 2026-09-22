@@ -291,6 +291,27 @@ describe("tableColumns — Nettó column (AC3)", () => {
     const cols = tableColumns(a4Doc());
     expect(cols.descWidth).toBeGreaterThanOrEqual(150);
   });
+
+  it("widens a money column to its measured content so a large amount never wraps", () => {
+    const base = tableColumns(a4Doc());
+    const cols = tableColumns(a4Doc(), { unitPrice: 66, net: 66, total: 76, quantity: 20 });
+    expect(cols.unitWidth).toBeGreaterThanOrEqual(66);
+    expect(cols.netWidth).toBeGreaterThanOrEqual(66);
+    expect(cols.totalWidth).toBeGreaterThanOrEqual(76);
+    // A narrow measured value never shrinks the default.
+    expect(cols.qtyWidth).toBe(base.qtyWidth);
+    expect(cols.descWidth).toBeLessThan(base.descWidth);
+    const gap = 8;
+    expect(cols.left + cols.descWidth + gap).toBeLessThanOrEqual(cols.qtyX);
+    expect(cols.unitX + cols.unitWidth + gap).toBeLessThanOrEqual(cols.netX);
+    expect(cols.totalX + cols.totalWidth).toBeLessThanOrEqual(cols.right);
+  });
+
+  it("never lets measured columns squeeze the description below 150", () => {
+    const cols = tableColumns(a4Doc(), { unitPrice: 200, net: 200, total: 200 });
+    expect(cols.descWidth).toBeGreaterThanOrEqual(150);
+    expect(cols.totalX + cols.totalWidth).toBeLessThanOrEqual(cols.right + 0.001);
+  });
 });
 
 // AC4: drawTableHeader fills a band in accent and draws 6 readable labels.
@@ -369,6 +390,15 @@ describe("drawTableRow", () => {
     const tallBottom = drawTableRow(wrapped.doc as never, cols, { ...row, description: "long" }, 100, 9);
     const shortBottom = drawTableRow(single.doc as never, cols, row, 100, 9);
     expect(tallBottom - shortBottom).toBe(36 - 12);
+  });
+
+  it("grows when a numeric cell wraps, so it can never run into the next row", () => {
+    const wrapped = makeStubDoc({ heightOfString: (text) => (text === "25 400 Ft" ? 30 : 12) });
+    const single = makeStubDoc();
+    const cols = tableColumns(single.doc as unknown as Parameters<typeof tableColumns>[0]);
+    const tallBottom = drawTableRow(wrapped.doc as never, cols, row, 100, 9);
+    const shortBottom = drawTableRow(single.doc as never, cols, row, 100, 9);
+    expect(tallBottom - shortBottom).toBe(30 - 12);
   });
 });
 

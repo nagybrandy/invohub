@@ -126,14 +126,17 @@ export default {
     empty: "No invoices yet",
     searchPlaceholder: "Search by partner, invoice number, or tax ID",
     preview: {
-      title: "Document preview",
+      title: "Preview",
+      frameTitle: "Document PDF preview",
       openPdf: "Open PDF",
-      openPdfInBrowser: "Open PDF in browser",
-      htmlWebOnly: "HTML preview is available on web.",
-      pdfWebOnly:
-        "PDF preview is available on web. Open it in your browser if the embed does not load.",
-      htmlLoadFailed: "Failed to load HTML preview.",
-      pdfLoadFailed: "Failed to load PDF preview.",
+      refreshing: "Updating…",
+      loadFailed: "The preview couldn't load.",
+      refreshFailed: "Couldn't update the preview — showing the last version.",
+      retry: "Retry",
+      nativeHint: "The PDF opens in your device's PDF viewer.",
+      draftNote: "Draft — the number is assigned when you finalize.",
+      hide: "Hide preview",
+      show: "Show preview",
     },
     document: {
       documentNumber: "Number",
@@ -281,10 +284,6 @@ export default {
       unpaid: "Unpaid",
       overdue: "Overdue",
     },
-    screenModes: {
-      edit: "Edit",
-      preview: "Preview",
-    },
     documentTypes: {
       invoice: "Invoice",
       proforma: "Proforma",
@@ -319,7 +318,10 @@ export default {
       bankAccount: "Bank account",
       exchangeRate: "Exchange rate (to HUF)",
       exchangeRateHint:
-        "Manual entry for now — automatic MNB rate lookup is planned.",
+        "We fetch the rate automatically from the MNB's official rates; you can override it if needed.",
+      exchangeRateLoading: "Fetching rate…",
+      exchangeRateSourceMnb: "MNB rate, {{date}}",
+      exchangeRateSourceManual: "manually entered",
       productName: "Product name",
       netUnitPrice: "Net unit price",
       vat: "VAT",
@@ -376,8 +378,11 @@ export default {
       navSubmitFailedWithReason:
         "The invoice was saved, but the NAV submission failed: {{reason}}",
       dueBeforeIssue: "The due date can't be before the issue date.",
+      buyerAddressRequired:
+        "The buyer's zip code, city and street address are required to finalize an invoice.",
       exchangeRateRequired: "A non-HUF invoice requires an exchange rate.",
       exchangeRateInvalid: "The exchange rate must be a number greater than zero.",
+      exchangeRateFetchFailed: "Couldn't fetch the MNB rate — enter it manually.",
       navExchangeRateMissing: "NAV submission cannot start: the invoice has no HUF exchange rate.",
       proformaNotStornoable:
         "A proforma is not an accounting document — it cannot be cancelled or corrected. Delete it, or convert it into an invoice.",
@@ -418,7 +423,7 @@ export default {
       addFromCatalog: "+ Product from catalogue",
       noProducts: "No saved products",
       summaryTitle: "Summary",
-      openFullPreview: "Full preview",
+      openFullPreview: "Preview",
       fullPreviewTitle: "Document preview",
       breadcrumbNew: "New invoice",
       breadcrumbDraft: "Draft",
@@ -543,10 +548,6 @@ export default {
       revolut: "Payment link (Revolut)",
       barion: "Payment link (Barion)",
       overflowLabel: "More",
-      previewTitle: "Preview",
-      previewErrorTitle: "The preview couldn't load",
-      previewErrorDescription: "Try again, or download the PDF instead.",
-      previewRetry: "Retry",
     },
   },
   receipts: {

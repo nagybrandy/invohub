@@ -3,8 +3,9 @@
 // (spec §2.4). Desktop column header + rows; mobile falls back to cards
 // inside LineItemRow itself. On desktop this step spans the full content
 // width (composer-line-item-horizontal-scroll-1440) — the totals bar below
-// the grid is sticky and carries the "Teljes előnézet" previewSlot, since
-// the 400px ComposerSummary that used to show both isn't rendered here.
+// the grid is sticky and carries the "Előnézet" previewSlot (a drawer with
+// the live PDF) whenever the composer's side PDF panel isn't shown
+// (< 1024px or hidden — see docs/decisions/2026-09-22-single-live-pdf-preview.md).
 import * as React from "react";
 import { Text } from "@/components/ui/text";
 import { HStack } from "@/components/ui/hstack";
@@ -130,7 +131,7 @@ export function StepLineItems({
       </HStack>
 
       {/* Sticky totals bar: live totals stay one glance away and the
-          "Teljes előnézet" preview one click away, now that step 2 has no
+          "Előnézet" (live PDF) one click away, now that step 2 has no
           sticky ComposerSummary column beside it (INV-9, INV-13 both hold —
           docs/decisions/2026-09-18-composer-items-step-full-width-grid.md). */}
       <HStack

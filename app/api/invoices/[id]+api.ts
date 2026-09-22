@@ -5,15 +5,25 @@
 // modify+api.ts) may touch it after that point. Both violations come back
 // as 409 with a stable `code: "invoiceFinalized"` so the UI can show a
 // translated explanation instead of a generic error.
+import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { resolveIdParam } from "@/lib/api/resolve-id-param";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import {
   CompanyProfileIncompleteError,
   deleteDraftInvoiceById,
   getInvoiceById,
   upsertInvoice,
 } from "@/lib/invoices/service";
-import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
-import { resolveIdParam } from "@/lib/api/resolve-id-param";
-import type { Invoice } from "@/lib/invoices/types";
+import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
+
+/** True when the stored value isn't a usable positive, finite rate. */
+function needsExchangeRate(currency: Invoice["currency"], rate: number | undefined): boolean {
+  return (
+    requiresExchangeRate(currency) &&
+    !(typeof rate === "number" && Number.isFinite(rate) && rate > 0)
+  );
+}
 
 type Params = { id: string };
 
@@ -82,6 +92,31 @@ export async function PATCH(
       lineItems: body.lineItems ?? existing.lineItems,
       updatedAt: new Date().toISOString(),
     };
+
+    // Áfa tv. 169. § e) — same finalize-time gate as POST /api/invoices
+    // (composer resolves status directly, no separate finalize call here).
+    if (requiresCompleteBuyerAddress(updated) && !hasBuyerAddress(updated)) {
+      return jsonResponse(
+        {
+          error:
+            "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+          code: "buyerAddressMissing",
+        },
+        422
+      );
+    }
+
+    // Server safety net (item 6): covers both an edit that switches
+    // currency away from HUF and the composer's "Véglegesítés" (finalize)
+    // action, which is just a status-changing PATCH here — never overrides
+    // a rate the request itself already carried.
+    if (needsExchangeRate(updated.currency, updated.exchangeRate)) {
+      updated.exchangeRate = await autofillMissingExchangeRate({
+        currency: updated.currency,
+        exchangeRate: updated.exchangeRate,
+        issueDate: updated.issueDate,
+      });
+    }
 
     const saved = await upsertInvoice(session.user.id, updated);
     return jsonResponse({ invoice: saved });

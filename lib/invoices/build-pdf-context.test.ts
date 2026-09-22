@@ -89,4 +89,51 @@ describe("buildInvoicePdfContext", () => {
     const ctx = await buildInvoicePdfContext("u1", makeInvoice({ clientId: "gone" }));
     expect(ctx.buyer).toBeUndefined();
   });
+
+  it("prefers the invoice's own buyer-address snapshot over the linked client, without querying it", async () => {
+    const ctx = await buildInvoicePdfContext(
+      "u1",
+      makeInvoice({
+        clientId: "cl1",
+        clientZipCode: "9021",
+        clientCity: "Győr",
+        clientAddress: "Fő utca 1.",
+        clientCountry: "Magyarország",
+        clientEuVatNumber: "HU12345678",
+      })
+    );
+    expect(mockClient).not.toHaveBeenCalled();
+    expect(ctx.buyer).toEqual({
+      address: "Fő utca 1.",
+      city: "Győr",
+      zipCode: "9021",
+      country: "Magyarország",
+      euVatNumber: "HU12345678",
+    });
+  });
+
+  it("falls back to the linked client when the invoice snapshot is entirely empty (legacy invoice)", async () => {
+    mockClient.mockResolvedValue({
+      id: "cl1",
+      userId: "u1",
+      name: "Duna Kft.",
+      address: "Régi utca 2.",
+      city: "Győr",
+      zipCode: "9021",
+      country: "Magyarország",
+      createdAt: "",
+      updatedAt: "",
+    } as never);
+    const ctx = await buildInvoicePdfContext(
+      "u1",
+      makeInvoice({
+        clientId: "cl1",
+        clientZipCode: undefined,
+        clientCity: undefined,
+        clientAddress: undefined,
+      })
+    );
+    expect(mockClient).toHaveBeenCalledWith("u1", "cl1");
+    expect(ctx.buyer?.address).toBe("Régi utca 2.");
+  });
 });
