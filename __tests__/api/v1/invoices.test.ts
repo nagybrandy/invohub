@@ -16,9 +16,23 @@ jest.mock("@/lib/nav/submit-outgoing", () => ({
   submitOutgoingInvoiceToNav: jest.fn(),
 }));
 
-jest.mock("@/lib/invoices/service", () => ({
-  listInvoices: jest.fn(),
-}));
+jest.mock("@/lib/invoices/service", () => {
+  // Mirrors the real class's shape so `e instanceof CompanyProfileIncompleteError`
+  // in the route works against an error built with the SAME (mocked)
+  // export from a test in this file.
+  class CompanyProfileIncompleteError extends Error {
+    missingFields: string[];
+    constructor(missingFields: string[]) {
+      super("Company profile is incomplete.");
+      this.name = "CompanyProfileIncompleteError";
+      this.missingFields = missingFields;
+    }
+  }
+  return {
+    listInvoices: jest.fn(),
+    CompanyProfileIncompleteError,
+  };
+});
 
 jest.mock("@/lib/api/idempotency", () => ({
   withIdempotency: jest.fn(async (_request, _userId, _body, handler) => {
@@ -31,7 +45,7 @@ import { GET, POST } from "@/app/api/v1/invoices+api";
 import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { createInvoiceFromPayload } from "@/lib/invoices/create-from-payload";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
-import { listInvoices } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, listInvoices } from "@/lib/invoices/service";
 import { withIdempotency } from "@/lib/api/idempotency";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
@@ -141,6 +155,29 @@ describe("POST /api/v1/invoices", () => {
     expect(response.status).toBe(201);
     expect(body.invoice.clientName).toBe("Acme Kft.");
     expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 with code companyProfileIncomplete instead of a generic 400 (create-with-finalize)", async () => {
+    mockCreate.mockRejectedValue(
+      new CompanyProfileIncompleteError(["taxNumber", "zipCode", "city", "address"])
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          lineItems: [{ description: "x", quantity: 1, unitPrice: 100 }],
+          status: "sent",
+          sendEmail: false,
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("companyProfileIncomplete");
+    expect(body.missingFields).toEqual(["taxNumber", "zipCode", "city", "address"]);
   });
 
   it("routes the request through withIdempotency using the parsed body", async () => {

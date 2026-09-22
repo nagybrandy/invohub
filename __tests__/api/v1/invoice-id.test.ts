@@ -99,6 +99,23 @@ describe("PATCH /api/v1/invoices/[id]", () => {
     expect(body.error).toEqual(expect.any(String));
   });
 
+  it("returns 422 with code companyProfileIncomplete when finalizing would need an incomplete profile", async () => {
+    authOk("user-1");
+    mockUpdate.mockResolvedValue({
+      ok: false,
+      reason: "company_profile_incomplete",
+      missingFields: ["taxNumber", "city"],
+    });
+    const response = await PATCH(
+      req("PATCH", "inv-1", { clientName: "X", status: "sent" }),
+      params("inv-1")
+    );
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("companyProfileIncomplete");
+    expect(body.missingFields).toEqual(["taxNumber", "city"]);
+  });
+
   it("returns 400 with the validation message on invalid input", async () => {
     authOk("user-1");
     mockUpdate.mockResolvedValue({ ok: false, reason: "validation", message: "clientName is required." });

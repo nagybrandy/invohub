@@ -3,10 +3,21 @@ jest.mock("@/lib/invoices/generate-pdf", () => ({
   invoicePdfFilename: jest.fn((invoiceNumber: string) => `${invoiceNumber}.pdf`),
 }));
 
-jest.mock("@/lib/invoices/service", () => ({
-  getInvoiceById: jest.fn(),
-  upsertInvoice: jest.fn(),
-}));
+jest.mock("@/lib/invoices/service", () => {
+  class CompanyProfileIncompleteError extends Error {
+    missingFields: string[];
+    constructor(missingFields: string[]) {
+      super("Company profile is incomplete.");
+      this.name = "CompanyProfileIncompleteError";
+      this.missingFields = missingFields;
+    }
+  }
+  return {
+    getInvoiceById: jest.fn(),
+    upsertInvoice: jest.fn(),
+    CompanyProfileIncompleteError,
+  };
+});
 
 jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn(),
@@ -30,7 +41,7 @@ import { sendEmail } from "@/lib/email/send";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
-import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockGetInvoice = getInvoiceById as jest.MockedFunction<typeof getInvoiceById>;
@@ -46,6 +57,19 @@ const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
 describe("sendInvoiceNotificationEmail", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("returns a companyProfileIncomplete failure instead of throwing when finalizing a draft fails", async () => {
+    const invoice = makeInvoice({ status: "draft" });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockUpsert.mockRejectedValue(new CompanyProfileIncompleteError(["taxNumber", "address"]));
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("companyProfileIncomplete");
+    expect(result.missingFields).toEqual(["taxNumber", "address"]);
+    expect(mockResolveRecipients).not.toHaveBeenCalled();
   });
 
   it("returns error when recipient cannot be resolved", async () => {

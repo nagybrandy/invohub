@@ -429,6 +429,9 @@ export default {
       next: "Next",
       moreActions: "More",
       stepErrorBanner: "This step has an error — fix the highlighted field.",
+      companyProfileIncomplete:
+        "Your company profile is incomplete — add the company name, tax number and address before finalizing an invoice.",
+      companyProfileIncompleteLink: "Complete company profile",
     },
     vat: {
       categoryLabel: "VAT treatment",
@@ -507,6 +510,7 @@ export default {
       readOnlyTitle: "This document is finalized",
       readOnlyHint:
         "A finalized document can't be edited directly. Use storno or a correction invoice to change it.",
+      backToInvoice: "Back to invoice",
       saveChanges: "Save changes",
     },
     detail: {
@@ -902,6 +906,7 @@ export default {
       title: "Company details",
       subtitle: "Enter your business details for invoicing.",
       companyName: "Company name",
+      companyNameRequired: "Company name is required.",
       taxNumber: "Tax number",
       taxNumberHint: "8-digit base number-VAT code-county code (e.g., 12345678-1-12)",
       address: "Registered address",

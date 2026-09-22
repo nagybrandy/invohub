@@ -8,6 +8,7 @@
 // footer (spec §2.2, INV-19/M1).
 import * as React from "react";
 import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { router } from "expo-router";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
@@ -35,8 +36,11 @@ import {
 } from "@/components/invoices/composer/useInvoiceComposer";
 import { DocumentTypeTabs } from "@/components/invoices/DocumentTypeTabs";
 import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
+import { apiFetch, ApiError } from "@/lib/api/client";
+import type { Invoice } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useIsDesktop } from "@/lib/useIsDesktop";
+import { confirmAsync } from "@/lib/ui/confirm";
 
 const STEP_LABEL_KEYS: Record<ComposerStepId, string> = {
   partner: "invoices.composer.steps.partner",
@@ -59,6 +63,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
     documentTabsDisabled,
     draftInvoice,
     company,
+    companyProfileIncomplete,
     totals,
     currency,
     lineItems,
@@ -114,6 +119,78 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
   }
 
   const readOnly = mode === "edit" && invoice != null && invoice.status !== "draft";
+
+  // Only a NEW document's finalize buttons can hit the server-side
+  // CompanyProfileIncompleteError — editing an existing (draft-only, see
+  // `readOnly` above) invoice always saves back as "draft"
+  // (composer-logic.ts's resolveStatusForAction("draft", …)), so it never
+  // triggers number assignment and never needs this gate.
+  const finalizeBlockedByProfile = mode === "create" && companyProfileIncomplete;
+
+  // A finalized invoice never gets its form back — the ONLY way to change
+  // it is sztornó (full reversal) or helyesbítő (correction draft), the
+  // same two actions the detail screen's DangerZone/overflow menu offer
+  // (app/(app)/invoices/[id]/index.tsx's handleStorno/handleCorrection).
+  const [readOnlyActionBusy, setReadOnlyActionBusy] = React.useState<"storno" | "correction" | null>(
+    null
+  );
+  const [readOnlyActionError, setReadOnlyActionError] = React.useState<string | null>(null);
+  const isReadOnlyProforma = readOnly && invoice?.documentType === "proforma";
+
+  async function handleReadOnlyStorno() {
+    if (!invoice) return;
+    const confirmed = await confirmAsync({
+      title: t("invoices.detail.stornoTitle"),
+      message: t("invoices.detail.stornoMessage"),
+      confirmLabel: t("invoices.detail.stornoConfirm"),
+      cancelLabel: t("common.cancel"),
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    setReadOnlyActionError(null);
+    setReadOnlyActionBusy("storno");
+    try {
+      const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/storno`, {
+        method: "POST",
+      });
+      router.replace(routes.invoiceDetail(data.invoice.id));
+    } catch (e) {
+      setReadOnlyActionError(
+        e instanceof ApiError && e.code === "proformaNotStornoable"
+          ? t("invoices.errors.proformaNotStornoable")
+          : e instanceof Error
+            ? e.message
+            : t("invoices.detail.actionFailed")
+      );
+    } finally {
+      setReadOnlyActionBusy(null);
+    }
+  }
+
+  async function handleReadOnlyCorrection() {
+    if (!invoice) return;
+    const confirmed = await confirmAsync({
+      title: t("invoices.correction.confirmTitle"),
+      message: t("invoices.correction.confirmMessage"),
+      confirmLabel: t("invoices.correction.confirm"),
+      cancelLabel: t("common.cancel"),
+    });
+    if (!confirmed) return;
+
+    setReadOnlyActionError(null);
+    setReadOnlyActionBusy("correction");
+    try {
+      const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/modify`, {
+        method: "POST",
+      });
+      router.push(routes.invoiceEdit(data.invoice.id));
+    } catch (e) {
+      setReadOnlyActionError(e instanceof Error ? e.message : t("invoices.detail.actionFailed"));
+    } finally {
+      setReadOnlyActionBusy(null);
+    }
+  }
 
   const stepIndex = COMPOSER_STEP_ORDER.indexOf(step);
   const mobileStepLabel = `${stepIndex + 1}/${COMPOSER_STEP_ORDER.length} · ${t(STEP_LABEL_KEYS[step])}`;
@@ -180,13 +257,52 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             {title}
           </Heading>
           <Box className="rounded-lg border border-primary/30 bg-accent p-4">
-            <VStack space="xs">
-              <Text className="font-semibold text-foreground">
-                {t("invoices.edit.readOnlyTitle")}
-              </Text>
-              <Text size="sm" className="text-muted-foreground">
-                {t("invoices.edit.readOnlyHint")}
-              </Text>
+            <VStack space="sm">
+              <VStack space="xs">
+                <Text className="font-semibold text-foreground">
+                  {t("invoices.edit.readOnlyTitle")}
+                </Text>
+                <Text size="sm" className="text-muted-foreground">
+                  {t("invoices.edit.readOnlyHint")}
+                </Text>
+              </VStack>
+
+              {readOnlyActionError ? (
+                <Text size="sm" className="text-destructive">
+                  {readOnlyActionError}
+                </Text>
+              ) : null}
+
+              <HStack space="sm" className="flex-wrap">
+                {!isReadOnlyProforma ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="border-destructive/40"
+                      disabled={readOnlyActionBusy === "storno"}
+                      onPress={() => void handleReadOnlyStorno()}
+                      testID="composer-readonly-storno"
+                    >
+                      <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={readOnlyActionBusy === "correction"}
+                      onPress={() => void handleReadOnlyCorrection()}
+                      testID="composer-readonly-correction"
+                    >
+                      <ButtonText>{t("invoices.correction.action")}</ButtonText>
+                    </Button>
+                  </>
+                ) : null}
+                <Button
+                  variant="outline"
+                  onPress={() => router.push(routes.invoiceDetail(invoice.id))}
+                  testID="composer-readonly-back"
+                >
+                  <ButtonText>{t("invoices.edit.backToInvoice")}</ButtonText>
+                </Button>
+              </HStack>
             </VStack>
           </Box>
           <DocumentTypeTabs selected="invoice" onChange={() => {}} disabled />
@@ -253,13 +369,13 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
                     <Button
                       size="sm"
                       onPress={() => setFinalizeMenuOpen((v) => !v)}
-                      disabled={saving}
+                      disabled={saving || finalizeBlockedByProfile}
                       testID="composer-finalize-menu-trigger"
                     >
                       <ButtonText>{t("invoices.actions.finalize")}</ButtonText>
                       {finalizeMenuOpen ? <ChevronUp size={14} color="white" /> : <ChevronDown size={14} color="white" />}
                     </Button>
-                    {finalizeMenuOpen ? (
+                    {finalizeMenuOpen && !finalizeBlockedByProfile ? (
                       <VStack className="absolute right-0 top-10 z-20 w-56 rounded-lg border border-border bg-card shadow-sm">
                         <Pressable
                           onPress={() => void handleSave("finalize")}
@@ -298,6 +414,27 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             <Text size="xs" className="text-muted-foreground" testID="composer-mobile-step-label">
               {mobileStepLabel}
             </Text>
+          ) : null}
+
+          {finalizeBlockedByProfile ? (
+            <Box
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5"
+              testID="composer-company-profile-incomplete-notice"
+            >
+              <VStack space="xs">
+                <Text size="sm" className="text-destructive">
+                  {t("invoices.composer.companyProfileIncomplete")}
+                </Text>
+                <Pressable
+                  onPress={() => router.push(routes.settingsCompany)}
+                  testID="composer-company-profile-incomplete-link"
+                >
+                  <Text size="sm" className="font-medium text-primary">
+                    {t("invoices.composer.companyProfileIncompleteLink")}
+                  </Text>
+                </Pressable>
+              </VStack>
+            </Box>
           ) : null}
 
           {stepErrorMessage ? (
@@ -441,7 +578,11 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             <Button
               size="sm"
               className="flex-1"
-              disabled={saving}
+              disabled={
+                saving ||
+                (stepIndex === COMPOSER_STEP_ORDER.length - 1 && finalizeBlockedByProfile)
+              }
+              testID="composer-mobile-primary-action"
               onPress={() =>
                 stepIndex < COMPOSER_STEP_ORDER.length - 1
                   ? setStep(COMPOSER_STEP_ORDER[stepIndex + 1])

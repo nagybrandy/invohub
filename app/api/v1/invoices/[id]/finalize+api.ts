@@ -29,6 +29,16 @@ export async function POST(
       if (result.reason === "not_found") {
         return { status: 404, body: { error: "Invoice not found." } };
       }
+      if (result.reason === "company_profile_incomplete") {
+        return {
+          status: 422,
+          body: {
+            error: "Company profile is incomplete.",
+            code: "companyProfileIncomplete",
+            missingFields: result.missingFields,
+          },
+        };
+      }
       return {
         status: 409,
         body: { error: "Only a draft invoice can be finalized.", code: "notDraft" },

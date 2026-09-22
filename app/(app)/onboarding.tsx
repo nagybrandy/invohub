@@ -65,7 +65,7 @@ export default function OnboardingScreen() {
 
   async function handleSaveCompany() {
     if (!name.trim()) {
-      setError(t("company.onboarding.companyName") + " required.");
+      setError(t("company.onboarding.companyNameRequired"));
       return;
     }
     setSaving(true);

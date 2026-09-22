@@ -6,7 +6,7 @@ import {
   useInvoiceComposer,
   type UseInvoiceComposerOptions,
 } from "@/components/invoices/composer/useInvoiceComposer";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 import type { Client } from "@/lib/clients/service";
 
@@ -20,6 +20,10 @@ jest.mock("react-i18next", () => ({
 
 jest.mock("@/lib/api/client", () => ({
   apiFetch: jest.fn(),
+  // The real ApiError has no dependencies of its own — keep it real so
+  // `e instanceof ApiError` in useInvoiceComposer.ts's save() still works
+  // against an error built with THIS (mocked) module's export.
+  ApiError: jest.requireActual("@/lib/api/client").ApiError,
 }));
 
 const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>;
@@ -280,6 +284,30 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.lineItems[0].vatCategory).toBe("AAM");
   });
 
+  it("companyProfileIncomplete is true when the loaded company is missing required fields (default fixture: no taxNumber/address)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.companyProfileIncomplete).toBe(true);
+  });
+
+  it("companyProfileIncomplete is false once every required field is present", async () => {
+    setupApiFetch({
+      company: {
+        id: "c1",
+        userId: "u1",
+        name: "Demo Kft.",
+        taxNumber: "12345678-1-23",
+        zipCode: "1011",
+        city: "Budapest",
+        address: "Fő utca 1.",
+        vatExempt: false,
+        createdAt: "",
+        updatedAt: "",
+      },
+    });
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.companyProfileIncomplete).toBe(false);
+  });
+
   it("edit mode seeds state from the loaded invoice and does not apply company defaults", async () => {
     const invoice = makeInvoice({
       id: "inv-42",
@@ -367,6 +395,32 @@ describe("useInvoiceComposer", () => {
       "/api/invoices",
       expect.objectContaining({ method: "POST" })
     );
+  });
+
+  it("shows a translated companyProfileIncomplete message (not the raw English API error) when finalize is refused server-side", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás" })]);
+    });
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (path === "/api/invoices" && method === "POST") {
+        return Promise.reject(
+          new ApiError("Company profile is incomplete.", 422, "companyProfileIncomplete")
+        );
+      }
+      return jsonResponse({});
+    });
+
+    let result;
+    await act(async () => {
+      result = await ref.current!.save("finalize");
+    });
+
+    expect(result).toBeUndefined();
+    expect(ref.current!.saveError).toBe("invoices.composer.companyProfileIncomplete");
   });
 
   it("saves a non-HUF invoice once a valid exchange rate is entered (AC13)", async () => {

@@ -70,6 +70,20 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     expect(body.code).toBe("notDraft");
   });
 
+  it("returns 422 with code companyProfileIncomplete when the seller profile is missing required fields", async () => {
+    authOk();
+    mockFinalize.mockResolvedValue({
+      ok: false,
+      reason: "company_profile_incomplete",
+      missingFields: ["taxNumber", "address"],
+    });
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("companyProfileIncomplete");
+    expect(body.missingFields).toEqual(["taxNumber", "address"]);
+  });
+
   it("returns 200 with the finalized (numbered) invoice", async () => {
     authOk("user-1");
     const finalized = makeInvoice({ id: "inv-1", status: "unpaid", invoiceNumber: "INV-2026-00007" });

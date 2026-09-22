@@ -429,6 +429,9 @@ export default {
       next: "Tovább",
       moreActions: "Továbbiak",
       stepErrorBanner: "Ez a lépés hibát tartalmaz — javítsd a jelölt mezőt.",
+      companyProfileIncomplete:
+        "A cégadataid hiányosak — számla véglegesítéséhez add meg a cégnevet, adószámot és a székhely címét.",
+      companyProfileIncompleteLink: "Cégadatok kitöltése",
     },
     vat: {
       categoryLabel: "ÁFA kezelés",
@@ -507,6 +510,7 @@ export default {
       readOnlyTitle: "Ez a bizonylat kiállítva",
       readOnlyHint:
         "Egy kiállított bizonylatot nem lehet közvetlenül szerkeszteni. A módosításhoz használj sztornót vagy helyesbítő számlát.",
+      backToInvoice: "Vissza a számlához",
       saveChanges: "Változások mentése",
     },
     detail: {
@@ -902,6 +906,7 @@ export default {
       title: "Cég adatai",
       subtitle: "Add meg a vállalkozásod adatait a számlázáshoz.",
       companyName: "Cégnév",
+      companyNameRequired: "A cégnév megadása kötelező.",
       taxNumber: "Adószám",
       taxNumberHint: "8 jegyű törzsszám-ÁFA kód-megyekód (pl. 12345678-1-12)",
       address: "Székhely címe",

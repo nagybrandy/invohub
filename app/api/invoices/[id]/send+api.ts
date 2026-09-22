@@ -27,6 +27,12 @@ export async function POST(
   });
 
   if (!result.ok) {
+    if (result.code === "companyProfileIncomplete") {
+      return jsonResponse(
+        { error: result.error, code: result.code, missingFields: result.missingFields },
+        422
+      );
+    }
     return jsonResponse({ error: result.error, to: result.to }, result.error?.includes("not found") ? 404 : 500);
   }
 

@@ -8,12 +8,15 @@ import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
 import { invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
-import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import type { Invoice } from "@/lib/invoices/types";
 
 export type SendInvoiceEmailResult = {
   ok: boolean;
   error?: string;
+  /** Machine-readable code for a known failure — e.g. "companyProfileIncomplete". */
+  code?: string;
+  missingFields?: string[];
   to?: string[];
   cc?: string[];
   invoice?: Invoice;
@@ -47,11 +50,23 @@ export async function sendInvoiceNotificationEmail(
   // vars below — otherwise a still-draft invoice would be emailed with a
   // blank invoiceNumber and only get its number afterwards.
   if (options?.markSent !== false && invoice.status === "draft") {
-    invoice = await upsertInvoice(userId, {
-      ...invoice,
-      status: "sent",
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      invoice = await upsertInvoice(userId, {
+        ...invoice,
+        status: "sent",
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      if (error instanceof CompanyProfileIncompleteError) {
+        return {
+          ok: false,
+          error: "Company profile is incomplete.",
+          code: "companyProfileIncomplete",
+          missingFields: error.missingFields,
+        };
+      }
+      throw error;
+    }
   }
 
   const to = await resolveInvoiceEmailRecipients(userId, invoice.clientName, options?.to);
