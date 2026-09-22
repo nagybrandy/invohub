@@ -1,5 +1,6 @@
 // lib/dates/format.test.ts
 import {
+  formatShortDate,
   formatDateOnly,
   formatDateWithTime,
   formatInvoiceIssueDateTime,
@@ -36,5 +37,18 @@ describe("formatInvoiceIssueDateTime", () => {
     });
     expect(formatted).toMatch(/2026\. 07\. 05\./);
     expect(formatted).toMatch(/\d{2}:\d{2}$/);
+  });
+});
+
+describe("formatShortDate", () => {
+  const now = new Date("2026-09-22T10:00:00Z");
+  it("drops the year for dates in the current year", () => {
+    expect(formatShortDate("2026-09-30", now)).toBe("szept. 30.");
+  });
+  it("keeps the year for other years", () => {
+    expect(formatShortDate("2025-12-31", now)).toBe("2025. dec. 31.");
+  });
+  it("returns unparseable input unchanged", () => {
+    expect(formatShortDate("n/a", now)).toBe("n/a");
   });
 });
