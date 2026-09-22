@@ -1,10 +1,10 @@
 // lib/invoices/document-ink.ts
 // The shared ink/surface palette for the customer-facing invoice document —
-// the HTML preview (lib/invoices/preview-html.ts) and the pdfkit PDF
-// (lib/invoices/generate-pdf.ts, lib/invoices/pdf-brand-mark.ts) both read
-// `documentInk` instead of retyping a hex literal, so the two renderers
-// cannot drift apart the way they did before this module existed (see
-// docs/plans/2026-09-21-pdf-footer-attribution-contrast.md §0).
+// the pdfkit PDF (lib/invoices/generate-pdf.ts, lib/invoices/pdf-brand-mark.ts)
+// reads `documentInk` instead of retyping a hex literal (see
+// docs/plans/2026-09-21-pdf-footer-attribution-contrast.md §0). The PDF is
+// the only document renderer since 2026-09-22 — the in-app preview shows
+// the generated PDF itself, so preview and document cannot drift.
 //
 // Out of scope: app UI colour (lib/theme/tokens.ts), marketing colour
 // (components/marketing/landing-theme.ts), and the user-configurable
@@ -32,7 +32,7 @@ export const documentSurfaces = {
  * than `secondary` (8.02:1) so the visual hierarchy is not flattened.
  */
 export const documentInk = {
-  /** Body text — preview-html.ts `body` colour. 17.81:1 on paper. */
+  /** Body text. 17.81:1 on paper. */
   body: "#14162b",
   /** Headings / `--navy`. 15.92:1 on paper. */
   heading: "#111f4a",

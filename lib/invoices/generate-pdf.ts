@@ -1,7 +1,9 @@
 // lib/invoices/generate-pdf.ts
 // Server-side invoice PDF generation (pdfkit) with clean, readable layout
-// that mirrors the HTML preview's section order and framing (see
-// docs/plans/2026-09-16-pdf-layout-general-improvement.md).
+// (see docs/plans/2026-09-16-pdf-layout-general-improvement.md). This is the
+// ONLY document renderer: every in-app preview (detail, list drawer, the
+// composer's live side panel via POST /api/invoices/preview/pdf) shows this
+// PDF, so what the user previews is exactly what the customer receives.
 // Hungarian labels + Hungarian money formatting (see
 // docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md).
 // Fonts: registerDocumentFonts (lib/invoices/pdf-fonts.ts) embeds a real
@@ -174,6 +176,52 @@ function drawContinuationCaption(
   doc.fillColor("#000000");
 }
 
+const HEADER_TITLE_SPACING = 1.2;
+const HEADER_TITLE_MIN_SIZE = 12;
+const HEADER_NUMBER_MIN_SIZE = 8;
+
+/**
+ * Picks the header title / number font sizes so each fits `maxWidth` on ONE
+ * line (measured with the title's characterSpacing), stepping down 0.5pt at
+ * a time from the template size to a floor. Returns the chosen sizes and the
+ * measured ink widths at those sizes. At the floor a still-too-long
+ * user-configured title is ellipsized by the caller rather than wrapped.
+ */
+export function fitHeaderColumn(
+  doc: Doc,
+  opts: {
+    docFonts: DocumentFonts;
+    title: string;
+    titleSize: number;
+    number: string;
+    numberSize: number;
+    maxWidth: number;
+  }
+): { titleSize: number; titleInk: number; numberSize: number; numberInk: number } {
+  const measure = (text: string, size: number, characterSpacing: number) => {
+    doc.font(opts.docFonts.bold).fontSize(size);
+    return doc.widthOfString(text, { characterSpacing });
+  };
+  let titleSize = opts.titleSize;
+  let titleInk = measure(opts.title, titleSize, HEADER_TITLE_SPACING);
+  while (titleInk > opts.maxWidth - 2 && titleSize > HEADER_TITLE_MIN_SIZE) {
+    titleSize -= 0.5;
+    titleInk = measure(opts.title, titleSize, HEADER_TITLE_SPACING);
+  }
+  let numberSize = opts.numberSize;
+  let numberInk = measure(opts.number, numberSize, 0);
+  while (numberInk > opts.maxWidth - 2 && numberSize > HEADER_NUMBER_MIN_SIZE) {
+    numberSize -= 0.5;
+    numberInk = measure(opts.number, numberSize, 0);
+  }
+  return {
+    titleSize,
+    titleInk: Math.min(titleInk, opts.maxWidth - 2),
+    numberSize,
+    numberInk: Math.min(numberInk, opts.maxWidth - 2),
+  };
+}
+
 export type InvoicePdfCompany = {
   name: string;
   taxNumber?: string;
@@ -304,20 +352,47 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // -------------------------------------------------------------
         const headerTop = doc.y + 6;
         const logoSize = 40;
-        const identityMaxX = left + pageWidth * 0.58;
+
+        // The right-hand column (title / number / status chip) is sized
+        // from its MEASURED content — never a fixed share of the page — so
+        // a long title like "ELŐLEGSZÁMLA" or "HELYESBÍTŐ SZÁMLA" can never
+        // wrap into the number below it (owner report 2026-09-22). The font
+        // steps down until the title fits the column's maximum on one line;
+        // the issuer block then takes whatever is left, minus a gutter.
+        const documentTitle =
+          invoice.documentType === "invoice"
+            ? template.titleText
+            : documentTitleFor(invoice.documentType).toUpperCase();
+        const documentNumber = invoice.invoiceNumber || labels.draftNumber;
+        const titleColumnMax = pageWidth * 0.5;
+        const header = fitHeaderColumn(doc, {
+          docFonts,
+          title: documentTitle,
+          titleSize: fonts.title + 4,
+          number: documentNumber,
+          numberSize: fonts.subtitle,
+          maxWidth: titleColumnMax,
+        });
+        const statusChip = documentStatusChip(invoice.status);
+        let chipWidth = 0;
+        if (statusChip) {
+          doc.font(docFonts.bold).fontSize(labelSize);
+          chipWidth = doc.widthOfString(statusChip.toUpperCase(), { characterSpacing: 0.6 }) + 16;
+        }
+        const titleWidth = Math.min(titleColumnMax, Math.max(header.titleInk, header.numberInk, chipWidth) + 2);
+        const titleX = right - titleWidth;
+        const identityMaxX = titleX - 24;
         let identityBottom = headerTop;
 
         if (company?.name) {
           let identityX = left;
           if (logoBuffer) {
             drawLogoImage(doc, logoBuffer, left, headerTop, logoSize);
-            identityX = left + logoSize + 12;
-            identityBottom = headerTop + logoSize;
           } else {
             drawLogoBadge(doc, left, headerTop, logoSize, companyInitials(company.name), accent);
-            identityX = left + logoSize + 12;
-            identityBottom = headerTop + logoSize;
           }
+          identityX = left + logoSize + 12;
+          identityBottom = headerTop + logoSize;
           const identityWidth = identityMaxX - identityX;
           doc.font(docFonts.bold).fontSize(fonts.subtitle + 2).fillColor(ink.heading);
           doc.text(company.name, identityX, headerTop + 2, { width: identityWidth });
@@ -333,27 +408,29 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           identityBottom = Math.max(identityBottom, identityY);
         }
 
-        const documentTitle =
-          invoice.documentType === "invoice"
-            ? template.titleText
-            : documentTitleFor(invoice.documentType).toUpperCase();
-        const titleWidth = pageWidth * 0.4;
-        const titleX = right - titleWidth;
-        doc.font(docFonts.bold).fontSize(fonts.title + 4).fillColor(ink.heading);
-        doc.text(documentTitle, titleX, headerTop - 4, { width: titleWidth, align: "right", characterSpacing: 1.2 });
-        let titleY = headerTop - 4 + doc.heightOfString(documentTitle, { width: titleWidth });
-        const documentNumber = invoice.invoiceNumber || labels.draftNumber;
-        doc.font(docFonts.bold).fontSize(fonts.subtitle).fillColor(ink.secondary);
-        doc.text(documentNumber, titleX, titleY + 2, { width: titleWidth, align: "right" });
-        titleY += 2 + doc.heightOfString(documentNumber, { width: titleWidth });
+        doc.font(docFonts.bold).fontSize(header.titleSize).fillColor(ink.heading);
+        doc.text(documentTitle, titleX, headerTop - 4, {
+          width: titleWidth,
+          align: "right",
+          characterSpacing: HEADER_TITLE_SPACING,
+          lineBreak: false,
+          ellipsis: true,
+        });
+        let titleY = headerTop - 4 + doc.currentLineHeight(true);
+        doc.font(docFonts.bold).fontSize(header.numberSize).fillColor(ink.secondary);
+        doc.text(documentNumber, titleX, titleY + 2, {
+          width: titleWidth,
+          align: "right",
+          lineBreak: false,
+          ellipsis: true,
+        });
+        titleY += 2 + doc.currentLineHeight(true);
 
         // Status pill only for statuses that change what the document IS
         // (documentStatusChip's own rule); a null chip draws nothing.
-        const statusChip = documentStatusChip(invoice.status);
         if (statusChip) {
           doc.font(docFonts.bold).fontSize(labelSize);
           const chipLabel = statusChip.toUpperCase();
-          const chipWidth = doc.widthOfString(chipLabel) + 16;
           const chipHeight = labelSize + 9;
           const chipX = right - chipWidth;
           const chipY = titleY + 6;
@@ -492,7 +569,29 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // -------------------------------------------------------------
         reserve(60);
 
-        const cols = tableColumns(doc);
+        // Every row's cells are formatted once, up front, so the numeric
+        // columns can be sized from their widest measured value.
+        const rows = invoice.lineItems.map((item) => ({
+          item,
+          cells: {
+            description: item.description,
+            quantity: formatDocumentQuantity(item.quantity, item.unit),
+            unitPrice: formatDocumentAmount(item.unitPrice, invoice.currency),
+            net: formatDocumentAmount(lineItemNetTotal(item), invoice.currency),
+            vat: item.vatCategory === "normal" ? `${item.vatRate}%` : item.vatCategory,
+            total: formatDocumentAmount(lineItemGrossTotal(item), invoice.currency),
+          },
+        }));
+        doc.font(docFonts.regular).fontSize(fonts.body);
+        const widest = (pick: (cells: (typeof rows)[number]["cells"]) => string) =>
+          Math.max(0, ...rows.map((row) => doc.widthOfString(pick(row.cells))));
+        const cols = tableColumns(doc, {
+          quantity: widest((c) => c.quantity),
+          unitPrice: widest((c) => c.unitPrice),
+          net: widest((c) => c.net),
+          vat: widest((c) => c.vat),
+          total: widest((c) => c.total),
+        });
         const headerLabels = [
           labels.description,
           labels.quantity,
@@ -505,9 +604,8 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
 
         const exemptCategories = new Set<string>();
 
-        for (const item of invoice.lineItems) {
-          const netTotal = lineItemNetTotal(item);
-          const lineTotal = lineItemGrossTotal(item);
+        for (const { item, cells } of rows) {
+          doc.font(docFonts.regular).fontSize(fonts.body);
           const rowHeightEstimate = doc.heightOfString(item.description, {
             width: cols.descWidth,
           }) + 16;
@@ -539,14 +637,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           doc.y = drawTableRow(
             doc,
             cols,
-            {
-              description: item.description,
-              quantity: formatDocumentQuantity(item.quantity, item.unit),
-              unitPrice: formatDocumentAmount(item.unitPrice, invoice.currency),
-              net: formatDocumentAmount(netTotal, invoice.currency),
-              vat: item.vatCategory === "normal" ? `${item.vatRate}%` : item.vatCategory,
-              total: formatDocumentAmount(lineTotal, invoice.currency),
-            },
+            cells,
             rowY,
             fonts.body
           );
@@ -776,7 +867,9 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           doc.font(docFonts.regular).fontSize(fonts.small);
           const notesHeight = doc.heightOfString(invoice.notes, { width: pageWidth });
           const lineHeight = doc.currentLineHeight();
-          reserve(labelHeight + Math.min(notesHeight, 3 * lineHeight) + 16);
+          // Only the text itself (+ the 3pt label gap and line gaps) — no trailing
+          // margin, or a short note gets bumped onto its own page when it would fit.
+          reserve(labelHeight + 3 + Math.min(notesHeight + 3, 3 * (lineHeight + 3)));
           const notesLabelY = doc.y;
           doc.font(docFonts.bold).fontSize(fonts.body).fillColor(ink.heading);
           doc.text(`${template.notesLabel}:`, left, notesLabelY);

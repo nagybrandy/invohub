@@ -28,8 +28,11 @@ jest.mock("@/components/ui/drawer", () => {
     DrawerBody: View,
   };
 });
-jest.mock("@/components/invoices/InvoiceDocumentPreview", () => ({
-  InvoiceDocumentPreview: () => null,
+jest.mock("@/components/invoices/InvoicePdfPreview", () => ({
+  InvoicePdfPreview: ({ source }: { source: { kind: string } }) => {
+    const { Text } = require("react-native");
+    return <Text testID="pdf-preview">{source.kind}</Text>;
+  },
 }));
 
 const t = (key: string, opts?: Record<string, unknown>) =>
@@ -94,5 +97,16 @@ describe("ComposerSummary", () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("invoices.totals.grossTotal");
     expect(tree.root.findAllByProps({ testID: "drawer-open" }).length).toBeGreaterThan(0);
+  });
+
+  it("previews the unsaved draft as the real PDF, fetched only once the drawer opens", () => {
+    const tree = render();
+    expect(tree.root.findAllByProps({ testID: "pdf-preview" })).toHaveLength(0);
+    act(() => {
+      findPressableWithText(tree.root, "invoices.composer.openFullPreview")?.props.onPress?.();
+    });
+    const preview = tree.root.findAllByProps({ testID: "pdf-preview" });
+    expect(preview.length).toBeGreaterThan(0);
+    expect(preview[0]!.props.children).toBe("draft");
   });
 });

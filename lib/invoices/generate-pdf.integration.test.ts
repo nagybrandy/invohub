@@ -7,7 +7,7 @@
 import { generateInvoicePdf } from "@/lib/invoices/generate-pdf";
 import { buildSamplePreviewInvoice } from "@/lib/invoices/pdf-template/sample-invoice";
 import { documentInk } from "@/lib/invoices/document-ink";
-import { documentLabels } from "@/lib/invoices/document-labels";
+import { documentLabels, documentTitleFor } from "@/lib/invoices/document-labels";
 import {
   footerBandTop,
   PDF_PAGE_MARGINS,
@@ -112,6 +112,15 @@ type RecordedTextCall = {
   // the header's logo-badge initials, which happens to share the body's
   // left margin as its x but is not part of the single-column content flow.
   optWidth?: number;
+  // Layout facts measured with the call's OWN options (characterSpacing
+  // included) at call time — the header-title regression below needs the
+  // real wrapped height and the real ink width, not the recorder's
+  // spacing-less `height`.
+  fontSize: number;
+  align?: string;
+  wrappedHeight: number;
+  singleLineHeight: number;
+  inkWidth: number;
   startY: number;
   endY: number;
   height: number;
@@ -187,12 +196,19 @@ async function withRecordedDoc(
       const y = typeof rest[1] === "number" ? (rest[1] as number) : doc.y;
       const opts = (rest[2] ?? (typeof rest[0] === "object" ? rest[0] : undefined) ?? {}) as {
         width?: number;
+        align?: string;
+        characterSpacing?: number;
       };
       const width =
         opts.width ??
         doc.page.width - doc.page.margins.right - (x ?? doc.page.margins.left);
       const startPage = doc.page;
       const height = doc.heightOfString(String(value), { width });
+      const spacingOpts = { characterSpacing: opts.characterSpacing ?? 0 };
+      const wrappedHeight = doc.heightOfString(String(value), { width, ...spacingOpts });
+      const singleLineHeight = doc.currentLineHeight(true);
+      const inkWidth = doc.widthOfString(String(value), spacingOpts);
+      const fontSize = (doc as unknown as { _fontSize: number })._fontSize;
       const marginBottom = doc.page.margins.bottom;
 
       const result = originalText(value, ...(rest as Parameters<typeof originalText>));
@@ -203,6 +219,11 @@ async function withRecordedDoc(
         text: String(value),
         startX: x ?? doc.page.margins.left,
         optWidth: opts.width,
+        fontSize,
+        align: opts.align,
+        wrappedHeight,
+        singleLineHeight,
+        inkWidth,
         startY: y,
         endY: doc.y,
         height,
@@ -663,3 +684,76 @@ describe("generateInvoicePdf — nothing is drawn past the right content margin"
   });
 });
 
+
+// Owner report (2026-09-22): on an előlegszámla the header title wrapped to
+// "ELŐLEGSZÁML / A" and its second line collided with the invoice number.
+// The title column is now sized from the measured title (characterSpacing
+// included) and the font steps down until it fits on one line — for every
+// document type, with a long issuer name and a long document number.
+describe("generateInvoicePdf — header title never wraps or overlaps", () => {
+  const longCompany = {
+    name: "Kovács Anna Katalin egyéni vállalkozó és szoftverfejlesztő szolgáltató",
+    taxNumber: "56781234-1-42",
+    city: "Hódmezővásárhely",
+    address: "Bartók Béla út 42. 3/12.",
+    zipCode: "6800",
+    bankAccount: "11773016-01234567-00000000",
+  };
+  const cases: Array<[Invoice["documentType"], string]> = [
+    ["invoice", "INV-2026-000147"],
+    ["proforma", "DBK-2026-000012"],
+    ["advance", "ELO-2026-000012"],
+    ["storno", "INV-2026-000147-S"],
+    ["modify", "INV-2026-000147-M1"],
+  ];
+  const scales = PDF_FONT_SCALES;
+
+  for (const fontScale of scales) {
+    it.each(cases)(`%s (%s) at fontScale=${fontScale}`, async (documentType, invoiceNumber) => {
+      const invoice = makeInvoice({
+        documentType,
+        invoiceNumber,
+        status: documentType === "invoice" ? "paid" : "sent",
+        clientName: "Duna Digitális Ügynökség és Marketing Szolgáltató Korlátolt Felelősségű Társaság",
+        currency: "EUR",
+        exchangeRate: 395.1234,
+        paymentMethod: "transfer",
+      });
+      const { calls } = await withRecordedDoc(invoice, {
+        invoice,
+        company: longCompany,
+        template: { fontScale },
+      });
+
+      const expectedTitle =
+        documentType === "invoice" ? DEFAULT_PDF_TEMPLATE.titleText : documentTitleFor(documentType).toUpperCase();
+      const title = calls.find((c) => c.text === expectedTitle && c.align === "right");
+      expect(title).toBeDefined();
+      // One line: measured with its own characterSpacing, the title's
+      // wrapped height equals a single line.
+      expect(title!.wrappedHeight).toBeLessThanOrEqual(title!.singleLineHeight + 0.5);
+      // The ink fits the box and stays inside the right margin.
+      expect(title!.inkWidth).toBeLessThanOrEqual(title!.optWidth! + 0.5);
+      const right = 595.28 - PDF_PAGE_MARGINS.right;
+      expect(title!.startX + title!.optWidth!).toBeLessThanOrEqual(right + 0.5);
+
+      const titleBottom = title!.startY + title!.singleLineHeight;
+      const number = calls.find((c) => c.text === invoiceNumber && c.align === "right");
+      expect(number).toBeDefined();
+      expect(number!.wrappedHeight).toBeLessThanOrEqual(number!.singleLineHeight + 0.5);
+      expect(number!.startY).toBeGreaterThanOrEqual(titleBottom - 0.5);
+
+      // The issuer block (name + sub line) ends left of where the title
+      // column starts, so the two can never overlap however long either is.
+      const titleInkLeft = title!.startX + title!.optWidth! - title!.inkWidth;
+      const numberInkLeft = number!.startX + number!.optWidth! - number!.inkWidth;
+      const identity = calls.filter(
+        (c) => c.order < title!.order && (c.text === longCompany.name || c.text.includes(longCompany.taxNumber))
+      );
+      expect(identity.length).toBe(2);
+      for (const block of identity) {
+        expect(block.startX + block.optWidth!).toBeLessThanOrEqual(Math.min(titleInkLeft, numberInkLeft) - 8);
+      }
+    });
+  }
+});
