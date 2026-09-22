@@ -165,6 +165,35 @@ before or alongside Phase 1 items that depend on it.
 The app's own functions and UX come first; audits, tooling and "confirm
 that" items wait. Build in this order (each maps to an unchecked item below):
 
+**Found 2026-09-22 while shipping the PDF redesign + full v1 API — take the
+first one next, ahead of everything below:**
+- [ ] **A finalized invoice can be deleted through the internal API.**
+  `app/api/invoices/[id]+api.ts`'s DELETE calls `deleteInvoiceById`
+  (lib/invoices/service.ts), which has no status guard — the UI hides the
+  button on finalized documents, but any signed-in session can DELETE a
+  numbered számla directly, breaking continuous numbering (a finalized
+  document must be cancelled with a sztornó, never removed). Route it
+  through `deleteDraftInvoiceById` (added for the v1 API — returns
+  not_found / not_draft / deleted) and return 409 for a non-draft; add a
+  route test. Same check for any bulk-delete path if one exists.
+- [ ] **Decide the v1 `POST /api/v1/invoices` `sendEmail` default** (owner
+  decision). It defaults to `true`, and `sendInvoiceNotificationEmail`
+  finalizes a draft before emailing it — so a plain "create draft" call
+  silently assigns a number, flips it to sent and emails the customer.
+  That breaks the documented create → finalize → send flow unless the
+  caller remembers `sendEmail: false`. There are no external API users
+  yet, so flipping the default to `false` is free now and a breaking
+  change later. Currently documented in docs/external-api.md §5.2.
+- [ ] v1 rate limiting (`requireApiKeyForV1`, lib/api/rate-limit.ts) is an
+  in-memory counter per serverless instance, not a global limit per API
+  key — acceptable as a baseline, but a shared store is needed before
+  the limit is relied on.
+- [ ] The HTML preview (`lib/invoices/preview-html.ts`) does not yet have
+  the PDF's 2026-09-22 content fixes: per-document-type title is already
+  there, but the buyer address, the per-rate ÁFA-összesítő and the
+  payment-details box are PDF-only. Bring the preview to parity (the
+  owner approved the new PDF look).
+
 **New owner feedback (2026-09-16) — take this next, ahead of everything
 below** — owner: "a pdf sokkal rosszabbul néz ki mint a html számla, javítsd,
 és legyen ott a rendes invohubos logó" (the PDF looks much worse than the
