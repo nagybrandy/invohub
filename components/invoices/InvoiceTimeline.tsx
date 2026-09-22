@@ -7,6 +7,8 @@
 // each step keeps the line exactly on the dot's centre at every width, and
 // only one step is ever "current" — the thing the user is waiting on next.
 import { Check, X } from "lucide-react-native";
+import { useState } from "react";
+import { useWindowDimensions, type LayoutChangeEvent } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -164,56 +166,130 @@ function StepDot({ step }: { step: TimelineStep }) {
   );
 }
 
+/**
+ * Below this container width the four columns no longer fit side by side
+ * (labels and dates start colliding), so the steps stack vertically.
+ */
+export const TIMELINE_VERTICAL_BELOW = 520;
+
+function StepText({ step }: { step: TimelineStep }) {
+  const { t } = useTranslation();
+  const textAlign = "text-center";
+  return (
+    <>
+      <Text size="sm" className={`${textAlign} font-semibold ${labelClass(step)}`}>
+        {t(step.label)}
+      </Text>
+      {step.date ? (
+        <Text size="xs" className={`${textAlign} text-muted-foreground`}>
+          {step.date}
+        </Text>
+      ) : null}
+      {step.hint ? (
+        <Text size="xs" className={`${textAlign} ${hintClass(step)}`} testID={`invoice-timeline-hint-${step.key}`}>
+          {t(step.hint.key, step.hint.options)}
+        </Text>
+      ) : null}
+    </>
+  );
+}
+
+function HorizontalSteps({ steps }: { steps: TimelineStep[] }) {
+  return (
+    <HStack className="items-start px-2 pb-4 pt-5" testID="invoice-timeline-steps">
+      {steps.map((step, index) => {
+        const next = steps[index + 1];
+        const lineIn = index === 0 ? "bg-transparent" : reached(step) ? "bg-primary" : "bg-border";
+        const lineOut = !next ? "bg-transparent" : reached(next) ? "bg-primary" : "bg-border";
+        return (
+          <VStack key={step.key} className="flex-1 items-center" testID={`invoice-timeline-step-${step.key}`}>
+            <HStack className="w-full items-center">
+              <Box testID={`invoice-timeline-line-in-${step.key}`} className={`h-0.5 flex-1 ${lineIn}`} />
+              <StepDot step={step} />
+              <Box testID={`invoice-timeline-line-out-${step.key}`} className={`h-0.5 flex-1 ${lineOut}`} />
+            </HStack>
+            <VStack className="mt-2 items-center px-1">
+              <StepText step={step} />
+            </VStack>
+          </VStack>
+        );
+      })}
+    </HStack>
+  );
+}
+
+// Phone layout: a dot column with the connector running down between dots,
+// text to the right. Each row owns the line segment below its dot.
+function VerticalSteps({ steps }: { steps: TimelineStep[] }) {
+  const { t } = useTranslation();
+  return (
+    <VStack className="px-4 pb-2 pt-4" testID="invoice-timeline-steps-vertical">
+      {steps.map((step, index) => {
+        const next = steps[index + 1];
+        return (
+          <HStack key={step.key} space="md" className="items-stretch" testID={`invoice-timeline-step-${step.key}`}>
+            <VStack className="w-6 items-center">
+              <StepDot step={step} />
+              {next ? (
+                <Box
+                  testID={`invoice-timeline-vline-${step.key}`}
+                  className={`my-1 min-h-2 w-0.5 flex-1 ${reached(next) ? "bg-primary" : "bg-border"}`}
+                />
+              ) : null}
+            </VStack>
+            <VStack className={`flex-1 ${next ? "pb-4" : "pb-2"}`}>
+              <HStack space="sm" className="min-h-6 items-center justify-between">
+                <Text size="sm" className={`font-semibold ${labelClass(step)}`}>
+                  {t(step.label)}
+                </Text>
+                {step.date ? (
+                  <Text size="xs" className="text-muted-foreground">
+                    {step.date}
+                  </Text>
+                ) : null}
+              </HStack>
+              {step.hint ? (
+                <Text size="xs" className={hintClass(step)} testID={`invoice-timeline-hint-${step.key}`}>
+                  {t(step.hint.key, step.hint.options)}
+                </Text>
+              ) : null}
+            </VStack>
+          </HStack>
+        );
+      })}
+    </VStack>
+  );
+}
+
 export function InvoiceTimeline({
   invoice,
   nav,
   now = new Date(),
+  layout = "auto",
 }: {
   invoice: Invoice;
   nav?: NavTimelineState | null;
   now?: Date;
+  /** "auto" picks by the card's measured width (see TIMELINE_VERTICAL_BELOW). */
+  layout?: "auto" | "horizontal" | "vertical";
 }) {
   const { t } = useTranslation();
+  const window = useWindowDimensions();
+  // Until the card is measured, guess from the window: phones start vertical,
+  // so there's no squeezed first frame.
+  const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+  const width = measuredWidth ?? window.width;
+  const vertical = layout === "vertical" || (layout === "auto" && width < TIMELINE_VERTICAL_BELOW);
   const steps = timelineSteps(invoice, now);
   const showNav = invoice.status !== "draft";
 
   return (
-    <VStack className="rounded-xl border border-subtle bg-background" testID="invoice-timeline">
-      <HStack className="items-start px-2 pb-4 pt-5" testID="invoice-timeline-steps">
-        {steps.map((step, index) => {
-          const next = steps[index + 1];
-          const lineIn = index === 0 ? "bg-transparent" : reached(step) ? "bg-primary" : "bg-border";
-          const lineOut = !next ? "bg-transparent" : reached(next) ? "bg-primary" : "bg-border";
-          return (
-            <VStack key={step.key} className="flex-1 items-center" testID={`invoice-timeline-step-${step.key}`}>
-              <HStack className="w-full items-center">
-                <Box testID={`invoice-timeline-line-in-${step.key}`} className={`h-0.5 flex-1 ${lineIn}`} />
-                <StepDot step={step} />
-                <Box testID={`invoice-timeline-line-out-${step.key}`} className={`h-0.5 flex-1 ${lineOut}`} />
-              </HStack>
-              <VStack className="mt-2 items-center px-1">
-                <Text size="sm" className={`text-center font-semibold ${labelClass(step)}`}>
-                  {t(step.label)}
-                </Text>
-                {step.date ? (
-                  <Text size="xs" className="text-center text-muted-foreground">
-                    {step.date}
-                  </Text>
-                ) : null}
-                {step.hint ? (
-                  <Text
-                    size="xs"
-                    className={`text-center ${hintClass(step)}`}
-                    testID={`invoice-timeline-hint-${step.key}`}
-                  >
-                    {t(step.hint.key, step.hint.options)}
-                  </Text>
-                ) : null}
-              </VStack>
-            </VStack>
-          );
-        })}
-      </HStack>
+    <VStack
+      className="rounded-xl border border-subtle bg-background"
+      testID="invoice-timeline"
+      onLayout={(e: LayoutChangeEvent) => setMeasuredWidth(e.nativeEvent.layout.width)}
+    >
+      {vertical ? <VerticalSteps steps={steps} /> : <HorizontalSteps steps={steps} />}
 
       {showNav ? (
         <HStack

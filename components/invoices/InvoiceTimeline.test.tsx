@@ -22,7 +22,7 @@ const now = new Date("2026-09-14T12:00:00.000Z");
 function renderTimeline(props: React.ComponentProps<typeof InvoiceTimeline>) {
   let tree: TestRenderer.ReactTestRenderer;
   act(() => {
-    tree = TestRenderer.create(<InvoiceTimeline now={now} {...props} />);
+    tree = TestRenderer.create(<InvoiceTimeline now={now} layout="horizontal" {...props} />);
   });
   return tree!;
 }
@@ -172,5 +172,31 @@ describe("InvoiceTimeline", () => {
   it("hides the NAV row on a draft, which can't be submitted yet", () => {
     const tree = renderTimeline({ invoice: makeInvoice({ status: "draft" }) });
     expect(() => tree.root.findByProps({ testID: "invoice-timeline-nav" })).toThrow();
+  });
+
+  it("stacks the steps vertically when the card is phone-narrow", () => {
+    const tree = renderTimeline({ invoice: makeInvoice({ status: "sent", dueDate: "2026-12-31" }), layout: "auto" });
+    act(() => {
+      tree.root
+        .findByProps({ testID: "invoice-timeline" })
+        .props.onLayout({ nativeEvent: { layout: { width: 343, height: 0, x: 0, y: 0 } } });
+    });
+    expect(() => tree.root.findByProps({ testID: "invoice-timeline-steps-vertical" })).not.toThrow();
+    expect(() => tree.root.findByProps({ testID: "invoice-timeline-steps" })).toThrow();
+    // Connector below "sent" leads into the current due step → reached.
+    expect(tree.root.findByProps({ testID: "invoice-timeline-vline-sent" }).props.className).toContain("bg-primary");
+    expect(tree.root.findByProps({ testID: "invoice-timeline-vline-due" }).props.className).toContain("bg-border");
+    // No dangling line under the last step.
+    expect(() => tree.root.findByProps({ testID: "invoice-timeline-vline-paid" })).toThrow();
+  });
+
+  it("keeps the horizontal stepper when the card is wide enough", () => {
+    const tree = renderTimeline({ invoice: makeInvoice({ status: "sent" }), layout: "auto" });
+    act(() => {
+      tree.root
+        .findByProps({ testID: "invoice-timeline" })
+        .props.onLayout({ nativeEvent: { layout: { width: 760, height: 0, x: 0, y: 0 } } });
+    });
+    expect(() => tree.root.findByProps({ testID: "invoice-timeline-steps" })).not.toThrow();
   });
 });
