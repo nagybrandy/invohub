@@ -16,6 +16,8 @@ import {
   documentStatusChip,
   documentTitleFor,
   formatDocumentAmount,
+  formatDocumentQuantity,
+  formatPartyAddress,
   type DocumentLabels,
   type DocumentLocale,
 } from "@/lib/invoices/document-labels";
@@ -28,13 +30,23 @@ import {
   formatInvoiceDueDate,
   formatInvoiceIssueDateTime,
 } from "@/lib/dates/format";
-import type { InvoicePdfCompany } from "@/lib/invoices/generate-pdf";
+import type { InvoicePdfBuyer, InvoicePdfCompany } from "@/lib/invoices/generate-pdf";
 import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
 
 export type InvoicePreviewOptions = {
   /** The signed-in user's own company — printed under "Kibocsátó". Omit for an unsaved draft with no company loaded yet. */
   company?: InvoicePdfCompany;
+  /**
+   * The buyer's address (Áfa tv. 169. § e). Omit to fall back to the
+   * invoice's own snapshot fields (clientZipCode/clientCity/clientAddress/
+   * clientCountry/clientEuVatNumber) — the composer's unsaved-draft preview
+   * relies on that default; the server preview route
+   * (app/api/invoices/[id]/preview+api.ts) passes the already-resolved
+   * buyer from buildInvoicePdfContext, which also covers invoices saved
+   * before the snapshot existed by falling back to the linked client.
+   */
+  buyer?: InvoicePdfBuyer;
   /** Only accentColor is used today (the header/table stay navy/cornflower); reserved for the rest of the template. */
   template?: InvoicePdfTemplate;
   locale?: DocumentLocale;
@@ -73,6 +85,14 @@ export function generateInvoicePreviewHtml(
   const locale = options.locale ?? "hu";
   const labels = documentLabels(locale);
   const company = options.company;
+  const buyer: InvoicePdfBuyer = options.buyer ?? {
+    address: invoice.clientAddress,
+    city: invoice.clientCity,
+    zipCode: invoice.clientZipCode,
+    country: invoice.clientCountry,
+    euVatNumber: invoice.clientEuVatNumber,
+  };
+  const buyerAddressLine = formatPartyAddress(buyer);
   // Interpolated straight into a <style> block below — escapeHtml only
   // escapes & < > " ', not ; } / * or whitespace, so it can't stop CSS
   // injection on its own. normalizeHexColor guarantees a strict
@@ -131,7 +151,7 @@ export function generateInvoicePreviewHtml(
 
       return `<tr>
           <td class="cell-desc" data-label="${escapeHtml(labels.description)}">${escapeHtml(item.description)}</td>
-          <td class="cell-num" data-label="${escapeHtml(labels.quantity)}">${item.quantity}</td>
+          <td class="cell-num" data-label="${escapeHtml(labels.quantity)}">${escapeHtml(formatDocumentQuantity(item.quantity, item.unit))}</td>
           <td class="cell-num" data-label="${escapeHtml(labels.unitPrice)}">${formatDocumentAmount(item.unitPrice, invoice.currency)}</td>
           <td class="cell-num" data-label="${escapeHtml(labels.net)}">${formatDocumentAmount(net, invoice.currency)}</td>
           <td class="cell-num" data-label="${escapeHtml(labels.vat)}">${vatCell}</td>
@@ -240,7 +260,9 @@ export function generateInvoicePreviewHtml(
       <div class="party-card">
         <h2>${escapeHtml(labels.buyer)}</h2>
         <p class="party-name">${escapeHtml(invoice.clientName)}</p>
+        ${buyerAddressLine ? `<p>${escapeHtml(buyerAddressLine)}</p>` : ""}
         ${invoice.clientTaxNumber ? `<p>${escapeHtml(labels.taxNumber)}: ${escapeHtml(invoice.clientTaxNumber)}</p>` : ""}
+        ${buyer.euVatNumber ? `<p>${escapeHtml(labels.euVatNumber)}: ${escapeHtml(buyer.euVatNumber)}</p>` : ""}
       </div>
     </div>
 

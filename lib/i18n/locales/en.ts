@@ -376,6 +376,8 @@ export default {
       navSubmitFailedWithReason:
         "The invoice was saved, but the NAV submission failed: {{reason}}",
       dueBeforeIssue: "The due date can't be before the issue date.",
+      buyerAddressRequired:
+        "The buyer's zip code, city and street address are required to finalize an invoice.",
       exchangeRateRequired: "A non-HUF invoice requires an exchange rate.",
       exchangeRateInvalid: "The exchange rate must be a number greater than zero.",
       navExchangeRateMissing: "NAV submission cannot start: the invoice has no HUF exchange rate.",

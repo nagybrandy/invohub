@@ -108,6 +108,18 @@ describe("PATCH /api/v1/invoices/[id]", () => {
     expect(body.error).toBe("clientName is required.");
   });
 
+  it("returns 422 with code buyerAddressMissing when finalizing without a complete buyer address", async () => {
+    authOk("user-1");
+    mockUpdate.mockResolvedValue({ ok: false, reason: "buyer_address_missing" });
+    const response = await PATCH(
+      req("PATCH", "inv-1", { clientName: "X", status: "unpaid" }),
+      params("inv-1")
+    );
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
+  });
+
   it("returns 200 with the updated draft invoice", async () => {
     authOk("user-1");
     const updated = makeInvoice({ id: "inv-1", clientName: "Updated Kft.", status: "draft" });

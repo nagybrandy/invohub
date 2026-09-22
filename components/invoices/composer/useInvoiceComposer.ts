@@ -14,6 +14,7 @@ import {
   canEnableEmailOnSend,
   resolveStatusForAction,
   shouldSendOnAction,
+  validateBuyerAddressStep,
   validateDueDate,
   validateExchangeRateInput,
   validateLineItemsStep,
@@ -81,6 +82,8 @@ export type ComposerErrors = {
   partner?: string;
   lineItems?: string;
   dueDate?: string;
+  /** Áfa tv. 169. § e) — buyer name + zip/city/address, checked only when finalizing. */
+  buyerAddress?: string;
 };
 
 export function useInvoiceComposer({
@@ -105,10 +108,14 @@ export function useInvoiceComposer({
   const [clientName, setClientNameState] = React.useState(invoice?.clientName ?? "");
   const [clientTaxNumber, setClientTaxNumber] = React.useState(invoice?.clientTaxNumber ?? "");
   const [clientEmail, setClientEmail] = React.useState("");
-  const [clientCountry, setClientCountry] = React.useState("Magyarország");
-  const [clientZip, setClientZip] = React.useState("");
-  const [clientCity, setClientCity] = React.useState("");
-  const [clientAddress, setClientAddress] = React.useState("");
+  const [clientCountry, setClientCountry] = React.useState(invoice?.clientCountry ?? "Magyarország");
+  // Seeded from the invoice's own buyer-address snapshot in edit mode (Áfa
+  // tv. 169. § e) — never re-derived from the linked client here, matching
+  // build-pdf-context.ts's snapshot-first rule.
+  const [clientZip, setClientZip] = React.useState(invoice?.clientZipCode ?? "");
+  const [clientCity, setClientCity] = React.useState(invoice?.clientCity ?? "");
+  const [clientAddress, setClientAddress] = React.useState(invoice?.clientAddress ?? "");
+  const [clientEuVatNumber, setClientEuVatNumber] = React.useState(invoice?.clientEuVatNumber ?? "");
   const [showClientDetails, setShowClientDetails] = React.useState(false);
   const appliedInitialClientId = React.useRef(false);
 
@@ -168,10 +175,13 @@ export function useInvoiceComposer({
     setClientZip(fields.clientZip);
     setClientCity(fields.clientCity);
     setClientAddress(fields.clientAddress);
+    setClientEuVatNumber(fields.clientEuVatNumber);
     // INV-2: selecting a saved partner must NEVER silently arm e-mail
     // sending — that decision belongs only to the explicit step-3 toggle.
     setEmailOnSend(false);
-    setErrors((prev) => (prev.partner ? { ...prev, partner: undefined } : prev));
+    setErrors((prev) =>
+      prev.partner || prev.buyerAddress ? { ...prev, partner: undefined, buyerAddress: undefined } : prev
+    );
     markDirty();
   }, []);
 
@@ -205,6 +215,16 @@ export function useInvoiceComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exchangeRate, currency]);
 
+  // Same pattern for the buyer-address error (Áfa tv. 169. § e) — clears as
+  // soon as zip/city/address are all filled in again.
+  React.useEffect(() => {
+    if (!errors.buyerAddress) return;
+    if (validateBuyerAddressStep({ clientZip, clientCity, clientAddress }).valid) {
+      setErrors((prev) => ({ ...prev, buyerAddress: undefined }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientZip, clientCity, clientAddress]);
+
   React.useEffect(() => {
     if (mode !== "create" || appliedInitialClientId.current) return;
     if (!initialClientId || clients.length === 0) return;
@@ -230,6 +250,7 @@ export function useInvoiceComposer({
     setClientZip("");
     setClientCity("");
     setClientAddress("");
+    setClientEuVatNumber("");
     setEmailOnSend(false);
     markDirty();
   }
@@ -349,6 +370,11 @@ export function useInvoiceComposer({
       documentType: toInvoiceDocumentType(documentType, invoice?.documentType),
       clientName: clientName.trim() || "—",
       clientTaxNumber: clientTaxNumber.trim() || undefined,
+      clientZipCode: clientZip.trim() || undefined,
+      clientCity: clientCity.trim() || undefined,
+      clientAddress: clientAddress.trim() || undefined,
+      clientCountry: clientCountry.trim() || undefined,
+      clientEuVatNumber: clientEuVatNumber.trim() || undefined,
       clientId: clientId ?? undefined,
       issueDate,
       dueDate,
@@ -366,6 +392,11 @@ export function useInvoiceComposer({
     documentType,
     clientName,
     clientTaxNumber,
+    clientZip,
+    clientCity,
+    clientAddress,
+    clientCountry,
+    clientEuVatNumber,
     clientId,
     issueDate,
     dueDate,
@@ -377,7 +408,7 @@ export function useInvoiceComposer({
   ]);
 
   const invalidSteps: Record<ComposerStepId, boolean> = {
-    partner: Boolean(errors.partner || errors.dueDate),
+    partner: Boolean(errors.partner || errors.dueDate || errors.buyerAddress),
     items: Boolean(errors.lineItems),
     review: false,
   };
@@ -424,9 +455,25 @@ export function useInvoiceComposer({
       return undefined;
     }
 
+    const status = resolveStatusForAction(action, documentType);
+
+    // Áfa tv. 169. § e) — a document that leaves "draft" (any action other
+    // than "draft" itself) must carry a complete buyer name+address. A
+    // proforma (díjbekérő) is exempt — it's never an accounting document
+    // (see requiresCompleteBuyerAddress in lib/invoices/types.ts).
+    if (status !== "draft" && documentType !== "proforma") {
+      const buyerAddressCheck = validateBuyerAddressStep({ clientZip, clientCity, clientAddress });
+      if (!buyerAddressCheck.valid) {
+        setErrors({ buyerAddress: t(buyerAddressCheck.errorKey!) });
+        setStep("partner");
+        setShowClientDetails(true);
+        setFocusField(buyerAddressCheck.focusField ?? null);
+        return undefined;
+      }
+    }
+
     setErrors({});
 
-    const status = resolveStatusForAction(action, documentType);
     const willSend = shouldSendOnAction(action) && emailOnSend;
     if (willSend && !clientEmail.trim()) {
       setErrors({ partner: t("invoices.errors.clientEmailRequired") });
@@ -443,6 +490,11 @@ export function useInvoiceComposer({
         documentType: toInvoiceDocumentType(documentType, invoice?.documentType),
         clientName: clientName.trim(),
         clientTaxNumber: clientTaxNumber.trim() || undefined,
+        clientZipCode: clientZip.trim() || undefined,
+        clientCity: clientCity.trim() || undefined,
+        clientAddress: clientAddress.trim() || undefined,
+        clientCountry: clientCountry.trim() || undefined,
+        clientEuVatNumber: clientEuVatNumber.trim() || undefined,
         clientId: clientId ?? undefined,
         issueDate,
         dueDate,
@@ -524,6 +576,7 @@ export function useInvoiceComposer({
     clientZip,
     clientCity,
     clientAddress,
+    clientEuVatNumber,
     setClientName,
     setClientTaxNumber: (v: string) => {
       setClientTaxNumber(v);
@@ -547,6 +600,10 @@ export function useInvoiceComposer({
     },
     setClientAddress: (v: string) => {
       setClientAddress(v);
+      markDirty();
+    },
+    setClientEuVatNumber: (v: string) => {
+      setClientEuVatNumber(v);
       markDirty();
     },
     handleSelectClient,

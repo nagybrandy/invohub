@@ -10,6 +10,7 @@ jest.mock("@/lib/companies/service", () => ({
 }));
 
 import {
+  BuyerAddressMissingError,
   createInvoiceFromPayload,
   updateDraftInvoiceFromPayload,
   validateExternalInvoiceInput,
@@ -223,6 +224,59 @@ describe("createInvoiceFromPayload", () => {
     const saved = await createInvoiceFromPayload("user-1", input);
     expect(saved.paymentMethod).toBeUndefined();
   });
+
+  it("passes the buyer address snapshot and line-item unit through", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+      clientCountry: "Magyarország",
+      clientEuVatNumber: "HU12345678",
+      lineItems: [{ description: "Consulting", quantity: 1, unitPrice: 10000, unit: "óra" }],
+    });
+    expect(saved.clientZipCode).toBe("1011");
+    expect(saved.clientCity).toBe("Budapest");
+    expect(saved.clientAddress).toBe("Fő utca 1.");
+    expect(saved.clientCountry).toBe("Magyarország");
+    expect(saved.clientEuVatNumber).toBe("HU12345678");
+    expect(saved.lineItems[0].unit).toBe("óra");
+  });
+
+  it("allows a draft (default status) with no buyer address at all", async () => {
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.status).toBe("draft");
+    expect(saved.clientAddress).toBeUndefined();
+  });
+
+  it("throws BuyerAddressMissingError when creating already-finalized without a complete address (Áfa tv. 169. § e)", async () => {
+    await expect(
+      createInvoiceFromPayload("user-1", { ...input, status: "sent" })
+    ).rejects.toBeInstanceOf(BuyerAddressMissingError);
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("never requires a buyer address for a proforma (díjbekérő) — not an accounting document", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      documentType: "proforma",
+      status: "proforma",
+    });
+    expect(saved.status).toBe("proforma");
+    expect(mockUpsertInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it("succeeds creating already-finalized once the buyer address is complete", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      status: "sent",
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+    });
+    expect(saved.status).toBe("sent");
+    expect(mockUpsertInvoice).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("updateDraftInvoiceFromPayload", () => {
@@ -271,5 +325,46 @@ describe("updateDraftInvoiceFromPayload", () => {
     expect(result.invoice.clientName).toBe("Updated Kft.");
     expect(result.invoice.lineItems[0].description).toBe("New line");
     expect(mockUpsertInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the buyer address snapshot and line-item unit through an update", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+      lineItems: [{ description: "New line", quantity: 2, unitPrice: 5000, unit: "db" }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.invoice.clientZipCode).toBe("1011");
+    expect(result.invoice.clientCity).toBe("Budapest");
+    expect(result.invoice.clientAddress).toBe("Fő utca 1.");
+    expect(result.invoice.lineItems[0].unit).toBe("db");
+  });
+
+  it("returns buyer_address_missing when finalizing via update without a complete address", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      status: "unpaid",
+    });
+    expect(result).toEqual({ ok: false, reason: "buyer_address_missing" });
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
+  it("finalizes via update once the buyer address is complete", async () => {
+    mockGetInvoiceById.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      status: "unpaid",
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.invoice.status).toBe("unpaid");
   });
 });

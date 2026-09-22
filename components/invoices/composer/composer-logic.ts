@@ -81,6 +81,28 @@ export function validatePartnerStep(clientName: string): StepValidationResult {
   };
 }
 
+/**
+ * Áfa tv. 169. § e) requires the buyer's name AND address on a finalized
+ * document — checked only when the save action actually finalizes (see
+ * SaveAction below); a draft may stay incomplete. Focuses the zip field,
+ * the first of the three address inputs in the "Ügyfél adatai" panel
+ * (StepPartner.tsx).
+ */
+export function validateBuyerAddressStep(fields: {
+  clientZip: string;
+  clientCity: string;
+  clientAddress: string;
+}): StepValidationResult {
+  if (fields.clientZip.trim() && fields.clientCity.trim() && fields.clientAddress.trim()) {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    errorKey: "invoices.errors.buyerAddressRequired",
+    focusField: "clientZip",
+  };
+}
+
 /** INV-4: at least one line item needs a description before it counts. */
 export function validateLineItemsStep(lineItems: InvoiceLineItem[]): StepValidationResult {
   if (lineItems.some((item) => item.description.trim())) return { valid: true };

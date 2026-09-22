@@ -376,6 +376,8 @@ export default {
       navSubmitFailed: "A számla mentve, de a NAV beküldés sikertelen.",
       navSubmitFailedWithReason: "A számla mentve, de a NAV beküldés sikertelen: {{reason}}",
       dueBeforeIssue: "A fizetési határidő nem lehet korábbi, mint a kiállítás dátuma.",
+      buyerAddressRequired:
+        "A véglegesítéshez kötelező megadni a vevő irányítószámát, városát és címét.",
       exchangeRateRequired: "Nem forint pénznemű számlához kötelező megadni az árfolyamot.",
       exchangeRateInvalid: "Az árfolyam csak nullánál nagyobb szám lehet.",
       navExchangeRateMissing: "A NAV beküldés nem indítható el: hiányzik a számla HUF árfolyama.",

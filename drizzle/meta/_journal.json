@@ -43,6 +43,13 @@
       "when": 1790071386490,
       "tag": "0005_idempotency-key",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790076442484,
+      "tag": "0006_invoice-buyer-address-and-line-item-unit",
+      "breakpoints": true
     }
   ]
 }

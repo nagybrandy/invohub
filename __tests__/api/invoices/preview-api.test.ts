@@ -57,6 +57,20 @@ describe("GET /api/invoices/[id]/preview", () => {
     expect(body.html).toBe("<html>branded</html>");
   });
 
+  it("passes the resolved buyer address through to generateInvoicePreviewHtml", async () => {
+    const invoice = makeInvoice({ id: "inv-1" });
+    mockRequireSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockGetInvoice.mockResolvedValue(invoice);
+    const buyer = { zipCode: "1011", city: "Budapest", address: "Fő utca 1." };
+    mockBuildContext.mockResolvedValue({ invoice, buyer } as never);
+
+    await GET(new Request("https://app.test/api/invoices/inv-1/preview"), {
+      params: Promise.resolve({ id: "inv-1" }),
+    });
+
+    expect(mockGenerateHtml).toHaveBeenCalledWith(invoice, expect.objectContaining({ buyer }));
+  });
+
   it("returns 404 without building a PDF context when the invoice is missing", async () => {
     mockRequireSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockGetInvoice.mockResolvedValue(null);

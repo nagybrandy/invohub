@@ -17,6 +17,37 @@ describe("generateInvoicePreviewHtml", () => {
     expect(html).toContain("<!DOCTYPE html>");
   });
 
+  it("shows the buyer's address from the invoice snapshot (Áfa tv. 169. § e)", () => {
+    const html = generateInvoicePreviewHtml(
+      makeInvoice({
+        clientZipCode: "1011",
+        clientCity: "Budapest",
+        clientAddress: "Fő utca 1.",
+      })
+    );
+    expect(html).toContain("1011 Budapest, Fő utca 1.");
+  });
+
+  it("falls back to an explicitly-passed buyer when the invoice snapshot is empty (legacy invoice)", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice(), {
+      buyer: { zipCode: "9021", city: "Győr", address: "Régi utca 2." },
+    });
+    expect(html).toContain("9021 Győr, Régi utca 2.");
+  });
+
+  it("shows the line item's unit next to the quantity when present", () => {
+    const html = generateInvoicePreviewHtml(
+      makeInvoice({ lineItems: [makeLineItem({ quantity: 3, unit: "óra" })] })
+    );
+    expect(html).toContain("3 óra");
+  });
+
+  it("renders no address paragraph when neither the invoice snapshot nor an explicit buyer has one", () => {
+    const html = generateInvoicePreviewHtml(makeInvoice({ clientTaxNumber: undefined }));
+    // Buyer card has only the name paragraph — no stray empty <p></p>.
+    expect(html).not.toMatch(/<p><\/p>/);
+  });
+
   it("escapes HTML in client name", () => {
     const html = generateInvoicePreviewHtml(
       makeInvoice({ clientName: "<script>alert(1)</script>" })

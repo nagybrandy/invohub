@@ -7,7 +7,7 @@ import {
   getInvoiceById,
   upsertInvoice,
 } from "@/lib/invoices/service";
-import type { Invoice } from "@/lib/invoices/types";
+import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
 
 type Params = { id: string };
 
@@ -60,6 +60,19 @@ export async function PATCH(
       lineItems: body.lineItems ?? existing.lineItems,
       updatedAt: new Date().toISOString(),
     };
+
+    // Áfa tv. 169. § e) — same finalize-time gate as POST /api/invoices
+    // (composer resolves status directly, no separate finalize call here).
+    if (requiresCompleteBuyerAddress(updated) && !hasBuyerAddress(updated)) {
+      return jsonResponse(
+        {
+          error:
+            "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+          code: "buyerAddressMissing",
+        },
+        422
+      );
+    }
 
     const saved = await upsertInvoice(session.user.id, updated);
     return jsonResponse({ invoice: saved });

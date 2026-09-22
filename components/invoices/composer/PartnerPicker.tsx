@@ -40,7 +40,14 @@ export function PartnerPicker({
   value: string;
   onChangeText: (value: string) => void;
   onSelect: (client: Client) => void;
-  onCreateNew: (input: { name: string; email: string; taxNumber: string }) => Promise<void> | void;
+  onCreateNew: (input: {
+    name: string;
+    email: string;
+    taxNumber: string;
+    zip: string;
+    city: string;
+    address: string;
+  }) => Promise<void> | void;
   error?: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
@@ -50,6 +57,9 @@ export function PartnerPicker({
   const [newName, setNewName] = React.useState("");
   const [newEmail, setNewEmail] = React.useState("");
   const [newTaxNumber, setNewTaxNumber] = React.useState("");
+  const [newZip, setNewZip] = React.useState("");
+  const [newCity, setNewCity] = React.useState("");
+  const [newAddress, setNewAddress] = React.useState("");
 
   const results = React.useMemo(
     () => clients.filter((client) => matchesQuery(client, value)).slice(0, MAX_RESULTS),
@@ -61,10 +71,20 @@ export function PartnerPicker({
 
   async function submitNewClient() {
     if (!newName.trim()) return;
-    await onCreateNew({ name: newName.trim(), email: newEmail.trim(), taxNumber: newTaxNumber.trim() });
+    await onCreateNew({
+      name: newName.trim(),
+      email: newEmail.trim(),
+      taxNumber: newTaxNumber.trim(),
+      zip: newZip.trim(),
+      city: newCity.trim(),
+      address: newAddress.trim(),
+    });
     setNewName("");
     setNewEmail("");
     setNewTaxNumber("");
+    setNewZip("");
+    setNewCity("");
+    setNewAddress("");
     setCreating(false);
   }
 
@@ -159,6 +179,32 @@ export function PartnerPicker({
                   placeholder={t("invoices.composer.newPartnerTaxNumber")}
                   value={newTaxNumber}
                   onChangeText={setNewTaxNumber}
+                />
+              </Input>
+              <HStack space="xs">
+                <Input className="w-[90px]">
+                  <InputField
+                    placeholder={t("invoices.fields.zipCode")}
+                    value={newZip}
+                    onChangeText={setNewZip}
+                    testID="composer-new-partner-zip"
+                  />
+                </Input>
+                <Input className="flex-1">
+                  <InputField
+                    placeholder={t("invoices.fields.city")}
+                    value={newCity}
+                    onChangeText={setNewCity}
+                    testID="composer-new-partner-city"
+                  />
+                </Input>
+              </HStack>
+              <Input>
+                <InputField
+                  placeholder={t("invoices.fields.address")}
+                  value={newAddress}
+                  onChangeText={setNewAddress}
+                  testID="composer-new-partner-address"
                 />
               </Input>
               <Pressable

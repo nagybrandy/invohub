@@ -21,7 +21,7 @@ export async function GET(
   const invoice = await getInvoiceById(session.user.id, id);
   if (!invoice) return jsonResponse({ error: "Not found" }, 404);
 
-  const { company, template } = await buildInvoicePdfContext(session.user.id, invoice);
-  const html = generateInvoicePreviewHtml(invoice, { company, template });
+  const { company, template, buyer } = await buildInvoicePdfContext(session.user.id, invoice);
+  const html = generateInvoicePreviewHtml(invoice, { company, template, buyer });
   return jsonResponse({ html, invoice });
 }

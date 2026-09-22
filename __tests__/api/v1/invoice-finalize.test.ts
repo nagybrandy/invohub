@@ -70,6 +70,15 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     expect(body.code).toBe("notDraft");
   });
 
+  it("returns 422 with code buyerAddressMissing without allocating a number", async () => {
+    authOk();
+    mockFinalize.mockResolvedValue({ ok: false, reason: "buyer_address_missing" });
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
+  });
+
   it("returns 200 with the finalized (numbered) invoice", async () => {
     authOk("user-1");
     const finalized = makeInvoice({ id: "inv-1", status: "unpaid", invoiceNumber: "INV-2026-00007" });
