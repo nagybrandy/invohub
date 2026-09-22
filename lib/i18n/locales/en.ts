@@ -240,6 +240,7 @@ export default {
       submit: "Submit to NAV",
       submitting: "Submitting…",
       submitFailed: "Could not submit to NAV.",
+      retry: "Retry",
       refresh: "Refresh status",
       refreshing: "Refreshing…",
       refreshFailed: "Could not refresh NAV status.",
@@ -250,9 +251,11 @@ export default {
         sent: "Submitted",
         received: "Received",
         processing: "Processing",
+        pending: "Submitting",
         saved: "Saved",
         done: "Done",
         aborted: "Aborted",
+        error: "Submission failed",
       },
     },
     timeline: {
@@ -335,7 +338,8 @@ export default {
       notesPlaceholder: "Search saved notes...",
       days: "days",
       navSubmit: "NAV Online Számla submission",
-      navSubmitHint: "The invoice will be automatically submitted to NAV.",
+      navSubmitHint:
+        "On finalization the invoice is submitted to NAV automatically when NAV submission is set up (Company settings, demo or test mode). Track its status on the invoice page.",
       postalMailing: "Postal mailing",
       sendEmail: "Email document to partner",
       sendEmailHint:
@@ -945,6 +949,10 @@ export default {
     edit: "Edit client",
     loadFailed: "Failed to load.",
     saveChanges: "Save changes",
+    privatePerson: "Private person",
+    privatePersonHint:
+      "A natural person who is not a VAT subject. Only the status is reported to NAV — no name, address or tax number.",
+    euVatNumber: "EU VAT number",
   },
   landing: {
     getStarted: "Get started",

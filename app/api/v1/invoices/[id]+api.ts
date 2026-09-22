@@ -13,6 +13,7 @@ import {
   type ExternalInvoiceInput,
 } from "@/lib/invoices/create-from-payload";
 import { deleteDraftInvoiceById, getInvoiceById } from "@/lib/invoices/service";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 type Params = { id: string };
 
@@ -62,7 +63,10 @@ export async function PATCH(
     return jsonApiResponse({ error: result.message, code: "validationError" }, 400);
   }
 
-  return jsonApiResponse({ invoice: result.invoice });
+  // Only a draft is ever updated here, so a non-draft result means this
+  // PATCH finalized it (body.status): report to NAV when configured.
+  const nav = await autoSubmitToNavOnFinalize(auth.userId, null, result.invoice);
+  return jsonApiResponse({ invoice: result.invoice, nav });
 }
 
 export async function DELETE(

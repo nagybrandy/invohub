@@ -16,6 +16,8 @@ describe("buildNavInvoiceXml", () => {
       userId: "u1",
       name: "Demo Kft.",
       taxNumber: "87654321-2-41",
+      // SimpleAddressType needs all of country/postal/city/additionalAddressDetail.
+      address: "Andrássy út 1.",
       city: "Budapest",
       zipCode: "1052",
       bankAccount: "12345678-12345678",

@@ -19,6 +19,11 @@ jest.mock("@/lib/api/idempotency", () => ({
   }),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { POST } from "@/app/api/v1/invoices/[id]/finalize+api";
 import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { finalizeInvoice } from "@/lib/invoices/service";
@@ -43,7 +48,10 @@ function params(id: string) {
 }
 
 describe("POST /api/v1/invoices/[id]/finalize", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAutoSubmit.mockResolvedValue(null);
+  });
 
   it("returns 401 without a valid key", async () => {
     mockAuth.mockResolvedValue({
@@ -81,5 +89,24 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     expect(response.status).toBe(200);
     expect(body.invoice.invoiceNumber).toBe("INV-2026-00007");
     expect(mockFinalize).toHaveBeenCalledWith("user-1", "inv-1");
+  });
+
+  it("auto-submits the finalized invoice to NAV and returns the result", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({ id: "inv-1", status: "unpaid", invoiceNumber: "INV-2026-00008" });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutoSubmit.mockResolvedValue({ outcome: "submitted", submission: { submissionId: "s1" } });
+
+    const body = await (await POST(req("inv-1"), params("inv-1"))).json();
+
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, finalized);
+    expect(body.nav.outcome).toBe("submitted");
+  });
+
+  it("never submits when finalization was refused", async () => {
+    authOk();
+    mockFinalize.mockResolvedValue({ ok: false, reason: "not_draft" });
+    await POST(req("inv-1"), params("inv-1"));
+    expect(mockAutoSubmit).not.toHaveBeenCalled();
   });
 });

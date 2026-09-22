@@ -785,4 +785,42 @@ describe("InvoiceDetailScreen", () => {
     expect(text).toContain("invoices.timeline.issued");
     expect(text).toContain("TX-1");
   });
+
+  describe("NAV status card", () => {
+    function mockApi(invoice: ReturnType<typeof makeInvoice>, submissions: unknown[] = []) {
+      mockApiFetch.mockImplementation(async (path: string) => {
+        if (path.includes("/links")) {
+          return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+        }
+        if (path.includes("/api/nav/status")) return { submissions };
+        return { invoice };
+      });
+    }
+
+    it("is shown for a finalized invoice, with a 'Beküldés' button when nothing was submitted", async () => {
+      mockApi(makeInvoice({ id: "inv-1", status: "unpaid" }));
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-submit" }).length).toBeGreaterThan(0);
+    });
+
+    it("is shown for a storno document, offering retry after a failed submission", async () => {
+      mockApi(makeInvoice({ id: "inv-1", documentType: "storno", status: "sent", originalInvoiceId: "inv-0" }), [
+        { id: "s1", status: "error", mode: "test", transactionId: null, messages: null, errorMessage: "boom", createdAt: "" },
+      ]);
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-retry" }).length).toBeGreaterThan(0);
+    });
+
+    it("is not shown for a draft", async () => {
+      mockApi(makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" }));
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-submit" })).toHaveLength(0);
+    });
+
+    it("is not shown for a díjbekérő (not an invoice for NAV)", async () => {
+      mockApi(makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma", invoiceNumber: "DBK-2026-001" }));
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-submit" })).toHaveLength(0);
+    });
+  });
 });

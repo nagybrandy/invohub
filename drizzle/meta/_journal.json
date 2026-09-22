@@ -50,6 +50,13 @@
       "when": 1790074805661,
       "tag": "0006_invoice-fulfillment-date-persist-nav",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790075130353,
+      "tag": "0007_client-party-type",
+      "breakpoints": true
     }
   ]
 }

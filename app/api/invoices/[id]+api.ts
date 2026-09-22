@@ -9,6 +9,7 @@ import {
   upsertInvoice,
 } from "@/lib/invoices/service";
 import type { Invoice } from "@/lib/invoices/types";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 type Params = { id: string };
 
@@ -72,7 +73,10 @@ export async function PATCH(
     };
 
     const saved = await upsertInvoice(session.user.id, updated);
-    return jsonResponse({ invoice: saved });
+    // Draft -> final ("Véglegesítés" of a saved draft, incl. a helyesbítő
+    // draft -> MODIFY): report to NAV when configured. Never throws.
+    const nav = await autoSubmitToNavOnFinalize(session.user.id, existing, saved);
+    return jsonResponse({ invoice: saved, nav });
   } catch (error) {
     console.error("[PATCH /api/invoices/:id]", error);
     return jsonResponse(

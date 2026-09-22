@@ -81,9 +81,6 @@ function setupApiFetch(overrides: Partial<Record<string, unknown>> = {}) {
     if (path.match(/^\/api\/invoices\/[^/]+\/send$/)) {
       return jsonResponse({});
     }
-    if (path === "/api/nav/submit") {
-      return jsonResponse({});
-    }
     return jsonResponse({});
   });
 }
@@ -202,6 +199,26 @@ describe("useInvoiceComposer", () => {
     expect(body.status).toBe("sent");
     expect(mockApiFetch.mock.calls.some(([path]) => String(path).endsWith("/send"))).toBe(true);
     expect(mockRouterReplace).toHaveBeenCalled();
+  });
+
+  it("never submits to NAV from the client — finalization submits server-side (no opt-in toggle)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setClientEmail("acme@example.com");
+      ref.current!.setEmailOnSend(true);
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    await act(async () => {
+      await ref.current!.save("finalizeAndSend");
+    });
+    await act(async () => {
+      await ref.current!.save("finalize");
+    });
+
+    expect(mockApiFetch.mock.calls.some(([path]) => path === "/api/nav/submit")).toBe(false);
+    expect("navEnabled" in ref.current!).toBe(false);
   });
 
   it("blocks save and points at the partner step when the partner name is empty (INV-4)", async () => {

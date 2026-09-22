@@ -142,7 +142,6 @@ export function useInvoiceComposer({
   // Review ------------------------------------------------------------------
   const [notes, setNotes] = React.useState(invoice?.notes ?? "");
   const [emailOnSend, setEmailOnSend] = React.useState(false);
-  const [navEnabled, setNavEnabled] = React.useState(false);
 
   // Save/dirty state ---------------------------------------------------------
   const [errors, setErrors] = React.useState<ComposerErrors>({});
@@ -471,25 +470,9 @@ export function useInvoiceComposer({
         });
       }
 
-      if (status === "sent" && navEnabled) {
-        try {
-          await apiFetch("/api/nav/submit", {
-            method: "POST",
-            body: JSON.stringify({ invoiceId: saved.id }),
-          });
-        } catch (navSubmitError) {
-          const reason =
-            navSubmitError instanceof Error
-              ? navSubmitError.message
-              : t("invoices.errors.navSubmitFailed");
-          setSavedAt(currentTime());
-          setIsDirty(false);
-          router.replace(
-            `${routes.invoiceDetail(saved.id)}?navError=${encodeURIComponent(reason)}` as Href
-          );
-          return saved;
-        }
-      }
+      // NAV Online Számla: finalization (POST/PATCH /api/invoices) submits
+      // server-side automatically when NAV is configured — no client call
+      // and no opt-in toggle. Status/retry live on the detail screen.
 
       setSavedAt(currentTime());
       setIsDirty(false);
@@ -625,11 +608,6 @@ export function useInvoiceComposer({
       markDirty();
     },
     canEnableEmailOnSend: canEnableEmailOnSend(clientEmail),
-    navEnabled,
-    setNavEnabled: (v: boolean) => {
-      setNavEnabled(v);
-      markDirty();
-    },
 
     // Preview
     draftInvoice,

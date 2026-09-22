@@ -7,10 +7,16 @@ jest.mock("@/lib/api/session", () => ({
 }));
 
 jest.mock("@/lib/invoices/service", () => ({
+  getInvoiceById: jest.fn(),
   listInvoices: jest.fn(),
   getInvoiceStats: jest.fn(),
   upsertInvoice: jest.fn(),
   findLiveConversionsForProformas: jest.fn(),
+}));
+
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
 }));
 
 import { requireSession } from "@/lib/api/session";
@@ -36,6 +42,31 @@ describe("POST /api/invoices", () => {
     jest.clearAllMocks();
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockUpsert.mockImplementation(async (_userId, invoice) => invoice as never);
+    mockAutoSubmit.mockResolvedValue(null);
+  });
+
+  it("persists the partner link (clientId) so NAV can read the buyer address", async () => {
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", clientId: "cl-1", lineItems: [] }),
+      })
+    );
+    expect(mockUpsert.mock.calls[0][1].clientId).toBe("cl-1");
+  });
+
+  it("runs NAV auto-submit on the saved invoice (new document: before = null) and returns its result", async () => {
+    const nav = { outcome: "submitted", submission: { submissionId: "s1", status: "sent" } };
+    mockAutoSubmit.mockResolvedValue(nav);
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", status: "unpaid", invoiceNumber: "INV-2026-001", lineItems: [] }),
+      })
+    );
+    const body = await response.json();
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, expect.objectContaining({ status: "unpaid" }));
+    expect(body.nav).toEqual(nav);
   });
 
   it("returns 401 without session", async () => {

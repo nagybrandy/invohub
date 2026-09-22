@@ -28,5 +28,5 @@ export async function POST(
     return jsonResponse({ error: "Invoice is already cancelled." }, 400);
   }
 
-  return jsonResponse({ invoice: result.invoice }, 201);
+  return jsonResponse({ invoice: result.invoice, nav: result.nav }, 201);
 }

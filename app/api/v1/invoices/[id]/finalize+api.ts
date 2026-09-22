@@ -11,6 +11,7 @@ import {
 import { withIdempotency } from "@/lib/api/idempotency";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { finalizeInvoice } from "@/lib/invoices/service";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 type Params = { id: string };
 
@@ -34,6 +35,9 @@ export async function POST(
         body: { error: "Only a draft invoice can be finalized.", code: "notDraft" },
       };
     }
-    return { status: 200, body: { invoice: result.invoice } };
+    // finalizeInvoice only ever finalizes a draft, so this is always a
+    // finalization: report it to NAV when configured (never throws).
+    const nav = await autoSubmitToNavOnFinalize(auth.userId, null, result.invoice);
+    return { status: 200, body: { invoice: result.invoice, nav } };
   });
 }

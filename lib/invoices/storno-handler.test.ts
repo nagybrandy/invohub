@@ -4,6 +4,11 @@ jest.mock("@/lib/invoices/service", () => ({
   createStornoInvoice: jest.fn(),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { performStorno } from "@/lib/invoices/storno-handler";
 import { createStornoInvoice, getInvoiceById } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
@@ -41,8 +46,13 @@ describe("performStorno", () => {
     const storno = makeInvoice({ id: "storno-1", documentType: "storno", originalInvoiceId: "inv-1" });
     mockCreateStorno.mockResolvedValue(storno);
 
+    const nav = { outcome: "submitted", submission: null };
+    mockAutoSubmit.mockResolvedValue(nav);
+
     const result = await performStorno("user-1", "inv-1");
-    expect(result).toEqual({ ok: true, invoice: storno });
+    expect(result).toEqual({ ok: true, invoice: storno, nav });
     expect(mockCreateStorno).toHaveBeenCalledWith("user-1", source);
+    // the new storno document is reported to NAV (before = null: it's born final)
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, storno);
   });
 });

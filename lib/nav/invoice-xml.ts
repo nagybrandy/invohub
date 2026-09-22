@@ -6,8 +6,21 @@
 // (src/schemas/.../invoiceData.xsd, sample/Data sample/*.xml).
 //
 // Known simplifications (see docs/nav-test-setup.md openIssues):
-//  - Only `simpleAddress` (country/postal/city) is emitted — we don't have
-//    structured street/house-number data, so `detailedAddress` isn't used.
+//  - Only `simpleAddress` (countryCode/postalCode/city/additionalAddressDetail
+//    — all four mandatory in SimpleAddressType) is emitted; the free-text
+//    street goes into additionalAddressDetail. An incomplete address is
+//    omitted entirely rather than emitted schema-invalid.
+//  - customerInfo is derived by lib/nav/customer.ts (DOMESTIC / OTHER /
+//    PRIVATE_PERSON — see that file). Callers pass the derived `customer`;
+//    without one we fall back to the invoice's own name/tax-number snapshot.
+//  - unitOfMeasure is mapped by lib/nav/unit-of-measure.ts (OWN only for
+//    units NAV's enum lacks, e.g. m²).
+//  - Modification documents (storno/helyesbítő) report every line as a new
+//    line: lineModificationReference/lineOperation CREATE with
+//    lineNumberReference = lineNumberReferenceBase + n (the caller passes the
+//    number of lines already in the modification chain).
+//  - Előlegszámla (documentType "advance") lines carry
+//    advanceData/advanceIndicator=true.
 //  - `exchangeRate` reflects the invoice's own manually-entered
 //    `invoice.exchangeRate` (1 for HUF, always) — every `…HUF` element is
 //    derived from it via lib/invoices/exchange-rate.ts. Two open tax/legal
@@ -54,6 +67,16 @@ import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import type { Company } from "@/lib/companies/service";
 import { escapeXml } from "@/lib/nav/xml-utils";
 import { toNavDate, toNavPaymentMethod } from "@/lib/nav/invoice-fields";
+import { toIsoCountryCode } from "@/lib/nav/country-code";
+import {
+  deriveNavCustomer,
+  parseHungarianTaxNumber,
+  resolveNavBuyer,
+  type NavCustomer,
+  type NavSimpleAddress,
+  type NavTaxNumber,
+} from "@/lib/nav/customer";
+import { navLineUnitOf, toNavUnitOfMeasure } from "@/lib/nav/unit-of-measure";
 
 const NS_DATA = "http://schemas.nav.gov.hu/OSA/3.0/data";
 const NS_BASE = "http://schemas.nav.gov.hu/OSA/3.0/base";
@@ -104,6 +127,14 @@ export type NavInvoiceExtra = {
   invoiceAppearance?: "PAPER" | "ELECTRONIC";
   invoiceDeliveryDate?: string;
   invoiceReference?: NavInvoiceReference;
+  /** Derived buyer (lib/nav/customer.ts). Falls back to the invoice's own name/tax number. */
+  customer?: NavCustomer;
+  /**
+   * Modification documents only: how many lines the modification chain
+   * (original + earlier storno/helyesbítő documents) already has — new lines
+   * are reported as lineNumberReference base+1, base+2, …
+   */
+  lineNumberReferenceBase?: number;
 };
 
 /**
@@ -135,58 +166,88 @@ function formatRate(vatRatePercent: number): string {
   return (vatRatePercent / 100).toFixed(4);
 }
 
-function normalizeTaxNumber(value: string | undefined | null): string | null {
-  if (!value) return null;
-  const digits = value.replace(/\D/g, "");
-  return digits.length >= 8 ? digits.slice(0, 8) : null;
-}
-
-function taxNumberBlockXml(tag: "supplierTaxNumber" | "customerTaxNumber", taxpayerId: string): string {
+function taxNumberBlockXml(tag: "supplierTaxNumber" | "customerTaxNumber", taxNumber: NavTaxNumber): string {
+  const vatCodeXml = taxNumber.vatCode ? `\n          <base:vatCode>${escapeXml(taxNumber.vatCode)}</base:vatCode>` : "";
+  const countyCodeXml = taxNumber.countyCode
+    ? `\n          <base:countyCode>${escapeXml(taxNumber.countyCode)}</base:countyCode>`
+    : "";
   return `<${tag}>
-          <base:taxpayerId>${escapeXml(taxpayerId)}</base:taxpayerId>
-          <base:vatCode>2</base:vatCode>
+          <base:taxpayerId>${escapeXml(taxNumber.taxpayerId)}</base:taxpayerId>${vatCodeXml}${countyCodeXml}
         </${tag}>`;
 }
 
-function buildSupplierXml(company: Company | null): string {
-  const taxpayerId = normalizeTaxNumber(company?.taxNumber) ?? "00000000";
-  const name = company?.name?.trim() || "InvoHub felhasználó";
-  const addressXml =
-    company?.city && company?.zipCode
-      ? `<supplierAddress>
+function simpleAddressXml(tag: "supplierAddress" | "customerAddress", address: NavSimpleAddress): string {
+  return `<${tag}>
         <simpleAddress>
-          <base:countryCode>${escapeXml(company?.country || "HU")}</base:countryCode>
-          <base:postalCode>${escapeXml(company.zipCode)}</base:postalCode>
-          <base:city>${escapeXml(company.city)}</base:city>
+          <base:countryCode>${escapeXml(address.countryCode)}</base:countryCode>
+          <base:postalCode>${escapeXml(address.postalCode)}</base:postalCode>
+          <base:city>${escapeXml(address.city)}</base:city>
+          <base:additionalAddressDetail>${escapeXml(address.additionalAddressDetail)}</base:additionalAddressDetail>
         </simpleAddress>
-      </supplierAddress>`
-      : "";
+      </${tag}>`;
+}
+
+function supplierAddress(company: Company | null): NavSimpleAddress | null {
+  const postalCode = company?.zipCode?.trim();
+  const city = company?.city?.trim();
+  const additionalAddressDetail = company?.address?.trim();
+  if (!postalCode || !city || !additionalAddressDetail) return null;
+  const countryCode = toIsoCountryCode(company?.country) ?? "HU";
+  return { countryCode, postalCode, city, additionalAddressDetail };
+}
+
+function buildSupplierXml(company: Company | null): string {
+  // vatCode/countyCode come from the real adószám (an alanyi adómentes EV is
+  // ÁFA-kód 1) — never hardcoded; a bare 8-digit törzsszám sends neither.
+  const taxNumber = parseHungarianTaxNumber(company?.taxNumber) ?? { taxpayerId: "00000000" };
+  const name = company?.name?.trim() || "InvoHub felhasználó";
+  const address = supplierAddress(company);
+  const addressXml = address ? simpleAddressXml("supplierAddress", address) : "";
   const bankAccountXml = company?.bankAccount
     ? `<supplierBankAccountNumber>${escapeXml(company.bankAccount)}</supplierBankAccountNumber>`
     : "";
 
   return `<supplierInfo>
-      ${taxNumberBlockXml("supplierTaxNumber", taxpayerId)}
+      ${taxNumberBlockXml("supplierTaxNumber", taxNumber)}
       <supplierName>${escapeXml(name)}</supplierName>
       ${addressXml}
       ${bankAccountXml}
     </supplierInfo>`;
 }
 
-function buildCustomerXml(invoice: Invoice): string {
+function buildCustomerXml(invoice: Invoice & NavInvoiceExtra): string {
   if (!invoice.clientName?.trim()) return "";
-  const taxpayerId = normalizeTaxNumber(invoice.clientTaxNumber);
-  const status = taxpayerId ? "DOMESTIC" : "PRIVATE_PERSON";
-  const vatDataXml = taxpayerId
-    ? `<customerVatData>
-        ${taxNumberBlockXml("customerTaxNumber", taxpayerId)}
-      </customerVatData>`
-    : "";
+  const customer = invoice.customer ?? deriveNavCustomer(resolveNavBuyer(invoice, null));
+
+  // PRIVATE_PERSON: NAV must not receive the natural person's tax data,
+  // name or address — the status alone.
+  if (customer.vatStatus === "PRIVATE_PERSON") {
+    return `<customerInfo>
+      <customerVatStatus>PRIVATE_PERSON</customerVatStatus>
+    </customerInfo>`;
+  }
+
+  let vatDataXml = "";
+  if (customer.vatStatus === "DOMESTIC") {
+    vatDataXml = `<customerVatData>
+        ${taxNumberBlockXml("customerTaxNumber", customer.taxNumber)}
+      </customerVatData>`;
+  } else if (customer.communityVatNumber) {
+    vatDataXml = `<customerVatData>
+        <communityVatNumber>${escapeXml(customer.communityVatNumber)}</communityVatNumber>
+      </customerVatData>`;
+  } else if (customer.thirdStateTaxId) {
+    vatDataXml = `<customerVatData>
+        <thirdStateTaxId>${escapeXml(customer.thirdStateTaxId)}</thirdStateTaxId>
+      </customerVatData>`;
+  }
+  const addressXml = customer.address ? simpleAddressXml("customerAddress", customer.address) : "";
 
   return `<customerInfo>
-      <customerVatStatus>${status}</customerVatStatus>
+      <customerVatStatus>${customer.vatStatus}</customerVatStatus>
       ${vatDataXml}
-      <customerName>${escapeXml(invoice.clientName)}</customerName>
+      <customerName>${escapeXml(customer.name || invoice.clientName)}</customerName>
+      ${addressXml}
     </customerInfo>`;
 }
 
@@ -214,11 +275,18 @@ function isZeroVatTreatment(treatment: NavLineItemExtra): boolean {
   return !!(treatment.vatExemption || treatment.vatOutOfScope || treatment.reverseCharge);
 }
 
+type LineContext = {
+  /** Set for modification documents: lineNumberReference = base + lineNumber. */
+  lineNumberReferenceBase?: number;
+  advance: boolean;
+};
+
 function buildLineXml(
   line: InvoiceLineItem,
   lineNumber: number,
   extra: NavLineItemExtra,
-  rate: number
+  rate: number,
+  context: LineContext
 ): string {
   const net = lineItemNetTotal(line);
   const treatment = resolveLineNavTreatment(line, extra);
@@ -228,14 +296,35 @@ function buildLineXml(
 
   const vatRateXml = vatTreatmentXml(treatment, line.vatRate);
 
+  // xs:sequence: lineNumber, lineModificationReference, referencesToOtherLines,
+  // advanceData, productCodes, lineExpressionIndicator, …
+  const modificationXml =
+    context.lineNumberReferenceBase !== undefined
+      ? `
+        <lineModificationReference>
+          <lineNumberReference>${context.lineNumberReferenceBase + lineNumber}</lineNumberReference>
+          <lineOperation>CREATE</lineOperation>
+        </lineModificationReference>`
+      : "";
+  const advanceXml = context.advance
+    ? `
+        <advanceData>
+          <advanceIndicator>true</advanceIndicator>
+        </advanceData>`
+    : "";
+  const unit = toNavUnitOfMeasure(navLineUnitOf(line));
+  const unitOwnXml = unit.unitOfMeasureOwn
+    ? `
+        <unitOfMeasureOwn>${escapeXml(unit.unitOfMeasureOwn)}</unitOfMeasureOwn>`
+    : "";
+
   return `<line>
-        <lineNumber>${lineNumber}</lineNumber>
+        <lineNumber>${lineNumber}</lineNumber>${modificationXml}${advanceXml}
         <lineExpressionIndicator>true</lineExpressionIndicator>
         <lineNatureIndicator>SERVICE</lineNatureIndicator>
         <lineDescription>${escapeXml(line.description || "Tétel")}</lineDescription>
         <quantity>${formatAmount(line.quantity)}</quantity>
-        <unitOfMeasure>OWN</unitOfMeasure>
-        <unitOfMeasureOwn>db</unitOfMeasureOwn>
+        <unitOfMeasure>${unit.unitOfMeasure}</unitOfMeasure>${unitOwnXml}
         <unitPrice>${formatAmount(line.unitPrice)}</unitPrice>
         <lineAmountsNormal>
           <lineNetAmountData>
@@ -419,6 +508,10 @@ export function buildNavInvoiceXml(
     : "";
   // Sequence order per InvoiceReferenceType: originalInvoiceNumber,
   // modifyWithoutMaster, modificationIndex.
+  const lineContext: LineContext = {
+    lineNumberReferenceBase: reference ? (invoice.lineNumberReferenceBase ?? 0) : undefined,
+    advance: invoice.documentType === "advance",
+  };
   const referenceXml = reference
     ? `<invoiceReference>
         <originalInvoiceNumber>${escapeXml(reference.originalInvoiceNumber)}</originalInvoiceNumber>
@@ -449,7 +542,7 @@ export function buildNavInvoiceXml(
       <invoiceLines>
         <mergedItemIndicator>false</mergedItemIndicator>
         ${invoice.lineItems
-          .map((line, index) => buildLineXml(line, index + 1, lineExtras[line.id] ?? {}, rate))
+          .map((line, index) => buildLineXml(line, index + 1, lineExtras[line.id] ?? {}, rate, lineContext))
           .join("\n        ")}
       </invoiceLines>
       ${buildSummaryXml(invoice.lineItems, lineExtras, rate)}

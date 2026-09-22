@@ -171,7 +171,7 @@ Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **e-
 | `sendEmail` | boolean | nem | E-mail küldés (default: `true`) — lásd a fenti figyelmeztetést |
 | `emailTo` | string \| string[] | nem | Címzett(ek) felülírása |
 | `emailCc` | string \| string[] | nem | Másolat (Cc) címzettek |
-| `submitToNav` | boolean | nem | NAV beküldés azonnal (default: `false`) |
+| `submitToNav` | boolean | nem | NAV beküldés kérése akkor is, ha az automatikus (véglegesítéskori) beküldés nem futott (default: `false`) |
 
 #### Példa — cURL (draft létrehozása, e-mail nélkül)
 
@@ -331,9 +331,11 @@ Az adott számlához tartozó összes NAV beküldés (legutóbbi elöl):
 
 Kimenő számla továbbítása a NAV felé. Előfeltétel: NAV technikai user + jelszó a cégprofilban (teszt vagy demo mód — production NAV hitelesítő adat ebben a repóban soha nincs).
 
-Válasz (`200`): `{ "invoice": { "...": "..." }, "navSubmission": { "submissionId": "...", "status": "accepted", "transactionId": "TX-123" } }`
+Válasz (`200`): `{ "invoice": { "...": "..." }, "navSubmission": { "submissionId": "...", "status": "sent", "mode": "demo", "transactionId": "TX-123", "errorMessage": null } }`
 
-NAV beküldés számla létrehozáskor is kérhető: `"submitToNav": true` a create body-ban.
+Idempotens: ha a számlának már van folyamatban lévő vagy `done` beküldése, azt adja vissza (`"alreadySubmitted": true`), nem küldi be újra. Hibakódok: `409 draftNotSubmittable` (piszkozat), `422 proformaNotSubmittable` (díjbekérő — nem számla), `409 missingExchangeRate`, `502 navSubmitFailed` (a hiba rögzítve, újrapróbálható).
+
+**Automatikus beküldés:** minden számla jellegű bizonylat (számla, előleg, sztornó, helyesbítő — díjbekérő nem) véglegesítéskor automatikusan beküldésre kerül, ha a NAV be van állítva (demó mód, vagy teszt mód saját/közös teszt fiókkal). A `finalize`, `storno`, `PATCH` és create válaszokban a `nav` mező mutatja az eredményt. `"submitToNav": true` a create body-ban akkor is kér egy (idempotens) beküldést, ha az automatikus nem futott.
 
 ---
 

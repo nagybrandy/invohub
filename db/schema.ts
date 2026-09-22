@@ -120,6 +120,11 @@ export const client = pgTable(
     city: text("city"),
     zipCode: text("zip_code"),
     country: text("country"),
+    // "company" | "private_person" — drives NAV customerVatStatus (a natural
+    // person who is not a VAT subject is PRIVATE_PERSON, whose name/address
+    // must NOT be reported). Nullable: legacy rows fall back to inference
+    // from the tax data (see lib/nav/customer.ts).
+    partyType: text("party_type"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

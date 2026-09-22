@@ -241,6 +241,7 @@ export default {
       submit: "Beküldés a NAV-nak",
       submitting: "Beküldés…",
       submitFailed: "A NAV beküldés sikertelen.",
+      retry: "Újrapróbálás",
       refresh: "Státusz frissítése",
       refreshing: "Frissítés…",
       refreshFailed: "A NAV státusz frissítése sikertelen.",
@@ -251,9 +252,11 @@ export default {
         sent: "Beküldve",
         received: "Fogadva",
         processing: "Feldolgozás alatt",
+        pending: "Beküldés folyamatban",
         saved: "Mentve",
         done: "Kész",
         aborted: "Elutasítva",
+        error: "Sikertelen beküldés",
       },
     },
     timeline: {
@@ -337,7 +340,7 @@ export default {
       days: "nap",
       navSubmit: "NAV Online Számla beküldése",
       navSubmitHint:
-        "A számla automatikusan beküldésre kerül a NAV rendszerébe",
+        "Véglegesítéskor a számla automatikusan beküldésre kerül a NAV-nak, ha a NAV-beküldés be van állítva (Cégadatok, demó vagy teszt mód). Az állapotot a számla adatlapján követheted.",
       postalMailing: "Bizonylat postázása",
       sendEmail: "Bizonylat postázása e-mailben",
       sendEmailHint: "A bizonylat automatikusan kiküldésre kerül a partner e-mail címére",
@@ -944,6 +947,10 @@ export default {
     edit: "Ügyfél szerkesztése",
     loadFailed: "Nem sikerült betölteni.",
     saveChanges: "Változások mentése",
+    privatePerson: "Magánszemély",
+    privatePersonHint:
+      "Nem áfaalany természetes személy. A NAV felé csak a státusz kerül beküldésre, név, cím és adószám nélkül.",
+    euVatNumber: "Közösségi adószám",
   },
   landing: {
     getStarted: "Kezdés",

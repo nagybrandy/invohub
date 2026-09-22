@@ -9,6 +9,7 @@ import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculati
 import { invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
 import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 import type { Invoice } from "@/lib/invoices/types";
 
 export type SendInvoiceEmailResult = {
@@ -47,11 +48,16 @@ export async function sendInvoiceNotificationEmail(
   // vars below — otherwise a still-draft invoice would be emailed with a
   // blank invoiceNumber and only get its number afterwards.
   if (options?.markSent !== false && invoice.status === "draft") {
+    const draft = invoice;
     invoice = await upsertInvoice(userId, {
       ...invoice,
       status: "sent",
       updatedAt: new Date().toISOString(),
     });
+    // This IS a finalization (the draft just got its number): report it to
+    // NAV like every other finalization path. Never throws — a NAV problem
+    // is recorded on the submission row, the email still goes out.
+    await autoSubmitToNavOnFinalize(userId, draft, invoice);
   }
 
   const to = await resolveInvoiceEmailRecipients(userId, invoice.clientName, options?.to);

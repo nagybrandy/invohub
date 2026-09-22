@@ -25,6 +25,11 @@ jest.mock("@/lib/email/send", () => ({
   sendEmail: jest.fn(),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { getCompanyByUserId, resolveInvoiceEmailRecipients } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
@@ -46,6 +51,28 @@ const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
 describe("sendInvoiceNotificationEmail", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAutoSubmit.mockResolvedValue(null);
+  });
+
+  it("auto-submits to NAV when sending finalizes a draft (before -> after)", async () => {
+    const draft = makeInvoice({ status: "draft", invoiceNumber: "" });
+    const finalized = makeInvoice({ status: "sent", invoiceNumber: "INV-2026-007" });
+    mockGetInvoice.mockResolvedValue(draft);
+    mockUpsert.mockResolvedValue(finalized);
+    mockResolveRecipients.mockResolvedValue([]);
+
+    await sendInvoiceNotificationEmail("user-1", draft.id);
+
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", draft, finalized);
+  });
+
+  it("does not touch NAV when the invoice was already final", async () => {
+    mockGetInvoice.mockResolvedValue(makeInvoice({ status: "unpaid" }));
+    mockResolveRecipients.mockResolvedValue([]);
+
+    await sendInvoiceNotificationEmail("user-1", "inv-1");
+
+    expect(mockAutoSubmit).not.toHaveBeenCalled();
   });
 
   it("returns error when recipient cannot be resolved", async () => {

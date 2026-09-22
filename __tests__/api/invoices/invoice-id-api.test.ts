@@ -12,9 +12,14 @@ jest.mock("@/lib/invoices/service", () => ({
   deleteInvoiceById: jest.fn(),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { requireSession } from "@/lib/api/session";
-import { GET } from "@/app/api/invoices/[id]+api";
-import { getInvoiceById } from "@/lib/invoices/service";
+import { GET, PATCH } from "@/app/api/invoices/[id]+api";
+import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
@@ -72,5 +77,47 @@ describe("GET /api/invoices/[id]", () => {
     );
     expect(mockGet).toHaveBeenCalledWith("user-1", "mr682pvd-ketybxz3p");
     expect(response.status).toBe(404);
+  });
+});
+
+describe("PATCH /api/invoices/[id] — NAV auto-submit on finalization", () => {
+  const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockUpsert.mockImplementation(async (_userId, invoice) => ({ ...invoice, invoiceNumber: "INV-2026-005" }) as never);
+    mockAutoSubmit.mockResolvedValue(null);
+  });
+
+  it("passes the pre-save invoice as `before` so only a draft -> final transition submits", async () => {
+    const draft = makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" });
+    mockGet.mockResolvedValue(draft);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/invoices/inv-1", {
+        method: "PATCH",
+        body: JSON.stringify({ status: "unpaid" }),
+      }),
+      { params: { id: "inv-1" } }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockAutoSubmit).toHaveBeenCalledWith(
+      "user-1",
+      draft,
+      expect.objectContaining({ status: "unpaid", invoiceNumber: "INV-2026-005" })
+    );
+  });
+
+  it("returns the NAV result next to the invoice", async () => {
+    mockGet.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" }));
+    mockAutoSubmit.mockResolvedValue({ outcome: "failed", submission: null, error: "boom" });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/invoices/inv-1", { method: "PATCH", body: JSON.stringify({ status: "unpaid" }) }),
+      { params: { id: "inv-1" } }
+    );
+    expect((await response.json()).nav).toEqual({ outcome: "failed", submission: null, error: "boom" });
   });
 });

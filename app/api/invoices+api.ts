@@ -8,10 +8,12 @@ import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/const
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
 import {
   findLiveConversionsForProformas,
+  getInvoiceById,
   getInvoiceStats,
   listInvoices,
   upsertInvoice,
 } from "@/lib/invoices/service";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 import type { Invoice } from "@/lib/invoices/types";
 
 /** Only a positive, finite rate on a non-HUF invoice is ever persisted. */
@@ -97,6 +99,9 @@ export async function POST(request: Request) {
     documentType: body.documentType ?? "invoice",
     clientName: body.clientName ?? "",
     clientTaxNumber: body.clientTaxNumber,
+    // The partner link carries the buyer address/EU VAT number/party type
+    // NAV needs (lib/nav/customer.ts) — previously dropped on create.
+    clientId: body.clientId,
     issueDate: body.issueDate ?? now.slice(0, 10),
     dueDate: body.dueDate ?? now.slice(0, 10),
     fulfillmentDate: normalizeFulfillmentDate(body.fulfillmentDate),
@@ -110,6 +115,10 @@ export async function POST(request: Request) {
     updatedAt: now,
   };
 
+  const before = body.id ? await getInvoiceById(session.user.id, body.id) : null;
   const saved = await upsertInvoice(session.user.id, invoice);
-  return jsonResponse({ invoice: saved }, 201);
+  // "Véglegesítés" straight from a new composer: report to NAV when
+  // configured. Never throws — the result rides along for the UI.
+  const nav = await autoSubmitToNavOnFinalize(session.user.id, before, saved);
+  return jsonResponse({ invoice: saved, nav }, 201);
 }
