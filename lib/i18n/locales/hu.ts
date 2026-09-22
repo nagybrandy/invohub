@@ -140,6 +140,9 @@ export default {
     },
     document: {
       documentNumber: "Sorszám",
+      referenceModify: "Az {{number}} sorszámú számla helyesbítése",
+      referenceStorno: "Az {{number}} sorszámú számla sztornója",
+      refundTotal: "Visszatérítendő összeg",
       vatSummary: "ÁFA-összesítő",
       vatRateColumn: "ÁFA-kulcs",
       paymentDetails: "Fizetési információ",

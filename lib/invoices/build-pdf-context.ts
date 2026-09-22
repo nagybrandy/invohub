@@ -5,6 +5,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import type { InvoicePdfBuyer, InvoicePdfCompany, InvoicePdfContext } from "@/lib/invoices/generate-pdf";
 import { buildSamplePreviewInvoice } from "@/lib/invoices/pdf-template/sample-invoice";
 import { getPdfTemplate } from "@/lib/invoices/pdf-template/service";
+import { getInvoiceById } from "@/lib/invoices/service";
 import type { Invoice } from "@/lib/invoices/types";
 
 function mapCompany(
@@ -70,10 +71,12 @@ export async function buildInvoicePdfContext(
   userId: string,
   invoice: Invoice
 ): Promise<InvoicePdfContext> {
-  const [company, template, buyer] = await Promise.all([
+  const referencedId = invoice.modifiesInvoiceId ?? invoice.originalInvoiceId;
+  const [company, template, buyer, referenced] = await Promise.all([
     getCompanyByUserId(userId),
     getPdfTemplate(userId),
     loadBuyer(userId, invoice),
+    referencedId ? getInvoiceById(userId, referencedId) : Promise.resolve(null),
   ]);
 
   return {
@@ -81,6 +84,7 @@ export async function buildInvoicePdfContext(
     company: mapCompany(company),
     buyer,
     template,
+    referencedInvoiceNumber: referenced?.invoiceNumber || undefined,
   };
 }
 

@@ -140,6 +140,9 @@ export default {
     },
     document: {
       documentNumber: "Number",
+      referenceModify: "Correction of invoice no. {{number}}",
+      referenceStorno: "Cancellation of invoice no. {{number}}",
+      refundTotal: "Amount to be refunded",
       vatSummary: "VAT summary",
       vatRateColumn: "VAT rate",
       paymentDetails: "Payment details",
