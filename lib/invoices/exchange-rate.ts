@@ -1,7 +1,7 @@
 // lib/invoices/exchange-rate.ts
 // Pure HUF exchange-rate resolution/formatting for non-HUF invoices. No I/O,
 // no i18next — shared by the NAV XML builder (lib/nav/invoice-xml.ts), the
-// document renderers (preview-html.ts / generate-pdf.ts) and the composer
+// document renderer (generate-pdf.ts) and the composer
 // (components/invoices/composer/composer-logic.ts) alike.
 //
 // The rate itself is whatever the user typed on the invoice — this module

@@ -276,8 +276,7 @@ describe("generateInvoicePdf", () => {
     // embedded path, where doc.text is NOT wrapped with toWinAnsiSafe (AC5)
     // and ő/ű reach doc.text exactly as typed (AC4). Kibocsátó/Vevő are
     // drawn as party-card titles, which this slice deliberately uppercases
-    // (AC6, mirroring preview-html.ts's `.party-card h2 { text-transform:
-    // uppercase }`) — checked case-insensitively so the ő/ű glyphs
+    // (AC6) — checked case-insensitively so the ő/ű glyphs
     // themselves are still asserted unmangled either way.
     for (const label of [
       "Kibocsátó",
