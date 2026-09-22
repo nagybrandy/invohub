@@ -63,6 +63,7 @@ function render(overrides: Partial<React.ComponentProps<typeof StepLineItems>> =
         onAddFromProduct={onAddFromProduct}
         onRemove={onRemove}
         previewSlot={overrides.previewSlot}
+        isModification={overrides.isModification}
         t={t}
       />
     );
@@ -255,5 +256,30 @@ describe("StepLineItems", () => {
     });
     expect(tree.root.findByProps({ testID: "row-a" })).toBeTruthy();
     expect(tree.root.findByProps({ testID: "row-b" })).toBeTruthy();
+  });
+});
+
+describe("StepLineItems — helyesbítő (modify) draft", () => {
+  it("shows the difference hint only for a modification draft", () => {
+    const normal = render();
+    expect(normal.tree.root.findAll((n) => n.props?.testID === "modification-draft-hint")).toHaveLength(0);
+
+    const modify = render({ isModification: true });
+    const hint = modify.tree.root.findAll((n) => n.props?.testID === "modification-draft-hint");
+    expect(hint.length).toBeGreaterThan(0);
+    expect(JSON.stringify(modify.tree.toJSON())).toContain("invoices.correction.draftHint");
+  });
+
+  it("shows a zero total for a freshly created draft (reversal + copy net out)", () => {
+    const { tree } = render({
+      isModification: true,
+      lineItems: [
+        makeLineItem({ id: "r", description: "Tanácsadás", quantity: -2, unitPrice: 1000, vatRate: 27 }),
+        makeLineItem({ id: "c", description: "Tanácsadás", quantity: 2, unitPrice: 1000, vatRate: 27 }),
+      ],
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toMatch(/-0\s?Ft/);
+    expect(json).toMatch(/0\sFt/);
   });
 });

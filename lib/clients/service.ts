@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { client } from "@/db/schema";
 import { createId } from "@/lib/id";
+import { normalizeClientPartyType, type ClientPartyType } from "@/lib/clients/party-type";
 
 export type ClientInput = {
   name: string;
@@ -14,6 +15,8 @@ export type ClientInput = {
   city?: string;
   zipCode?: string;
   country?: string;
+  /** Company vs. private person (natural person, not a VAT subject) — see lib/clients/party-type.ts. */
+  partyType?: ClientPartyType;
 };
 
 export type Client = ClientInput & {
@@ -35,6 +38,7 @@ function mapRow(row: typeof client.$inferSelect): Client {
     city: row.city ?? undefined,
     zipCode: row.zipCode ?? undefined,
     country: row.country ?? undefined,
+    partyType: normalizeClientPartyType(row.partyType) ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -75,6 +79,7 @@ export async function createClient(
       city: input.city ?? null,
       zipCode: input.zipCode ?? null,
       country: input.country ?? null,
+      partyType: normalizeClientPartyType(input.partyType),
       createdAt: now,
       updatedAt: now,
     })
@@ -102,6 +107,10 @@ export async function updateClient(
       city: input.city ?? existing.city ?? null,
       zipCode: input.zipCode ?? existing.zipCode ?? null,
       country: input.country ?? existing.country ?? null,
+      partyType:
+        input.partyType !== undefined
+          ? normalizeClientPartyType(input.partyType)
+          : (existing.partyType ?? null),
       updatedAt: now,
     })
     .where(eq(client.id, id))

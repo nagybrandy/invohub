@@ -3,17 +3,20 @@
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
+import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { createId } from "@/lib/id";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
 import {
   CompanyProfileIncompleteError,
   findLiveConversionsForProformas,
+  getInvoiceById,
   getInvoiceStats,
   listInvoices,
   upsertInvoice,
 } from "@/lib/invoices/service";
 import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 /** Only a positive, finite rate on a non-HUF invoice is ever persisted. */
 function normalizeExchangeRate(
@@ -22,6 +25,12 @@ function normalizeExchangeRate(
 ): number | undefined {
   if (!requiresExchangeRate(currency)) return undefined;
   return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+}
+
+/** A non-YYYY-MM-DD value (or one normalizeFulfillmentDateInput can't parse) is dropped, never persisted raw (AC10). */
+function normalizeFulfillmentDate(raw: unknown): string | undefined {
+  const normalized = normalizeFulfillmentDateInput(raw);
+  return normalized ?? undefined;
 }
 
 function parseLimit(url: URL): number {
@@ -86,6 +95,7 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const currency = body.currency ?? "HUF";
   const issueDate = body.issueDate ?? now.slice(0, 10);
+  const fulfillmentDate = normalizeFulfillmentDate(body.fulfillmentDate);
   // Server safety net (item 6): a non-HUF create with no (valid) manual
   // rate gets the official MNB rate instead of being left empty — same
   // fallback-to-undefined-on-failure as everywhere else this helper is used.
@@ -93,6 +103,8 @@ export async function POST(request: Request) {
     currency,
     exchangeRate: normalizeExchangeRate(currency, body.exchangeRate),
     issueDate,
+    // Áfa tv. 80. §: the teljesítés date's rate when known, else issue date.
+    fulfillmentDate,
   });
   const invoice: Invoice = {
     id: body.id ?? createId(),
@@ -101,6 +113,9 @@ export async function POST(request: Request) {
     documentType: body.documentType ?? "invoice",
     clientName: body.clientName ?? "",
     clientTaxNumber: body.clientTaxNumber,
+    // The partner link carries the party type (and the address fallback for
+    // pre-snapshot invoices) NAV needs (lib/nav/customer.ts).
+    clientId: body.clientId,
     clientZipCode: body.clientZipCode,
     clientCity: body.clientCity,
     clientAddress: body.clientAddress,
@@ -108,6 +123,7 @@ export async function POST(request: Request) {
     clientEuVatNumber: body.clientEuVatNumber,
     issueDate,
     dueDate: body.dueDate ?? now.slice(0, 10),
+    fulfillmentDate,
     status: body.status ?? "draft",
     currency,
     exchangeRate,
@@ -133,9 +149,13 @@ export async function POST(request: Request) {
     );
   }
 
+  const before = body.id ? await getInvoiceById(session.user.id, body.id) : null;
   try {
     const saved = await upsertInvoice(session.user.id, invoice);
-    return jsonResponse({ invoice: saved }, 201);
+    // "Véglegesítés" straight from a new composer: report to NAV when
+    // configured. Never throws — the result rides along for the UI.
+    const nav = await autoSubmitToNavOnFinalize(session.user.id, before, saved);
+    return jsonResponse({ invoice: saved, nav }, 201);
   } catch (error) {
     if (error instanceof CompanyProfileIncompleteError) {
       return jsonResponse(

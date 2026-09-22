@@ -140,6 +140,9 @@ export default {
     },
     document: {
       documentNumber: "Number",
+      referenceModify: "Correction of invoice no. {{number}}",
+      referenceStorno: "Cancellation of invoice no. {{number}}",
+      refundTotal: "Amount to be refunded",
       vatSummary: "VAT summary",
       vatRateColumn: "VAT rate",
       paymentDetails: "Payment details",
@@ -150,6 +153,7 @@ export default {
       taxNumber: "Tax number",
       bankAccount: "Bank account",
       issueDate: "Issue date",
+      fulfillmentDate: "Fulfillment date",
       dueDate: "Due date",
       paymentMethod: "Payment method",
       currency: "Currency",
@@ -242,6 +246,7 @@ export default {
       submit: "Submit to NAV",
       submitting: "Submitting…",
       submitFailed: "Could not submit to NAV.",
+      retry: "Retry",
       refresh: "Refresh status",
       refreshing: "Refreshing…",
       refreshFailed: "Could not refresh NAV status.",
@@ -252,9 +257,11 @@ export default {
         sent: "Submitted",
         received: "Received",
         processing: "Processing",
+        pending: "Submitting",
         saved: "Saved",
         done: "Done",
         aborted: "Aborted",
+        error: "Submission failed",
       },
     },
     timeline: {
@@ -309,6 +316,8 @@ export default {
       email: "Email",
       emailHint: "We'll send the document here",
       fulfillmentDate: "Fulfillment date",
+      fulfillmentDateHint:
+        "Shown on the invoice when it differs from the issue date, and reported to NAV.",
       issueDate: "Issue date",
       continuousPerformance: "Continuous performance",
       paymentMethod: "Payment method",
@@ -334,7 +343,8 @@ export default {
       notesPlaceholder: "Search saved notes...",
       days: "days",
       navSubmit: "NAV Online Számla submission",
-      navSubmitHint: "The invoice will be automatically submitted to NAV.",
+      navSubmitHint:
+        "On finalization the invoice is submitted to NAV automatically when NAV submission is set up (Company settings, demo or test mode). Track its status on the invoice page.",
       postalMailing: "Postal mailing",
       sendEmail: "Email document to partner",
       sendEmailHint:
@@ -487,8 +497,10 @@ export default {
       action: "Correction invoice",
       confirmTitle: "Create a correction invoice",
       confirmMessage:
-        "Starts a helyesbítő draft prefilled with this invoice's lines, for you to adjust and finalize.",
+        "Starts a helyesbítő draft with each of this invoice's lines both reversed and copied — edit the copies, then finalize.",
       confirm: "Create draft",
+      draftHint:
+        "The original lines appear reversed; edit the copies to the correct values, and you can delete pairs that did not change.",
     },
     convert: {
       action: "Create invoice from this",
@@ -950,6 +962,10 @@ export default {
     edit: "Edit client",
     loadFailed: "Failed to load.",
     saveChanges: "Save changes",
+    privatePerson: "Private person",
+    privatePersonHint:
+      "A natural person who is not a VAT subject. Only the status is reported to NAV — no name, address or tax number.",
+    euVatNumber: "EU VAT number",
   },
   landing: {
     getStarted: "Get started",

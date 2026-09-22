@@ -8,6 +8,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import { buildInvoiceFromProforma } from "@/lib/invoices/convert-proforma";
+import { buildModificationDraftLineItems } from "@/lib/invoices/modification-lines";
 import {
   INVOICE_LIST_LIMIT,
   INVOICE_LIST_MAX_LIMIT,
@@ -531,8 +532,10 @@ export async function findInvoicesReferencing(
 }
 
 /**
- * Starts a helyesbítő (correction) document as a minimal draft prefilled
- * with the original's lines. modificationIndex counts prior corrections
+ * Starts a helyesbítő (correction) document as a minimal draft. NAV reads
+ * MODIFY lines as differences, so the draft starts at a zero difference:
+ * each original line appears reversed (negated quantity) and as an editable
+ * copy (see lib/invoices/modification-lines.ts). modificationIndex counts prior corrections
  * against the same original so NAV XML can report which correction this is.
  */
 export async function createModificationDraft(
@@ -551,7 +554,7 @@ export async function createModificationDraft(
     invoiceNumber: "",
     documentType: "modify",
     status: "draft",
-    lineItems: source.lineItems.map((item) => ({ ...item, id: createId() })),
+    lineItems: buildModificationDraftLineItems(source.lineItems),
     notes: `Helyesbítő – eredeti bizonylat: ${source.invoiceNumber || source.id}`,
     originalInvoiceId: undefined,
     modifiesInvoiceId: source.id,

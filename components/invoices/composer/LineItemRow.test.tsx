@@ -63,6 +63,7 @@ function render(overrides: Partial<React.ComponentProps<typeof LineItemRow>> = {
         onChange={onChange}
         onRemove={onRemove}
         onFillFromProduct={onFillFromProduct}
+        allowNegativeQuantity={overrides.allowNegativeQuantity}
         t={t}
       />
     );
@@ -322,6 +323,27 @@ describe("LineItemRow — compact card layout (responsive-line-item-grid)", () =
     });
     expect(onChange).toHaveBeenCalledWith({ quantity: 3 });
     expect(onChange).toHaveBeenCalledWith({ unitPrice: 1200 });
+  });
+
+  it("clamps a negative quantity to 0 on a normal invoice", () => {
+    const { tree, onChange } = render({ layout: "card" });
+    act(() => {
+      tree.root.findByProps({ testID: "lineItem-0-quantity" }).props.onChangeText("-2");
+    });
+    expect(onChange).toHaveBeenCalledWith({ quantity: 0 });
+  });
+
+  it("keeps a negative quantity on a helyesbítő reversing line (allowNegativeQuantity)", () => {
+    const { tree, onChange } = render({
+      layout: "card",
+      allowNegativeQuantity: true,
+      item: makeLineItem({ description: "Tanácsadás", quantity: -3, unitPrice: 1000, vatRate: 27 }),
+    });
+    expect(tree.root.findByProps({ testID: "lineItem-0-quantity" }).props.value).toBe("-3");
+    act(() => {
+      tree.root.findByProps({ testID: "lineItem-0-quantity" }).props.onChangeText("-2");
+    });
+    expect(onChange).toHaveBeenCalledWith({ quantity: -2 });
   });
 
   it("keeps a 44px delete target (h-11 w-11) that still confirms before deleting", async () => {

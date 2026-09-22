@@ -11,10 +11,15 @@ jest.mock("@/lib/clients/service", () => ({
   getClientById: jest.fn(),
 }));
 
+jest.mock("@/lib/invoices/service", () => ({
+  getInvoiceById: jest.fn(),
+}));
+
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { buildInvoicePdfContext } from "@/lib/invoices/build-pdf-context";
 import { getPdfTemplate } from "@/lib/invoices/pdf-template/service";
 import { getClientById } from "@/lib/clients/service";
+import { getInvoiceById } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
@@ -135,5 +140,22 @@ describe("buildInvoicePdfContext", () => {
     );
     expect(mockClient).toHaveBeenCalledWith("u1", "cl1");
     expect(ctx.buyer?.address).toBe("Régi utca 2.");
+  });
+
+  it("resolves the referenced original invoice number for a helyesbítő / storno (Áfa tv. 170. §)", async () => {
+    (getInvoiceById as jest.Mock).mockResolvedValue(makeInvoice({ id: "orig", invoiceNumber: "INV-2026-000147" }));
+    const modify = await buildInvoicePdfContext("u1", makeInvoice({ documentType: "modify", modifiesInvoiceId: "orig" }));
+    expect(modify.referencedInvoiceNumber).toBe("INV-2026-000147");
+    expect(getInvoiceById).toHaveBeenCalledWith("u1", "orig");
+
+    const storno = await buildInvoicePdfContext("u1", makeInvoice({ documentType: "storno", originalInvoiceId: "orig" }));
+    expect(storno.referencedInvoiceNumber).toBe("INV-2026-000147");
+  });
+
+  it("does not look anything up for a plain invoice", async () => {
+    (getInvoiceById as jest.Mock).mockClear();
+    const ctx = await buildInvoicePdfContext("u1", makeInvoice({ documentType: "invoice" }));
+    expect(ctx.referencedInvoiceNumber).toBeUndefined();
+    expect(getInvoiceById).not.toHaveBeenCalled();
   });
 });

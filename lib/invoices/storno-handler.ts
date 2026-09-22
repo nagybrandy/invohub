@@ -5,9 +5,10 @@
 // between the two.
 import { createStornoInvoice, getInvoiceById } from "@/lib/invoices/service";
 import type { Invoice } from "@/lib/invoices/types";
+import { autoSubmitToNavOnFinalize, type NavAutoSubmitResult } from "@/lib/nav/auto-submit";
 
 export type PerformStornoResult =
-  | { ok: true; invoice: Invoice }
+  | { ok: true; invoice: Invoice; nav: NavAutoSubmitResult | null }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "proforma" }
   | { ok: false; reason: "already_cancelled" };
@@ -19,5 +20,8 @@ export async function performStorno(userId: string, id: string): Promise<Perform
   if (existing.status === "cancelled") return { ok: false, reason: "already_cancelled" };
 
   const invoice = await createStornoInvoice(userId, existing);
-  return { ok: true, invoice };
+  // A storno is created already final: report it to NAV (operation STORNO,
+  // referencing the original) when NAV is configured. Never throws.
+  const nav = await autoSubmitToNavOnFinalize(userId, null, invoice);
+  return { ok: true, invoice, nav };
 }

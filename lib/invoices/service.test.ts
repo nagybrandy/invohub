@@ -148,6 +148,7 @@ jest.mock("@/lib/id", () => ({
     .mockReturnValueOnce("storno-line-id")
     .mockReturnValueOnce("modify-inv-id")
     .mockReturnValueOnce("modify-line-id")
+    .mockReturnValueOnce("modify-line-copy-id")
     .mockReturnValueOnce("converted-inv-id")
     .mockReturnValueOnce("converted-line-id"),
 }));
@@ -195,6 +196,14 @@ describe("duplicateInvoice", () => {
     expect(copy.paidAmount).toBeUndefined();
     expect(copy.paidAt).toBeUndefined();
   });
+
+  // AC12: duplicate keeps the source's fulfillmentDate (already spread
+  // ...source; a regression guard, not new logic).
+  it("keeps the source's fulfillmentDate", () => {
+    const source = makeInvoice({ fulfillmentDate: "2026-06-20" });
+    const copy = duplicateInvoice(source);
+    expect(copy.fulfillmentDate).toBe("2026-06-20");
+  });
 });
 
 describe("buildStornoLineItems", () => {
@@ -208,7 +217,11 @@ describe("buildStornoLineItems", () => {
 
 describe("createStornoInvoice", () => {
   it("creates a new finalized storno document and cancels the original", async () => {
-    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const source = makeInvoice({
+      id: "inv-orig",
+      invoiceNumber: "INV-2026-001",
+      fulfillmentDate: "2026-05-28",
+    });
 
     // Storno is finalized immediately, so it allocates a number from the shared invoice sequence.
     mockSequenceQueue = [2];
@@ -223,6 +236,7 @@ describe("createStornoInvoice", () => {
           documentType: "storno",
           status: "sent",
           originalInvoiceId: "inv-orig",
+          fulfillmentDate: "2026-05-28",
         }),
       ],
       [dbLineItemRow({ id: "storno-line-id", invoiceId: "storno-inv-id", quantity: "-2" })],
@@ -235,6 +249,8 @@ describe("createStornoInvoice", () => {
     expect(saved.originalInvoiceId).toBe("inv-orig");
     expect(saved.status).toBe("sent");
     expect(saved.lineItems[0].quantity).toBe(-2);
+    // AC12: the storno document keeps the source's fulfillmentDate.
+    expect(saved.fulfillmentDate).toBe("2026-05-28");
 
     // The original invoice was flipped to cancelled via a direct update.
     expect(mockDb.update).toHaveBeenCalledTimes(1);
@@ -258,7 +274,11 @@ describe("createStornoInvoice", () => {
 
 describe("createModificationDraft", () => {
   it("creates a minimal draft pointing at the source with modificationIndex 1", async () => {
-    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const source = makeInvoice({
+      id: "inv-orig",
+      invoiceNumber: "INV-2026-001",
+      fulfillmentDate: "2026-06-10",
+    });
 
     mockSelectQueue = [
       [], // findInvoicesReferencing(modifiesInvoiceId) -> no prior corrections
@@ -271,6 +291,7 @@ describe("createModificationDraft", () => {
           status: "draft",
           modifiesInvoiceId: "inv-orig",
           modificationIndex: 1,
+          fulfillmentDate: "2026-06-10",
         }),
       ],
       [dbLineItemRow({ id: "modify-line-id", invoiceId: "modify-inv-id" })],
@@ -284,7 +305,10 @@ describe("createModificationDraft", () => {
     expect(draft.invoiceNumber).toBe("");
     expect(draft.modifiesInvoiceId).toBe("inv-orig");
     expect(draft.modificationIndex).toBe(1);
+    // AC12: the helyesbítő draft keeps the source's fulfillmentDate.
+    expect(draft.fulfillmentDate).toBe("2026-06-10");
   });
+
 });
 
 describe("convertProformaToInvoice", () => {
@@ -792,5 +816,35 @@ describe("buildInvoiceListWhere", () => {
     const names = collectColumnNames(sql);
     expect(names.has("currency")).toBe(false);
     expect(names.has("exchange_rate")).toBe(false);
+  });
+});
+
+// Last in the file: it consumes createId() values, and the mocked id
+// sequence above is shared by the tests before it.
+describe("createModificationDraft — difference lines", () => {
+  it("persists a zero-difference start: reversing line + editable copy per original line", async () => {
+    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const original = source.lineItems[0];
+    mockSelectQueue = [[], [], [], []];
+    mockDb.insert.mockClear();
+
+    await createModificationDraft("user-1", source).catch(() => undefined);
+
+    const insertedRows = mockDb.insert.mock.results
+      .map((r) => (r.value as { values: jest.Mock }).values.mock.calls[0]?.[0])
+      .find((rows): rows is Record<string, unknown>[] => Array.isArray(rows));
+    expect(insertedRows).toHaveLength(2);
+    expect(insertedRows![0]).toMatchObject({
+      description: original.description,
+      quantity: String(-original.quantity),
+      unitPrice: String(original.unitPrice),
+      vatRate: original.vatRate,
+      sortOrder: 0,
+    });
+    expect(insertedRows![1]).toMatchObject({
+      description: original.description,
+      quantity: String(original.quantity),
+      sortOrder: 1,
+    });
   });
 });

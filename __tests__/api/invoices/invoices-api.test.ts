@@ -16,6 +16,7 @@ jest.mock("@/lib/invoices/service", () => {
     }
   }
   return {
+    getInvoiceById: jest.fn(),
     listInvoices: jest.fn(),
     getInvoiceStats: jest.fn(),
     upsertInvoice: jest.fn(),
@@ -26,6 +27,11 @@ jest.mock("@/lib/invoices/service", () => {
 
 jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
   autofillMissingExchangeRate: jest.fn(),
+}));
+
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
 }));
 
 import { requireSession } from "@/lib/api/session";
@@ -64,6 +70,31 @@ describe("POST /api/invoices", () => {
         ? exchangeRate
         : undefined
     );
+    mockAutoSubmit.mockResolvedValue(null);
+  });
+
+  it("persists the partner link (clientId) so NAV can read the buyer address", async () => {
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", clientId: "cl-1", lineItems: [] }),
+      })
+    );
+    expect(mockUpsert.mock.calls[0][1].clientId).toBe("cl-1");
+  });
+
+  it("runs NAV auto-submit on the saved invoice (new document: before = null) and returns its result", async () => {
+    const nav = { outcome: "submitted", submission: { submissionId: "s1", status: "sent" } };
+    mockAutoSubmit.mockResolvedValue(nav);
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", status: "unpaid", invoiceNumber: "INV-2026-001", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", lineItems: [] }),
+      })
+    );
+    const body = await response.json();
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, expect.objectContaining({ status: "unpaid" }));
+    expect(body.nav).toEqual(nav);
   });
 
   it("returns 401 without session", async () => {
@@ -277,6 +308,29 @@ describe("POST /api/invoices", () => {
     });
     const [, savedInvoice] = mockUpsert.mock.calls[0];
     expect(savedInvoice.exchangeRate).toBe(397.5);
+  });
+
+  it("asks MNB for the fulfillment (teljesítés) date's rate when one is given (Áfa tv. 80. §)", async () => {
+    mockAutofill.mockResolvedValue(398.1);
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          currency: "EUR",
+          issueDate: "2026-09-22",
+          fulfillmentDate: "2026-09-15",
+          lineItems: [],
+        }),
+      })
+    );
+    expect(mockAutofill).toHaveBeenCalledWith({
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+      fulfillmentDate: "2026-09-15",
+    });
+    expect(mockUpsert.mock.calls[0][1].fulfillmentDate).toBe("2026-09-15");
   });
 
   it("never calls the MNB autofill for a HUF invoice", async () => {
