@@ -2,7 +2,7 @@
 // Focused coverage for the invoice detail screen's new mark-paid/correction/links behavior.
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 import { CheckCircle2 } from "lucide-react-native";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 import { ApiError } from "@/lib/api/client";
@@ -334,7 +334,37 @@ describe("InvoiceDetailScreen", () => {
     alertSpy.mockRestore();
   });
 
-  it("has exactly one solid (non-outline) button, and Sztornó/Törlés live in a danger zone (AC10)", async () => {
+  it("the overflow menu's PDF item opens the PDF endpoint instead of navigating to the same detail page", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+    const openURLSpy = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+
+    const tree = await renderScreen();
+    const overflowTrigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+    await act(async () => {
+      overflowTrigger.props.onPress?.({});
+    });
+    const pdfButton = findPressableWithText(tree.root, "invoices.list.pdfAction");
+
+    await act(async () => {
+      pdfButton?.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(openURLSpy).toHaveBeenCalledWith(expect.stringContaining("/api/invoices/inv-1/pdf"));
+    // The bug this replaces: it used to just re-navigate to the same page.
+    expect(mockPush).not.toHaveBeenCalledWith("/invoices/inv-1");
+    openURLSpy.mockRestore();
+  });
+
+  it("has exactly one solid (non-outline) button, and a finalized invoice's danger zone offers only Sztornó — never Törlés (AC10, finalized-invoice-lock)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
         return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
@@ -360,7 +390,9 @@ describe("InvoiceDetailScreen", () => {
     const dangerZoneContent = tree.root.findByProps({ testID: "danger-zone-content" });
     const text = textUnder(dangerZoneContent);
     expect(text).toContain("invoices.storno");
-    expect(text).toContain("invoices.detail.deleteAction");
+    // A finalized document keeps its number forever — the API refuses to
+    // delete it (409 invoiceFinalized), so the button must never appear.
+    expect(text).not.toContain("invoices.detail.deleteAction");
   });
 
   it("on a díjbekérő with no conversion, the primary action converts and navigates to the new draft's edit screen", async () => {
@@ -502,7 +534,7 @@ describe("InvoiceDetailScreen", () => {
     expect(textUnder(tree.root)).toContain("invoices.convert.notProforma");
   });
 
-  it("on a díjbekérő, the Helyesbítő entry is disabled and the danger zone shows only Törlés", async () => {
+  it("on a finalized díjbekérő, the Helyesbítő entry is disabled and there is no danger zone at all (not stornoable, not deletable)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
         return {
@@ -528,6 +560,25 @@ describe("InvoiceDetailScreen", () => {
     });
     const correctionButton = findPressableWithText(tree.root, "invoices.correction.action");
     expect(correctionButton?.props.disabled).toBe(true);
+
+    // Storno explicitly refuses proforma documents, and the API only ever
+    // deletes a draft — a finalized díjbekérő is neither, so no
+    // DangerZone (Sztornó/Törlés) renders at all.
+    expect(tree.root.findAllByProps({ testID: "danger-zone-toggle" })).toHaveLength(0);
+  });
+
+  it("a draft invoice's danger zone offers only Törlés (no number to protect yet)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" }) };
+    });
+
+    const tree = await renderScreen();
 
     const dangerZoneToggle = tree.root.findByProps({ testID: "danger-zone-toggle" });
     act(() => {

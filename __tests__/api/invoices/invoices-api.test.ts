@@ -6,12 +6,23 @@ jest.mock("@/lib/api/session", () => ({
   jsonResponse: (data: unknown, status = 200) => Response.json(data, { status }),
 }));
 
-jest.mock("@/lib/invoices/service", () => ({
-  listInvoices: jest.fn(),
-  getInvoiceStats: jest.fn(),
-  upsertInvoice: jest.fn(),
-  findLiveConversionsForProformas: jest.fn(),
-}));
+jest.mock("@/lib/invoices/service", () => {
+  class CompanyProfileIncompleteError extends Error {
+    missingFields: string[];
+    constructor(missingFields: string[]) {
+      super("Company profile is incomplete.");
+      this.name = "CompanyProfileIncompleteError";
+      this.missingFields = missingFields;
+    }
+  }
+  return {
+    listInvoices: jest.fn(),
+    getInvoiceStats: jest.fn(),
+    upsertInvoice: jest.fn(),
+    findLiveConversionsForProformas: jest.fn(),
+    CompanyProfileIncompleteError,
+  };
+});
 
 jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
   autofillMissingExchangeRate: jest.fn(),
@@ -20,6 +31,7 @@ jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
 import { requireSession } from "@/lib/api/session";
 import { GET, POST } from "@/app/api/invoices+api";
 import {
+  CompanyProfileIncompleteError,
   findLiveConversionsForProformas,
   getInvoiceStats,
   listInvoices,
@@ -129,6 +141,31 @@ describe("POST /api/invoices", () => {
     const [, savedInvoice] = mockUpsert.mock.calls[0];
     expect(savedInvoice.currency).toBe("HUF");
     expect(savedInvoice.exchangeRate).toBeUndefined();
+  });
+
+  it("returns 422 with code companyProfileIncomplete instead of throwing when a first-save finalize can't be numbered", async () => {
+    mockUpsert.mockRejectedValue(
+      new CompanyProfileIncompleteError(["taxNumber", "zipCode", "city", "address"])
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          clientZipCode: "1011",
+          clientCity: "Budapest",
+          clientAddress: "Fő utca 1.",
+          status: "unpaid",
+          lineItems: [],
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("companyProfileIncomplete");
+    expect(body.missingFields).toEqual(["taxNumber", "zipCode", "city", "address"]);
   });
 
   it("passes the buyer address snapshot fields through for a draft (Áfa tv. 169. § e)", async () => {

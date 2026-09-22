@@ -13,7 +13,7 @@ import {
 import { BuyerAddressMissingError } from "@/lib/invoices/errors";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
-import { listInvoices } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, listInvoices } from "@/lib/invoices/service";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
 import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
 
@@ -102,6 +102,16 @@ async function createInvoiceAndSideEffects(
   } catch (e) {
     if (e instanceof BuyerAddressMissingError) {
       return { status: 422, body: { error: e.message, code: e.code } };
+    }
+    if (e instanceof CompanyProfileIncompleteError) {
+      return {
+        status: 422,
+        body: {
+          error: "Company profile is incomplete.",
+          code: "companyProfileIncomplete",
+          missingFields: e.missingFields,
+        },
+      };
     }
     const message = e instanceof Error ? e.message : "Failed to create invoice.";
     return { status: 400, body: { error: message } };

@@ -7,6 +7,7 @@ import { createId } from "@/lib/id";
 import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/constants";
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
 import {
+  CompanyProfileIncompleteError,
   findLiveConversionsForProformas,
   getInvoiceStats,
   listInvoices,
@@ -132,6 +133,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const saved = await upsertInvoice(session.user.id, invoice);
-  return jsonResponse({ invoice: saved }, 201);
+  try {
+    const saved = await upsertInvoice(session.user.id, invoice);
+    return jsonResponse({ invoice: saved }, 201);
+  } catch (error) {
+    if (error instanceof CompanyProfileIncompleteError) {
+      return jsonResponse(
+        {
+          error: "Company profile is incomplete.",
+          code: "companyProfileIncomplete",
+          missingFields: error.missingFields,
+        },
+        422
+      );
+    }
+    throw error;
+  }
 }

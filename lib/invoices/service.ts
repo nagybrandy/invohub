@@ -3,6 +3,8 @@
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
+import { getMissingCompanyProfileFields } from "@/lib/companies/completeness";
+import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import { buildInvoiceFromProforma } from "@/lib/invoices/convert-proforma";
@@ -255,10 +257,33 @@ function issueYearOf(isoDate: string): number {
 }
 
 /**
+ * Thrown by assignInvoiceNumberIfNeeded (the single choke point every
+ * finalize path — upsertInvoice, finalizeInvoice, createInvoiceFromPayload,
+ * updateDraftInvoiceFromPayload, sendInvoiceNotificationEmail's
+ * finalize-on-send — goes through) when a document is about to be assigned
+ * a real, continuous invoice number but the seller's profile is missing
+ * mandatory Áfa tv. 169. § fields. Callers translate this into a 422 with
+ * code "companyProfileIncomplete" instead of letting an incomplete legal
+ * document get a number.
+ */
+export class CompanyProfileIncompleteError extends Error {
+  readonly code = "companyProfileIncomplete" as const;
+  readonly missingFields: string[];
+
+  constructor(missingFields: string[]) {
+    super("Company profile is incomplete — finalizing an invoice requires name, taxNumber, zipCode, city and address.");
+    this.name = "CompanyProfileIncompleteError";
+    this.missingFields = missingFields;
+  }
+}
+
+/**
  * Numbers are assigned at finalize time: a draft keeps invoiceNumber == "" so
  * duplicating/editing it never burns a sequence slot. The moment status
  * moves off "draft", allocate the next number atomically (see
- * lib/invoices/numbering.ts) unless one is already set.
+ * lib/invoices/numbering.ts) unless one is already set — but only once the
+ * seller's own company profile has the mandatory fields a legal invoice
+ * must carry (throws CompanyProfileIncompleteError otherwise).
  */
 async function assignInvoiceNumberIfNeeded(
   userId: string,
@@ -266,6 +291,11 @@ async function assignInvoiceNumberIfNeeded(
 ): Promise<Invoice> {
   if (data.status === "draft" || hasInvoiceNumber(data)) {
     return data;
+  }
+  const company = await getCompanyByUserId(userId);
+  const missingFields = getMissingCompanyProfileFields(company);
+  if (missingFields.length > 0) {
+    throw new CompanyProfileIncompleteError(missingFields);
   }
   const invoiceNumber = await generateNextInvoiceNumber(
     userId,
@@ -321,7 +351,8 @@ export type FinalizeInvoiceResult =
   | { ok: true; invoice: Invoice }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_draft" }
-  | { ok: false; reason: "buyer_address_missing" };
+  | { ok: false; reason: "buyer_address_missing" }
+  | { ok: false; reason: "company_profile_incomplete"; missingFields: string[] };
 
 /**
  * Turns a draft into an issued document — the same "Véglegesítés" action
@@ -333,7 +364,9 @@ export type FinalizeInvoiceResult =
  * draft (already-finalized documents keep their number forever), and
  * refuses (without allocating a number) an invoice whose buyer name/address
  * is incomplete — Áfa tv. 169. § e) requires both on the finished document
- * (see hasBuyerAddress in lib/invoices/types.ts).
+ * (see hasBuyerAddress in lib/invoices/types.ts), and refuses to assign a
+ * number at all when the seller's company profile is incomplete
+ * (CompanyProfileIncompleteError from assignInvoiceNumberIfNeeded).
  */
 export async function finalizeInvoice(
   userId: string,
@@ -353,12 +386,19 @@ export async function finalizeInvoice(
 
   const nextStatus: Invoice["status"] =
     existing.documentType === "proforma" ? "proforma" : "unpaid";
-  const saved = await upsertInvoice(userId, {
-    ...existing,
-    status: nextStatus,
-    updatedAt: new Date().toISOString(),
-  });
-  return { ok: true, invoice: saved };
+  try {
+    const saved = await upsertInvoice(userId, {
+      ...existing,
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+    });
+    return { ok: true, invoice: saved };
+  } catch (error) {
+    if (error instanceof CompanyProfileIncompleteError) {
+      return { ok: false, reason: "company_profile_incomplete", missingFields: error.missingFields };
+    }
+    throw error;
+  }
 }
 
 export async function deleteInvoiceById(

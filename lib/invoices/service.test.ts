@@ -92,10 +92,28 @@ jest.mock("@/db", () => ({
   },
 }));
 
+// Every service.ts test in this file numbers a document (or doesn't) via
+// the real db mock above — the company profile itself is mocked separately
+// here so those tests never need to also queue a company select. Defaults
+// to a complete profile so every existing finalize/storno/etc. test below
+// keeps numbering exactly as before; the "company profile incomplete"
+// tests override this per-call with mockResolvedValueOnce.
+jest.mock("@/lib/companies/service", () => ({
+  getCompanyByUserId: jest.fn().mockResolvedValue({
+    name: "Acme Kft.",
+    taxNumber: "12345678-1-23",
+    zipCode: "1011",
+    city: "Budapest",
+    address: "Fő utca 1.",
+  }),
+}));
+
 import { db } from "@/db";
+import { getCompanyByUserId } from "@/lib/companies/service";
 import {
   buildInvoiceListWhere,
   buildStornoLineItems,
+  CompanyProfileIncompleteError,
   convertProformaToInvoice,
   createModificationDraft,
   createStornoInvoice,
@@ -116,6 +134,10 @@ const mockDb = db as unknown as {
   update: jest.Mock;
   delete: jest.Mock;
 };
+
+const mockGetCompanyByUserId = getCompanyByUserId as jest.MockedFunction<
+  typeof getCompanyByUserId
+>;
 
 jest.mock("@/lib/id", () => ({
   createId: jest
@@ -216,6 +238,21 @@ describe("createStornoInvoice", () => {
 
     // The original invoice was flipped to cancelled via a direct update.
     expect(mockDb.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to number a storno document when the company profile is incomplete", async () => {
+    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    mockGetCompanyByUserId.mockResolvedValueOnce({ name: "Acme Kft." }); // missing taxNumber/address/city/zipCode
+
+    mockSelectQueue = [
+      [], // getInvoiceById(storno.id) before insert: no existing row
+    ];
+
+    await expect(createStornoInvoice("user-1", source)).rejects.toThrow(
+      CompanyProfileIncompleteError
+    );
+    // Never flipped the original to cancelled — the whole operation aborted first.
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 });
 
@@ -591,6 +628,29 @@ describe("finalizeInvoice", () => {
       ok: true,
       invoice: expect.objectContaining({ status: "proforma", invoiceNumber: "DBK-2026-00001" }),
     });
+  });
+
+  it("refuses to finalize (and never allocates a number) when the company profile is incomplete", async () => {
+    mockGetCompanyByUserId.mockResolvedValueOnce({
+      name: "Acme Kft.",
+      taxNumber: "",
+      zipCode: "",
+      city: "",
+      address: "",
+    });
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "inv-1", status: "draft", invoiceNumber: "", documentType: "invoice" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({
+      ok: false,
+      reason: "company_profile_incomplete",
+      missingFields: ["taxNumber", "zipCode", "city", "address"],
+    });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 
   it("finalizes a proforma with no buyer address at all — a díjbekérő isn't an accounting document", async () => {

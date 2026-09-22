@@ -5,7 +5,7 @@ import { validateEmailRecipientsInput } from "@/lib/email/recipients";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
-import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import { BuyerAddressMissingError } from "@/lib/invoices/errors";
 import { hasBuyerAddress, requiresCompleteBuyerAddress } from "@/lib/invoices/types";
@@ -224,7 +224,8 @@ export type UpdateDraftInvoiceResult =
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "not_draft" }
   | { ok: false; reason: "validation"; message: string }
-  | { ok: false; reason: "buyer_address_missing" };
+  | { ok: false; reason: "buyer_address_missing" }
+  | { ok: false; reason: "company_profile_incomplete"; missingFields: string[] };
 
 /**
  * PATCH /api/v1/invoices/:id — a DRAFT-only, full-body update. Reuses
@@ -278,6 +279,17 @@ export async function updateDraftInvoiceFromPayload(
     return { ok: false, reason: "buyer_address_missing" };
   }
 
-  const saved = await upsertInvoice(userId, updated);
-  return { ok: true, invoice: saved };
+  try {
+    const saved = await upsertInvoice(userId, updated);
+    return { ok: true, invoice: saved };
+  } catch (error) {
+    if (error instanceof CompanyProfileIncompleteError) {
+      return {
+        ok: false,
+        reason: "company_profile_incomplete",
+        missingFields: error.missingFields,
+      };
+    }
+    throw error;
+  }
 }

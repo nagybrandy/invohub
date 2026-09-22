@@ -24,8 +24,9 @@ import { useClients } from "@/hooks/useClients";
 import { useCompany } from "@/hooks/useCompany";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useProducts } from "@/hooks/useProducts";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
 import type { Client } from "@/lib/clients/service";
+import { isCompanyProfileComplete } from "@/lib/companies/completeness";
 import { calculateInvoiceTotals, createEmptyLineItem, createId } from "@/lib/invoices/calculations";
 import { applyClientToFormFields } from "@/lib/invoices/client-form-fields";
 import { parseExchangeRateInput } from "@/lib/invoices/exchange-rate";
@@ -95,8 +96,16 @@ export function useInvoiceComposer({
   const { t } = useTranslation();
   const { clients } = useClients();
   const { products } = useProducts();
-  const { company } = useCompany();
+  const { company, loading: companyLoading } = useCompany();
   const { addOrUpdate } = useInvoices();
+
+  // Finalizing (assigning a real invoice number) is refused server-side
+  // when the seller's own profile is missing mandatory fields
+  // (lib/invoices/service.ts's CompanyProfileIncompleteError) — the
+  // composer surfaces that BEFORE the user hits save instead of failing
+  // late. `false` while the profile is still loading, so the banner never
+  // flashes on for a returning user with a complete profile.
+  const companyProfileIncomplete = !companyLoading && !isCompanyProfileComplete(company);
 
   const [step, setStep] = React.useState<ComposerStepId>("partner");
   const [documentType, setDocumentType] = React.useState<DocumentType>(
@@ -631,7 +640,18 @@ export function useInvoiceComposer({
       }
       return saved;
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : t("invoices.errors.saveFailed"));
+      // The composer already disables finalize while the profile is known
+      // incomplete (companyProfileIncomplete above) — this only fires on
+      // the rare race where it changed between page load and save, so it
+      // still needs a translated message instead of the raw English one
+      // the API sends.
+      setSaveError(
+        e instanceof ApiError && e.code === "companyProfileIncomplete"
+          ? t("invoices.composer.companyProfileIncomplete")
+          : e instanceof Error
+            ? e.message
+            : t("invoices.errors.saveFailed")
+      );
       return undefined;
     } finally {
       setSaving(false);
@@ -772,6 +792,8 @@ export function useInvoiceComposer({
     draftInvoice,
     /** The already-loaded company — for the unsaved-draft preview's issuer block (INV, AC20). */
     company,
+    /** True once loaded and missing a required field — gates the finalize buttons (see InvoiceComposer.tsx). */
+    companyProfileIncomplete,
 
     // Validation
     errors,
