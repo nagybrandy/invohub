@@ -867,7 +867,9 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           doc.font(docFonts.regular).fontSize(fonts.small);
           const notesHeight = doc.heightOfString(invoice.notes, { width: pageWidth });
           const lineHeight = doc.currentLineHeight();
-          reserve(labelHeight + Math.min(notesHeight, 3 * lineHeight) + 16);
+          // Only the text itself (+ the 3pt label gap and line gaps) — no trailing
+          // margin, or a short note gets bumped onto its own page when it would fit.
+          reserve(labelHeight + 3 + Math.min(notesHeight + 3, 3 * (lineHeight + 3)));
           const notesLabelY = doc.y;
           doc.font(docFonts.bold).fontSize(fonts.body).fillColor(ink.heading);
           doc.text(`${template.notesLabel}:`, left, notesLabelY);
