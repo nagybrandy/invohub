@@ -36,6 +36,13 @@
       "when": 1790015731189,
       "tag": "0004_nav-receipt-report-cron-retry-backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790069732727,
+      "tag": "0005_idempotency-key",
+      "breakpoints": true
     }
   ]
 }

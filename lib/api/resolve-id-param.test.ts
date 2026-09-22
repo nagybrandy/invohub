@@ -33,4 +33,20 @@ describe("resolveIdParam", () => {
     );
     expect(id).toBe("external-id");
   });
+
+  it("falls back for v1 client routes", async () => {
+    const id = await resolveIdParam(
+      new Request("https://invohub.vercel.app/api/v1/clients/client-id"),
+      undefined
+    );
+    expect(id).toBe("client-id");
+  });
+
+  it("falls back for v1 product routes", async () => {
+    const id = await resolveIdParam(
+      new Request("https://invohub.vercel.app/api/v1/products/product-id"),
+      undefined
+    );
+    expect(id).toBe("product-id");
+  });
 });

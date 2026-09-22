@@ -9,6 +9,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { getNavClient } from "@/lib/nav/client";
 import { isNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
+import { listNavSubmissionsForInvoice } from "@/lib/nav/list-submissions";
 import { resolveNavCredentials } from "@/lib/nav/resolve-credentials";
 
 export async function GET(request: Request) {
@@ -22,11 +23,7 @@ export async function GET(request: Request) {
   const invoice = await getInvoiceById(session.user.id, invoiceId);
   if (!invoice) return jsonResponse({ error: "Invoice not found." }, 404);
 
-  const submissions = await db
-    .select()
-    .from(navSubmission)
-    .where(eq(navSubmission.invoiceId, invoice.id))
-    .orderBy(desc(navSubmission.createdAt));
+  const submissions = await listNavSubmissionsForInvoice(invoice.id);
 
   return jsonResponse({ submissions });
 }

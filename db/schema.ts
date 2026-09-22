@@ -527,6 +527,33 @@ export const apiKey = pgTable(
   ]
 );
 
+/**
+ * Idempotency-Key replay store for the state-creating v1 endpoints (create,
+ * finalize, storno, modify, convert, send — see lib/api/idempotency.ts). A
+ * row is scoped to (userId, key); the same pair with a matching
+ * requestHash replays responseStatus/responseBody, a mismatching hash is a
+ * 422, and a row older than 24h is treated as expired (lib/api/idempotency.ts
+ * deletes it before recording a fresh attempt).
+ */
+export const idempotencyKey = pgTable(
+  "idempotency_key",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    responseStatus: integer("response_status").notNull(),
+    responseBody: text("response_body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("idempotency_key_user_key_unique_idx").on(table.userId, table.key),
+    index("idempotency_key_created_at_idx").on(table.createdAt),
+  ]
+);
+
 export const schema = {
   user,
   session,
@@ -548,4 +575,5 @@ export const schema = {
   navReceiptSubmission,
   notification,
   apiKey,
+  idempotencyKey,
 };

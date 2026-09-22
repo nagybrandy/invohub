@@ -4,7 +4,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
-import { upsertInvoice } from "@/lib/invoices/service";
+import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import type {
   Invoice,
@@ -126,7 +126,7 @@ export function validateExternalInvoiceInput(
   return null;
 }
 
-function mapLineItems(
+export function mapLineItems(
   items: ExternalLineItemInput[],
   companyVatExempt: boolean
 ): InvoiceLineItem[] {
@@ -177,4 +177,55 @@ export async function createInvoiceFromPayload(
   };
 
   return upsertInvoice(userId, invoice);
+}
+
+export type UpdateDraftInvoiceResult =
+  | { ok: true; invoice: Invoice }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "not_draft" }
+  | { ok: false; reason: "validation"; message: string };
+
+/**
+ * PATCH /api/v1/invoices/:id — a DRAFT-only, full-body update. Reuses
+ * validateExternalInvoiceInput (same rules as create) and mapLineItems (same
+ * VAT-category defaulting) so the external API never validates a draft edit
+ * more loosely than a create. A non-draft invoice is refused with
+ * reason: "not_draft" — a finalized/numbered document is never edited this
+ * way (storno/modify are the correction path).
+ */
+export async function updateDraftInvoiceFromPayload(
+  userId: string,
+  id: string,
+  body: Partial<ExternalInvoiceInput>
+): Promise<UpdateDraftInvoiceResult> {
+  const existing = await getInvoiceById(userId, id);
+  if (!existing) return { ok: false, reason: "not_found" };
+  if (existing.status !== "draft") return { ok: false, reason: "not_draft" };
+
+  const validationError = validateExternalInvoiceInput(body);
+  if (validationError) return { ok: false, reason: "validation", message: validationError };
+
+  const company = await getCompanyByUserId(userId);
+  const currency: InvoiceCurrency = body.currency ?? existing.currency;
+  const updated: Invoice = {
+    ...existing,
+    invoiceNumber: body.invoiceNumber?.trim() ?? existing.invoiceNumber,
+    documentType: body.documentType ?? existing.documentType,
+    clientName: body.clientName!.trim(),
+    clientTaxNumber: body.clientTaxNumber?.trim() ?? existing.clientTaxNumber,
+    issueDate: body.issueDate ?? existing.issueDate,
+    dueDate: body.dueDate ?? body.issueDate ?? existing.dueDate,
+    status: body.status ?? existing.status,
+    currency,
+    exchangeRate: requiresExchangeRate(currency)
+      ? (body.exchangeRate ?? existing.exchangeRate)
+      : undefined,
+    lineItems: mapLineItems(body.lineItems!, company?.vatExempt ?? false),
+    notes: body.notes ?? existing.notes,
+    paymentMethod: body.paymentMethod ?? existing.paymentMethod,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const saved = await upsertInvoice(userId, updated);
+  return { ok: true, invoice: saved };
 }

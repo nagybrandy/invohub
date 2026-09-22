@@ -2,8 +2,8 @@
 
 Integrációs dokumentáció külső alkalmazásoknak (ERP, script, webhook, stb.).
 
-**Verzió:** v1  
-**Auth:** API kulcs (public + secret)  
+**Verzió:** v1
+**Auth:** API kulcs (public + secret)
 **Formátum:** JSON (`Content-Type: application/json`)
 
 ---
@@ -28,7 +28,7 @@ Minden végpont: `{BASE_URL}/api/v1/...`
 3. Adj nevet az integrációnak, majd **Create key**.
 4. Mentsd el a **secret key**-t — csak egyszer jelenik meg.
 
-A kulcs a bejelentkezett felhasználó számláihoz kötődik (cégprofil, e-mail beállítások, NAV adatok).
+A kulcs a bejelentkezett felhasználó számláihoz kötődik (cégprofil, e-mail beállítások, NAV adatok). **Minden végpont csak a kulcshoz tartozó user adatait éri el** — egy másik user rekordjára mutató id mindig `404`-et ad, soha nem `403`-at (nincs létezés-leak).
 
 ### Kérés fejlécek
 
@@ -47,25 +47,101 @@ X-InvoHub-Secret-Key: ih_sk_...
 Content-Type: application/json
 ```
 
-### Hibák
+### Hibaformátum
+
+Minden v1 hibaválasz ugyanazt az alakot követi:
+
+```json
+{ "error": "Emberi olvasható üzenet.", "code": "someErrorCode" }
+```
+
+A `code` mező nem mindig van jelen (pl. egy egyszerű 404-nél elég az `error`), de amikor egy hiba programozottan kezelendő (pl. „ez a számla nem draft”), mindig kap egy stabil `code` értéket — lásd az egyes végpontoknál.
 
 | HTTP | Jelentés |
 |------|----------|
+| `400` | Validációs hiba / hibás JSON body |
 | `401` | Hiányzó vagy érvénytelen kulcs |
 | `403` | Kulcs letiltva |
-| `404` | Erőforrás nem található (más user számlája) |
-| `400` | Validációs hiba |
-| `500` | Szerver / NAV hiba |
+| `404` | Erőforrás nem található (ide tartozik: másik user rekordja) |
+| `409` | Állapotütközés (pl. nem-draft számla módosítása/törlése, dupla konverzió, Idempotency-Key ütközés) |
+| `429` | Rate limit túllépve |
+| `500` / `502` | Szerver / NAV hiba |
 
 ---
 
-## 3. Végpontok
+## 3. Rate limit
 
-### 3.1 Számla létrehozása
+Kulcsonként **120 kérés / perc** (fix ablak). A limit túllépésekor:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 37
+```
+
+```json
+{ "error": "Rate limit exceeded. Try again later.", "code": "rateLimited" }
+```
+
+---
+
+## 4. Idempotency-Key
+
+Az állapot-létrehozó POST végpontokon (**számla létrehozás, véglegesítés, sztornó, helyesbítés, díjbekérő konvertálás, e-mail küldés**) opcionálisan megadható az `Idempotency-Key` fejléc:
+
+```http
+Idempotency-Key: <egyedi string, pl. UUID>
+```
+
+Szabályok:
+
+- **Ugyanaz a kulcs + ugyanaz a request body**, ugyanattól a felhasználótól, **24 órán belül** → a **korábbi válasz visszajátszása** (nem történik második számla/szám-kiosztás/e-mail/NAV hívás).
+- **Ugyanaz a kulcs, más request body** → `422` és `code: "idempotencyKeyConflict"`.
+- 24 óra után a kulcs lejár, újrafelhasználható.
+- A kulcs a **felhasználóhoz és az `Idempotency-Key` értékéhez** van kötve — más felhasználó ugyanazt a kulcsot szabadon újra felhasználhatja.
+- Ha nincs `Idempotency-Key` fejléc, a kérés mindig ténylegesen lefut (nincs védelem duplikált POST-ok ellen).
+
+Ajánlott: mindig generálj egy stabil kulcsot (pl. a saját rendszered tranzakció-azonosítójából) minden retry-képes híváshoz.
+
+---
+
+## 5. Számla végpontok
+
+### 5.1 Lista
+
+`GET /api/v1/invoices`
+
+Query paraméterek (ugyanaz a szűrés, mint a belső listánál):
+
+| Paraméter | Leírás |
+|-----------|--------|
+| `status` | `draft`, `proforma`, `sent`, `paid`, `partially_paid`, `unpaid`, `overdue`, `cancelled` |
+| `search` | Ügyfélnév / számlaszám / adószám részlet |
+| `limit` | Oldalméret (default 30, max 100) |
+| `offset` | Lapozás |
+
+```bash
+curl "https://invohub.vercel.app/api/v1/invoices?status=sent&limit=10" \
+  -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET"
+```
+
+Válasz (`200`):
+
+```json
+{
+  "invoices": [ { "...": "..." } ],
+  "total": 42,
+  "limit": 10,
+  "offset": 0
+}
+```
+
+### 5.2 Számla létrehozása
 
 `POST /api/v1/invoices`
 
-Létrehoz egy számlát. Alapértelmezetten **e-mailt küld PDF csatolmánnyal** (`sendEmail: true`).
+Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **e-mailt küld PDF csatolmánnyal** (`sendEmail: true`).
+
+> ⚠️ **Fontos, meglévő viselkedés (nem ez a változtatás vezette be, csak dokumentáljuk):** ha a body `status: "draft"` (vagy nincs `status`, ami szintén draftot jelent) és `sendEmail` nincs explicit `false`-ra állítva, a rendszer **azonnal véglegesíti** a draftot (számot oszt ki, `status` → `sent`), mielőtt elküldi az e-mailt — lásd `lib/invoices/send-invoice-email.ts`. Ha valódi, még nem számozott draftot akarsz létrehozni, mindig küldd `sendEmail: false`-t.
 
 #### Request body
 
@@ -76,84 +152,38 @@ Létrehoz egy számlát. Alapértelmezetten **e-mailt küld PDF csatolmánnyal**
 | `lineItems[].description` | string | igen | Tétel leírás |
 | `lineItems[].quantity` | number | igen | Mennyiség |
 | `lineItems[].unitPrice` | number | igen | Egységár |
-| `lineItems[].vatRate` | `0 \| 5 \| 27` | nem | ÁFA % (default: `27`) |
-| `invoiceNumber` | string | nem | Egyedi szám; ha nincs, auto-generált |
+| `lineItems[].vatRate` | `0 \| 5 \| 18 \| 27` | nem | ÁFA % (default: `27`) |
+| `lineItems[].vatCategory` | string | nem | `normal`, `AAM`, `TAM`, `KBAET`, `AHK`, `FAD`, `ATK` |
+| `invoiceNumber` | string | nem | Egyedi szám; ha nincs, auto-generált véglegesítéskor |
+| `documentType` | string | nem | `invoice`, `proforma`, `advance` (default: `invoice`) |
 | `clientTaxNumber` | string | nem | Ügyfél adószáma |
 | `issueDate` | string | nem | `YYYY-MM-DD` (default: ma) |
 | `dueDate` | string | nem | `YYYY-MM-DD` (default: issueDate) |
-| `status` | string | nem | `draft`, `proforma`, `sent`, `paid`, `overdue`, `cancelled` (default: `draft`) |
-| `currency` | string | nem | `EUR` vagy `HUF` (default: `EUR`) |
+| `status` | string | nem | `draft`, `proforma`, `sent`, `paid`, `unpaid`, `overdue`, `cancelled` (default: `draft`) |
+| `currency` | string | nem | `EUR` vagy `HUF` (default: cégprofil országa szerint) |
+| `exchangeRate` | number | csak nem-HUF esetén | Manuális HUF árfolyam |
 | `paymentMethod` | string | nem | `transfer`, `cash`, `card`, `other` |
 | `notes` | string | nem | Megjegyzés a számlán |
-| `sendEmail` | boolean | nem | E-mail küldés (default: `true`) |
-| `emailTo` | string \| string[] | nem | Címzett(ek) felülírása — egy e-mail, vesszővel elválasztott lista, vagy tömb |
-| `emailCc` | string \| string[] | nem | Másolat (Cc) címzettek — felülírja a cégprofil Cc mezőjét |
+| `sendEmail` | boolean | nem | E-mail küldés (default: `true`) — lásd a fenti figyelmeztetést |
+| `emailTo` | string \| string[] | nem | Címzett(ek) felülírása |
+| `emailCc` | string \| string[] | nem | Másolat (Cc) címzettek |
 | `submitToNav` | boolean | nem | NAV beküldés azonnal (default: `false`) |
 
-#### E-mail címzett feloldása
-
-Ha `emailTo` nincs megadva, sorrend:
-
-1. Cégprofil → **Invoice email (To)** mező
-2. Ügyfél e-mail (név alapján keresve)
-3. Ha egyik sincs → `email.sent: false`, hibaüzenet a válaszban
-
-Ha `emailTo` meg van adva, az API **közvetlenül** ezeknek küldi (több címzett is megadható).
-
-Cc sorrend:
-
-1. `emailCc` a request body-ban (ha megadva — akár üres tömb is, ekkor nincs Cc)
-2. Egyébként cégprofil **Invoice email (Cc)** mező
-
-#### Példa — cURL
+#### Példa — cURL (draft létrehozása, e-mail nélkül)
 
 ```bash
 curl -X POST "https://invohub.vercel.app/api/v1/invoices" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 6e6e6f76-invoice-2026-001" \
   -d '{
     "clientName": "Acme Kft.",
     "clientTaxNumber": "12345678-1-23",
-    "status": "sent",
-    "currency": "EUR",
     "lineItems": [
-      {
-        "description": "Consulting — June 2026",
-        "quantity": 10,
-        "unitPrice": 120,
-        "vatRate": 27
-      }
+      { "description": "Consulting — June 2026", "quantity": 10, "unitPrice": 120, "vatRate": 27 }
     ],
-    "sendEmail": true,
-    "emailTo": ["billing@acme.hu", "accounting@acme.hu"],
-    "emailCc": "ceo@acme.hu"
+    "sendEmail": false
   }'
-```
-
-#### Példa — Node.js (fetch)
-
-```javascript
-const BASE = process.env.INVOHUB_BASE_URL;
-const AUTH = `Bearer ${process.env.INVOHUB_PUBLIC_KEY}:${process.env.INVOHUB_SECRET_KEY}`;
-
-const response = await fetch(`${BASE}/api/v1/invoices`, {
-  method: "POST",
-  headers: {
-    Authorization: AUTH,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    clientName: "Acme Kft.",
-    status: "sent",
-    currency: "HUF",
-    lineItems: [{ description: "Service fee", quantity: 1, unitPrice: 50000, vatRate: 27 }],
-    sendEmail: true,
-  }),
-});
-
-const data = await response.json();
-if (!response.ok) throw new Error(data.error ?? response.statusText);
-console.log(data.invoice.invoiceNumber, data.email);
 ```
 
 #### Sikeres válasz (`201`)
@@ -162,136 +192,218 @@ console.log(data.invoice.invoiceNumber, data.email);
 {
   "invoice": {
     "id": "abc123",
-    "invoiceNumber": "INV-2026-005",
+    "invoiceNumber": "",
+    "status": "draft",
     "clientName": "Acme Kft.",
-    "issueDate": "2026-07-04",
-    "dueDate": "2026-07-18",
-    "status": "sent",
-    "currency": "EUR",
-    "lineItems": [
-      {
-        "id": "line1",
-        "description": "Consulting — June 2026",
-        "quantity": 10,
-        "unitPrice": 120,
-        "vatRate": 27
-      }
-    ],
-    "createdAt": "2026-07-04T10:00:00.000Z",
-    "updatedAt": "2026-07-04T10:00:00.000Z"
+    "...": "..."
   },
   "navSubmission": null,
-  "email": {
-    "sent": true,
-    "to": ["billing@acme.hu", "accounting@acme.hu"],
-    "cc": ["ceo@acme.hu"],
-    "pdfAttached": true
-  }
+  "email": { "sent": false, "skipped": true }
 }
 ```
 
-E-mail kikapcsolása: `"sendEmail": false`
-
----
-
-### 3.2 Számla lekérdezése
+### 5.3 Számla lekérdezése
 
 `GET /api/v1/invoices/{id}`
-
-Csak a kulcshoz tartozó user számlái érhetők el.
-
-#### Példa
 
 ```bash
 curl "https://invohub.vercel.app/api/v1/invoices/abc123" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET"
 ```
 
-#### Válasz (`200`)
+Válasz (`200`): `{ "invoice": { "...": "..." } }`
+
+### 5.4 Draft frissítése
+
+`PATCH /api/v1/invoices/{id}`
+
+**Csak draft állapotú** számla módosítható — a request body ugyanazokkal a szabályokkal validált, mint a létrehozásnál (5.2). Egy már véglegesített (nem-draft) számla módosítása `409`-et ad:
 
 ```json
-{
-  "invoice": { "...": "..." }
-}
+{ "error": "Only a draft invoice can be updated.", "code": "notDraft" }
 ```
 
----
+```bash
+curl -X PATCH "https://invohub.vercel.app/api/v1/invoices/abc123" \
+  -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientName": "Acme Kft.",
+    "lineItems": [{ "description": "Consulting", "quantity": 12, "unitPrice": 120 }]
+  }'
+```
 
-### 3.3 NAV beküldés (meglévő számla)
+### 5.5 Draft törlése
+
+`DELETE /api/v1/invoices/{id}`
+
+**Csak draft állapotú** számla törölhető — a folytonos számozás miatt egy véglegesített bizonylat **soha nem törölhető** (helyette: sztornó, 5.7). Nem-draft számla törlési kísérlete `409`-et ad ugyanazzal a `notDraft` kóddal, mint a PATCH-nél. Sikeres törlés: `204 No Content`.
+
+### 5.6 Véglegesítés
+
+`POST /api/v1/invoices/{id}/finalize`
+
+Draftból véglegesített bizonylatot csinál — **pontosan ugyanazon a kódúton oszt ki számot**, mint az alkalmazás UI-ja (`lib/invoices/service.ts` `upsertInvoice`/`assignInvoiceNumberIfNeeded`, a composer „Véglegesítés” gombjával megegyező logika): egy díjbekérő (`documentType: "proforma"`) `status: "proforma"` lesz, minden más `status: "unpaid"`. **Nem küld e-mailt** — ehhez lásd 5.8.
+
+Nem-draft számlán `409` + `code: "notDraft"`.
+
+```bash
+curl -X POST "https://invohub.vercel.app/api/v1/invoices/abc123/finalize" \
+  -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
+  -H "Idempotency-Key: 6e6e6f76-invoice-2026-001-finalize"
+```
+
+Válasz (`200`): `{ "invoice": { "invoiceNumber": "INV-2026-00007", "status": "unpaid", "...": "..." } }`
+
+### 5.7 Sztornó
+
+`POST /api/v1/invoices/{id}/storno`
+
+Sztornó (törlő) bizonylatot hoz létre, és az eredetit `cancelled` állapotba állítja. Ez a **javítás/korrekció útja** egy már véglegesített, hibás számlára — soha nem törölhető helyette (5.5). Díjbekérőre `400` + `code: "proformaNotStornoable"`; már sztornózott bizonylatra `400`.
+
+### 5.8 Helyesbítés
+
+`POST /api/v1/invoices/{id}/modify`
+
+Helyesbítő (korrekciós) draftot indít, előtöltve az eredeti tételeivel — ezt a draftot a `PATCH`/`finalize` végpontokkal lehet tovább szerkeszteni és véglegesíteni. Díjbekérőre `400` + `code: "proformaNotStornoable"`.
+
+### 5.9 Díjbekérő → számla konverzió
+
+`POST /api/v1/invoices/{id}/convert`
+
+„Számla készítése ebből” — egy díjbekérőt (proforma) draft számlává alakít. Nem-proforma vagy sztornózott proforma esetén `400` (`code: "notProforma"` / `code: "cancelled"`). **Ugyanaz a díjbekérő csak egyszer konvertálható**, amíg a konverzió él (nem sztornózott) — egy második konverziós kísérlet `409`-et ad, és visszaadja a már létező számlát:
+
+```json
+{ "error": "This díjbekérő was already converted.", "code": "alreadyConverted", "invoice": { "...": "..." } }
+```
+
+### 5.10 PDF
+
+`GET /api/v1/invoices/{id}/pdf`
+
+`Content-Type: application/pdf` — ugyanaz a generátor, mint a belső alkalmazásban (Settings → PDF appearance testreszabással).
+
+```bash
+curl "https://invohub.vercel.app/api/v1/invoices/abc123/pdf" \
+  -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
+  -o invoice.pdf
+```
+
+### 5.11 E-mail küldés
+
+`POST /api/v1/invoices/{id}/send`
+
+Számla e-mail küldése PDF csatolmánnyal, `to`/`cc` felülírással. Ha a számla még draft, ez a hívás is véglegesíti (ugyanaz a szabály, mint az 5.2 figyelmeztetésben).
+
+```json
+{ "to": "billing@acme.hu", "cc": ["ceo@acme.hu"] }
+```
+
+Válasz (`200`): `{ "ok": true, "invoice": { "...": "..." }, "to": [...], "cc": [...], "pdfAttached": true }`
+
+### 5.12 Fizetettnek jelölés
+
+`POST /api/v1/invoices/{id}/mark-paid`
+
+```json
+{ "paymentMethod": "transfer", "paidAmount": 50000, "paidAt": "2026-07-10T12:00:00.000Z" }
+```
+
+`paymentMethod`, `paidAmount`, `paidAt` mind opcionális — `paidAmount` hiányában a teljes fennmaradó összeg kerül rögzítésre. Ismételt hívás **hozzáadja** a befizetést a korábbihoz (részteljesítés) — ezért ez a végpont **nem** Idempotency-Key védett, a szándékos ismétlés a funkció része.
+
+### 5.13 NAV beküldés státusz
+
+`GET /api/v1/invoices/{id}/nav`
+
+Az adott számlához tartozó összes NAV beküldés (legutóbbi elöl):
+
+```json
+{ "submissions": [ { "id": "sub-1", "status": "done", "transactionId": "TX-123", "...": "..." } ] }
+```
+
+### 5.14 NAV beküldés (meglévő számla)
 
 `POST /api/v1/invoices/{id}/nav`
 
-Kimenő számla továbbítása a NAV felé. Előfeltétel: NAV technikai user + jelszó a cégprofilban.
+Kimenő számla továbbítása a NAV felé. Előfeltétel: NAV technikai user + jelszó a cégprofilban (teszt vagy demo mód — production NAV hitelesítő adat ebben a repóban soha nincs).
 
-#### Példa
+Válasz (`200`): `{ "invoice": { "...": "..." }, "navSubmission": { "submissionId": "...", "status": "accepted", "transactionId": "TX-123" } }`
 
-```bash
-curl -X POST "https://invohub.vercel.app/api/v1/invoices/abc123/nav" \
-  -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET"
-```
+NAV beküldés számla létrehozáskor is kérhető: `"submitToNav": true` a create body-ban.
 
-#### Válasz (`200`)
+---
+
+## 6. Ügyfél (client) végpontok
+
+| Végpont | Leírás |
+|---------|--------|
+| `GET /api/v1/clients` | Ügyfelek listája |
+| `POST /api/v1/clients` | Új ügyfél (`name` kötelező) |
+| `GET /api/v1/clients/{id}` | Egy ügyfél |
+| `PATCH /api/v1/clients/{id}` | Ügyfél frissítése |
+| `DELETE /api/v1/clients/{id}` | Ügyfél törlése (`204`) |
 
 ```json
-{
-  "invoice": { "...": "..." },
-  "navSubmission": {
-    "submissionId": "nav-sub-1",
-    "status": "accepted",
-    "transactionId": "TX-123"
-  }
-}
+{ "name": "Acme Kft.", "taxNumber": "12345678-1-23", "email": "billing@acme.hu" }
 ```
 
-NAV beküldés számla létrehozáskor: `"submitToNav": true` a create body-ban.
+## 7. Termék (product) végpontok
+
+| Végpont | Leírás |
+|---------|--------|
+| `GET /api/v1/products` | Termékek/szolgáltatások listája |
+| `POST /api/v1/products` | Új termék (`name` kötelező) |
+| `GET /api/v1/products/{id}` | Egy termék |
+| `PATCH /api/v1/products/{id}` | Termék frissítése |
+| `DELETE /api/v1/products/{id}` | Termék törlése (`204`) |
+
+```json
+{ "name": "Tanácsadás (óra)", "unitPrice": 15000, "vatRate": 27, "currency": "HUF", "unit": "óra" }
+```
 
 ---
 
-## 4. PDF
-
-- A **külső API nem ad közvetlen PDF letöltést**.
-- PDF csatolmány az **e-mail küldés** része (`sendEmail: true`).
-- PDF kinézet: **Settings → PDF appearance** (cím, színek, lábléc).
-
----
-
-## 5. Ajánlott integrációs flow
+## 8. Teljes integrációs flow — díjbekérő nélkül
 
 ```mermaid
 sequenceDiagram
   participant App as Külső app
   participant API as InvoHub API
-  participant Mail as SMTP
 
-  App->>API: POST /api/v1/invoices (API key)
-  API->>API: Számla mentés DB-be
-  opt sendEmail true
-    API->>Mail: E-mail + PDF
+  App->>API: POST /api/v1/clients (ügyfél létrehozása)
+  App->>API: POST /api/v1/invoices (sendEmail:false → draft)
+  App->>API: POST /api/v1/invoices/{id}/finalize (szám kiosztása)
+  App->>API: GET /api/v1/invoices/{id}/pdf
+  App->>API: POST /api/v1/invoices/{id}/send (e-mail)
+  App->>API: POST /api/v1/invoices/{id}/mark-paid (fizetés rögzítése)
+  opt hibás számla utólag
+    App->>API: POST /api/v1/invoices/{id}/storno (javítás)
   end
-  opt submitToNav true
-    API->>API: NAV beküldés
-  end
-  API-->>App: 201 invoice + email + navSubmission
 ```
 
-1. Hozz létre API kulcsot InvoHub Settings-ben.
-2. Állítsd be a cégprofilt (számlázó adatok, invoice e-mail, NAV technikai user + **teszt vagy élő környezet**).
-3. Hívd a `POST /api/v1/invoices` végpontot.
-4. Ellenőrizd a válasz `email.sent` és `navSubmission.status` mezőit.
+1. **Ügyfél létrehozása** (opcionális, ha még nincs): `POST /api/v1/clients`.
+2. **Draft számla létrehozása**: `POST /api/v1/invoices` `sendEmail: false`-szal, hogy ne véglegesüljön/menjen ki azonnal.
+3. **Véglegesítés**: `POST /api/v1/invoices/{id}/finalize` — ekkortól van végleges `invoiceNumber`.
+4. **PDF letöltés/megtekintés** (opcionális): `GET /api/v1/invoices/{id}/pdf`.
+5. **Küldés e-mailben**: `POST /api/v1/invoices/{id}/send`.
+6. **Fizetés rögzítése**: `POST /api/v1/invoices/{id}/mark-paid`, amint megérkezik az összeg.
+7. **Javítás, ha szükséges**: a véglegesített számla soha nem szerkeszthető/törölhető közvetlenül — `POST /api/v1/invoices/{id}/storno` érvényteleníti, utána egy új draft/számla készül helyette (esetleg `modify` a helyesbítő draft-hoz).
+
+Minden retry-képes lépésnél (2, 3, 6, 7) érdemes `Idempotency-Key`-t küldeni (lásd 4. szakasz), hogy egy hálózati timeout miatti retry ne dupláz­za a számot/e-mailt/fizetést.
 
 ---
 
-## 6. Biztonság
+## 9. Biztonság
 
 - A **secret key** titkos — ne commitold, ne logold, ne küldd query stringben.
 - Csak **HTTPS** production környezetben.
 - Kulcs kompromittálás esetén: Settings → API keys → **Revoke**, új kulcs.
+- Minden végpont a kulcshoz tartozó userre szűr — másik user rekordja mindig `404`.
 
 ---
 
-## 7. OpenAPI / további végpontok
+## 10. OpenAPI / további végpontok
 
-Jelenleg a **v1 külső API** csak a fenti 3 végpontot tartalmazza.  
-A belső (session cookie-s) API-k — pl. `/api/invoices`, `/api/clients` — **nem** részei a külső integrációnak.
+A fenti a teljes **v1 külső API** — számla teljes életciklus (létrehozás → véglegesítés → PDF → küldés → fizetés/sztornó), ügyfelek és termékek. A belső (session cookie-s) API-k — pl. `/api/invoices`, `/api/clients` — **nem** részei a külső integrációnak, azok csak a webalkalmazás saját UI-ját szolgálják ki.
 
 Kérdés / hiba: hello@codence.hu

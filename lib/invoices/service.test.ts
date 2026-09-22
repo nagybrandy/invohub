@@ -94,7 +94,9 @@ import {
   convertProformaToInvoice,
   createModificationDraft,
   createStornoInvoice,
+  deleteDraftInvoiceById,
   duplicateInvoice,
+  finalizeInvoice,
   findExistingConversion,
   findInvoicesReferencing,
   findLiveConversionsForProformas,
@@ -480,6 +482,124 @@ describe("markInvoicePaid", () => {
 
     expect(result?.status).toBe("paid");
     expect(result?.paidAmount).toBe(1000);
+  });
+});
+
+describe("finalizeInvoice", () => {
+  it("returns not_found for a missing/foreign invoice", async () => {
+    mockSelectQueue = [[]];
+    const result = await finalizeInvoice("user-1", "missing");
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("returns not_draft without allocating a number when the invoice isn't a draft", async () => {
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "inv-1", status: "sent" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({ ok: false, reason: "not_draft" });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("finalizes a draft invoice to status unpaid and allocates the next number", async () => {
+    mockSequenceQueue = [7];
+    mockSelectQueue = [
+      // getInvoiceById(id) in finalizeInvoice
+      [dbInvoiceRow({ id: "inv-1", status: "draft", invoiceNumber: "", documentType: "invoice" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+      // getInvoiceById inside upsertInvoice (existing row found)
+      [dbInvoiceRow({ id: "inv-1", status: "draft", invoiceNumber: "", documentType: "invoice" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+      // getInvoiceById after save
+      [
+        dbInvoiceRow({
+          id: "inv-1",
+          status: "unpaid",
+          invoiceNumber: "INV-2026-00007",
+          documentType: "invoice",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({
+      ok: true,
+      invoice: expect.objectContaining({ status: "unpaid", invoiceNumber: "INV-2026-00007" }),
+    });
+  });
+
+  it("finalizes a proforma draft to status proforma, not unpaid", async () => {
+    mockSequenceQueue = [1];
+    mockSelectQueue = [
+      [
+        dbInvoiceRow({
+          id: "proforma-1",
+          status: "draft",
+          invoiceNumber: "",
+          documentType: "proforma",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [
+        dbInvoiceRow({
+          id: "proforma-1",
+          status: "draft",
+          invoiceNumber: "",
+          documentType: "proforma",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [
+        dbInvoiceRow({
+          id: "proforma-1",
+          status: "proforma",
+          invoiceNumber: "DBK-2026-00001",
+          documentType: "proforma",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "proforma-1");
+    expect(result).toEqual({
+      ok: true,
+      invoice: expect.objectContaining({ status: "proforma", invoiceNumber: "DBK-2026-00001" }),
+    });
+  });
+});
+
+describe("deleteDraftInvoiceById", () => {
+  it("returns not_found for a missing/foreign invoice, without deleting", async () => {
+    mockSelectQueue = [[]];
+    const result = await deleteDraftInvoiceById("user-1", "missing");
+    expect(result).toBe("not_found");
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns not_draft for a finalized invoice, without deleting", async () => {
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "inv-1", status: "sent" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await deleteDraftInvoiceById("user-1", "inv-1");
+    expect(result).toBe("not_draft");
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("deletes a draft invoice", async () => {
+    mockSelectQueue = [
+      // draft-status pre-check
+      [dbInvoiceRow({ id: "inv-1", status: "draft" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+      // deleteInvoiceById's own existence re-check
+      [dbInvoiceRow({ id: "inv-1", status: "draft" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await deleteDraftInvoiceById("user-1", "inv-1");
+    expect(result).toBe("deleted");
+    expect(mockDb.delete).toHaveBeenCalledTimes(1);
   });
 });
 
