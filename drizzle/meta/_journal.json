@@ -43,6 +43,13 @@
       "when": 1790071386490,
       "tag": "0005_idempotency-key",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790075298793,
+      "tag": "0006_exchange-rate-cache",
+      "breakpoints": true
     }
   ]
 }

@@ -318,7 +318,10 @@ export default {
       bankAccount: "Bank account",
       exchangeRate: "Exchange rate (to HUF)",
       exchangeRateHint:
-        "Manual entry for now — automatic MNB rate lookup is planned.",
+        "We fetch the rate automatically from the MNB's official rates; you can override it if needed.",
+      exchangeRateLoading: "Fetching rate…",
+      exchangeRateSourceMnb: "MNB rate, {{date}}",
+      exchangeRateSourceManual: "manually entered",
       productName: "Product name",
       netUnitPrice: "Net unit price",
       vat: "VAT",
@@ -377,6 +380,7 @@ export default {
       dueBeforeIssue: "The due date can't be before the issue date.",
       exchangeRateRequired: "A non-HUF invoice requires an exchange rate.",
       exchangeRateInvalid: "The exchange rate must be a number greater than zero.",
+      exchangeRateFetchFailed: "Couldn't fetch the MNB rate — enter it manually.",
       navExchangeRateMissing: "NAV submission cannot start: the invoice has no HUF exchange rate.",
       proformaNotStornoable:
         "A proforma is not an accounting document — it cannot be cancelled or corrected. Delete it, or convert it into an invoice.",
