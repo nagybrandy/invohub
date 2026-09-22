@@ -13,6 +13,10 @@ jest.mock("@/lib/invoices/service", () => ({
   findLiveConversionsForProformas: jest.fn(),
 }));
 
+jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
+  autofillMissingExchangeRate: jest.fn(),
+}));
+
 import { requireSession } from "@/lib/api/session";
 import { GET, POST } from "@/app/api/invoices+api";
 import {
@@ -21,10 +25,14 @@ import {
   listInvoices,
   upsertInvoice,
 } from "@/lib/invoices/service";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
 const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+const mockAutofill = autofillMissingExchangeRate as jest.MockedFunction<
+  typeof autofillMissingExchangeRate
+>;
 const mockListInvoices = listInvoices as jest.MockedFunction<typeof listInvoices>;
 const mockGetStats = getInvoiceStats as jest.MockedFunction<typeof getInvoiceStats>;
 const mockFindLiveConversions = findLiveConversionsForProformas as jest.MockedFunction<
@@ -36,6 +44,14 @@ describe("POST /api/invoices", () => {
     jest.clearAllMocks();
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockUpsert.mockImplementation(async (_userId, invoice) => invoice as never);
+    // Mirrors the real fallback logic (no MNB fetch in these tests — that's
+    // covered by lib/invoices/exchange-rate-autofill.test.ts) so existing
+    // exchangeRate-passthrough expectations below still hold.
+    mockAutofill.mockImplementation(async ({ exchangeRate }) =>
+      typeof exchangeRate === "number" && Number.isFinite(exchangeRate) && exchangeRate > 0
+        ? exchangeRate
+        : undefined
+    );
   });
 
   it("returns 401 without session", async () => {
@@ -199,6 +215,46 @@ describe("POST /api/invoices", () => {
     );
     expect(response.status).toBe(201);
     expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-fills the MNB rate when a non-HUF create omits exchangeRate (safety net)", async () => {
+    mockAutofill.mockResolvedValue(397.5);
+
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          currency: "EUR",
+          issueDate: "2026-09-22",
+          lineItems: [],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockAutofill).toHaveBeenCalledWith({
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+    });
+    const [, savedInvoice] = mockUpsert.mock.calls[0];
+    expect(savedInvoice.exchangeRate).toBe(397.5);
+  });
+
+  it("never calls the MNB autofill for a HUF invoice", async () => {
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", currency: "HUF", lineItems: [] }),
+      })
+    );
+
+    // Still called (it's the single fallback chokepoint) but the helper
+    // itself short-circuits HUF — verified in exchange-rate-autofill.test.ts.
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: "HUF", exchangeRate: undefined })
+    );
   });
 });
 

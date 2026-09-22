@@ -47,8 +47,15 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1790076442484,
-      "tag": "0006_invoice-buyer-address-and-line-item-unit",
+      "when": 1790075298793,
+      "tag": "0006_exchange-rate-cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790076862970,
+      "tag": "0007_invoice-buyer-address-and-line-item-unit",
       "breakpoints": true
     }
   ]

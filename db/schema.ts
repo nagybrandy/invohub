@@ -572,6 +572,34 @@ export const idempotencyKey = pgTable(
   ]
 );
 
+/**
+ * Cached MNB (Magyar Nemzeti Bank) official HUF exchange rates — see
+ * lib/exchange-rates/mnb.ts (SOAP fetch/parse) and lib/exchange-rates/
+ * service.ts (cache-first lookup with the "latest published on or before
+ * date" rule). Not user-scoped: the same official rate applies to every
+ * user, so there's exactly one row per (currency, rate_date). A past date's
+ * rate never changes once published, so a row is cached forever; a missing
+ * row is never a cached "not found" — it just means we haven't fetched (or
+ * MNB hasn't published) that day yet, so the next lookup tries again.
+ */
+export const exchangeRate = pgTable(
+  "exchange_rate",
+  {
+    id: text("id").primaryKey(),
+    /** ISO 4217 code, e.g. "EUR" — HUF itself is never stored (always rate 1). */
+    currency: text("currency").notNull(),
+    /** The MNB-published day this rate is for (YYYY-MM-DD), not necessarily the requested date. */
+    rateDate: text("rate_date").notNull(),
+    /** HUF per 1 unit of `currency` — already normalized by the MNB `unit` attribute (e.g. JPY/100). */
+    rate: numeric("rate", { precision: 14, scale: 6 }).notNull(),
+    source: text("source").notNull().default("MNB"),
+    fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("exchange_rate_currency_date_unique_idx").on(table.currency, table.rateDate),
+  ]
+);
+
 export const schema = {
   user,
   session,
@@ -594,4 +622,5 @@ export const schema = {
   notification,
   apiKey,
   idempotencyKey,
+  exchangeRate,
 };

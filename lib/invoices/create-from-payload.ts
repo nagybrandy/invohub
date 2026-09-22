@@ -2,6 +2,7 @@
 // Validates and builds an Invoice from API / external payloads.
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
@@ -119,14 +120,19 @@ export function validateExternalInvoiceInput(
   if (body.currency && body.currency !== "EUR" && body.currency !== "HUF") {
     return "currency must be EUR or HUF.";
   }
-  if (body.currency && requiresExchangeRate(body.currency)) {
-    if (
-      typeof body.exchangeRate !== "number" ||
+  // exchangeRate is no longer required for a non-HUF currency — the server
+  // fetches the official MNB rate when it's omitted (see
+  // lib/invoices/exchange-rate-autofill.ts). If the caller does supply one,
+  // it still has to be a usable number.
+  if (
+    body.currency &&
+    requiresExchangeRate(body.currency) &&
+    body.exchangeRate !== undefined &&
+    (typeof body.exchangeRate !== "number" ||
       !Number.isFinite(body.exchangeRate) ||
-      body.exchangeRate <= 0
-    ) {
-      return "exchangeRate must be a number greater than zero for a non-HUF currency.";
-    }
+      body.exchangeRate <= 0)
+  ) {
+    return "exchangeRate must be a number greater than zero for a non-HUF currency.";
   }
   if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
     return `paymentMethod must be one of ${PAYMENT_METHODS.join(", ")}.`;
@@ -173,6 +179,12 @@ export async function createInvoiceFromPayload(
   const now = new Date().toISOString();
   const currency: InvoiceCurrency =
     body.currency ?? (company?.country === "HU" || !company?.country ? "HUF" : "EUR");
+  const issueDate = body.issueDate ?? now.slice(0, 10);
+  // Server safety net (item 6): a non-HUF create with no (valid) caller-
+  // supplied rate gets the official MNB rate instead of being left empty.
+  const exchangeRate = requiresExchangeRate(currency)
+    ? await autofillMissingExchangeRate({ currency, exchangeRate: body.exchangeRate, issueDate })
+    : undefined;
   const invoice: Invoice = {
     id: createId(),
     // Left blank on drafts — lib/invoices/service.ts assigns a number atomically at finalize time.
@@ -185,11 +197,11 @@ export async function createInvoiceFromPayload(
     clientAddress: body.clientAddress?.trim(),
     clientCountry: body.clientCountry?.trim(),
     clientEuVatNumber: body.clientEuVatNumber?.trim(),
-    issueDate: body.issueDate ?? now.slice(0, 10),
+    issueDate,
     dueDate: body.dueDate ?? body.issueDate ?? now.slice(0, 10),
     status: body.status ?? "draft",
     currency,
-    exchangeRate: requiresExchangeRate(currency) ? body.exchangeRate : undefined,
+    exchangeRate,
     lineItems: mapLineItems(body.lineItems, company?.vatExempt ?? false),
     notes: body.notes,
     paymentMethod: body.paymentMethod,

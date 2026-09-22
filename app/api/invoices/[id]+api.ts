@@ -2,12 +2,22 @@
 // Single invoice CRUD.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import {
   deleteInvoiceById,
   getInvoiceById,
   upsertInvoice,
 } from "@/lib/invoices/service";
 import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
+
+/** True when the stored value isn't a usable positive, finite rate. */
+function needsExchangeRate(currency: Invoice["currency"], rate: number | undefined): boolean {
+  return (
+    requiresExchangeRate(currency) &&
+    !(typeof rate === "number" && Number.isFinite(rate) && rate > 0)
+  );
+}
 
 type Params = { id: string };
 
@@ -72,6 +82,18 @@ export async function PATCH(
         },
         422
       );
+    }
+
+    // Server safety net (item 6): covers both an edit that switches
+    // currency away from HUF and the composer's "Véglegesítés" (finalize)
+    // action, which is just a status-changing PATCH here — never overrides
+    // a rate the request itself already carried.
+    if (needsExchangeRate(updated.currency, updated.exchangeRate)) {
+      updated.exchangeRate = await autofillMissingExchangeRate({
+        currency: updated.currency,
+        exchangeRate: updated.exchangeRate,
+        issueDate: updated.issueDate,
+      });
     }
 
     const saved = await upsertInvoice(session.user.id, updated);

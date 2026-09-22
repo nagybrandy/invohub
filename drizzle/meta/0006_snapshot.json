@@ -1,5 +1,5 @@
 {
-  "id": "b756b1bd-4d3b-42af-bda8-6de7ad647ad4",
+  "id": "ac56eecb-a6a1-4249-9ca8-aabd0c6f33e8",
   "prevId": "e7329210-2dde-4606-853c-325bf7b68617",
   "version": "7",
   "dialect": "postgresql",
@@ -722,6 +722,79 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.exchange_rate": {
+      "name": "exchange_rate",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate_date": {
+          "name": "rate_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate": {
+          "name": "rate",
+          "type": "numeric(14, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'MNB'"
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "exchange_rate_currency_date_unique_idx": {
+          "name": "exchange_rate_currency_date_unique_idx",
+          "columns": [
+            {
+              "expression": "currency",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "rate_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.idempotency_key": {
       "name": "idempotency_key",
       "schema": "",
@@ -1026,36 +1099,6 @@
         },
         "client_tax_number": {
           "name": "client_tax_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_zip_code": {
-          "name": "client_zip_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_city": {
-          "name": "client_city",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_address": {
-          "name": "client_address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_country": {
-          "name": "client_country",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_eu_vat_number": {
-          "name": "client_eu_vat_number",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1418,12 +1461,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'0'"
-        },
-        "unit": {
-          "name": "unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "vat_rate": {
           "name": "vat_rate",

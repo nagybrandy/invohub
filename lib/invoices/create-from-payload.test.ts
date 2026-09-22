@@ -9,6 +9,10 @@ jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
+  autofillMissingExchangeRate: jest.fn(),
+}));
+
 import {
   BuyerAddressMissingError,
   createInvoiceFromPayload,
@@ -18,12 +22,16 @@ import {
 } from "@/lib/invoices/create-from-payload";
 import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockUpsertInvoice = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
 const mockGetInvoiceById = getInvoiceById as jest.MockedFunction<typeof getInvoiceById>;
 const mockGetCompanyByUserId = getCompanyByUserId as jest.MockedFunction<
   typeof getCompanyByUserId
+>;
+const mockAutofill = autofillMissingExchangeRate as jest.MockedFunction<
+  typeof autofillMissingExchangeRate
 >;
 
 describe("validateExternalInvoiceInput", () => {
@@ -84,10 +92,8 @@ describe("validateExternalInvoiceInput", () => {
     ).toContain("vatCategory");
   });
 
-  it("requires exchangeRate for a non-HUF currency (AC11)", () => {
-    expect(
-      validateExternalInvoiceInput({ ...valid, currency: "EUR" })
-    ).toContain("exchangeRate");
+  it("no longer requires exchangeRate for a non-HUF currency — the server auto-fetches the MNB rate", () => {
+    expect(validateExternalInvoiceInput({ ...valid, currency: "EUR" })).toBeNull();
   });
 
   it("accepts a non-HUF currency with a positive exchangeRate (AC11)", () => {
@@ -146,6 +152,14 @@ describe("createInvoiceFromPayload", () => {
     jest.clearAllMocks();
     mockGetCompanyByUserId.mockResolvedValue(null);
     mockUpsertInvoice.mockImplementation((_uid, inv) => Promise.resolve(inv));
+    // Mirrors the real fallback logic (network fetch itself is covered by
+    // exchange-rate-autofill.test.ts) so existing HUF-default fixtures here
+    // never accidentally depend on a real MNB call.
+    mockAutofill.mockImplementation(async ({ exchangeRate }) =>
+      typeof exchangeRate === "number" && Number.isFinite(exchangeRate) && exchangeRate > 0
+        ? exchangeRate
+        : undefined
+    );
   });
 
   it("leaves invoiceNumber blank so it's assigned at finalize", async () => {
@@ -206,6 +220,28 @@ describe("createInvoiceFromPayload", () => {
     });
     expect(saved.currency).toBe("EUR");
     expect(saved.exchangeRate).toBe(390.5);
+  });
+
+  it("auto-fills the MNB rate when a non-HUF payload omits exchangeRate (safety net)", async () => {
+    mockAutofill.mockResolvedValue(397.5);
+
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      currency: "EUR",
+      issueDate: "2026-09-22",
+    });
+
+    expect(saved.exchangeRate).toBe(397.5);
+    expect(mockAutofill).toHaveBeenCalledWith({
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+    });
+  });
+
+  it("never calls the MNB autofill helper for a HUF invoice", async () => {
+    await createInvoiceFromPayload("user-1", input);
+    expect(mockAutofill).not.toHaveBeenCalled();
   });
 
   it("rejects a non-HUF payload with an invalid exchangeRate before ever calling upsertInvoice", async () => {

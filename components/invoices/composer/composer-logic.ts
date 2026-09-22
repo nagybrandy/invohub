@@ -36,6 +36,38 @@ export function composerDesktopLayout(step: ComposerStepId): ComposerDesktopLayo
   return { showSummaryColumn: true, formMaxWidth: 720 };
 }
 
+/** Viewport width from which the composer shows the live PDF beside the form. */
+export const SIDE_PREVIEW_BREAKPOINT = 1024;
+
+export type ComposerPreviewLayout = {
+  /** The viewport is wide enough for the side panel at all. */
+  sideAvailable: boolean;
+  /** The side panel is actually rendered (available and not hidden by the user). */
+  side: boolean;
+  /** Side panel width in px (A4 scaled to fit). */
+  previewWidth: number;
+  /** Height of the embedded PDF frame in px. */
+  previewHeight: number;
+};
+
+/**
+ * Owner feedback 2026-09-22: while creating/editing an invoice the real PDF
+ * is always visible beside the form on wide screens; narrower screens get an
+ * "Előnézet" button (drawer) instead. The user can hide the side panel to
+ * give the step-2 line-item grid the full width back.
+ */
+export function composerPreviewLayout(
+  viewport: { width: number; height: number },
+  hidden: boolean
+): ComposerPreviewLayout {
+  const sideAvailable = viewport.width >= SIDE_PREVIEW_BREAKPOINT;
+  const previewWidth = viewport.width >= 1600 ? 560 : viewport.width >= 1280 ? 460 : 380;
+  // Sticky panel: viewport minus the page's top padding, the panel header
+  // and the draft note — never shorter than a readable half page.
+  const previewHeight = Math.max(480, Math.round(viewport.height - 150));
+  return { sideAvailable, side: sideAvailable && !hidden, previewWidth, previewHeight };
+}
+
 /** INV-6: suggested units of measure for the line-item grid's "Egység" column. */
 export const UNIT_OPTIONS = ["db", "óra", "nap", "hó", "km", "kg", "m²", "alkalom"];
 

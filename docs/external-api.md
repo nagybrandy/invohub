@@ -171,7 +171,7 @@ Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **e-
 | `dueDate` | string | nem | `YYYY-MM-DD` (default: issueDate) |
 | `status` | string | nem | `draft`, `proforma`, `sent`, `paid`, `unpaid`, `overdue`, `cancelled` (default: `draft`) |
 | `currency` | string | nem | `EUR` vagy `HUF` (default: cégprofil országa szerint) |
-| `exchangeRate` | number | csak nem-HUF esetén | Manuális HUF árfolyam |
+| `exchangeRate` | number | nem | Manuális HUF árfolyam nem-HUF pénznemhez. Ha kihagyod, a rendszer automatikusan lekéri az aznapi (vagy a `issueDate`-hez legközelebbi korábbi) hivatalos MNB árfolyamot — lásd 7.1. szakasz — és ha ez sikeres, azzal menti a számlát; ha az MNB nem elérhető, a számla árfolyam nélkül marad (utólag pótolható a szerkesztő felületen). |
 | `paymentMethod` | string | nem | `transfer`, `cash`, `card`, `other` |
 | `notes` | string | nem | Megjegyzés a számlán |
 | `sendEmail` | boolean | nem | E-mail küldés (default: `true`) — lásd a fenti figyelmeztetést |
@@ -372,6 +372,44 @@ NAV beküldés számla létrehozáskor is kérhető: `"submitToNav": true` a cre
 ```json
 { "name": "Tanácsadás (óra)", "unitPrice": 15000, "vatRate": 27, "currency": "HUF", "unit": "óra" }
 ```
+
+---
+
+## 7.1 Árfolyam (MNB) végpont
+
+`GET /api/v1/exchange-rates?currency=EUR&date=2026-09-22`
+
+A hivatalos MNB (Magyar Nemzeti Bank) HUF árfolyamot adja vissza — ugyanaz a
+forrás és cache, amit a számla létrehozás/véglegesítés automatikusan használ,
+amikor a body nem tartalmaz `exchangeRate`-et (lásd 5.2. szakasz). Elsősorban
+akkor hasznos, ha előre meg akarod jeleníteni az árfolyamot a saját UI-odban,
+mielőtt beküldenéd a számlát.
+
+**Szabály:** a visszaadott árfolyam a megadott dátumon vagy az azt megelőző
+legutóbbi MNB-publikált napon érvényes hivatalos árfolyam — az MNB
+hétvégén/ünnepnapon nem publikál, ezért a válasz `rateDate` mezője eltérhet a
+kért `date`-től. A `date` paraméterhez az Áfa tv. 80. § szerint a számla
+teljesítés dátumát érdemes megadni, ha az ismert, egyébként a kiállítás
+dátumát.
+
+| Paraméter | Kötelező | Leírás |
+|-----------|----------|--------|
+| `currency` | igen | ISO 4217 kód, pl. `EUR` (a `HUF` nem érvényes — arra mindig 1 az árfolyam) |
+| `date` | igen | `YYYY-MM-DD` |
+
+```bash
+curl "https://invohub.vercel.app/api/v1/exchange-rates?currency=EUR&date=2026-09-22" \
+  -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET"
+```
+
+Sikeres válasz (`200`):
+
+```json
+{ "currency": "EUR", "rate": 397.5, "rateDate": "2026-09-22", "source": "MNB" }
+```
+
+Hibák: `404` — az MNB-nek nincs adata a kért pénznemhez/dátumhoz a lekérdezési
+ablakban; `502` — az MNB szolgáltatása nem volt elérhető.
 
 ---
 

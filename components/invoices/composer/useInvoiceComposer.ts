@@ -127,9 +127,28 @@ export function useInvoiceComposer({
     invoice?.paymentMethod ?? "transfer"
   );
   const [currency, setCurrency] = React.useState<InvoiceCurrency>(invoice?.currency ?? "HUF");
-  const [exchangeRate, setExchangeRate] = React.useState(
+  const [exchangeRate, setExchangeRateRaw] = React.useState(
     invoice?.exchangeRate != null ? String(invoice.exchangeRate) : ""
   );
+  // MNB auto-fetch (owner request: "az árfolyamot mindig valami külső
+  // helyről kérje le, mint a számlázz.hu") — see the effect below.
+  // "manual" means the user (or a pre-existing edit) owns the value;
+  // "mnb" means the last successful fetch is what's shown, with
+  // `exchangeRateAsOf` (the MNB-published day, possibly earlier than the
+  // requested date on a weekend/holiday) driving the caption.
+  const [exchangeRateSource, setExchangeRateSource] = React.useState<"mnb" | "manual" | null>(
+    invoice?.exchangeRate != null ? "manual" : null
+  );
+  const [exchangeRateLoading, setExchangeRateLoading] = React.useState(false);
+  const [exchangeRateFetchError, setExchangeRateFetchError] = React.useState<string | null>(null);
+  const [exchangeRateAsOf, setExchangeRateAsOf] = React.useState<string | null>(null);
+  // True once a manual edit has happened since the last currency/date
+  // change — guards a late-arriving fetch response against clobbering it.
+  const exchangeRateManualRef = React.useRef(false);
+  // True after the first [currency, fulfillmentDate] effect run — lets that
+  // first run skip auto-fetching over an already-valid rate (e.g. opening
+  // the edit screen for an invoice that already has one saved).
+  const exchangeRateArmedRef = React.useRef(false);
   const [deadlineDays, setDeadlineDaysState] = React.useState(8);
   const [dueDate, setDueDate] = React.useState(invoice?.dueDate ?? addDaysIso(todayIso(), 8));
   const [bankAccount, setBankAccount] = React.useState("");
@@ -224,6 +243,71 @@ export function useInvoiceComposer({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientZip, clientCity, clientAddress]);
+
+  // Owner request: auto-fetch the official MNB HUF rate whenever the
+  // currency or the relevant date (teljesítés/fulfillment — Áfa tv. 80. §)
+  // changes, instead of making the user type it in. Skips its very first
+  // run when opening the composer already lands on a valid manual rate
+  // (editing an existing non-HUF invoice) so nothing gets silently
+  // overwritten on mount — every run after that always (re-)fetches, since
+  // a currency/date change invalidates whatever rate was there before.
+  React.useEffect(() => {
+    if (currency === "HUF") {
+      setExchangeRateSource(null);
+      setExchangeRateFetchError(null);
+      setExchangeRateAsOf(null);
+      return;
+    }
+
+    const isFirstRun = !exchangeRateArmedRef.current;
+    exchangeRateArmedRef.current = true;
+    if (isFirstRun && parseExchangeRateInput(exchangeRate) !== null) {
+      setExchangeRateSource("manual");
+      return;
+    }
+
+    exchangeRateManualRef.current = false;
+    setExchangeRateFetchError(null);
+    setExchangeRateLoading(true);
+    let cancelled = false;
+
+    apiFetch<{ rate: number; rateDate: string; source: string }>(
+      `/api/exchange-rates?currency=${currency}&date=${fulfillmentDate}`
+    )
+      .then((data) => {
+        if (cancelled || exchangeRateManualRef.current) return;
+        if (typeof data?.rate !== "number" || !Number.isFinite(data.rate) || !data.rateDate) {
+          setExchangeRateFetchError(t("invoices.errors.exchangeRateFetchFailed"));
+          return;
+        }
+        setExchangeRateRaw(String(data.rate));
+        setExchangeRateSource("mnb");
+        setExchangeRateAsOf(data.rateDate);
+        markDirty();
+      })
+      .catch(() => {
+        if (cancelled || exchangeRateManualRef.current) return;
+        // Failure → keep whatever manual entry is already there (spec item 5).
+        setExchangeRateFetchError(t("invoices.errors.exchangeRateFetchFailed"));
+      })
+      .finally(() => {
+        if (!cancelled) setExchangeRateLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, fulfillmentDate]);
+
+  /** Manual override (spec item 5) — marks the rate as user-owned so the next fetch response can't clobber it mid-flight. */
+  function setExchangeRate(value: string) {
+    exchangeRateManualRef.current = true;
+    setExchangeRateRaw(value);
+    setExchangeRateSource("manual");
+    setExchangeRateFetchError(null);
+    markDirty();
+  }
 
   React.useEffect(() => {
     if (mode !== "create" || appliedInitialClientId.current) return;
@@ -637,10 +721,11 @@ export function useInvoiceComposer({
       markDirty();
     },
     exchangeRate,
-    setExchangeRate: (v: string) => {
-      setExchangeRate(v);
-      markDirty();
-    },
+    setExchangeRate,
+    exchangeRateSource,
+    exchangeRateLoading,
+    exchangeRateFetchError,
+    exchangeRateAsOf,
     deadlineDays,
     setDeadlineDays,
     bankAccount,

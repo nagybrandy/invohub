@@ -61,6 +61,13 @@ function setupApiFetch(overrides: Partial<Record<string, unknown>> = {}) {
         },
       });
     }
+    if (path.startsWith("/api/exchange-rates?")) {
+      // Deliberately unmocked by default (rejects) so tests that aren't
+      // about the MNB auto-fetch never depend on it succeeding — see the
+      // dedicated "MNB exchange rate auto-fetch" describe block below for
+      // success/failure coverage.
+      return Promise.reject(new Error("exchange rate not mocked in this test"));
+    }
     if (path.startsWith("/api/invoices?")) {
       return jsonResponse({
         invoices: [],
@@ -459,5 +466,187 @@ describe("useInvoiceComposer", () => {
     const ref = await renderComposer({ mode: "create", initialClientId: "client-1" });
     expect(ref.current!.clientName).toBe("Tech Solutions Kft.");
     expect(ref.current!.clientId).toBe("client-1");
+  });
+});
+
+// Owner request: "az árfolyamot mindig valami külső helyről kérje le, mint
+// a számlázz.hu" — the composer auto-fetches the MNB rate instead of
+// requiring the user to type it. These tests own that surface end to end;
+// the main describe block above deliberately rejects /api/exchange-rates by
+// default so it stays independent of this behaviour.
+describe("useInvoiceComposer — MNB exchange rate auto-fetch", () => {
+  beforeEach(() => {
+    mockApiFetch.mockReset();
+    mockRouterReplace.mockReset();
+    setupApiFetch();
+  });
+
+  function mockExchangeRateSuccess(rate: number, rateDate: string) {
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/exchange-rates?")) {
+        return jsonResponse({ currency: "EUR", rate, rateDate, source: "MNB" });
+      }
+      // Fall back to the shared setup for everything else.
+      const method = init?.method ?? "GET";
+      if (path === "/api/clients") return jsonResponse({ clients: [CLIENT] });
+      if (path === "/api/products") return jsonResponse({ products: [] });
+      if (path === "/api/companies") {
+        return jsonResponse({
+          company: { id: "c1", userId: "u1", name: "Demo Kft.", vatExempt: false, createdAt: "", updatedAt: "" },
+        });
+      }
+      if (path.startsWith("/api/invoices?")) {
+        return jsonResponse({
+          invoices: [],
+          total: 0,
+          limit: 20,
+          offset: 0,
+          stats: { count: 0, thisMonthCount: 0, monthlyTotal: 0 },
+        });
+      }
+      if (path === "/api/invoices" && method === "POST") {
+        const body = JSON.parse(init!.body as string);
+        return jsonResponse({ invoice: { ...body, invoiceNumber: "INV-2026-100" } });
+      }
+      return jsonResponse({});
+    });
+  }
+
+  it("fetches and fills the rate as soon as the currency changes away from HUF", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRate).toBe("397.5");
+    expect(ref.current!.exchangeRateSource).toBe("mnb");
+    expect(ref.current!.exchangeRateAsOf).toBe("2026-09-22");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/exchange-rates?currency=EUR&date=")
+    );
+  });
+
+  it("re-fetches when the fulfillment date changes for an already-non-HUF invoice", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    mockApiFetch.mockClear();
+    mockExchangeRateSuccess(396.8, "2026-09-18");
+
+    await act(async () => {
+      ref.current!.setFulfillmentDate("2026-09-18");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRate).toBe("396.8");
+    expect(ref.current!.exchangeRateAsOf).toBe("2026-09-18");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringContaining("date=2026-09-18")
+    );
+  });
+
+  it("never overwrites a manually-typed rate with a fetch response, and marks it as manual", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => {
+      ref.current!.setExchangeRate("400");
+    });
+
+    expect(ref.current!.exchangeRate).toBe("400");
+    expect(ref.current!.exchangeRateSource).toBe("manual");
+  });
+
+  it("shows a Hungarian error and stops loading when the fetch fails", async () => {
+    // Default setupApiFetch() rejects /api/exchange-rates.
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRateFetchError).toBeTruthy();
+    expect(ref.current!.exchangeRateLoading).toBe(false);
+    expect(ref.current!.exchangeRateSource).not.toBe("mnb");
+  });
+
+  it("keeps a manually-typed rate even when a later fetch (triggered by a date change) fails", async () => {
+    // Default setupApiFetch() rejects /api/exchange-rates.
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(ref.current!.exchangeRateFetchError).toBeTruthy();
+
+    act(() => {
+      ref.current!.setExchangeRate("400");
+    });
+    expect(ref.current!.exchangeRateFetchError).toBeNull();
+
+    await act(async () => {
+      ref.current!.setFulfillmentDate("2026-09-18");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRate).toBe("400");
+    expect(ref.current!.exchangeRateFetchError).toBeTruthy();
+    expect(ref.current!.exchangeRateLoading).toBe(false);
+  });
+
+  it("clears the source/caption when currency switches back to HUF", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(ref.current!.exchangeRateSource).toBe("mnb");
+
+    act(() => {
+      ref.current!.setCurrency("HUF");
+    });
+
+    expect(ref.current!.exchangeRateSource).toBeNull();
+  });
+
+  it("does not overwrite an already-valid manual rate when opening the edit screen (no surprise fetch on mount)", async () => {
+    mockExchangeRateSuccess(999, "2026-09-22"); // would be an obvious tell if this got applied
+    const invoice = makeInvoice({
+      id: "inv-1",
+      currency: "EUR",
+      exchangeRate: 390.5,
+      status: "draft",
+    });
+
+    const ref = await renderComposer({ mode: "edit", invoice });
+
+    expect(ref.current!.exchangeRate).toBe("390.5");
+    expect(ref.current!.exchangeRateSource).toBe("manual");
+    expect(mockApiFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/exchange-rates?")
+    );
   });
 });
