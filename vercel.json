@@ -2,6 +2,9 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/client",
   "framework": null,
+  "git": {
+    "deploymentEnabled": false
+  },
   "functions": {
     "api/index.ts": {
       "includeFiles": "dist/**, assets/pdfkit-data/**, node_modules/pdfkit/**"
