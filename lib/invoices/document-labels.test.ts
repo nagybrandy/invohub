@@ -6,6 +6,8 @@ import {
   documentStatusChip,
   documentTitleFor,
   formatDocumentAmount,
+  formatDocumentQuantity,
+  formatPartyAddress,
   isWinAnsiSafe,
   toWinAnsiSafe,
 } from "@/lib/invoices/document-labels";
@@ -80,5 +82,37 @@ describe("toWinAnsiSafe / isWinAnsiSafe", () => {
   it("isWinAnsiSafe is false for text containing ő/ű", () => {
     expect(isWinAnsiSafe("Kőfaragó Kft.")).toBe(false);
     expect(isWinAnsiSafe("Tetőfelújítás")).toBe(false);
+  });
+});
+
+describe("formatPartyAddress", () => {
+  it("prints postcode + city first, then the street, and drops a domestic country", () => {
+    expect(
+      formatPartyAddress({ zipCode: "1114", city: "Budapest", address: "Bartók Béla út 42.", country: "Magyarország" })
+    ).toBe("1114 Budapest, Bartók Béla út 42.");
+  });
+
+  it("appends a foreign country", () => {
+    expect(formatPartyAddress({ zipCode: "1010", city: "Wien", address: "Ring 1", country: "Österreich" })).toBe(
+      "1010 Wien, Ring 1, Österreich"
+    );
+  });
+
+  it("returns an empty string when nothing is set", () => {
+    expect(formatPartyAddress({})).toBe("");
+  });
+});
+
+describe("formatDocumentQuantity", () => {
+  it("uses a Hungarian decimal comma", () => {
+    expect(formatDocumentQuantity(1.5)).toBe("1,5");
+  });
+
+  it("appends the unit when present", () => {
+    expect(formatDocumentQuantity(24, "óra")).toBe("24 óra");
+  });
+
+  it("prints a bare integer without a unit", () => {
+    expect(formatDocumentQuantity(3)).toBe("3");
   });
 });

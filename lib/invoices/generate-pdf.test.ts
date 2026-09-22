@@ -550,128 +550,149 @@ describe("generateInvoicePdf — footer page indicator (AC12)", () => {
   });
 });
 
-// AC9/AC10: party cards — two side by side with a company, one alone
-// without, both reserved via a measured advance (the old `billToY + 56` is
-// gone).
-describe("generateInvoicePdf — party cards (AC9/AC10)", () => {
-  it("draws two equal-height cards at the same top y, 16pt apart, with a company", async () => {
-    const invoice = makeInvoice();
+// 2026-09-22 redesign: typographic party blocks (Kibocsátó | Vevő), the
+// buyer's address from the linked partner, and a date-only meta strip.
+describe("generateInvoicePdf — parties", () => {
+  const company = {
+    name: "Kovács Anna EV",
+    taxNumber: "56781234-1-42",
+    address: "Bartók Béla út 42.",
+    city: "Budapest",
+    zipCode: "1114",
+    bankAccount: "11773016-01234567-00000000",
+  };
 
-    await generateInvoicePdf({
-      invoice,
-      company: {
-        name: "Demo Kft.",
-        taxNumber: "12345678-2-41",
-        address: "Fő utca 1.",
-        city: "Budapest",
-        zipCode: "1000",
-        bankAccount: "12345678-12345678-12345678",
-      },
-    });
-
-    // Two roundedRect fills sized for a card (i.e. not the chip/header
-    // band/totals panel — those are recognisable by their own geometry),
-    // found by looking for two roundedRect fills sharing the same y and
-    // height, side by side.
-    const cardCandidates = mockRectCalls.filter((c) => c.radius === 10);
-    expect(cardCandidates.length).toBeGreaterThanOrEqual(2);
-
-    const [first, second] = cardCandidates;
-    expect(first!.y).toBe(second!.y);
-    expect(first!.height).toBe(second!.height);
-    // 16pt gutter between the two cards.
-    expect(second!.x).toBeCloseTo(first!.x + first!.width + 16, 5);
-  });
-
-  it("draws exactly one card at ~half content width without a company", async () => {
-    const invoice = makeInvoice();
-
-    await generateInvoicePdf({ invoice });
-
-    const cardCandidates = mockRectCalls.filter((c) => c.radius === 10);
-    // Only the Vevő card (plus possibly the note box, which shares the
-    // same radius but is drawn much lower and full width) — filter to the
-    // top-of-document band by y proximity isn't needed here since there is
-    // no exemption reason on this fixture, so exactly one card fill.
-    expect(cardCandidates).toHaveLength(1);
-    expect(cardCandidates[0]!.width).toBeLessThan(300);
-  });
-
-  it("advances past the cards by a measured amount, never the literal billToY + 56", async () => {
-    const invoice = makeInvoice();
-
-    await generateInvoicePdf({
-      invoice,
-      company: {
-        name: "Demo Kft.",
-        address: "Egy nagyon hosszú cím, ami több sorba törik a kártyán belül, Budapest",
-      },
-    });
-
-    const cardCandidates = mockRectCalls.filter((c) => c.radius === 10);
-    const cardsBottom = Math.max(...cardCandidates.map((c) => c.y + c.height));
-
-    // The next draw after the cards is the meta row (issueDate label).
+  it("draws the seller and buyer blocks side by side at the same top y", async () => {
+    await generateInvoicePdf({ invoice: makeInvoice({ clientName: "Duna Kft." }), company });
     const labels = documentLabels();
-    const metaDraw = mockTextCalls.find((c) => c.text.startsWith(`${labels.issueDate}:`));
-    expect(metaDraw).toBeDefined();
-    expect(metaDraw!.y).toBeGreaterThanOrEqual(cardsBottom + 12);
-    expect(metaDraw!.y).toBeLessThanOrEqual(cardsBottom + 24);
+    const seller = mockTextCalls.find((c) => c.text === labels.seller.toUpperCase());
+    const buyer = mockTextCalls.find((c) => c.text === labels.buyer.toUpperCase());
+    expect(seller).toBeDefined();
+    expect(buyer).toBeDefined();
+    expect(buyer!.y).toBe(seller!.y);
+    expect(buyer!.x).toBeGreaterThan(seller!.x);
   });
 
-  it("never contains the literal expression billToY + 56 in the source", () => {
-    const fs = require("node:fs") as typeof import("node:fs");
-    const path = require("node:path") as typeof import("node:path");
-    const source = fs.readFileSync(
-      path.join(__dirname, "generate-pdf.ts"),
-      "utf8"
-    );
-    expect(source).not.toMatch(/billToY\s*\+\s*56/);
+  it("prints the seller's address Hungarian-ordered and the buyer's address from ctx.buyer", async () => {
+    await generateInvoicePdf({
+      invoice: makeInvoice({ clientName: "Duna Kft." }),
+      company,
+      buyer: { zipCode: "1051", city: "Budapest", address: "Október 6. utca 12.", country: "Magyarország" },
+    });
+    expect(mockDrawnTexts).toContain("1114 Budapest, Bartók Béla út 42.");
+    expect(mockDrawnTexts).toContain("1051 Budapest, Október 6. utca 12.");
+  });
+
+  it("prints the buyer's EU VAT number when the partner has one", async () => {
+    const labels = documentLabels();
+    await generateInvoicePdf({ invoice: makeInvoice(), company, buyer: { euVatNumber: "ATU12345678" } });
+    expect(mockDrawnTexts).toContain(`${labels.euVatNumber}: ATU12345678`);
+  });
+
+  it("draws only the buyer block without a company", async () => {
+    await generateInvoicePdf({ invoice: makeInvoice() });
+    const labels = documentLabels();
+    expect(mockDrawnTexts).toContain(labels.buyer.toUpperCase());
+    expect(mockDrawnTexts).not.toContain(labels.seller.toUpperCase());
+  });
+
+  it("uses no filled party cards — the only filled rects in the parties area are the small accent ticks", async () => {
+    const accent = "#6495ed";
+    await generateInvoicePdf({ invoice: makeInvoice(), company, template: { accentColor: accent } });
+    expect(mockRectCalls.some((c) => c.fill === tint(accent, 0.12))).toBe(false);
+    const ticks = mockRectCalls.filter((c) => c.fill === accent && c.width < 40);
+    expect(ticks).toHaveLength(2);
   });
 });
 
-// AC11: the meta row prints issue date, due date, currency, and — only
-// when set — payment method.
-describe("generateInvoicePdf — meta row (AC11)", () => {
-  it("prints the payment method with its localized label when set", async () => {
-    const invoice = makeInvoice({ paymentMethod: "transfer" });
-    const labels = documentLabels();
-
-    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
-
-    expect(
-      mockDrawnTexts.some((t) => t === `${labels.paymentMethod}: ${labels.paymentMethods.transfer}`)
-    ).toBe(true);
+describe("generateInvoicePdf — meta strip", () => {
+  it("prints the issue date as a date only — no clock time", async () => {
+    await generateInvoicePdf({
+      invoice: makeInvoice({ issueDate: "2026-09-22", createdAt: "2026-09-22T09:14:00.000Z" }),
+    });
+    expect(mockDrawnTexts).toContain("2026. 09. 22.");
+    expect(mockDrawnTexts.some((t) => /2026\. 09\. 22\. \d{1,2}:\d{2}/.test(t))).toBe(false);
   });
 
-  it("does not print a payment-method label when unset, and consumes no extra height", async () => {
-    const withMethod = makeInvoice({ paymentMethod: "cash" });
-    const withoutMethod = makeInvoice({ paymentMethod: undefined });
+  it("prints the payment method with its localized label when set", async () => {
     const labels = documentLabels();
+    await generateInvoicePdf({ invoice: makeInvoice({ paymentMethod: "transfer" }) });
+    expect(mockDrawnTexts).toContain(labels.paymentMethod.toUpperCase());
+    expect(mockDrawnTexts).toContain(labels.paymentMethods.transfer);
+  });
 
-    await generateInvoicePdf({ invoice: withoutMethod, company: { name: "Demo Kft." } });
-    expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.paymentMethod}:`))).toBe(false);
-    const tableHeaderWithout = mockTextCalls.find((c) => c.text === labels.description);
+  it("prints no payment-method cell when unset", async () => {
+    const labels = documentLabels();
+    await generateInvoicePdf({ invoice: makeInvoice({ paymentMethod: undefined }) });
+    expect(mockDrawnTexts).not.toContain(labels.paymentMethod.toUpperCase());
+  });
 
-    mockDrawnTexts = [];
-    mockTextCalls = [];
-    await generateInvoicePdf({ invoice: withMethod, company: { name: "Demo Kft." } });
-    expect(mockDrawnTexts.some((t) => t.startsWith(`${labels.paymentMethod}:`))).toBe(true);
+  it("adds an exchange-rate cell with a Hungarian decimal comma on a non-HUF document", async () => {
+    await generateInvoicePdf({ invoice: makeInvoice({ currency: "EUR", exchangeRate: 395.12 }) });
+    expect(mockDrawnTexts).toContain("1 EUR = 395,12 HUF");
+  });
+});
 
-    // The meta row wraps onto as many lines as its segments need (AC11's
-    // width-budget fix) rather than always drawing on one fixed line, so
-    // comparing a single segment's y between the two runs no longer says
-    // anything — the payment-method segment can land on a different line
-    // of a differently-wrapped row. What AC11 actually promises is that
-    // omitting the optional segment never leaves unused space: with this
-    // fixture, both rows still wrap to the same number of lines (the
-    // payment-method segment fits on the row's existing wrapped line
-    // alongside the currency segment), so the table header that follows
-    // starts at the same y either way.
-    const tableHeaderWith = mockTextCalls.find((c) => c.text === labels.description);
-    expect(tableHeaderWith).toBeDefined();
-    expect(tableHeaderWithout).toBeDefined();
-    expect(tableHeaderWith!.y).toBe(tableHeaderWithout!.y);
+describe("generateInvoicePdf — document title", () => {
+  it("uses the template title for a plain számla", async () => {
+    await generateInvoicePdf({ invoice: makeInvoice({ documentType: "invoice" }), template: { titleText: "SZÁMLA" } });
+    expect(mockDrawnTexts).toContain("SZÁMLA");
+  });
+
+  it.each([
+    ["proforma", "DÍJBEKÉRŐ"],
+    ["storno", "SZTORNÓ SZÁMLA"],
+    ["modify", "HELYESBÍTŐ SZÁMLA"],
+  ] as const)("prints the document type for a %s, never the számla template title", async (documentType, title) => {
+    await generateInvoicePdf({ invoice: makeInvoice({ documentType }), template: { titleText: "SZÁMLA" } });
+    expect(mockDrawnTexts).toContain(title);
+    expect(mockDrawnTexts).not.toContain("SZÁMLA");
+  });
+});
+
+describe("generateInvoicePdf — VAT summary and payment details", () => {
+  it("prints the tax base and tax per VAT rate (Áfa tv. 169. §)", async () => {
+    const invoice = makeInvoice({
+      currency: "HUF",
+      lineItems: [
+        makeLineItem({ id: "a", quantity: 1, unitPrice: 1000, vatRate: 27 }),
+        makeLineItem({ id: "b", quantity: 1, unitPrice: 2000, vatRate: 5 }),
+      ],
+    });
+    await generateInvoicePdf({ invoice });
+    const labels = documentLabels();
+    expect(mockDrawnTexts).toContain(labels.vatSummary.toUpperCase());
+    // 27%: base 1 000, tax 270; 5%: base 2 000, tax 100.
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(270, "HUF"));
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(100, "HUF"));
+    expect(mockDrawnTexts).toContain(formatDocumentAmount(2100, "HUF"));
+  });
+
+  it("prints the bank account and the invoice number as the transfer reference", async () => {
+    const labels = documentLabels();
+    await generateInvoicePdf({
+      invoice: makeInvoice({ invoiceNumber: "INV-2026-0147", paymentMethod: "transfer" }),
+      company: { name: "Demo Kft.", bankAccount: "11773016-01234567-00000000" },
+    });
+    expect(mockDrawnTexts).toContain(labels.paymentDetails.toUpperCase());
+    expect(mockDrawnTexts).toContain(labels.paymentReference);
+    expect(mockDrawnTexts.filter((t) => t === "INV-2026-0147").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("prints no payment-details box for a cash invoice", async () => {
+    const labels = documentLabels();
+    await generateInvoicePdf({
+      invoice: makeInvoice({ paymentMethod: "cash" }),
+      company: { name: "Demo Kft.", bankAccount: "11773016-01234567-00000000" },
+    });
+    expect(mockDrawnTexts).not.toContain(labels.paymentDetails.toUpperCase());
+  });
+
+  it("prints the quantity with its unit and a Hungarian decimal comma", async () => {
+    await generateInvoicePdf({
+      invoice: makeInvoice({ lineItems: [makeLineItem({ quantity: 1.5, unit: "nap" })] }),
+    });
+    expect(mockDrawnTexts).toContain("1,5 nap");
   });
 });
 
@@ -704,18 +725,16 @@ describe("generateInvoicePdf — line item net column (AC12)", () => {
   });
 });
 
-// AC13: totals panel + grand-total band colours.
-describe("generateInvoicePdf — totals panel (AC13)", () => {
-  it("fills the totals panel with tint(accent, 0.12) and the grand-total band with tint(accent, 0.24)", async () => {
+// The amount due sits in the page's single dark band: always the document
+// navy with white text, whatever the template accent — legible on any
+// accent colour and in greyscale print.
+describe("generateInvoicePdf — amount-due band", () => {
+  it.each(["#6495ed", "#f4e3a1"])("is navy with a white amount for accent %s", async (accent) => {
     const invoice = makeInvoice({ currency: "HUF" });
-    const accent = "#6495ed";
-
-    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." }, template: { accentColor: accent } });
-
-    const panelTint = tint(accent, 0.12);
-    const bandTint = tint(accent, 0.24);
-    expect(mockRectCalls.some((c) => c.fill === panelTint)).toBe(true);
-    expect(mockRectCalls.some((c) => c.fill === bandTint)).toBe(true);
+    await generateInvoicePdf({ invoice, template: { accentColor: accent } });
+    expect(mockRectCalls.some((c) => c.fill === documentInk.heading && (c.radius ?? 0) > 0)).toBe(true);
+    const amount = mockTextCalls.find((c) => c.text === formatDocumentAmount(254, "HUF") && c.align === "right");
+    expect(amount).toBeDefined();
   });
 });
 
@@ -727,9 +746,9 @@ describe("generateInvoicePdf — status chip (AC15)", () => {
 
     await generateInvoicePdf({ invoice, company: { name: "Demo Kft." }, template: { accentColor: accent } });
 
-    const chipFill = tint(accent, 0.24);
+    const chipFill = tint(accent, 0.82);
     const labels = documentLabels();
-    expect(mockDrawnTexts).toContain(labels.status.paid);
+    expect(mockDrawnTexts).toContain(labels.status.paid.toUpperCase());
     expect(mockRectCalls.some((c) => c.fill === chipFill && c.radius && c.radius > 0)).toBe(true);
   });
 
@@ -739,9 +758,8 @@ describe("generateInvoicePdf — status chip (AC15)", () => {
     await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
 
     const labels = documentLabels();
-    expect(Object.values(labels.status)).not.toContain(
-      mockDrawnTexts.find((t) => Object.values(labels.status).includes(t))
-    );
+    const statusTexts = Object.values(labels.status).flatMap((t) => [t, t.toUpperCase()]);
+    expect(mockDrawnTexts.some((t) => statusTexts.includes(t))).toBe(false);
   });
 });
 

@@ -30,6 +30,52 @@ export function calculateInvoiceTotals(lineItems: InvoiceLineItem[]): InvoiceTot
   };
 }
 
+export type VatSummaryRow = {
+  /** "27" for a taxed rate, the category code ("AAM", "TAM", …) for an exempt line. */
+  key: string;
+  /** What the document prints in the rate column: "27%" or the category code. */
+  label: string;
+  net: number;
+  vat: number;
+  gross: number;
+};
+
+/**
+ * Per-rate tax base / tax amount breakdown for the outgoing document
+ * (Áfa tv. 169. § j)–k): the tax base and the tax amount "adómértékenként").
+ * Taxed rates come first, highest rate first; exempt categories follow as
+ * their own zero-VAT groups. Display only — lib/nav/invoice-xml.ts keeps its
+ * own NAV-specific grouping.
+ */
+export function vatSummaryByRate(lineItems: InvoiceLineItem[]): VatSummaryRow[] {
+  const groups = new Map<string, VatSummaryRow & { rate: number; exempt: boolean }>();
+  for (const item of lineItems) {
+    const exempt = item.vatCategory !== "normal";
+    const key = exempt ? item.vatCategory : String(item.vatRate);
+    const net = lineItemNetTotal(item);
+    const vat = lineItemVatAmount(item);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.net += net;
+      existing.vat += vat;
+      existing.gross += net + vat;
+    } else {
+      groups.set(key, {
+        key,
+        label: exempt ? item.vatCategory : `${item.vatRate}%`,
+        net,
+        vat,
+        gross: net + vat,
+        rate: exempt ? -1 : item.vatRate,
+        exempt,
+      });
+    }
+  }
+  return Array.from(groups.values())
+    .sort((a, b) => (a.exempt === b.exempt ? b.rate - a.rate || a.key.localeCompare(b.key) : a.exempt ? 1 : -1))
+    .map(({ key, label, net, vat, gross }) => ({ key, label, net, vat, gross }));
+}
+
 export function formatCurrency(amount: number, currency: Invoice["currency"]): string {
   const symbol = currency === "EUR" ? "€" : "Ft";
   const formatted = amount.toLocaleString(undefined, {

@@ -136,6 +136,12 @@ export default {
       pdfLoadFailed: "Failed to load PDF preview.",
     },
     document: {
+      documentNumber: "Number",
+      vatSummary: "VAT summary",
+      vatRateColumn: "VAT rate",
+      paymentDetails: "Payment details",
+      paymentReference: "Reference",
+      euVatNumber: "EU VAT number",
       seller: "Issuer",
       buyer: "Bill to",
       taxNumber: "Tax number",

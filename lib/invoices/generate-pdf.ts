@@ -15,42 +15,46 @@ import {
   lineItemGrossTotal,
   lineItemNetTotal,
   lineItemVatAmount,
+  vatSummaryByRate,
 } from "@/lib/invoices/calculations";
 import {
   documentLabels,
   documentStatusChip,
+  documentTitleFor,
   formatDocumentAmount,
+  formatDocumentQuantity,
+  formatPartyAddress,
   toWinAnsiSafe,
 } from "@/lib/invoices/document-labels";
-import { requiresExchangeRate, resolveExchangeRate, toHufAmount } from "@/lib/invoices/exchange-rate";
-import { resolveVatExemptionReason } from "@/lib/invoices/vat";
 import {
-  formatInvoiceDueDate,
-  formatInvoiceIssueDateTime,
-} from "@/lib/dates/format";
+  requiresExchangeRate,
+  resolveExchangeRate,
+  toHufAmount,
+} from "@/lib/invoices/exchange-rate";
+import { resolveVatExemptionReason } from "@/lib/invoices/vat";
+import { formatDateOnly, formatInvoiceDueDate } from "@/lib/dates/format";
 import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
 import { registerDocumentFonts, type DocumentFonts } from "@/lib/invoices/pdf-fonts";
 import { drawBrandLockup } from "@/lib/invoices/pdf-brand-mark";
-import { documentInk } from "@/lib/invoices/document-ink";
+import { documentInk, documentSurfaces } from "@/lib/invoices/document-ink";
 import {
   companyInitials,
   contentBottom,
+  DOCUMENT_HAIRLINE,
+  documentLabelSize,
   drawLogoBadge,
   drawLogoImage,
-  drawNoteBox,
-  drawPartyCard,
+  drawPartyBlock,
   drawTableHeader,
   drawTableRow,
-  drawTotalLine,
   ensureSpace,
   footerBandTop,
   loadLogoImage,
-  partyCardHeight,
+  partyBlockHeight,
   PDF_PAGE_MARGINS,
   readableTextOn,
   tableColumns,
   tint,
-  totalsColumns,
 } from "@/lib/invoices/pdf-layout";
 import {
   DEFAULT_PDF_TEMPLATE,
@@ -164,7 +168,7 @@ function drawContinuationCaption(
   doc: Doc,
   opts: { docFonts: DocumentFonts; text: string; fontSize: number; left: number; width: number }
 ): void {
-  doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor("#666666");
+  doc.font(opts.docFonts.regular).fontSize(opts.fontSize).fillColor(documentInk.muted);
   doc.text(opts.text, opts.left, doc.y, { width: opts.width });
   doc.y += doc.heightOfString(opts.text, { width: opts.width }) + 8;
   doc.fillColor("#000000");
@@ -181,9 +185,19 @@ export type InvoicePdfCompany = {
   logoUrl?: string;
 };
 
+/** Buyer details that live on the linked partner, not on the invoice row. */
+export type InvoicePdfBuyer = {
+  address?: string;
+  city?: string;
+  zipCode?: string;
+  country?: string;
+  euVatNumber?: string;
+};
+
 export type InvoicePdfContext = {
   invoice: Invoice;
   company?: InvoicePdfCompany;
+  buyer?: InvoicePdfBuyer;
   template?: InvoicePdfTemplate;
 };
 
@@ -235,246 +249,248 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         doc.on("end", () => resolve(Buffer.concat(chunks)));
         doc.on("error", reject);
 
+        // =============================================================
+        // Layout (2026-09-22 redesign). A calm, paper-first document:
+        // typographic hierarchy + hairlines instead of filled panels, one
+        // accent used sparingly (the page-top bar, party ticks, the logo
+        // badge), and the single dark band reserved for the amount due.
+        // Section order: header -> meta strip -> parties -> line items ->
+        // [VAT summary + payment details | totals] -> exemption note ->
+        // notes. Every block is measured and reserved with ensureSpace; the
+        // line-item loop and the notes body keep their continuation-page
+        // behaviour (caption + repeated header / repeated notes label).
+        // =============================================================
+        const ink = documentInk;
+        // One banner for every continuation mechanism — line-item page
+        // breaks, block reservations (summary / note / notes) and the notes
+        // body's own auto-pagination — so a printed, separated page can
+        // always be matched to its invoice.
+        const continuationBanner = `${invoice.invoiceNumber || labels.draftNumber} · ${labels.continued}`;
+        const reserve = (neededHeight: number) => {
+          const pageBefore = doc.page;
+          ensureSpace(doc, neededHeight);
+          if (doc.page !== pageBefore) {
+            drawContinuationCaption(doc, {
+              docFonts,
+              text: continuationBanner,
+              fontSize: fonts.small,
+              left,
+              width: pageWidth,
+            });
+          }
+        };
+        const labelSize = documentLabelSize(fonts.small);
+        const hairline = (y: number, x1 = left, x2 = right) => {
+          doc.moveTo(x1, y).lineTo(x2, y).strokeColor(DOCUMENT_HAIRLINE).lineWidth(0.6).stroke();
+          doc.strokeColor("#000000").lineWidth(1);
+        };
+        const CAPTION_SPACING = 0.6;
+        const captionHeight = (text: string, width: number) => {
+          doc.font(docFonts.bold).fontSize(labelSize);
+          return doc.heightOfString(text.toUpperCase(), { width, characterSpacing: CAPTION_SPACING });
+        };
+        const caption = (text: string, x: number, y: number, width: number) => {
+          const height = captionHeight(text, width);
+          doc.fillColor(ink.muted);
+          doc.text(text.toUpperCase(), x, y, { width, characterSpacing: CAPTION_SPACING });
+          return y + height;
+        };
+
         // -------------------------------------------------------------
-        // Header (AC8): logo/badge + company name (left); title, number,
-        // status chip (right). The full seller block (tax number, address,
-        // bank account) now lives in the Kibocsátó party card below, same
-        // as preview-html.ts's `.issuer-identity` (name only next to the
-        // badge).
+        // Header: issuer identity (left), document title + number (right).
+        // A díjbekérő / sztornó / helyesbítő prints its own document type —
+        // only a plain számla uses the user's configurable title text, so a
+        // proforma can never go out titled "SZÁMLA".
         // -------------------------------------------------------------
-        const logoSize = 52;
-        const headerTop = doc.y;
-        const logoX = left;
-        const logoY = headerTop;
+        const headerTop = doc.y + 6;
+        const logoSize = 40;
+        const identityMaxX = left + pageWidth * 0.58;
+        let identityBottom = headerTop;
 
-        if (logoBuffer) {
-          drawLogoImage(doc, logoBuffer, logoX, logoY, logoSize);
-        } else {
-          const initials = companyInitials(company?.name ?? template.titleText);
-          drawLogoBadge(doc, logoX, logoY, logoSize, initials, accent);
-        }
-
-        const infoX = logoX + logoSize + 16;
-        const metaX = left + pageWidth * 0.55;
-        const metaWidth = pageWidth * 0.45;
-
-        let headerBlockBottom = logoY + logoSize;
         if (company?.name) {
-          doc.font(docFonts.bold).fontSize(fonts.subtitle).fillColor("#111f4a");
-          doc.text(company.name, infoX, logoY, { width: metaX - infoX - 12 });
-          const nameHeight = doc.heightOfString(company.name, { width: metaX - infoX - 12 });
-          doc.fillColor("#000000");
-          headerBlockBottom = Math.max(headerBlockBottom, logoY + nameHeight);
+          let identityX = left;
+          if (logoBuffer) {
+            drawLogoImage(doc, logoBuffer, left, headerTop, logoSize);
+            identityX = left + logoSize + 12;
+            identityBottom = headerTop + logoSize;
+          } else {
+            drawLogoBadge(doc, left, headerTop, logoSize, companyInitials(company.name), accent);
+            identityX = left + logoSize + 12;
+            identityBottom = headerTop + logoSize;
+          }
+          const identityWidth = identityMaxX - identityX;
+          doc.font(docFonts.bold).fontSize(fonts.subtitle + 2).fillColor(ink.heading);
+          doc.text(company.name, identityX, headerTop + 2, { width: identityWidth });
+          let identityY = headerTop + 2 + doc.heightOfString(company.name, { width: identityWidth });
+          const identitySub = [company.city, company.taxNumber ? `${labels.taxNumber}: ${company.taxNumber}` : ""]
+            .filter(Boolean)
+            .join("  ·  ");
+          if (identitySub) {
+            doc.font(docFonts.regular).fontSize(fonts.small).fillColor(ink.secondary);
+            doc.text(identitySub, identityX, identityY + 2, { width: identityWidth });
+            identityY += 2 + doc.heightOfString(identitySub, { width: identityWidth });
+          }
+          identityBottom = Math.max(identityBottom, identityY);
         }
 
-        let metaY = logoY;
-        doc.font(docFonts.bold).fontSize(fonts.title).fillColor(accent);
-        doc.text(template.titleText, metaX, metaY, { width: metaWidth, align: "right" });
-        metaY += fonts.title + 8;
-        doc.font(docFonts.bold).fontSize(fonts.subtitle).fillColor("#111111");
-        doc.text(invoice.invoiceNumber || labels.draftNumber, metaX, metaY, {
-          width: metaWidth,
-          align: "right",
-        });
-        metaY += fonts.subtitle + 8;
-        doc.fillColor("#000000");
+        const documentTitle =
+          invoice.documentType === "invoice"
+            ? template.titleText
+            : documentTitleFor(invoice.documentType).toUpperCase();
+        const titleWidth = pageWidth * 0.4;
+        const titleX = right - titleWidth;
+        doc.font(docFonts.bold).fontSize(fonts.title + 4).fillColor(ink.heading);
+        doc.text(documentTitle, titleX, headerTop - 4, { width: titleWidth, align: "right", characterSpacing: 1.2 });
+        let titleY = headerTop - 4 + doc.heightOfString(documentTitle, { width: titleWidth });
+        const documentNumber = invoice.invoiceNumber || labels.draftNumber;
+        doc.font(docFonts.bold).fontSize(fonts.subtitle).fillColor(ink.secondary);
+        doc.text(documentNumber, titleX, titleY + 2, { width: titleWidth, align: "right" });
+        titleY += 2 + doc.heightOfString(documentNumber, { width: titleWidth });
 
-        // AC15: a pill (rounded tint(accent, 0.24) fill + readable text)
-        // for statuses that change what the document IS — see
-        // documentStatusChip's own "internal bookkeeping state" rule. A
-        // null chip draws nothing and consumes no vertical space.
+        // Status pill only for statuses that change what the document IS
+        // (documentStatusChip's own rule); a null chip draws nothing.
         const statusChip = documentStatusChip(invoice.status);
         if (statusChip) {
-          doc.font(docFonts.bold).fontSize(fonts.small);
-          const chipTextWidth = doc.widthOfString(statusChip);
-          const chipPaddingX = 8;
-          const chipHeight = fonts.small + 8;
-          const chipWidth = chipTextWidth + chipPaddingX * 2;
+          doc.font(docFonts.bold).fontSize(labelSize);
+          const chipLabel = statusChip.toUpperCase();
+          const chipWidth = doc.widthOfString(chipLabel) + 16;
+          const chipHeight = labelSize + 9;
           const chipX = right - chipWidth;
-          const chipFill = tint(accent, 0.24);
-          doc.roundedRect(chipX, metaY, chipWidth, chipHeight, chipHeight / 2).fill(chipFill);
+          const chipY = titleY + 6;
+          const chipFill = tint(accent, 0.82);
+          doc.roundedRect(chipX, chipY, chipWidth, chipHeight, chipHeight / 2).fill(chipFill);
           doc.fillColor(readableTextOn(chipFill));
-          doc.text(statusChip, chipX, metaY + chipHeight / 2 - fonts.small / 2, {
+          doc.text(chipLabel, chipX, chipY + (chipHeight - labelSize) / 2 - 0.5, {
             width: chipWidth,
             align: "center",
+            characterSpacing: 0.6,
           });
-          doc.fillColor("#000000");
-          metaY += chipHeight;
+          titleY = chipY + chipHeight;
+        }
+        doc.fillColor("#000000");
+
+        doc.y = Math.max(identityBottom, titleY) + 22;
+
+        // -------------------------------------------------------------
+        // Meta strip: equal-width cells between two hairlines — issue
+        // date (date only; an invoice states a day, not a clock time), due
+        // date, payment method (when set), currency, and the exchange rate
+        // on a non-HUF document.
+        // -------------------------------------------------------------
+        const metaCells: Array<{ label: string; value: string }> = [
+          { label: labels.issueDate, value: formatDateOnly(invoice.issueDate) },
+          { label: labels.dueDate, value: formatInvoiceDueDate(invoice) },
+        ];
+        if (invoice.paymentMethod) {
+          metaCells.push({
+            label: labels.paymentMethod,
+            value: labels.paymentMethods[invoice.paymentMethod as PaymentMethod],
+          });
+        }
+        metaCells.push({ label: labels.currency, value: invoice.currency });
+        const rateResolution = requiresExchangeRate(invoice.currency) ? resolveExchangeRate(invoice) : null;
+        if (rateResolution?.ok) {
+          metaCells.push({
+            label: labels.exchangeRate,
+            value: labels.exchangeRateValue
+              .replace("{{currency}}", invoice.currency)
+              .replace(
+                "{{rate}}",
+                new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 4, useGrouping: true }).format(
+                  rateResolution.rate
+                )
+              ),
+          });
         }
 
-        headerBlockBottom = Math.max(headerBlockBottom, metaY);
+        const metaCellWidth = pageWidth / metaCells.length;
+        const metaPadX = 10;
+        const metaPadY = 9;
+        const metaInnerWidth = (index: number) => metaCellWidth - metaPadX - (index === 0 ? 0 : metaPadX);
+        const metaLabelHeight = Math.max(
+          ...metaCells.map((cell, index) => captionHeight(cell.label, metaInnerWidth(index)))
+        );
+        doc.font(docFonts.bold).fontSize(fonts.body + 0.5);
+        const metaValueHeight = Math.max(
+          ...metaCells.map((cell, index) => doc.heightOfString(cell.value, { width: metaInnerWidth(index) }))
+        );
+        const metaHeight = metaPadY * 2 + metaLabelHeight + 4 + metaValueHeight;
 
-        doc.y = headerBlockBottom + 20;
-        doc
-          .moveTo(left, doc.y)
-          .lineTo(right, doc.y)
-          .strokeColor("#e5e7eb")
-          .lineWidth(1)
-          .stroke();
-
-        doc.y += 16;
+        reserve(metaHeight + 24);
+        const metaTop = doc.y;
+        hairline(metaTop);
+        metaCells.forEach((cell, index) => {
+          const cellX = left + index * metaCellWidth;
+          const innerX = index === 0 ? cellX : cellX + metaPadX;
+          const innerWidth = metaInnerWidth(index);
+          if (index > 0) {
+            doc
+              .moveTo(cellX, metaTop + 7)
+              .lineTo(cellX, metaTop + metaHeight - 7)
+              .strokeColor(DOCUMENT_HAIRLINE)
+              .lineWidth(0.6)
+              .stroke();
+          }
+          caption(cell.label, innerX, metaTop + metaPadY, innerWidth);
+          doc.font(docFonts.bold).fontSize(fonts.body + 0.5).fillColor(ink.heading);
+          doc.text(cell.value, innerX, metaTop + metaPadY + metaLabelHeight + 4, { width: innerWidth });
+        });
+        doc.strokeColor("#000000").lineWidth(1).fillColor("#000000");
+        hairline(metaTop + metaHeight);
+        doc.y = metaTop + metaHeight + 22;
 
         // -------------------------------------------------------------
-        // Party cards (AC8/AC9): Kibocsátó + Vevő side by side with a
-        // company, Vevő alone (half width) without one — mirrors
-        // preview-html.ts's `.parties` / `.parties-single`.
+        // Parties: Kibocsátó | Vevő. The buyer's address comes from the
+        // linked partner (ctx.buyer) — the invoice row itself only stores
+        // name + tax number, and Áfa tv. 169. § e) requires the address.
         // -------------------------------------------------------------
-        const cardGutter = 16;
-        const cardFontSizes = { title: fonts.small, body: fonts.body };
-
+        const partyGutter = 28;
+        const partyWidth = (pageWidth - partyGutter) / 2;
+        const partyFontSizes = { label: labelSize, name: fonts.body + 1.5, body: fonts.body };
+        const buyer = ctx.buyer;
         const buyerLines = [
-          invoice.clientName,
+          formatPartyAddress(buyer ?? {}),
           template.showClientTaxNumber && invoice.clientTaxNumber
             ? `${labels.taxNumber}: ${invoice.clientTaxNumber}`
             : "",
+          buyer?.euVatNumber ? `${labels.euVatNumber}: ${buyer.euVatNumber}` : "",
         ].filter(Boolean);
+        const buyerBlock = { width: partyWidth, title: labels.buyer, name: invoice.clientName, lines: buyerLines, fontSizes: partyFontSizes };
 
-        let cardsBottom: number;
+        const showSeller = template.showCompanyBlock && !!company;
+        const sellerBlock = company
+          ? {
+              width: partyWidth,
+              title: labels.seller,
+              name: company.name,
+              lines: [
+                formatPartyAddress(company),
+                company.taxNumber ? `${labels.taxNumber}: ${company.taxNumber}` : "",
+                template.showBankDetails && company.bankAccount ? `${labels.bankAccount}: ${company.bankAccount}` : "",
+              ].filter(Boolean),
+              fontSizes: partyFontSizes,
+            }
+          : null;
 
-        if (template.showCompanyBlock && company) {
-          const sellerLines = [
-            company.name,
-            company.taxNumber ? `${labels.taxNumber}: ${company.taxNumber}` : "",
-            [company.address, company.city, company.zipCode, company.country].filter(Boolean).join(", "),
-            template.showBankDetails && company.bankAccount ? `${labels.bankAccount}: ${company.bankAccount}` : "",
-          ].filter(Boolean);
-
-          const cardWidth = (pageWidth - cardGutter) / 2;
-          const sellerHeight = partyCardHeight(doc, {
-            width: cardWidth,
-            title: labels.seller,
-            lines: sellerLines,
-            fontSizes: cardFontSizes,
-          });
-          const buyerHeight = partyCardHeight(doc, {
-            width: cardWidth,
-            title: labels.buyer,
-            lines: buyerLines,
-            fontSizes: cardFontSizes,
-          });
-          const cardHeight = Math.max(sellerHeight, buyerHeight);
-
-          ensureSpace(doc, cardHeight);
-          const topY = doc.y;
-
-          drawPartyCard(doc, {
-            x: left,
-            y: topY,
-            width: cardWidth,
-            title: labels.seller,
-            lines: sellerLines,
-            accent,
-            fontSizes: cardFontSizes,
-            height: cardHeight,
-          });
-          drawPartyCard(doc, {
-            x: left + cardWidth + cardGutter,
-            y: topY,
-            width: cardWidth,
-            title: labels.buyer,
-            lines: buyerLines,
-            accent,
-            fontSizes: cardFontSizes,
-            height: cardHeight,
-          });
-
-          cardsBottom = topY + cardHeight;
+        const partiesHeight = Math.max(
+          partyBlockHeight(doc, buyerBlock),
+          showSeller && sellerBlock ? partyBlockHeight(doc, sellerBlock) : 0
+        );
+        reserve(partiesHeight + 24);
+        const partiesTop = doc.y;
+        if (showSeller && sellerBlock) {
+          drawPartyBlock(doc, { ...sellerBlock, x: left, y: partiesTop, accent });
+          drawPartyBlock(doc, { ...buyerBlock, x: left + partyWidth + partyGutter, y: partiesTop, accent });
         } else {
-          const cardWidth = pageWidth * 0.5;
-          const buyerHeight = partyCardHeight(doc, {
-            width: cardWidth,
-            title: labels.buyer,
-            lines: buyerLines,
-            fontSizes: cardFontSizes,
-          });
-
-          ensureSpace(doc, buyerHeight);
-          const topY = doc.y;
-
-          drawPartyCard(doc, {
-            x: left,
-            y: topY,
-            width: cardWidth,
-            title: labels.buyer,
-            lines: buyerLines,
-            accent,
-            fontSizes: cardFontSizes,
-          });
-
-          cardsBottom = topY + buyerHeight;
+          drawPartyBlock(doc, { ...buyerBlock, x: left, y: partiesTop, accent });
         }
-
-        // AC10: a MEASURED advance (cardsBottom + 12..24), not the old
-        // fixed offset this replaced — a taller Kibocsátó card (a long
-        // address wrapping at `large` fontScale) no longer pushes the meta
-        // row under the table header.
-        doc.y = cardsBottom + 16;
+        doc.y = partiesTop + partiesHeight + 26;
 
         // -------------------------------------------------------------
-        // Meta row (AC11): issue date, due date, payment method (only
-        // when set), currency — a single flowing row, mirrors
-        // preview-html.ts's `.meta-row`.
+        // Line items: uppercase column labels over one strong rule, quiet
+        // hairlines between rows, quantity with its unit.
         // -------------------------------------------------------------
-        const metaSegments: string[] = [
-          `${labels.issueDate}: ${formatInvoiceIssueDateTime(invoice)}`,
-          `${labels.dueDate}: ${formatInvoiceDueDate(invoice)}`,
-        ];
-        if (invoice.paymentMethod) {
-          const paymentMethodLabel = labels.paymentMethods[invoice.paymentMethod as PaymentMethod];
-          metaSegments.push(`${labels.paymentMethod}: ${paymentMethodLabel}`);
-        }
-        metaSegments.push(`${labels.currency}: ${invoice.currency}`);
-
-        doc.font(docFonts.regular).fontSize(fonts.body);
-        const metaGap = 20;
-        const metaLineGap = 4;
-        const metaLineHeight = doc.currentLineHeight();
-
-        // Wrap segments to a new line when they would overflow the content
-        // width (mirrors preview-html.ts's `.meta-row { flex-wrap: wrap }`)
-        // instead of drawing past `right` unconditionally — a long localized
-        // fizetési mód label plus the other three segments can exceed the
-        // content width at fontScale=medium/large (see the AC11 regression
-        // this replaced).
-        const metaLines: string[][] = [];
-        let metaLineWidth = 0;
-        for (const segment of metaSegments) {
-          const segmentWidth = doc.widthOfString(segment);
-          const currentLine = metaLines[metaLines.length - 1];
-          const wouldOverflow =
-            currentLine !== undefined &&
-            left + metaLineWidth + metaGap + segmentWidth > right;
-          if (currentLine === undefined || wouldOverflow) {
-            metaLines.push([segment]);
-            metaLineWidth = segmentWidth;
-          } else {
-            currentLine.push(segment);
-            metaLineWidth += metaGap + segmentWidth;
-          }
-        }
-        const metaRowHeight =
-          metaLines.length * metaLineHeight + (metaLines.length - 1) * metaLineGap;
-
-        ensureSpace(doc, metaRowHeight + 20);
-        doc.fillColor("#4a4f6a");
-        const metaRowY = doc.y;
-        let metaCursorY = metaRowY;
-        for (const line of metaLines) {
-          let metaCursorX = left;
-          for (const segment of line) {
-            doc.text(segment, metaCursorX, metaCursorY, { lineBreak: false });
-            metaCursorX += doc.widthOfString(segment) + metaGap;
-          }
-          metaCursorY += metaLineHeight + metaLineGap;
-        }
-        doc.fillColor("#000000");
-        doc.y = metaRowY + metaRowHeight + 16;
-
-        // -------------------------------------------------------------
-        // Line-item table (AC3/AC4/AC5/AC12): 6 columns incl. Nettó, a
-        // filled accent header band, per-row hairlines.
-        // -------------------------------------------------------------
-        ensureSpace(doc, 60);
+        reserve(60);
 
         const cols = tableColumns(doc);
         const headerLabels = [
@@ -485,16 +501,9 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           labels.vat,
           labels.gross,
         ];
-        doc.y = drawTableHeader(doc, cols, headerLabels, fonts.small, accent);
+        doc.y = drawTableHeader(doc, cols, headerLabels, fonts.small);
 
         const exemptCategories = new Set<string>();
-
-        // Shared by both continuation mechanisms that need it: the
-        // line-item loop's explicit page break just below, and the notes
-        // block's `pageAdded`-scoped listener further down. One expression
-        // so the two continuation banners can never drift apart (plan
-        // docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md §5.1).
-        const continuationBanner = `${invoice.invoiceNumber || labels.draftNumber} · ${labels.continued}`;
 
         for (const item of invoice.lineItems) {
           const netTotal = lineItemNetTotal(item);
@@ -507,13 +516,12 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             exemptCategories.add(item.vatCategory);
           }
 
-          // AC4/AC11 (pagination slice): an explicit break (not
-          // ensureSpace, which never repeats a header) so a continuation
-          // page always opens with the "<invoiceNumber> · folytatás"
-          // caption and the column header repeated — never bare rows. The
-          // `doc.y > top + 0.5` guard mirrors ensureSpace's own "already
-          // at the top of a fresh page" rule so an oversized first row
-          // can't open two pages back to back.
+          // An explicit break (not ensureSpace, which never repeats a
+          // header) so a continuation page always opens with the
+          // "<invoiceNumber> · folytatás" caption and the column header
+          // repeated — never bare rows. The `doc.y > top + 0.5` guard
+          // mirrors ensureSpace's "already at the top of a fresh page" rule
+          // so an oversized first row can't open two pages back to back.
           const needed = rowHeightEstimate + 8;
           if (doc.y > doc.page.margins.top + 0.5 && doc.y + needed > contentBottom(doc)) {
             doc.addPage();
@@ -524,7 +532,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
               left,
               width: pageWidth,
             });
-            doc.y = drawTableHeader(doc, cols, headerLabels, fonts.small, accent);
+            doc.y = drawTableHeader(doc, cols, headerLabels, fonts.small);
           }
 
           const rowY = doc.y;
@@ -533,124 +541,197 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             cols,
             {
               description: item.description,
-              quantity: String(item.quantity),
+              quantity: formatDocumentQuantity(item.quantity, item.unit),
               unitPrice: formatDocumentAmount(item.unitPrice, invoice.currency),
               net: formatDocumentAmount(netTotal, invoice.currency),
               vat: item.vatCategory === "normal" ? `${item.vatRate}%` : item.vatCategory,
               total: formatDocumentAmount(lineTotal, invoice.currency),
             },
             rowY,
-            fonts.small
+            fonts.body
           );
         }
 
         // -------------------------------------------------------------
-        // Totals (AC13): net/VAT (+ optional forint VAT) rows on a
-        // tint(accent, 0.12) panel, the grand total on a tint(accent,
-        // 0.24) band with readable text — one measured ensureSpace call
-        // reserves the whole panel.
+        // Summary area — two columns sharing one reservation:
+        //   left:  ÁFA-összesítő (tax base + tax per rate, Áfa tv. 169. §
+        //          j)–k)) and, for a transfer, the payment details the payer
+        //          actually needs (account number + közlemény);
+        //   right: net / VAT (/ VAT in HUF) and the amount-due band.
         // -------------------------------------------------------------
-        const totalsCols = totalsColumns(doc, cols);
-        type TotalsRow = { label: string; value: string; fontSize: number };
-        const totalsRows: TotalsRow[] = [
-          {
-            label: `${labels.netTotal}:`,
-            value: formatDocumentAmount(totals.subtotal, invoice.currency),
-            fontSize: fonts.body,
-          },
-          {
-            label: `${labels.vatTotal}:`,
-            value: formatDocumentAmount(totals.vatTotal, invoice.currency),
-            fontSize: fonts.body,
-          },
-        ];
+        const summaryGap = 28;
+        const totalsWidth = pageWidth * 0.42;
+        const totalsX = right - totalsWidth;
+        const leftColWidth = pageWidth - totalsWidth - summaryGap;
 
-        // AC14/AC15 (branding slice): a non-HUF invoice also shows the VAT
-        // amount in forint, right under the document-currency VAT total —
-        // same rule as the NAV XML builder (lib/nav/invoice-xml.ts):
-        // convert per line, then sum the rounded HUF values.
-        if (requiresExchangeRate(invoice.currency)) {
-          const rateResolution = resolveExchangeRate(invoice);
-          if (rateResolution.ok) {
-            const vatTotalHuf = invoice.lineItems.reduce(
-              (sum, item) => sum + toHufAmount(lineItemVatAmount(item), rateResolution.rate),
-              0
-            );
-            totalsRows.push({
-              label: `${labels.vatInHuf}:`,
-              value: formatDocumentAmount(vatTotalHuf, "HUF"),
-              fontSize: fonts.body,
+        // --- right column: totals ---
+        type TotalsRow = { label: string; value: string };
+        const totalsRows: TotalsRow[] = [
+          { label: labels.netTotal, value: formatDocumentAmount(totals.subtotal, invoice.currency) },
+          { label: labels.vatTotal, value: formatDocumentAmount(totals.vatTotal, invoice.currency) },
+        ];
+        // A non-HUF invoice also shows the VAT amount in forint — same rule
+        // as the NAV XML builder (lib/nav/invoice-xml.ts): convert per
+        // line, then sum the rounded HUF values.
+        if (rateResolution?.ok) {
+          const vatTotalHuf = invoice.lineItems.reduce(
+            (sum, item) => sum + toHufAmount(lineItemVatAmount(item), rateResolution.rate),
+            0
+          );
+          totalsRows.push({ label: labels.vatInHuf, value: formatDocumentAmount(vatTotalHuf, "HUF") });
+        }
+        const totalsRowGap = 6;
+        doc.font(docFonts.regular).fontSize(fonts.body);
+        const totalsValueWidth = totalsWidth * 0.46;
+        const totalsLabelWidth = totalsWidth - totalsValueWidth - 8;
+        const totalsRowsHeight = totalsRows.reduce(
+          (sum, row) =>
+            sum +
+            Math.max(
+              doc.heightOfString(row.label, { width: totalsLabelWidth }),
+              doc.heightOfString(row.value, { width: totalsValueWidth })
+            ) +
+            totalsRowGap,
+          0
+        );
+        const dueLabel = labels.grossTotal;
+        const dueValue = formatDocumentAmount(totals.totalAmount, invoice.currency);
+        const duePadX = 14;
+        const duePadY = 11;
+        const dueValueSize = fonts.subtitle + 4;
+        doc.font(docFonts.bold).fontSize(labelSize);
+        const dueLabelHeight = doc.heightOfString(dueLabel.toUpperCase(), { width: totalsWidth - duePadX * 2 });
+        doc.font(docFonts.bold).fontSize(dueValueSize);
+        const dueValueHeight = doc.heightOfString(dueValue, { width: totalsWidth - duePadX * 2 });
+        const dueBandHeight = duePadY * 2 + dueLabelHeight + 3 + dueValueHeight;
+        const totalsHeight = totalsRowsHeight + 6 + dueBandHeight;
+
+        // --- left column: VAT summary ---
+        const vatRows = vatSummaryByRate(invoice.lineItems);
+        const vatColRate = leftColWidth * 0.22;
+        const vatColAmount = (leftColWidth - vatColRate) / 3;
+        doc.font(docFonts.regular).fontSize(fonts.small);
+        const vatRowHeight = doc.currentLineHeight() + 6;
+        const vatCaptionHeight = captionHeight(labels.vatSummary, leftColWidth);
+        const vatSummaryHeight = vatCaptionHeight + 8 + vatRowHeight * (vatRows.length + 1) + 4;
+
+        // --- left column: payment details (transfer with a bank account) ---
+        const showPaymentBox =
+          template.showBankDetails &&
+          !!company?.bankAccount &&
+          (invoice.paymentMethod === undefined || invoice.paymentMethod === "transfer");
+        const paymentLines: Array<{ label: string; value: string }> = showPaymentBox
+          ? [
+              { label: labels.bankAccount, value: company!.bankAccount! },
+              ...(invoice.invoiceNumber ? [{ label: labels.paymentReference, value: invoice.invoiceNumber }] : []),
+              { label: labels.dueDate, value: formatInvoiceDueDate(invoice) },
+            ]
+          : [];
+        const paymentPad = 12;
+        doc.font(docFonts.regular).fontSize(fonts.small);
+        const paymentLineHeight = doc.currentLineHeight() + 4;
+        const paymentBoxHeight = showPaymentBox
+          ? paymentPad * 2 + captionHeight(labels.paymentDetails, leftColWidth - paymentPad * 2) + 6 +
+            paymentLines.length * paymentLineHeight - 4
+          : 0;
+
+        const leftHeight = vatSummaryHeight + (showPaymentBox ? 16 + paymentBoxHeight : 0);
+        const summaryHeight = Math.max(leftHeight, totalsHeight);
+
+        reserve(summaryHeight + 20);
+        doc.y += 10;
+        const summaryTop = doc.y;
+
+        // VAT summary table
+        let vatY = caption(labels.vatSummary, left, summaryTop, leftColWidth) + 8;
+        const vatCells = (values: string[], y: number, opts: { header?: boolean; color: string }) => {
+          const spacing = opts.header ? CAPTION_SPACING : 0;
+          doc.font(opts.header ? docFonts.bold : docFonts.regular)
+            .fontSize(opts.header ? labelSize : fonts.small)
+            .fillColor(opts.color);
+          const cell = (value: string) => (opts.header ? value.toUpperCase() : value);
+          doc.text(cell(values[0]!), left, y, { width: vatColRate, characterSpacing: spacing });
+          values.slice(1).forEach((value, i) => {
+            doc.text(cell(value), left + vatColRate + i * vatColAmount, y, {
+              width: vatColAmount,
+              align: "right",
+              characterSpacing: spacing,
             });
+          });
+        };
+        vatCells(
+          [labels.vatRateColumn, labels.net, labels.vatAmount, labels.gross],
+          vatY,
+          { header: true, color: ink.muted }
+        );
+        vatY += vatRowHeight;
+        hairline(vatY - 3, left, left + leftColWidth);
+        for (const row of vatRows) {
+          vatCells(
+            [
+              row.label,
+              formatDocumentAmount(row.net, invoice.currency),
+              formatDocumentAmount(row.vat, invoice.currency),
+              formatDocumentAmount(row.gross, invoice.currency),
+            ],
+            vatY,
+            { color: ink.secondary }
+          );
+          vatY += vatRowHeight;
+        }
+
+        // Payment details box
+        if (showPaymentBox) {
+          const boxY = summaryTop + vatSummaryHeight + 16;
+          doc.roundedRect(left, boxY, leftColWidth, paymentBoxHeight, 6).fill(documentSurfaces.mist);
+          let payY = caption(labels.paymentDetails, left + paymentPad, boxY + paymentPad, leftColWidth - paymentPad * 2) + 6;
+          const payLabelWidth = (leftColWidth - paymentPad * 2) * 0.38;
+          const payValueWidth = leftColWidth - paymentPad * 2 - payLabelWidth;
+          for (const line of paymentLines) {
+            doc.font(docFonts.regular).fontSize(fonts.small).fillColor(ink.secondary);
+            doc.text(line.label, left + paymentPad, payY, { width: payLabelWidth });
+            doc.font(docFonts.bold).fontSize(fonts.small).fillColor(ink.heading);
+            doc.text(line.value, left + paymentPad + payLabelWidth, payY, { width: payValueWidth });
+            payY += paymentLineHeight;
           }
         }
 
-        const grandRow: TotalsRow = {
-          label: `${labels.grossTotal}:`,
-          value: formatDocumentAmount(totals.totalAmount, invoice.currency),
-          fontSize: fonts.subtitle,
-        };
-
-        const panelPaddingX = 12;
-        const panelPaddingY = 10;
-        const rowGap = 6;
-
-        function measuredRowHeight(row: TotalsRow): number {
-          doc.fontSize(row.fontSize);
-          return Math.max(
-            doc.heightOfString(row.label, { width: totalsCols.labelWidth }),
-            doc.heightOfString(row.value, { width: totalsCols.valueWidth })
-          );
-        }
-
-        const regularRowsHeight = totalsRows.reduce((sum, row) => sum + measuredRowHeight(row) + rowGap, 0);
-        const grandBandHeight = measuredRowHeight(grandRow) + panelPaddingY * 2;
-        const panelHeight = panelPaddingY * 2 + regularRowsHeight + grandBandHeight;
-
-        const panelX = totalsCols.labelX - panelPaddingX;
-        const panelWidth = right - panelX;
-
-        const measuredTotalsHeight = 8 + panelHeight + 8;
-        ensureSpace(doc, measuredTotalsHeight);
-        doc.y += 8;
-
-        const panelY = doc.y;
-        doc.roundedRect(panelX, panelY, panelWidth, panelHeight, 8).fill(tint(accent, 0.12));
-
-        let rowY = panelY + panelPaddingY;
+        // Totals rows
+        let totalsY = summaryTop;
         for (const row of totalsRows) {
-          rowY = drawTotalLine(
-            doc,
-            row.label,
-            row.value,
-            totalsCols.labelX,
-            totalsCols.valueX,
-            rowY,
-            totalsCols.labelWidth,
-            totalsCols.valueWidth,
-            { fontSize: row.fontSize }
-          );
+          doc.font(docFonts.regular).fontSize(fonts.body).fillColor(ink.secondary);
+          doc.text(row.label, totalsX, totalsY, { width: totalsLabelWidth });
+          doc.fillColor(ink.body);
+          doc.text(row.value, right - totalsValueWidth, totalsY, { width: totalsValueWidth, align: "right" });
+          totalsY +=
+            Math.max(
+              doc.heightOfString(row.label, { width: totalsLabelWidth }),
+              doc.heightOfString(row.value, { width: totalsValueWidth })
+            ) + totalsRowGap;
         }
 
-        const grandBandY = panelY + panelHeight - grandBandHeight;
-        doc.rect(panelX, grandBandY, panelWidth, grandBandHeight).fill(tint(accent, 0.24));
-        const grandTextColor = readableTextOn(tint(accent, 0.24));
-        drawTotalLine(
-          doc,
-          grandRow.label,
-          grandRow.value,
-          totalsCols.labelX,
-          totalsCols.valueX,
-          grandBandY + panelPaddingY,
-          totalsCols.labelWidth,
-          totalsCols.valueWidth,
-          { bold: true, accent: grandTextColor, fontSize: grandRow.fontSize }
-        );
+        // Amount-due band — the one dark block on the page, always navy
+        // with white text regardless of the user's accent colour, so it is
+        // legible on any template and in greyscale print.
+        const dueY = totalsY + 6;
+        doc.roundedRect(totalsX, dueY, totalsWidth, dueBandHeight, 6).fill(documentInk.heading);
+        doc.font(docFonts.bold).fontSize(labelSize).fillColor("#c9d3ea");
+        doc.text(dueLabel.toUpperCase(), totalsX + duePadX, dueY + duePadY, {
+          width: totalsWidth - duePadX * 2,
+          characterSpacing: 0.6,
+        });
+        doc.font(docFonts.bold).fontSize(dueValueSize).fillColor("#ffffff");
+        doc.text(dueValue, totalsX + duePadX, dueY + duePadY + dueLabelHeight + 3, {
+          width: totalsWidth - duePadX * 2,
+          align: "right",
+        });
+        doc.fillColor("#000000");
 
-        doc.y = panelY + panelHeight + 8;
+        doc.y = summaryTop + summaryHeight + 18;
 
         // -------------------------------------------------------------
-        // ÁFA exemption note (AC14): inside a tinted, padded note box —
-        // mirrors preview-html.ts's `.vat-note`.
+        // ÁFA exemption / reverse-charge statement — a quiet panel with an
+        // accent bar, one line per distinct reason.
         // -------------------------------------------------------------
         if (exemptCategories.size > 0) {
           const reasons = invoice.lineItems
@@ -658,27 +739,28 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             .map((item) => resolveVatExemptionReason(item.vatCategory, item.vatExemptionReason))
             .filter((reason, index, all): reason is string => !!reason && all.indexOf(reason) === index);
 
-          const notePadding = 12;
-          const noteInnerWidth = pageWidth - notePadding * 2;
-          doc.fontSize(fonts.small);
+          const notePadX = 14;
+          const notePadY = 10;
+          const noteInnerWidth = pageWidth - notePadX * 2 - 3;
+          doc.font(docFonts.regular).fontSize(fonts.small);
           const noteLinesHeight = reasons.reduce(
-            (sum, reason) => sum + doc.heightOfString(reason, { width: noteInnerWidth }) + 4,
+            (sum, reason) => sum + doc.heightOfString(reason, { width: noteInnerWidth }) + 3,
             0
           );
-          const noteHeight = Math.max(noteLinesHeight, doc.currentLineHeight()) + notePadding * 2;
+          const noteHeight = Math.max(noteLinesHeight, doc.currentLineHeight()) + notePadY * 2;
 
-          ensureSpace(doc, noteHeight + 8);
-          doc.y += 8;
-          const noteFill = tint(accent, 0.24);
-          const noteBottom = drawNoteBox(doc, {
-            x: left,
-            y: doc.y,
-            width: pageWidth,
-            lines: reasons,
-            fill: noteFill,
-            fontSize: fonts.small,
-          });
-          doc.y = noteBottom + 8;
+          reserve(noteHeight + 8);
+          const noteY = doc.y;
+          doc.rect(left, noteY, pageWidth, noteHeight).fill(documentSurfaces.mist);
+          doc.rect(left, noteY, 3, noteHeight).fill(accent);
+          let reasonY = noteY + notePadY;
+          doc.font(docFonts.regular).fontSize(fonts.small).fillColor(ink.body);
+          for (const reason of reasons) {
+            doc.text(reason, left + 3 + notePadX, reasonY, { width: noteInnerWidth });
+            reasonY += doc.heightOfString(reason, { width: noteInnerWidth }) + 3;
+          }
+          doc.fillColor("#000000");
+          doc.y = noteY + noteHeight + 16;
         }
 
         // -------------------------------------------------------------
@@ -686,41 +768,31 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // -------------------------------------------------------------
         if (invoice.notes) {
           // Reserve the label line plus the first ~3 lines of the notes
-          // body so "Megjegyzés:" is never orphaned at the bottom of a
-          // page — pdfkit then flows any remainder correctly on its own
-          // because of the margins fix (CONTENT_MARGIN_BOTTOM).
-          doc.fontSize(fonts.body);
+          // body so the label is never orphaned at the bottom of a page —
+          // pdfkit then flows any remainder correctly on its own because of
+          // the margins fix (CONTENT_MARGIN_BOTTOM).
+          doc.font(docFonts.bold).fontSize(fonts.body);
           const labelHeight = doc.heightOfString(`${template.notesLabel}:`, { width: pageWidth });
-          doc.fontSize(fonts.small);
+          doc.font(docFonts.regular).fontSize(fonts.small);
           const notesHeight = doc.heightOfString(invoice.notes, { width: pageWidth });
           const lineHeight = doc.currentLineHeight();
-          const reserve = labelHeight + Math.min(notesHeight, 3 * lineHeight) + 16;
-          ensureSpace(doc, reserve);
-          doc.y += 8;
-          doc.font(docFonts.bold).fontSize(fonts.body).fillColor("#444444");
-          doc.text(`${template.notesLabel}:`, left, doc.y);
-          doc.y += fonts.body + 4;
-          doc.font(docFonts.regular).fontSize(fonts.small);
+          reserve(labelHeight + Math.min(notesHeight, 3 * lineHeight) + 16);
+          const notesLabelY = doc.y;
+          doc.font(docFonts.bold).fontSize(fonts.body).fillColor(ink.heading);
+          doc.text(`${template.notesLabel}:`, left, notesLabelY);
+          doc.y = notesLabelY + labelHeight + 3;
+          doc.font(docFonts.regular).fontSize(fonts.small).fillColor(ink.secondary);
 
           // Plan docs/plans/2026-09-21-pdf-notes-continuation-page-caption.md:
           // the notes body below can paginate INSIDE the single doc.text()
-          // call — pdfkit's own auto-pagination (LineWrapper.nextSection(),
-          // triggered by page.margins.bottom === CONTENT_MARGIN_BOTTOM),
-          // which nothing else in this file observes. A `pageAdded`
-          // listener scoped to just this draw gets a chance to run between
-          // pdfkit's addPage() and the wrapper resuming on the new page
-          // (addPage() emits 'pageAdded' before nextSection() restores x /
-          // fillColor and before the wrapper emits any more lines), so it
-          // can draw the same banner the line-item continuation pages get
-          // plus a repeated section label, and hand the wrapper back
-          // exactly the text state (font/size/fill) it had.
+          // call — pdfkit's own auto-pagination, which nothing else in this
+          // file observes. A `pageAdded` listener scoped to just this draw
+          // runs between pdfkit's addPage() and the wrapper resuming on the
+          // new page, so it can draw the same banner the line-item
+          // continuation pages get plus a repeated section label, and hand
+          // the wrapper back exactly the text state (font/size/fill) it had.
           const notesContinuedLabel = `${labels.sectionContinued.replace("{{section}}", template.notesLabel)}:`;
-          // Re-entrancy guard: doc.text() inside the listener could in
-          // principle itself trigger another 'pageAdded' — make a nested
-          // call a no-op rather than recursing. (In practice this draw
-          // starts at the top margin and never needs to paginate on its
-          // own, but the guard is one line and removes the whole class of
-          // infinite recursion.)
+          // Re-entrancy guard: a nested 'pageAdded' becomes a no-op.
           let drawingNotesHeading = false;
           const onNotesPageAdded = () => {
             if (drawingNotesHeading) return;
@@ -733,14 +805,10 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
                 left,
                 width: pageWidth,
               });
-              doc.font(docFonts.bold).fontSize(fonts.body).fillColor("#444444");
+              doc.font(docFonts.bold).fontSize(fonts.body).fillColor(ink.heading);
               doc.text(notesContinuedLabel, left, doc.y, { width: pageWidth });
               doc.y += fonts.body + 4;
-              // Hand the wrapper back exactly the state it had before this
-              // listener ran (font/size/fill) — the wrapper keeps emitting
-              // the remaining lines with whatever is current when this
-              // listener returns.
-              doc.font(docFonts.regular).fontSize(fonts.small).fillColor("#444444");
+              doc.font(docFonts.regular).fontSize(fonts.small).fillColor(ink.secondary);
             } finally {
               drawingNotesHeading = false;
             }
@@ -749,16 +817,13 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           try {
             doc.text(invoice.notes, left, doc.y, { width: pageWidth, lineGap: 3 });
           } finally {
-            // Never let this listener survive the notes draw — doc.text()
-            // above can throw (e.g. a font resolution failure), and a
-            // leaked listener would draw captions on unrelated future
-            // pages (AC6).
+            // Never let this listener survive the notes draw (AC6).
             doc.off("pageAdded", onNotesPageAdded);
           }
           // pdfkit already advances doc.y to the end of the drawn
-          // (possibly paginated) text — adding heightOfString(...) again
-          // here would double-count the advance.
+          // (possibly paginated) text.
           doc.y += 8;
+          doc.fillColor("#000000");
         }
 
         // AC7 (pagination slice): the footer strip is drawn on every
@@ -770,6 +835,10 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         const footerRange = doc.bufferedPageRange();
         for (let i = footerRange.start; i < footerRange.start + footerRange.count; i += 1) {
           doc.switchToPage(i);
+          // A thin accent bar across the top edge of every page — the
+          // document's single, quiet brand signal (outside the margins, so
+          // it can never collide with content).
+          doc.rect(0, 0, doc.page.width, 4).fill(accent);
           const bandTop = footerBandTop(doc);
           const savedMarginBottom = doc.page.margins.bottom;
           doc.page.margins.bottom = 0;

@@ -136,6 +136,12 @@ export default {
       pdfLoadFailed: "A PDF betöltése sikertelen.",
     },
     document: {
+      documentNumber: "Sorszám",
+      vatSummary: "ÁFA-összesítő",
+      vatRateColumn: "ÁFA-kulcs",
+      paymentDetails: "Fizetési információ",
+      paymentReference: "Közlemény",
+      euVatNumber: "Közösségi adószám",
       seller: "Kibocsátó",
       buyer: "Vevő",
       taxNumber: "Adószám",

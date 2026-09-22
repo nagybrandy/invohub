@@ -74,6 +74,36 @@ export function formatDocumentAmount(amount: number, currency: InvoiceCurrency):
   return `${formatted} ${symbol}`;
 }
 
+const DOMESTIC_COUNTRY_NAMES = new Set(["magyarország", "hungary", "hu", "hun"]);
+
+/**
+ * One Hungarian-ordered address line for a party block: "1114 Budapest,
+ * Bartók Béla út 42." — postcode + city first, then the street. The country
+ * is appended only for a non-Hungarian address (a domestic invoice printing
+ * "Magyarország" on every party is noise). Empty string when nothing is set.
+ */
+export function formatPartyAddress(parts: {
+  zipCode?: string;
+  city?: string;
+  address?: string;
+  country?: string;
+}): string {
+  const locality = [parts.zipCode?.trim(), parts.city?.trim()].filter(Boolean).join(" ");
+  const line = [locality, parts.address?.trim()].filter(Boolean).join(", ");
+  const country = parts.country?.trim();
+  if (country && !DOMESTIC_COUNTRY_NAMES.has(country.toLowerCase())) {
+    return line ? `${line}, ${country}` : country;
+  }
+  return line;
+}
+
+/** Quantity with Hungarian decimal comma ("1,5"), plus the unit when the line has one ("24 óra"). */
+export function formatDocumentQuantity(quantity: number, unit?: string): string {
+  const formatted = new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3, useGrouping: true }).format(quantity);
+  const trimmedUnit = unit?.trim();
+  return trimmedUnit ? `${formatted} ${trimmedUnit}` : formatted;
+}
+
 // FALLBACK PATH ONLY. lib/invoices/pdf-fonts.ts embeds a real
 // Latin-Extended-A TrueType font (Noto Sans) so the normal PDF path draws
 // ő/ű directly — see docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md.
