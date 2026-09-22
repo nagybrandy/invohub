@@ -459,6 +459,7 @@ export default {
       descriptionPlaceholder: "Service or product",
       quantity: "Qty",
       quantityUnit: "Qty / unit",
+      unitShort: "Unit",
       unitPrice: "Unit price",
       vatRate: "VAT rate",
       amountColumn: "Total",
