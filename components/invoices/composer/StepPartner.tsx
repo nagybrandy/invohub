@@ -16,6 +16,7 @@ import { PartnerPicker } from "@/components/invoices/composer/PartnerPicker";
 import { DEADLINE_QUICK_DAYS } from "@/components/invoices/composer/useInvoiceComposer";
 import type { Client } from "@/lib/clients/service";
 import type { InvoiceComposerState } from "@/components/invoices/composer/useInvoiceComposer";
+import { formatDateOnly } from "@/lib/dates/format";
 import type { InvoiceCurrency, PaymentMethod } from "@/lib/invoices/types";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
@@ -66,6 +67,10 @@ export function StepPartner(composer: InvoiceComposerState) {
     setCurrency,
     exchangeRate,
     setExchangeRate,
+    exchangeRateSource,
+    exchangeRateLoading,
+    exchangeRateFetchError,
+    exchangeRateAsOf,
     deadlineDays,
     setDeadlineDays,
     bankAccount,
@@ -298,6 +303,23 @@ export function StepPartner(composer: InvoiceComposerState) {
                     testID="composer-exchange-rate"
                   />
                 </Input>
+                {exchangeRateLoading ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground" testID="composer-exchange-rate-loading">
+                    {t("invoices.fields.exchangeRateLoading")}
+                  </Text>
+                ) : exchangeRateFetchError ? (
+                  <Text size="xs" className="mt-1 text-destructive" testID="composer-exchange-rate-fetch-error">
+                    {exchangeRateFetchError}
+                  </Text>
+                ) : exchangeRateSource === "mnb" && exchangeRateAsOf ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground" testID="composer-exchange-rate-caption">
+                    {t("invoices.fields.exchangeRateSourceMnb", { date: formatDateOnly(exchangeRateAsOf) })}
+                  </Text>
+                ) : exchangeRateSource === "manual" ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground" testID="composer-exchange-rate-caption">
+                    {t("invoices.fields.exchangeRateSourceManual")}
+                  </Text>
+                ) : null}
               </VStack>
             ) : null}
           </HStack>
