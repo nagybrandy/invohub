@@ -210,18 +210,35 @@ export function tableColumns(doc: Doc): TableColumns {
   };
 }
 
+// Document rule colours: a strong heading-ink rule under the table header,
+// quiet hairlines everywhere else (see generate-pdf.ts's layout notes).
+export const DOCUMENT_HAIRLINE = "#e3e7ef";
+export const DOCUMENT_RULE = "#111f4a";
+const TABLE_LABEL_COLOR = "#5b6178";
+
+/** Smallest caption/label size the document uses, derived from the template's scale. */
+export function documentLabelSize(smallFontSize: number): number {
+  return Math.max(6.5, smallFontSize - 1.5);
+}
+
+/**
+ * Draws the line-item column header — uppercase, letter-spaced, muted labels
+ * over a single heading-ink rule, no filled band — and returns the y where
+ * the first row starts. Measures every cell so a wrapped label (a narrow
+ * column or a longer translation) grows the header instead of overlapping.
+ */
 export function drawTableHeader(
   doc: Doc,
   cols: TableColumns,
   labels: string[],
-  fontSize: number,
-  accent: string
+  fontSize: number
 ): number {
   const y = doc.y;
   const { bold } = documentFontNames(doc);
-  const textColor = readableTextOn(accent);
-  doc.font(bold).fontSize(fontSize);
-  const cells: Array<{ text: string; x: number; width: number; align?: "left" | "right" }> = [
+  const labelSize = documentLabelSize(fontSize);
+  doc.font(bold).fontSize(labelSize);
+  type HeaderCell = { text: string; x: number; width: number; align?: "left" | "right" };
+  const rawCells: HeaderCell[] = [
     { text: labels[0] ?? "Description", x: cols.left, width: cols.descWidth },
     { text: labels[1] ?? "Qty", x: cols.qtyX, width: cols.qtyWidth, align: "right" },
     { text: labels[2] ?? "Unit", x: cols.unitX, width: cols.unitWidth, align: "right" },
@@ -229,27 +246,24 @@ export function drawTableHeader(
     { text: labels[4] ?? "VAT", x: cols.vatX, width: cols.vatWidth, align: "right" },
     { text: labels[5] ?? "Total", x: cols.totalX, width: cols.totalWidth, align: "right" },
   ];
+  const cells = rawCells.map((cell) => ({ ...cell, text: cell.text.toUpperCase() }));
 
-  // A header label can wrap onto two lines (e.g. a narrow column width or a
-  // longer translation), so measure the actual rendered height of every
-  // cell instead of assuming a single line — the filled band (AC4) grows
-  // with it.
-  const padY = 6;
-  const headerHeight = Math.max(
+  const labelHeight = Math.max(
     doc.currentLineHeight(),
     ...cells.map((cell) => doc.heightOfString(cell.text, { width: cell.width }))
   );
-  const bandHeight = headerHeight + padY * 2;
 
-  doc.rect(cols.left, y, cols.right - cols.left, bandHeight).fill(accent);
-
-  doc.fillColor(textColor);
+  doc.fillColor(TABLE_LABEL_COLOR);
   for (const cell of cells) {
-    doc.text(cell.text, cell.x, y + padY, { width: cell.width, align: cell.align });
+    doc.text(cell.text, cell.x, y, { width: cell.width, align: cell.align, characterSpacing: 0.4 });
   }
   doc.fillColor("#000000");
 
-  return y + bandHeight + 8;
+  const ruleY = y + labelHeight + 6;
+  doc.moveTo(cols.left, ruleY).lineTo(cols.right, ruleY).strokeColor(DOCUMENT_RULE).lineWidth(0.8).stroke();
+  doc.strokeColor("#000000").lineWidth(1);
+
+  return ruleY + 8;
 }
 
 export type TableRow = {
@@ -271,199 +285,87 @@ export function drawTableRow(
   const { regular } = documentFontNames(doc);
   doc.font(regular).fontSize(fontSize);
 
-  const descHeight = doc.heightOfString(row.description, { width: cols.descWidth });
+  const descHeight = doc.heightOfString(row.description, { width: cols.descWidth, lineGap: 2 });
   const singleLine = doc.currentLineHeight();
-  const rowHeight = Math.max(descHeight, singleLine) + 6;
+  const rowHeight = Math.max(descHeight, singleLine) + 9;
 
-  doc.fillColor("#111111");
+  doc.fillColor("#14162b");
   doc.text(row.description, cols.left, y, { width: cols.descWidth, lineGap: 2 });
+  doc.fillColor("#4a4f6a");
   doc.text(row.quantity, cols.qtyX, y, { width: cols.qtyWidth, align: "right" });
   doc.text(row.unitPrice, cols.unitX, y, { width: cols.unitWidth, align: "right" });
   doc.text(row.net, cols.netX, y, { width: cols.netWidth, align: "right" });
   doc.text(row.vat, cols.vatX, y, { width: cols.vatWidth, align: "right" });
+  doc.fillColor("#14162b");
   doc.text(row.total, cols.totalX, y, { width: cols.totalWidth, align: "right" });
   doc.fillColor("#000000");
 
   const bottomY = y + rowHeight;
-  // Per-row hairline (AC5) — the preview's `td { border-bottom: 1px solid
-  // #e5e9f5; }` equivalent, spanning the full table width.
-  doc.moveTo(cols.left, bottomY).lineTo(cols.right, bottomY).strokeColor("#e5e9f5").lineWidth(1).stroke();
-  doc.strokeColor("#000000");
+  doc.moveTo(cols.left, bottomY - 4).lineTo(cols.right, bottomY - 4).strokeColor(DOCUMENT_HAIRLINE).lineWidth(0.6).stroke();
+  doc.strokeColor("#000000").lineWidth(1);
 
-  return bottomY;
-}
-
-/**
- * Measured totals label/value columns, aligned with the totals rule that
- * starts at `left + pageWidth * 0.52` and ending flush with the table's
- * Bruttó (gross) column. `labelWidth` is wide enough that every Hungarian
- * totals label ("Fizetendő összesen:") fits on one line at every fontScale
- * (AC5/AC6) — the fixed 80pt column that used to overflow is gone.
- */
-export type TotalsColumns = {
-  labelX: number;
-  labelWidth: number;
-  valueX: number;
-  valueWidth: number;
-};
-
-export function totalsColumns(doc: Doc, cols: TableColumns): TotalsColumns {
-  const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const labelX = doc.page.margins.left + pageWidth * 0.52;
-  const valueX = cols.totalX;
-  const valueWidth = cols.totalWidth;
-  const labelWidth = valueX - 8 - labelX;
-  return { labelX, labelWidth, valueX, valueWidth };
-}
-
-export function drawTotalLine(
-  doc: Doc,
-  label: string,
-  value: string,
-  xLabel: number,
-  xValue: number,
-  y: number,
-  labelWidth: number,
-  valueWidth: number,
-  options?: { bold?: boolean; accent?: string; fontSize?: number }
-): number {
-  const fontSize = options?.fontSize ?? 10;
-  const { regular, bold } = documentFontNames(doc);
-  doc.fontSize(fontSize);
-  doc.font(options?.bold ? bold : regular);
-  doc.fillColor(options?.accent ?? "#111111");
-  doc.text(label, xLabel, y, { width: labelWidth, align: "right" });
-  doc.text(value, xValue, y, { width: valueWidth, align: "right" });
-  doc.fillColor("#000000");
-  // Measured advance (AC7): the old `y + fontSize + 6` assumed a single
-  // line and silently overlapped whatever was drawn next whenever the
-  // label wrapped (e.g. "Fizetendő összesen:" in an 80pt column at the
-  // subtitle size). Measuring the actually-rendered height of both the
-  // label and the value fixes that for any font size / column width.
-  const measuredHeight = Math.max(
-    doc.heightOfString(label, { width: labelWidth }),
-    doc.heightOfString(value, { width: valueWidth })
-  );
-  return y + measuredHeight + 6;
+  return bottomY + 3;
 }
 
 // ---------------------------------------------------------------------------
-// Party cards (AC6) — mirrors preview-html.ts's `.party-card`.
+// Party blocks — Kibocsátó / Vevő. No filled card: a short accent tick, an
+// uppercase caption, the party name in heading ink, then detail lines.
 // ---------------------------------------------------------------------------
 
-const PARTY_CARD_PADDING = 10;
-const PARTY_CARD_RADIUS = 10;
-
-export type PartyCardMeasureOptions = {
+export type PartyBlockOptions = {
   width: number;
   title: string;
+  name: string;
   lines: string[];
-  fontSizes: { title: number; body: number };
+  fontSizes: { label: number; name: number; body: number };
 };
 
-export type PartyCardOptions = PartyCardMeasureOptions & {
-  x: number;
-  y: number;
-  accent: string;
-  /** Force the card to this height (e.g. the max of two cards) instead of its own measured height. */
-  height?: number;
-};
+const PARTY_TICK_HEIGHT = 2;
+const PARTY_TICK_WIDTH = 18;
 
-/** Measures a party card's height WITHOUT drawing it (AC6), so two cards can be reserved and drawn at equal height. */
-export function partyCardHeight(doc: Doc, opts: PartyCardMeasureOptions): number {
+/** Measures a party block WITHOUT drawing it, so two blocks can share one ensureSpace reservation. */
+export function partyBlockHeight(doc: Doc, opts: PartyBlockOptions): number {
   const { bold, regular } = documentFontNames(doc);
-  const innerWidth = opts.width - PARTY_CARD_PADDING * 2;
-  const title = opts.title.toUpperCase();
-
-  doc.font(bold).fontSize(opts.fontSizes.title);
-  const titleHeight = doc.heightOfString(title, { width: innerWidth });
-
+  doc.font(bold).fontSize(opts.fontSizes.label);
+  let height = PARTY_TICK_HEIGHT + 7 + doc.heightOfString(opts.title.toUpperCase(), { width: opts.width }) + 5;
+  doc.font(bold).fontSize(opts.fontSizes.name);
+  height += doc.heightOfString(opts.name, { width: opts.width }) + 3;
   doc.font(regular).fontSize(opts.fontSizes.body);
-  let linesHeight = 0;
   for (const line of opts.lines) {
     if (!line) continue;
-    linesHeight += doc.heightOfString(line, { width: innerWidth }) + 2;
+    height += doc.heightOfString(line, { width: opts.width }) + 2;
   }
-
-  return titleHeight + 6 + linesHeight + PARTY_CARD_PADDING * 2;
+  return height;
 }
 
-/**
- * Draws a rounded, `tint(accent, 0.12)`-filled card with an uppercase title
- * and body lines inside a 10pt padding box, and returns the card's bottom y
- * (AC6). Pass `height` to force a shared height across two side-by-side
- * cards (AC9); omit it to use the card's own measured height.
- */
-export function drawPartyCard(doc: Doc, opts: PartyCardOptions): number {
-  const height = opts.height ?? partyCardHeight(doc, opts);
-  const fill = tint(opts.accent, 0.12);
-
-  doc.roundedRect(opts.x, opts.y, opts.width, height, PARTY_CARD_RADIUS).fill(fill);
-
-  const innerX = opts.x + PARTY_CARD_PADDING;
-  const innerWidth = opts.width - PARTY_CARD_PADDING * 2;
-  let cursorY = opts.y + PARTY_CARD_PADDING;
-
+/** Draws a party block at (x, y) and returns its bottom y. */
+export function drawPartyBlock(
+  doc: Doc,
+  opts: PartyBlockOptions & { x: number; y: number; accent: string }
+): number {
   const { bold, regular } = documentFontNames(doc);
-  const title = opts.title.toUpperCase();
-  doc.font(bold).fontSize(opts.fontSizes.title).fillColor("#111f4a");
-  doc.text(title, innerX, cursorY, { width: innerWidth });
-  cursorY += doc.heightOfString(title, { width: innerWidth }) + 6;
+  let cursorY = opts.y;
 
-  doc.font(regular).fontSize(opts.fontSizes.body).fillColor("#111111");
+  doc.rect(opts.x, cursorY, PARTY_TICK_WIDTH, PARTY_TICK_HEIGHT).fill(normalizeHexColor(opts.accent));
+  cursorY += PARTY_TICK_HEIGHT + 7;
+
+  const title = opts.title.toUpperCase();
+  doc.font(bold).fontSize(opts.fontSizes.label).fillColor(TABLE_LABEL_COLOR);
+  doc.text(title, opts.x, cursorY, { width: opts.width, characterSpacing: 0.6 });
+  cursorY += doc.heightOfString(title, { width: opts.width }) + 5;
+
+  doc.font(bold).fontSize(opts.fontSizes.name).fillColor("#111f4a");
+  doc.text(opts.name, opts.x, cursorY, { width: opts.width });
+  cursorY += doc.heightOfString(opts.name, { width: opts.width }) + 3;
+
+  doc.font(regular).fontSize(opts.fontSizes.body).fillColor("#4a4f6a");
   for (const line of opts.lines) {
     if (!line) continue;
-    doc.text(line, innerX, cursorY, { width: innerWidth });
-    cursorY += doc.heightOfString(line, { width: innerWidth }) + 2;
+    doc.text(line, opts.x, cursorY, { width: opts.width });
+    cursorY += doc.heightOfString(line, { width: opts.width }) + 2;
   }
   doc.fillColor("#000000");
-
-  return opts.y + height;
-}
-
-// ---------------------------------------------------------------------------
-// Note box (AC7) — mirrors preview-html.ts's `.vat-note`.
-// ---------------------------------------------------------------------------
-
-const NOTE_BOX_PADDING = 12;
-const NOTE_BOX_RADIUS = 10;
-const NOTE_BOX_LINE_GAP = 4;
-
-export type NoteBoxOptions = {
-  x: number;
-  y: number;
-  width: number;
-  lines: string[];
-  fill: string;
-  fontSize: number;
-  /** Defaults to readableTextOn(fill). */
-  textColor?: string;
-};
-
-/** Draws a rounded, tinted, padded box around wrapped text and returns its measured bottom y (AC7). */
-export function drawNoteBox(doc: Doc, opts: NoteBoxOptions): number {
-  const { regular } = documentFontNames(doc);
-  const innerWidth = opts.width - NOTE_BOX_PADDING * 2;
-  doc.font(regular).fontSize(opts.fontSize);
-
-  const validLines = opts.lines.filter(Boolean);
-  let linesHeight = 0;
-  for (const line of validLines) {
-    linesHeight += doc.heightOfString(line, { width: innerWidth }) + NOTE_BOX_LINE_GAP;
-  }
-  const height = Math.max(linesHeight, doc.currentLineHeight()) + NOTE_BOX_PADDING * 2;
-
-  doc.roundedRect(opts.x, opts.y, opts.width, height, NOTE_BOX_RADIUS).fill(opts.fill);
-
-  doc.fillColor(opts.textColor ?? readableTextOn(opts.fill));
-  let cursorY = opts.y + NOTE_BOX_PADDING;
-  for (const line of validLines) {
-    doc.text(line, opts.x + NOTE_BOX_PADDING, cursorY, { width: innerWidth });
-    cursorY += doc.heightOfString(line, { width: innerWidth }) + NOTE_BOX_LINE_GAP;
-  }
-  doc.fillColor("#000000");
-
-  return opts.y + height;
+  return cursorY;
 }
 
 // The real page margin every side of the document uses, independent of the

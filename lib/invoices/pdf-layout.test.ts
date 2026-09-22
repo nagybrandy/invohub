@@ -3,20 +3,19 @@ import {
   CONTENT_MARGIN_BOTTOM,
   companyInitials,
   contentBottom,
-  drawNoteBox,
-  drawPartyCard,
+  DOCUMENT_HAIRLINE,
+  DOCUMENT_RULE,
+  drawPartyBlock,
   drawTableHeader,
   drawTableRow,
-  drawTotalLine,
   ensureSpace,
   FOOTER_BAND_HEIGHT,
   footerBandTop,
   PAGE_MARGIN,
-  partyCardHeight,
+  partyBlockHeight,
   readableTextOn,
   tableColumns,
   tint,
-  totalsColumns,
 } from "@/lib/invoices/pdf-layout";
 import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 
@@ -218,90 +217,6 @@ describe("ensureSpace (AC3/AC4)", () => {
   });
 });
 
-// AC5: totalsColumns aligns the value column flush with the table's Bruttó
-// column and gives the label column enough width that Hungarian totals
-// labels never wrap (see AC6 in the real-pdfkit integration test).
-describe("totalsColumns (AC5)", () => {
-  const stubDoc = () =>
-    ({
-      page: {
-        width: 595.28,
-        height: 841.89,
-        margins: { left: 48, right: 48, top: 48, bottom: 48 },
-      },
-    }) as unknown as Parameters<typeof tableColumns>[0];
-
-  it("aligns the value column flush with cols.right and reserves >= 120pt for labels", () => {
-    const doc = stubDoc();
-    const cols = tableColumns(doc);
-    const totals = totalsColumns(doc, cols);
-
-    expect(totals.valueX + totals.valueWidth).toBe(cols.right);
-    expect(totals.labelX + totals.labelWidth + 8).toBe(totals.valueX);
-    expect(totals.labelWidth).toBeGreaterThanOrEqual(120);
-  });
-});
-
-// AC7: drawTotalLine returns a MEASURED advance (max of the label/value
-// rendered heights + 6), not the old fixed fontSize + 6 — so a wrapped
-// label no longer overlaps whatever is drawn next.
-describe("drawTotalLine measured advance (AC7)", () => {
-  it("advances by the max measured height of label/value, plus 6", () => {
-    const calls: Array<{ text: string; width: number }> = [];
-    const stub = {
-      fontSize: () => stub,
-      font: () => stub,
-      fillColor: () => stub,
-      text: (text: string, _x: number, _y: number, opts?: { width?: number }) => {
-        calls.push({ text, width: opts?.width ?? 0 });
-        return stub;
-      },
-      // A long label wraps to two lines (24pt); short values stay one line (12pt).
-      heightOfString: (text: string) => (text.length > 20 ? 24 : 12),
-    };
-    const doc = stub as unknown as Parameters<typeof drawTotalLine>[0];
-
-    const result = drawTotalLine(
-      doc,
-      "Fizetendő összesen, egy nagyon hosszú címke:",
-      "100 Ft",
-      0,
-      0,
-      100,
-      50,
-      50
-    );
-
-    expect(result).toBe(100 + 24 + 6);
-  });
-
-  it("advances by the value's measured height when the value is taller than the label", () => {
-    const stub = {
-      fontSize: () => stub,
-      font: () => stub,
-      fillColor: () => stub,
-      text: () => stub,
-      heightOfString: (text: string) => (text.length > 20 ? 24 : 12),
-    };
-    const doc = stub as unknown as Parameters<typeof drawTotalLine>[0];
-
-    const result = drawTotalLine(
-      doc,
-      "short",
-      "a suspiciously long formatted value string",
-      0,
-      0,
-      100,
-      50,
-      50
-    );
-
-    expect(result).toBe(100 + 24 + 6);
-  });
-});
-
-// AC1: tint(hex, ratio) mixes toward white, clamps ratio, falls back for
-// malformed input.
 describe("tint (AC1)", () => {
   it("returns the normalised color unchanged at ratio 0", () => {
     expect(tint("#6495ed", 0)).toBe("#6495ed");
@@ -379,158 +294,112 @@ describe("tableColumns — Nettó column (AC3)", () => {
 });
 
 // AC4: drawTableHeader fills a band in accent and draws 6 readable labels.
-describe("drawTableHeader (AC4)", () => {
-  it("fills a band in accent and draws all 6 labels in readableTextOn(accent)", () => {
-    const { doc, drawnTexts, fillColorCalls, rectCalls } = makeStubDoc();
+describe("drawTableHeader", () => {
+  const labels = ["Megnevezés", "Mennyiség", "Egységár", "Nettó", "ÁFA", "Bruttó"];
+
+  it("draws no filled band — uppercase labels over a single heading-ink rule", () => {
+    const { doc, drawnTexts, rectCalls, strokeCalls } = makeStubDoc();
     doc.y = 100;
     const cols = tableColumns(doc as unknown as Parameters<typeof tableColumns>[0]);
-    const accent = "#6495ed";
 
-    const labels = ["Megnevezés", "Mennyiség", "Egységár", "Nettó", "ÁFA", "Bruttó"];
-    const result = drawTableHeader(doc as never, cols, labels, 9, accent);
+    const result = drawTableHeader(doc as never, cols, labels, 9);
 
-    expect(rectCalls.some((c) => c.fill === accent)).toBe(true);
+    expect(rectCalls).toHaveLength(0);
     for (const label of labels) {
-      expect(drawnTexts.some((d) => d.text === label)).toBe(true);
+      expect(drawnTexts.some((d) => d.text === label.toUpperCase())).toBe(true);
     }
-    expect(fillColorCalls).toContain(readableTextOn(accent));
-    expect(result).toBeGreaterThan(100);
+    const rule = strokeCalls.find((c) => c.color === DOCUMENT_RULE);
+    expect(rule).toBeDefined();
+    expect(rule!.x1).toBe(cols.left);
+    expect(rule!.x2).toBe(cols.right);
+    expect(result).toBeGreaterThan(rule!.y1);
   });
 
-  it("grows the band when a header label wraps to two lines", () => {
-    const tall = makeStubDoc({
-      heightOfString: (text) => (text === "Megnevezés" ? 30 : 12),
-    });
+  it("right-aligns every numeric column inside its own box, ending at the right margin", () => {
+    const { doc, drawnTexts } = makeStubDoc();
+    doc.y = 100;
+    const cols = tableColumns(doc as unknown as Parameters<typeof tableColumns>[0]);
+    drawTableHeader(doc as never, cols, labels, 9);
+    const gross = drawnTexts.find((d) => d.text === "BRUTTÓ")!;
+    expect(gross.align).toBe("right");
+    expect(gross.x + (gross.width ?? 0)).toBe(cols.right);
+  });
+
+  it("grows when a header label wraps to two lines", () => {
+    const tall = makeStubDoc({ heightOfString: (text) => (text === "MEGNEVEZÉS" ? 30 : 12) });
     const short = makeStubDoc();
     tall.doc.y = 100;
     short.doc.y = 100;
     const cols = tableColumns(tall.doc as unknown as Parameters<typeof tableColumns>[0]);
-    const labels = ["Megnevezés", "Mennyiség", "Egységár", "Nettó", "ÁFA", "Bruttó"];
-
-    const tallResult = drawTableHeader(tall.doc as never, cols, labels, 9, "#6495ed");
-    const shortResult = drawTableHeader(short.doc as never, cols, labels, 9, "#6495ed");
-
-    expect(tallResult).toBeGreaterThan(shortResult);
+    expect(drawTableHeader(tall.doc as never, cols, labels, 9)).toBeGreaterThan(
+      drawTableHeader(short.doc as never, cols, labels, 9)
+    );
   });
 });
 
-// AC5: drawTableRow draws the Nettó cell + a hairline separator, and keeps
-// the same measured bottom-y rule.
-describe("drawTableRow (AC5)", () => {
-  it("draws the net cell and a #e5e9f5 hairline spanning cols.left..cols.right", () => {
+describe("drawTableRow", () => {
+  const row = {
+    description: "Tanácsadás",
+    quantity: "2 óra",
+    unitPrice: "10 000 Ft",
+    net: "20 000 Ft",
+    vat: "27%",
+    total: "25 400 Ft",
+  };
+
+  it("draws every cell in its column and a quiet hairline across the table", () => {
     const { doc, drawnTexts, strokeCalls } = makeStubDoc();
     const cols = tableColumns(doc as unknown as Parameters<typeof tableColumns>[0]);
-
-    const bottomY = drawTableRow(
-      doc as never,
-      cols,
-      {
-        description: "Tanácsadás",
-        quantity: "2",
-        unitPrice: "10 000 Ft",
-        net: "20 000 Ft",
-        vat: "27%",
-        total: "25 400 Ft",
-      },
-      200,
-      9
-    );
+    const bottomY = drawTableRow(doc as never, cols, row, 200, 9);
 
     expect(drawnTexts.some((d) => d.text === "20 000 Ft" && d.x === cols.netX)).toBe(true);
-    const hairline = strokeCalls.find((s) => s.color === "#e5e9f5");
+    expect(drawnTexts.some((d) => d.text === "2 óra" && d.x === cols.qtyX)).toBe(true);
+    const hairline = strokeCalls.find((s) => s.color === DOCUMENT_HAIRLINE);
     expect(hairline).toBeDefined();
-    expect(hairline!.y1).toBe(bottomY);
-    expect(hairline!.y2).toBe(bottomY);
     expect(hairline!.x1).toBe(cols.left);
     expect(hairline!.x2).toBe(cols.right);
+    expect(hairline!.y1).toBeLessThan(bottomY);
+    expect(hairline!.y1).toBeGreaterThan(200);
   });
 
-  it("returns the same measured bottom-y rule as before (max(descHeight, singleLine) + 6)", () => {
-    const { doc } = makeStubDoc({
-      heightOfString: (text) => (text === "A very long description that wraps" ? 30 : 12),
-    });
-    const cols = tableColumns(doc as unknown as Parameters<typeof tableColumns>[0]);
-
-    const bottomY = drawTableRow(
-      doc as never,
-      cols,
-      {
-        description: "A very long description that wraps",
-        quantity: "1",
-        unitPrice: "1 Ft",
-        net: "1 Ft",
-        vat: "0%",
-        total: "1 Ft",
-      },
-      100,
-      9
-    );
-
-    expect(bottomY).toBe(100 + Math.max(30, 12) + 6);
+  it("grows with a wrapped description (measured, never a fixed row height)", () => {
+    const wrapped = makeStubDoc({ heightOfString: (text) => (text === "long" ? 36 : 12) });
+    const single = makeStubDoc();
+    const cols = tableColumns(single.doc as unknown as Parameters<typeof tableColumns>[0]);
+    const tallBottom = drawTableRow(wrapped.doc as never, cols, { ...row, description: "long" }, 100, 9);
+    const shortBottom = drawTableRow(single.doc as never, cols, row, 100, 9);
+    expect(tallBottom - shortBottom).toBe(36 - 12);
   });
 });
 
-// AC6: drawPartyCard / partyCardHeight.
-describe("drawPartyCard / partyCardHeight (AC6)", () => {
-  const fontSizes = { title: 9, body: 9 };
+describe("drawPartyBlock / partyBlockHeight", () => {
+  const opts = {
+    width: 230,
+    title: "Vevő",
+    name: "Duna Kft.",
+    lines: ["1051 Budapest, Október 6. utca 12.", "Adószám: 12345678-2-13"],
+    fontSizes: { label: 7.5, name: 10.5, body: 9 },
+  };
 
-  it("partyCardHeight equals the drawPartyCard return delta", () => {
+  it("partyBlockHeight equals the drawPartyBlock return delta", () => {
     const { doc } = makeStubDoc();
-    const opts = { width: 200, title: "Kibocsátó", lines: ["Demo Kft.", "Adószám: 123"], fontSizes };
-
-    const measured = partyCardHeight(doc as never, opts);
-    const bottom = drawPartyCard(doc as never, { ...opts, x: 48, y: 100, accent: "#6495ed" });
-
+    const measured = partyBlockHeight(doc as never, opts);
+    const bottom = drawPartyBlock(doc as never, { ...opts, x: 48, y: 100, accent: "#6495ed" });
     expect(bottom - 100).toBe(measured);
   });
 
-  it("draws a rounded, tint(accent, 0.12)-filled card with an uppercase title, and lines inside 10pt padding", () => {
+  it("draws an uppercase caption, the name and every detail line, with only the accent tick filled", () => {
     const { doc, drawnTexts, rectCalls } = makeStubDoc();
-    const accent = "#6495ed";
-    const opts = { width: 200, title: "Vevő", lines: ["Ügyfél Kft.", "Adószám: 999"], fontSizes };
-
-    drawPartyCard(doc as never, { ...opts, x: 48, y: 100, accent });
-
-    expect(rectCalls.some((c) => c.fill === tint(accent, 0.12) && c.radius === 10)).toBe(true);
-    expect(drawnTexts.some((d) => d.text === "VEVŐ")).toBe(true);
-    for (const line of opts.lines) {
-      const draw = drawnTexts.find((d) => d.text === line);
-      expect(draw).toBeDefined();
-      expect(draw!.x).toBe(48 + 10);
-    }
+    drawPartyBlock(doc as never, { ...opts, x: 48, y: 100, accent: "#6495ed" });
+    expect(drawnTexts.map((d) => d.text)).toEqual(["VEVŐ", "Duna Kft.", ...opts.lines]);
+    expect(rectCalls).toHaveLength(1);
+    expect(rectCalls[0]!.fill).toBe("#6495ed");
+    expect(rectCalls[0]!.width).toBeLessThan(40);
   });
 
-  it("draws at a forced height when one is given, instead of its own measured height", () => {
-    const { doc, rectCalls } = makeStubDoc();
-    const opts = { width: 200, title: "Vevő", lines: ["Ügyfél Kft."], fontSizes };
-    const naturalHeight = partyCardHeight(doc as never, opts);
-    const forcedHeight = naturalHeight + 40;
-
-    const bottom = drawPartyCard(doc as never, { ...opts, x: 48, y: 100, accent: "#6495ed", height: forcedHeight });
-
-    expect(bottom).toBe(100 + forcedHeight);
-    expect(rectCalls[0]!.height).toBe(forcedHeight);
-  });
-});
-
-// AC7: drawNoteBox.
-describe("drawNoteBox (AC7)", () => {
-  it("draws a rounded, tinted, padded box around wrapped text and returns its measured bottom y", () => {
-    const { doc, drawnTexts, rectCalls } = makeStubDoc();
-    const fill = "#d9e7ff";
-
-    const bottom = drawNoteBox(doc as never, {
-      x: 48,
-      y: 300,
-      width: 400,
-      lines: ["Alanyi adómentes", "Fordított adózás"],
-      fill,
-      fontSize: 9,
-    });
-
-    expect(rectCalls.some((c) => c.fill === fill && c.radius && c.radius > 0)).toBe(true);
-    expect(drawnTexts.some((d) => d.text === "Alanyi adómentes")).toBe(true);
-    expect(drawnTexts.some((d) => d.text === "Fordított adózás")).toBe(true);
-    expect(bottom).toBeGreaterThan(300);
+  it("skips empty detail lines", () => {
+    const { doc, drawnTexts } = makeStubDoc();
+    drawPartyBlock(doc as never, { ...opts, lines: ["", "Adószám: 1"], x: 48, y: 100, accent: "#6495ed" });
+    expect(drawnTexts.map((d) => d.text)).toEqual(["VEVŐ", "Duna Kft.", "Adószám: 1"]);
   });
 });
