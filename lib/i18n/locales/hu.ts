@@ -320,7 +320,10 @@ export default {
       bankAccount: "Bankszámlaszám",
       exchangeRate: "Árfolyam (HUF-ra)",
       exchangeRateHint:
-        "Egyelőre kézi megadás — az automatikus MNB árfolyam-lekérdezés tervben van.",
+        "Az árfolyamot automatikusan lekérjük az MNB hivatalos árfolyamai közül; szükség esetén felülírhatod.",
+      exchangeRateLoading: "Árfolyam lekérdezése…",
+      exchangeRateSourceMnb: "MNB árfolyam, {{date}}",
+      exchangeRateSourceManual: "kézzel megadva",
       productName: "Terméknév",
       netUnitPrice: "Nettó egységár",
       vat: "ÁFA",
@@ -378,6 +381,7 @@ export default {
       dueBeforeIssue: "A fizetési határidő nem lehet korábbi, mint a kiállítás dátuma.",
       exchangeRateRequired: "Nem forint pénznemű számlához kötelező megadni az árfolyamot.",
       exchangeRateInvalid: "Az árfolyam csak nullánál nagyobb szám lehet.",
+      exchangeRateFetchFailed: "Nem sikerült lekérni az MNB árfolyamot — add meg kézzel.",
       navExchangeRateMissing: "A NAV beküldés nem indítható el: hiányzik a számla HUF árfolyama.",
       proformaNotStornoable:
         "A díjbekérő nem adóügyi bizonylat — nem sztornózható és nem helyesbíthető. Töröld, vagy készíts belőle számlát.",
