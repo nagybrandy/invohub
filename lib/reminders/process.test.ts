@@ -23,6 +23,10 @@ jest.mock("@/lib/email/send", () => ({
   sendEmail: jest.fn(),
 }));
 
+jest.mock("@/lib/email/sender", () => ({
+  resolveSenderIdentity: jest.fn(),
+}));
+
 jest.mock("@/lib/email/templates/service", () => ({
   getEmailTemplateByType: jest.fn(),
 }));
@@ -36,6 +40,7 @@ import { invoice } from "@/db/schema";
 import { listClients } from "@/lib/clients/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
+import { resolveSenderIdentity } from "@/lib/email/sender";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { listInvoices } from "@/lib/invoices/service";
 import { processPaymentReminders } from "@/lib/reminders/process";
@@ -46,6 +51,7 @@ const mockGetCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompa
 const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
 const mockGetTemplate = getEmailTemplateByType as jest.MockedFunction<typeof getEmailTemplateByType>;
 const mockListInvoices = listInvoices as jest.MockedFunction<typeof listInvoices>;
+const mockResolveSender = resolveSenderIdentity as jest.MockedFunction<typeof resolveSenderIdentity>;
 
 const schedule = {
   id: "sched-1",
@@ -100,6 +106,7 @@ describe("processPaymentReminders", () => {
       offset: 0,
     } as never);
     mockGetCompany.mockResolvedValue({ name: "InvoHub Demo" } as never);
+    mockResolveSender.mockResolvedValue({ fromName: "InvoHub Demo via InvoHub", replyTo: "demo@example.com" });
     mockGetTemplate.mockResolvedValue(template as never);
     mockSendEmail.mockResolvedValue({ ok: true });
     mockListClients.mockResolvedValue([
@@ -153,6 +160,18 @@ describe("processPaymentReminders", () => {
     // "overdue" would discard the partial-payment signal.
     const invoiceUpdateCalls = mockDb.update.mock.calls.filter(([table]) => table === invoice);
     expect(invoiceUpdateCalls).toHaveLength(0);
+  });
+
+  it("sends the reminder with the issuer's From name and Reply-To, not a bare InvoHub identity", async () => {
+    await processPaymentReminders("user-1");
+
+    expect(mockResolveSender).toHaveBeenCalledWith("user-1", { name: "InvoHub Demo" });
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromName: "InvoHub Demo via InvoHub",
+        replyTo: "demo@example.com",
+      })
+    );
   });
 
   it("skips invoices with no linked client record at all", async () => {

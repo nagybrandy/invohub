@@ -7,6 +7,7 @@ import { invoice, paymentReminderSchedule } from "@/db/schema";
 import { listClients } from "@/lib/clients/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
+import { resolveSenderIdentity } from "@/lib/email/sender";
 import { renderTemplate } from "@/lib/email/templates/render";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
@@ -40,6 +41,9 @@ export async function processPaymentReminders(
     const defaultSchedule = userSchedules.find((s) => !s.invoiceId);
     const { invoices } = await listInvoices(uid, { limit: INVOICE_LIST_MAX_LIMIT });
     const company = await getCompanyByUserId(uid);
+    // Same From-name/Reply-To for every reminder this user sends in this
+    // run — resolved once per user, not once per invoice.
+    const sender = await resolveSenderIdentity(uid, company);
     const clients = await listClients(uid);
     const clientsById = new Map(clients.map((c) => [c.id, c]));
 
@@ -91,6 +95,8 @@ export async function processPaymentReminders(
         subject: renderTemplate(template.subject, vars),
         html: renderTemplate(template.bodyHtml, vars),
         text: renderTemplate(template.bodyText ?? template.bodyHtml, vars),
+        fromName: sender.fromName,
+        replyTo: sender.replyTo,
       });
 
       if (sendResult.ok) {

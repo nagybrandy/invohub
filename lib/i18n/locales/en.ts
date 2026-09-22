@@ -398,6 +398,13 @@ export default {
         "A proforma is not an accounting document — it cannot be cancelled or corrected. Delete it, or convert it into an invoice.",
       navMissingExchangeRate:
         "NAV submission is not possible: the invoice has no HUF exchange rate.",
+      noRecipient:
+        "No e-mail recipient is set for this invoice — add one in Company profile, or enter the partner's e-mail.",
+      templateNotFound:
+        "No e-mail template is set up for invoices — check Settings and try again.",
+      pdfFailed: "Couldn't generate the invoice PDF — try again in a moment.",
+      emailSendFailed: "The e-mail couldn't be sent — try again in a moment.",
+      invoiceAlreadyFinalized: "This invoice was already finalized in the meantime — refresh the page.",
     },
     autoSaved: "Auto-saved as draft",
     autoSavedAt: "Auto-saved as draft at {{time}}",

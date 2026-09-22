@@ -595,6 +595,66 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.saveError).toBe("invoices.composer.companyProfileIncomplete");
   });
 
+  it("shows a translated message (not the raw English API error) when the send call itself fails with a known code", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setClientEmail("acme@example.com");
+      ref.current!.setEmailOnSend(true);
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (path === "/api/invoices" && method === "POST") {
+        return jsonResponse({ invoice: makeInvoice({ id: "new-inv", status: "draft" }) });
+      }
+      if (path.match(/^\/api\/invoices\/[^/]+\/send$/)) {
+        return Promise.reject(new ApiError("535 Authentication failed", 502, "emailSendFailed"));
+      }
+      return jsonResponse({});
+    });
+
+    let result;
+    await act(async () => {
+      result = await ref.current!.save("finalizeAndSend");
+    });
+
+    expect(result).toBeUndefined();
+    expect(ref.current!.saveError).toBe("invoices.errors.emailSendFailed");
+    expect(ref.current!.saveError).not.toContain("535");
+  });
+
+  it("falls back to the generic saveFailed translation (never the raw error) for an unrecognized/network failure", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás" })]);
+    });
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (path === "/api/invoices" && method === "POST") {
+        return Promise.reject(new Error("Failed to fetch"));
+      }
+      return jsonResponse({});
+    });
+
+    let result;
+    await act(async () => {
+      result = await ref.current!.save("draft");
+    });
+
+    expect(result).toBeUndefined();
+    expect(ref.current!.saveError).toBe("invoices.errors.saveFailed");
+  });
+
   it("saves a non-HUF invoice once a valid exchange rate is entered (AC13)", async () => {
     const ref = await renderComposer({ mode: "create" });
     act(() => {

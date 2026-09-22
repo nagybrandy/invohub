@@ -70,6 +70,24 @@ describe("POST /api/v1/invoices/[id]/send", () => {
     expect(response.status).toBe(500);
   });
 
+  it("returns 422 with code noRecipient when the failure carries that code", async () => {
+    authOk();
+    mockSend.mockResolvedValue({ ok: false, error: "No invoice email recipient configured.", code: "noRecipient" });
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("noRecipient");
+  });
+
+  it("returns 502 with code emailSendFailed, never the raw SMTP error alone as the only signal", async () => {
+    authOk();
+    mockSend.mockResolvedValue({ ok: false, error: "535 Authentication failed", code: "emailSendFailed" });
+    const response = await POST(req("inv-1"), params("inv-1"));
+    const body = await response.json();
+    expect(response.status).toBe(502);
+    expect(body.code).toBe("emailSendFailed");
+  });
+
   it("sends with to/cc overrides and returns the sent invoice", async () => {
     authOk("user-1");
     const invoice = makeInvoice({ id: "inv-1", status: "sent" });
