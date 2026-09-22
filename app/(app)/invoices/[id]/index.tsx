@@ -33,6 +33,7 @@ import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { apiFetch, ApiError, invoicePdfUrl } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import { isMissingExchangeRate } from "@/lib/invoices/exchange-rate";
+import { SEND_INVOICE_ERROR_I18N_KEY } from "@/lib/invoices/send-error-i18n";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import { isOverdue } from "@/lib/invoices/status-visuals";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
@@ -82,6 +83,10 @@ const ERROR_CODE_I18N_KEY: Record<string, string> = {
   // isPaymentProviderAvailable() is false (see lib/payments/availability.ts),
   // but a stale client could still call /api/payments for one.
   paymentProviderUnavailable: "invoices.detail.paymentProviderUnavailable",
+  // The send/resend action (handleSend below) can fail with any of these
+  // codes — shared with the composer so the mapping can't drift between
+  // the two entry points to the same server-side send.
+  ...SEND_INVOICE_ERROR_I18N_KEY,
 };
 
 export default function InvoiceDetailScreen() {

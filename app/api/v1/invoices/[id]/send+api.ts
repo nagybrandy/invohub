@@ -6,6 +6,7 @@ import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { withIdempotency } from "@/lib/api/idempotency";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
+import { statusForSendFailure } from "@/lib/invoices/send-error-status";
 
 type Params = { id: string };
 
@@ -36,14 +37,13 @@ export async function POST(
     });
 
     if (!result.ok) {
-      if (result.code === "companyProfileIncomplete" || result.code === "buyerAddressMissing") {
-        return {
-          status: 422,
-          body: { error: result.error, code: result.code, missingFields: result.missingFields },
-        };
-      }
-      const status = result.error?.toLowerCase().includes("not found") ? 404 : result.code === "noRecipient" ? 422 : 500;
-      return { status, body: { error: result.error, to: result.to } };
+      // `error` stays in English for logs / API consumers — `code` is the
+      // stable machine-readable field callers should branch on (see
+      // lib/invoices/send-error-i18n.ts for the matching UI copy).
+      return {
+        status: statusForSendFailure(result),
+        body: { error: result.error, code: result.code, missingFields: result.missingFields, to: result.to },
+      };
     }
 
     return {

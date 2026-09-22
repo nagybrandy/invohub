@@ -397,6 +397,12 @@ export default {
         "A díjbekérő nem adóügyi bizonylat — nem sztornózható és nem helyesbíthető. Töröld, vagy készíts belőle számlát.",
       navMissingExchangeRate:
         "A NAV beküldés nem lehetséges: a számlához nincs megadva HUF-árfolyam.",
+      noRecipient:
+        "Nincs beállítva e-mail címzett ehhez a számlához — add meg a Cégadatoknál, vagy írd be a partner e-mail címét.",
+      templateNotFound:
+        "Nincs beállítva e-mail sablon a számlákhoz — ellenőrizd a Beállításokat, és próbáld újra.",
+      pdfFailed: "Nem sikerült elkészíteni a számla PDF-jét — próbáld újra kicsit később.",
+      emailSendFailed: "Nem sikerült elküldeni az e-mailt — próbáld újra kicsit később.",
     },
     autoSaved: "Automatikusan mentve piszkozatként",
     autoSavedAt: "Automatikusan mentve piszkozatként {{time}}-kor",

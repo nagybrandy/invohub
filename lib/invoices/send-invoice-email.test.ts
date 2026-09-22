@@ -36,6 +36,10 @@ jest.mock("@/lib/email/send", () => ({
   sendEmail: jest.fn(),
 }));
 
+jest.mock("@/lib/email/sender", () => ({
+  resolveSenderIdentity: jest.fn(),
+}));
+
 const mockAutoSubmit = jest.fn();
 jest.mock("@/lib/nav/auto-submit", () => ({
   autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
@@ -43,6 +47,7 @@ jest.mock("@/lib/nav/auto-submit", () => ({
 
 import { getCompanyByUserId, resolveInvoiceEmailRecipients } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
+import { resolveSenderIdentity } from "@/lib/email/sender";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
@@ -58,11 +63,13 @@ const mockBuildPdf = buildInvoicePdfForUser as jest.MockedFunction<typeof buildI
 const mockSendEmail = sendEmail as jest.MockedFunction<typeof sendEmail>;
 const mockGetCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
 const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+const mockResolveSender = resolveSenderIdentity as jest.MockedFunction<typeof resolveSenderIdentity>;
 
 describe("sendInvoiceNotificationEmail", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAutoSubmit.mockResolvedValue(null);
+    mockResolveSender.mockResolvedValue({ fromName: "InvoHub", replyTo: undefined });
   });
 
   it("auto-submits to NAV when sending finalizes a draft (before -> after)", async () => {
@@ -139,6 +146,10 @@ describe("sendInvoiceNotificationEmail", () => {
       createdAt: "",
       updatedAt: "",
     });
+    mockResolveSender.mockResolvedValue({
+      fromName: "Demo Kft. via InvoHub",
+      replyTo: "demo@example.com",
+    });
     mockSendEmail.mockResolvedValue({ ok: true });
     mockUpsert.mockResolvedValue({ ...invoice, status: "sent" });
 
@@ -150,8 +161,75 @@ describe("sendInvoiceNotificationEmail", () => {
       expect.objectContaining({
         to: ["bendeguznagy55@gmail.com"],
         cc: ["cc@example.com"],
+        fromName: "Demo Kft. via InvoHub",
+        replyTo: "demo@example.com",
       })
     );
+    // The already-fetched company profile is reused, not re-queried.
+    expect(mockResolveSender).toHaveBeenCalledWith("user-1", expect.objectContaining({ name: "Demo Kft." }));
+  });
+
+  it("returns code templateNotFound (never a raw English message alone) when there's no email template", async () => {
+    const invoice = makeInvoice({ status: "sent" });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["client@example.com"]);
+    mockGetTemplate.mockResolvedValue(null);
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result).toMatchObject({ ok: false, code: "templateNotFound" });
+  });
+
+  it("returns code pdfFailed when PDF generation fails", async () => {
+    const invoice = makeInvoice({ status: "sent" });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["client@example.com"]);
+    mockGetTemplate.mockResolvedValue({
+      id: "tpl-1",
+      userId: "user-1",
+      type: "invoice_notification",
+      subject: "Invoice {{invoiceNumber}}",
+      bodyHtml: "<p>{{clientName}}</p>",
+      bodyText: "{{clientName}}",
+      createdAt: "",
+      updatedAt: "",
+    });
+    mockBuildPdf.mockResolvedValue(null);
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result).toMatchObject({ ok: false, code: "pdfFailed" });
+  });
+
+  it("returns code emailSendFailed (with to/cc, but never surfacing the raw SMTP error as the only signal) when the SMTP send itself fails", async () => {
+    const invoice = makeInvoice({ status: "sent" });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["client@example.com"]);
+    mockGetTemplate.mockResolvedValue({
+      id: "tpl-1",
+      userId: "user-1",
+      type: "invoice_notification",
+      subject: "Invoice {{invoiceNumber}}",
+      bodyHtml: "<p>{{clientName}}</p>",
+      bodyText: "{{clientName}}",
+      createdAt: "",
+      updatedAt: "",
+    });
+    mockBuildPdf.mockResolvedValue({ pdf: Buffer.from("%PDF"), invoiceNumber: invoice.invoiceNumber });
+    mockGetCompany.mockResolvedValue(null);
+    mockSendEmail.mockResolvedValue({ ok: false, error: "535 Authentication failed" });
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result).toMatchObject({ ok: false, code: "emailSendFailed", to: ["client@example.com"] });
+  });
+
+  it("returns code invoiceNotFound when the invoice doesn't exist", async () => {
+    mockGetInvoice.mockResolvedValue(null);
+
+    const result = await sendInvoiceNotificationEmail("user-1", "missing");
+
+    expect(result).toMatchObject({ ok: false, code: "invoiceNotFound" });
   });
 
   it("finalizes (assigns a number) a draft BEFORE building the PDF, not after sending", async () => {

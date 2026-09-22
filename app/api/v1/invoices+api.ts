@@ -93,6 +93,9 @@ async function createInvoiceAndSideEffects(
               to: emailResult.to,
               cc: emailResult.cc,
               error: emailResult.error,
+              // Stable machine-readable failure reason for API consumers —
+              // see lib/invoices/send-error-i18n.ts for the matching copy.
+              code: emailResult.code,
               pdfAttached: emailResult.pdfAttached,
             }
           : { sent: false, skipped: true },
