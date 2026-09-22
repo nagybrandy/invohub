@@ -35,6 +35,7 @@ import { isMissingExchangeRate } from "@/lib/invoices/exchange-rate";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import { isOverdue } from "@/lib/invoices/status-visuals";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
+import { isPaymentProviderAvailable } from "@/lib/payments/availability";
 import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -76,6 +77,10 @@ const ERROR_CODE_I18N_KEY: Record<string, string> = {
   notProforma: "invoices.convert.notProforma",
   cancelled: "invoices.convert.cancelledSource",
   proformaNotStornoable: "invoices.errors.proformaNotStornoable",
+  // Defense in depth: the overflow menu already hides Revolut/Barion when
+  // isPaymentProviderAvailable() is false (see lib/payments/availability.ts),
+  // but a stale client could still call /api/payments for one.
+  paymentProviderUnavailable: "invoices.detail.paymentProviderUnavailable",
 };
 
 export default function InvoiceDetailScreen() {
@@ -366,16 +371,27 @@ export default function InvoiceDetailScreen() {
       onPress: () => void handleCorrection(),
     },
     { label: t("invoices.list.pdfAction"), icon: Download, onPress: () => void handleDownloadPdf() },
-    {
-      label: t("invoices.detail.revolut"),
-      icon: Wallet,
-      onPress: () => void handlePaymentLink("revolut"),
-    },
-    {
-      label: t("invoices.detail.barion"),
-      icon: Wallet,
-      onPress: () => void handlePaymentLink("barion"),
-    },
+    // Revolut/Barion are placeholder adapters (no real provider API call —
+    // see lib/payments/availability.ts) until a real integration ships, so
+    // they're hidden rather than handing out a link that goes nowhere.
+    ...(isPaymentProviderAvailable("revolut")
+      ? [
+          {
+            label: t("invoices.detail.revolut"),
+            icon: Wallet,
+            onPress: () => void handlePaymentLink("revolut"),
+          } satisfies OverflowMenuItem,
+        ]
+      : []),
+    ...(isPaymentProviderAvailable("barion")
+      ? [
+          {
+            label: t("invoices.detail.barion"),
+            icon: Wallet,
+            onPress: () => void handlePaymentLink("barion"),
+          } satisfies OverflowMenuItem,
+        ]
+      : []),
   ];
 
   const nav: NavTimelineState | null = navSubmission
