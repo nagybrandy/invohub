@@ -462,6 +462,7 @@ export default {
       descriptionPlaceholder: "Termék vagy szolgáltatás",
       quantity: "Menny.",
       quantityUnit: "Menny. / Egység",
+      unitShort: "Egység",
       unitPrice: "Egységár",
       vatRate: "ÁFA kulcs",
       amountColumn: "Összesen",
