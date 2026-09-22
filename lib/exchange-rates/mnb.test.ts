@@ -214,3 +214,15 @@ describe("fetchMnbCurrentExchangeRates", () => {
     );
   });
 });
+
+describe("MNB request timeout", () => {
+  it("passes an abort signal so a hanging MNB can't block invoice finalization", async () => {
+    const fetchImpl = jest.fn(async (_url: unknown, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      throw new Error("aborted");
+    }) as unknown as typeof fetch;
+    await expect(
+      fetchMnbExchangeRates({ startDate: "2026-09-12", endDate: "2026-09-22", currencies: ["EUR"] }, fetchImpl)
+    ).rejects.toBeInstanceOf(MnbFetchError);
+  });
+});

@@ -31,6 +31,8 @@
 // which is why parseMnbRatesXml below doesn't care about the root name.
 
 export const MNB_SOAP_ENDPOINT = "http://www.mnb.hu/arfolyamok.asmx";
+/** Invoice create/finalize waits on this call — never let a slow MNB hang it. */
+export const MNB_TIMEOUT_MS = 5000;
 const MNB_NAMESPACE = "http://www.mnb.hu/webservices/";
 const SOAP_ACTION_GET_EXCHANGE_RATES = `${MNB_NAMESPACE}MNBArfolyamServiceSoap/GetExchangeRates`;
 const SOAP_ACTION_GET_CURRENT_EXCHANGE_RATES = `${MNB_NAMESPACE}MNBArfolyamServiceSoap/GetCurrentExchangeRates`;
@@ -143,6 +145,7 @@ async function postSoapRequest(
         SOAPAction: `"${soapAction}"`,
       },
       body: envelope,
+      signal: AbortSignal.timeout(MNB_TIMEOUT_MS),
     });
   } catch (error) {
     throw new MnbFetchError(
