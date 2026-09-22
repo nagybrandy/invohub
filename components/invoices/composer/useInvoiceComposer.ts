@@ -129,7 +129,9 @@ export function useInvoiceComposer({
   const appliedInitialClientId = React.useRef(false);
 
   // Dates & payment ---------------------------------------------------------
-  const [fulfillmentDate, setFulfillmentDate] = React.useState(invoice?.issueDate ?? todayIso());
+  const [fulfillmentDate, setFulfillmentDate] = React.useState(
+    invoice?.fulfillmentDate ?? invoice?.issueDate ?? todayIso()
+  );
   const [issueDate, setIssueDate] = React.useState(invoice?.issueDate ?? todayIso());
   const [continuousPerformance, setContinuousPerformance] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>(
@@ -175,7 +177,6 @@ export function useInvoiceComposer({
   // Review ------------------------------------------------------------------
   const [notes, setNotes] = React.useState(invoice?.notes ?? "");
   const [emailOnSend, setEmailOnSend] = React.useState(false);
-  const [navEnabled, setNavEnabled] = React.useState(false);
 
   // Save/dirty state ---------------------------------------------------------
   const [errors, setErrors] = React.useState<ComposerErrors>({});
@@ -260,6 +261,9 @@ export function useInvoiceComposer({
   // (editing an existing non-HUF invoice) so nothing gets silently
   // overwritten on mount — every run after that always (re-)fetches, since
   // a currency/date change invalidates whatever rate was there before.
+  // Áfa tv. 80. §: the teljesítés date's rate; a cleared fulfillment date
+  // falls back to the issue date (same rule as the server-side autofill).
+  const exchangeRateDate = fulfillmentDate.trim() || issueDate;
   React.useEffect(() => {
     if (currency === "HUF") {
       setExchangeRateSource(null);
@@ -281,7 +285,7 @@ export function useInvoiceComposer({
     let cancelled = false;
 
     apiFetch<{ rate: number; rateDate: string; source: string }>(
-      `/api/exchange-rates?currency=${currency}&date=${fulfillmentDate}`
+      `/api/exchange-rates?currency=${currency}&date=${exchangeRateDate}`
     )
       .then((data) => {
         if (cancelled || exchangeRateManualRef.current) return;
@@ -307,7 +311,7 @@ export function useInvoiceComposer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currency, fulfillmentDate]);
+  }, [currency, exchangeRateDate]);
 
   /** Manual override (spec item 5) — marks the rate as user-owned so the next fetch response can't clobber it mid-flight. */
   function setExchangeRate(value: string) {
@@ -471,6 +475,7 @@ export function useInvoiceComposer({
       clientId: clientId ?? undefined,
       issueDate,
       dueDate,
+      fulfillmentDate: fulfillmentDate.trim() || undefined,
       status: invoice?.status ?? "draft",
       currency,
       exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,
@@ -493,6 +498,7 @@ export function useInvoiceComposer({
     clientId,
     issueDate,
     dueDate,
+    fulfillmentDate,
     currency,
     exchangeRate,
     lineItems,
@@ -591,6 +597,7 @@ export function useInvoiceComposer({
         clientId: clientId ?? undefined,
         issueDate,
         dueDate,
+        fulfillmentDate: fulfillmentDate.trim() || undefined,
         status,
         currency,
         exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,
@@ -611,25 +618,9 @@ export function useInvoiceComposer({
         });
       }
 
-      if (status === "sent" && navEnabled) {
-        try {
-          await apiFetch("/api/nav/submit", {
-            method: "POST",
-            body: JSON.stringify({ invoiceId: saved.id }),
-          });
-        } catch (navSubmitError) {
-          const reason =
-            navSubmitError instanceof Error
-              ? navSubmitError.message
-              : t("invoices.errors.navSubmitFailed");
-          setSavedAt(currentTime());
-          setIsDirty(false);
-          router.replace(
-            `${routes.invoiceDetail(saved.id)}?navError=${encodeURIComponent(reason)}` as Href
-          );
-          return saved;
-        }
-      }
+      // NAV Online Számla: finalization (POST/PATCH /api/invoices) submits
+      // server-side automatically when NAV is configured — no client call
+      // and no opt-in toggle. Status/retry live on the detail screen.
 
       setSavedAt(currentTime());
       setIsDirty(false);
@@ -782,11 +773,6 @@ export function useInvoiceComposer({
       markDirty();
     },
     canEnableEmailOnSend: canEnableEmailOnSend(clientEmail),
-    navEnabled,
-    setNavEnabled: (v: boolean) => {
-      setNavEnabled(v);
-      markDirty();
-    },
 
     // Preview
     draftInvoice,

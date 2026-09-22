@@ -29,6 +29,11 @@ jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
   autofillMissingExchangeRate: jest.fn(),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { requireSession } from "@/lib/api/session";
 import { DELETE, GET, PATCH } from "@/app/api/invoices/[id]+api";
 import {
@@ -339,6 +344,19 @@ describe("PATCH /api/invoices/[id] — MNB safety net", () => {
     expect(savedInvoice.exchangeRate).toBe(397.5);
   });
 
+  it("fetches the rate for the draft's persisted fulfillment date when finalizing (Áfa tv. 80. §)", async () => {
+    mockGet.mockResolvedValue(
+      makeInvoice({ id: "inv-1", status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", currency: "EUR", exchangeRate: undefined, issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
+    );
+    mockAutofill.mockResolvedValue(398.1);
+
+    await patch("inv-1", { status: "unpaid" });
+
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
+    );
+  });
+
   it("never overrides an already-valid manual rate", async () => {
     mockGet.mockResolvedValue(
       makeInvoice({ id: "inv-1", status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", currency: "EUR", exchangeRate: 390.5 })
@@ -371,5 +389,45 @@ describe("PATCH /api/invoices/[id] — MNB safety net", () => {
     expect(response.status).toBe(200);
     const [, savedInvoice] = mockUpsert.mock.calls[0];
     expect(savedInvoice.exchangeRate).toBeUndefined();
+  });
+});
+
+describe("PATCH /api/invoices/[id] — NAV auto-submit on finalization", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockUpsert.mockImplementation(async (_userId, invoice) => ({ ...invoice, invoiceNumber: "INV-2026-005" }) as never);
+    mockAutoSubmit.mockResolvedValue(null);
+  });
+
+  it("passes the pre-save invoice as `before` so only a draft -> final transition submits", async () => {
+    const draft = makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
+    mockGet.mockResolvedValue(draft);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/invoices/inv-1", {
+        method: "PATCH",
+        body: JSON.stringify({ status: "unpaid" }),
+      }),
+      { params: { id: "inv-1" } }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockAutoSubmit).toHaveBeenCalledWith(
+      "user-1",
+      draft,
+      expect.objectContaining({ status: "unpaid", invoiceNumber: "INV-2026-005" })
+    );
+  });
+
+  it("returns the NAV result next to the invoice", async () => {
+    mockGet.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." }));
+    mockAutoSubmit.mockResolvedValue({ outcome: "failed", submission: null, error: "boom" });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/invoices/inv-1", { method: "PATCH", body: JSON.stringify({ status: "unpaid" }) }),
+      { params: { id: "inv-1" } }
+    );
+    expect((await response.json()).nav).toEqual({ outcome: "failed", submission: null, error: "boom" });
   });
 });

@@ -17,6 +17,7 @@ export function StepReview(
 ) {
   const {
     t,
+    documentType,
     clientName,
     clientTaxNumber,
     clientEmail,
@@ -37,8 +38,6 @@ export function StepReview(
     emailOnSend,
     setEmailOnSend,
     canEnableEmailOnSend,
-    navEnabled,
-    setNavEnabled,
     setStep,
     totals,
     readOnly,
@@ -130,8 +129,10 @@ export function StepReview(
               />
             </HStack>
 
-            <HStack className="items-start justify-between gap-3">
-              <VStack className="flex-1">
+            {/* No toggle: every finalized számla goes to NAV automatically
+                (server-side) when NAV is configured; a díjbekérő never does. */}
+            {documentType === "invoice" || documentType === "advance" ? (
+              <VStack testID="composer-nav-auto-note">
                 <Text size="sm" className="font-medium text-foreground">
                   {t("invoices.fields.navSubmit")}
                 </Text>
@@ -139,12 +140,7 @@ export function StepReview(
                   {t("invoices.fields.navSubmitHint")}
                 </Text>
               </VStack>
-              <Switch
-                value={navEnabled}
-                onValueChange={setNavEnabled}
-                accessibilityLabel={t("invoices.fields.navSubmit")}
-              />
-            </HStack>
+            ) : null}
           </VStack>
         </ReviewSection>
       ) : null}

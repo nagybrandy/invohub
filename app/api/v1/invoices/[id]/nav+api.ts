@@ -8,6 +8,7 @@ import {
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { listNavSubmissionsForInvoice } from "@/lib/nav/list-submissions";
+import { serializeNavSubmission } from "@/lib/nav/serialize-submission";
 import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
 
 type Params = { id: string };
@@ -43,15 +44,25 @@ export async function POST(
   }
 
   try {
-    const submission = await submitOutgoingInvoiceToNav(auth.userId, invoice);
-    return jsonApiResponse({
-      invoice,
-      navSubmission: {
-        submissionId: submission.submissionId,
-        status: submission.status,
-        transactionId: submission.transactionId,
-      },
-    });
+    // Guarded + idempotent — same rules as POST /api/nav/submit.
+    const outcome = await submitOutgoingInvoiceToNav(auth.userId, invoice);
+    switch (outcome.kind) {
+      case "rejected":
+        return jsonApiResponse({ error: "Invoice cannot be submitted to NAV.", code: outcome.code }, outcome.httpStatus);
+      case "failed":
+        return jsonApiResponse(
+          { error: outcome.error, code: "navSubmitFailed", navSubmission: serializeNavSubmission(outcome.submission) },
+          502
+        );
+      case "existing":
+        return jsonApiResponse({
+          invoice,
+          navSubmission: serializeNavSubmission(outcome.submission),
+          alreadySubmitted: true,
+        });
+      default:
+        return jsonApiResponse({ invoice, navSubmission: serializeNavSubmission(outcome.submission) });
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : "NAV submission failed.";
     return jsonApiResponse({ error: message }, 500);

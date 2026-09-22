@@ -16,8 +16,8 @@
 //
 // Mapping decisions that need tax/legal sign-off before this ships (see
 // the PR description):
-//  - teljdatum = issueDate: InvoHub doesn't persist a separate fulfilment
-//    date yet (the same simplification lib/nav/invoice-xml.ts makes).
+//  - teljdatum = the persisted teljesítés dátuma (Invoice.fulfillmentDate),
+//    falling back to the issue date only for legacy rows without one.
 //  - Addresses are stored as one free-text street line, so the whole line
 //    goes into <kozterulet_neve>; <kozterulet_jellege>/<hazszam> are not
 //    split out. The schema's cim_tipus has no country element.
@@ -265,7 +265,7 @@ function szamlaXml(invoice: Invoice, company: Company, originals: Record<string,
     el("szlasorszam", str(invoice.invoiceNumber)) +
       el("szlatipus", invoiceTypeCode(invoice)) +
       el("szladatum", issueDate) +
-      el("teljdatum", issueDate)
+      el("teljdatum", toNavDate(invoice.fulfillmentDate ?? "") ?? issueDate)
   );
 
   const sellerEuVat = clean(company.euVatNumber);

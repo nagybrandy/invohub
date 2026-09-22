@@ -108,6 +108,13 @@ describe("buildTaxAuditExportXml — header, seller, buyer", () => {
     expect(extractTag(fejlec, "teljdatum")).toBe("2026-03-02");
   });
 
+  it("uses the persisted teljesítés dátuma for teljdatum when the invoice has one", () => {
+    const xml = buildOk(input([{ ...normal, fulfillmentDate: "2026-02-27" }]));
+    const fejlec = extractBlock(xml, "fejlec")!;
+    expect(extractTag(fejlec, "szladatum")).toBe("2026-03-02");
+    expect(extractTag(fejlec, "teljdatum")).toBe("2026-02-27");
+  });
+
   it("maps the seller (szamlakibocsato) incl. address", () => {
     const xml = buildOk(input([normal]));
     const seller = extractBlock(xml, "szamlakibocsato")!;

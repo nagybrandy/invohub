@@ -7,6 +7,7 @@
 // translated explanation instead of a generic error.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
+import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import {
@@ -16,6 +17,7 @@ import {
   upsertInvoice,
 } from "@/lib/invoices/service";
 import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 /** True when the stored value isn't a usable positive, finite rate. */
 function needsExchangeRate(currency: Invoice["currency"], rate: number | undefined): boolean {
@@ -85,11 +87,20 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as Partial<Invoice>;
+    // A non-YYYY-MM-DD value (or one that can't be parsed at all) is
+    // normalised away rather than persisted raw — same rule as POST
+    // /api/invoices and createInvoiceFromPayload (AC10). Omitting the
+    // field entirely keeps the existing value.
+    const fulfillmentDate =
+      body.fulfillmentDate !== undefined
+        ? (normalizeFulfillmentDateInput(body.fulfillmentDate) ?? undefined)
+        : existing.fulfillmentDate;
     const updated: Invoice = {
       ...existing,
       ...body,
       id,
       lineItems: body.lineItems ?? existing.lineItems,
+      fulfillmentDate,
       updatedAt: new Date().toISOString(),
     };
 
@@ -115,11 +126,16 @@ export async function PATCH(
         currency: updated.currency,
         exchangeRate: updated.exchangeRate,
         issueDate: updated.issueDate,
+        // Áfa tv. 80. §: the teljesítés date's rate when known.
+        fulfillmentDate: updated.fulfillmentDate,
       });
     }
 
     const saved = await upsertInvoice(session.user.id, updated);
-    return jsonResponse({ invoice: saved });
+    // Draft -> final ("Véglegesítés" of a saved draft, incl. a helyesbítő
+    // draft -> MODIFY): report to NAV when configured. Never throws.
+    const nav = await autoSubmitToNavOnFinalize(session.user.id, existing, saved);
+    return jsonResponse({ invoice: saved, nav });
   } catch (error) {
     if (error instanceof CompanyProfileIncompleteError) {
       return jsonResponse(

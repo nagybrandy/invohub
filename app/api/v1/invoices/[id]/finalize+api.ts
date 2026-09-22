@@ -14,6 +14,7 @@ import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { finalizeInvoice, upsertInvoice } from "@/lib/invoices/service";
 import type { Invoice } from "@/lib/invoices/types";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 type Params = { id: string };
 
@@ -75,12 +76,18 @@ export async function POST(
         currency: invoice.currency,
         exchangeRate: invoice.exchangeRate,
         issueDate: invoice.issueDate,
+        // Áfa tv. 80. §: the teljesítés date's rate when known.
+        fulfillmentDate: invoice.fulfillmentDate,
       });
       if (exchangeRate !== undefined) {
         invoice = await upsertInvoice(auth.userId, { ...invoice, exchangeRate });
       }
     }
 
-    return { status: 200, body: { invoice } };
+    // finalizeInvoice only ever finalizes a draft, so this is always a
+    // finalization: report it to NAV when configured (never throws). Runs
+    // after the rate safety net so the XML carries the filled-in rate.
+    const nav = await autoSubmitToNavOnFinalize(auth.userId, null, invoice);
+    return { status: 200, body: { invoice, nav } };
   });
 }

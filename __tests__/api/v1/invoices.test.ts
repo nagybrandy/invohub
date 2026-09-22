@@ -16,6 +16,11 @@ jest.mock("@/lib/nav/submit-outgoing", () => ({
   submitOutgoingInvoiceToNav: jest.fn(),
 }));
 
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: jest.fn(),
+  toNavAutoSubmitResult: jest.fn((outcome: { kind: string }) => ({ outcome: outcome.kind, submission: null })),
+}));
+
 jest.mock("@/lib/invoices/service", () => {
   // Mirrors the real class's shape so `e instanceof CompanyProfileIncompleteError`
   // in the route works against an error built with the SAME (mocked)
@@ -48,6 +53,8 @@ import { BuyerAddressMissingError } from "@/lib/invoices/errors";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
 import { CompanyProfileIncompleteError, listInvoices } from "@/lib/invoices/service";
 import { withIdempotency } from "@/lib/api/idempotency";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
+import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockAuth = requireApiKeyForV1 as jest.MockedFunction<typeof requireApiKeyForV1>;
@@ -57,6 +64,8 @@ const mockSendEmail = sendInvoiceNotificationEmail as jest.MockedFunction<
 >;
 const mockListInvoices = listInvoices as jest.MockedFunction<typeof listInvoices>;
 const mockWithIdempotency = withIdempotency as jest.MockedFunction<typeof withIdempotency>;
+const mockAutoSubmit = autoSubmitToNavOnFinalize as jest.MockedFunction<typeof autoSubmitToNavOnFinalize>;
+const mockSubmit = submitOutgoingInvoiceToNav as jest.MockedFunction<typeof submitOutgoingInvoiceToNav>;
 
 function authOk(userId = "user-1") {
   mockAuth.mockResolvedValue({
@@ -123,6 +132,82 @@ describe("POST /api/v1/invoices", () => {
     mockCreate.mockImplementation(async (_userId, body) =>
       makeInvoice({ id: "inv-1", clientName: body.clientName })
     );
+    mockAutoSubmit.mockResolvedValue(null);
+  });
+
+  it("auto-submits the created (final) invoice to NAV and returns navSubmission", async () => {
+    mockAutoSubmit.mockResolvedValue({
+      outcome: "submitted",
+      submission: { submissionId: "sub-1", status: "sent", mode: "demo", transactionId: "TX-1", errorMessage: null },
+    });
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", sendEmail: false }),
+      })
+    );
+    const body = await response.json();
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, expect.objectContaining({ id: "inv-1" }));
+    expect(body.navSubmission.transactionId).toBe("TX-1");
+    expect(mockSubmit).not.toHaveBeenCalled();
+  });
+
+  it("auto-submits the invoice as finalized by the email step (a draft body is finalized there)", async () => {
+    const finalized = makeInvoice({ id: "inv-1", status: "sent", invoiceNumber: "INV-2026-009" });
+    mockSendEmail.mockResolvedValue({ ok: true, invoice: finalized } as never);
+    await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", status: "draft", sendEmail: true }),
+      })
+    );
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, finalized);
+  });
+
+  it("does NOT e-mail (or finalize) by default when sendEmail is omitted", async () => {
+    const draft = makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" });
+    mockCreate.mockResolvedValue(draft);
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", lineItems: [{ description: "x", quantity: 1, unitPrice: 100 }] }),
+      })
+    );
+    const body = await response.json();
+    expect(response.status).toBe(201);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(body.email).toEqual({ sent: false, skipped: true });
+    expect(body.invoice.status).toBe("draft");
+    expect(body.invoice.invoiceNumber).toBe("");
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, draft);
+  });
+
+  it("still finalizes and e-mails when sendEmail is explicitly true", async () => {
+    const finalized = makeInvoice({ id: "inv-1", status: "sent", invoiceNumber: "INV-2026-010" });
+    mockSendEmail.mockResolvedValue({ ok: true, invoice: finalized, to: ["a@b.hu"], cc: [], pdfAttached: true } as never);
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", sendEmail: true, emailTo: "a@b.hu" }),
+      })
+    );
+    const body = await response.json();
+    expect(mockSendEmail).toHaveBeenCalledWith("user-1", "inv-1", expect.objectContaining({ markSent: true, to: "a@b.hu" }));
+    expect(body.invoice.invoiceNumber).toBe("INV-2026-010");
+    expect(body.email.sent).toBe(true);
+  });
+
+  it("still honours an explicit submitToNav when auto-submit didn't apply", async () => {
+    mockSubmit.mockResolvedValue({ kind: "rejected", code: "draftNotSubmittable", httpStatus: 409 } as never);
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", sendEmail: false, submitToNav: true }),
+      })
+    );
+    const body = await response.json();
+    expect(mockSubmit).toHaveBeenCalledTimes(1);
+    expect(body.nav.outcome).toBe("rejected");
   });
 
   it("returns 401 without a valid API key", async () => {

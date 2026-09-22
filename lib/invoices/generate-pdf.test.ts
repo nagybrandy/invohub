@@ -695,6 +695,42 @@ describe("generateInvoicePdf — VAT summary and payment details", () => {
   });
 });
 
+// AC6: the meta strip prints a "Teljesítés kelte" cell between issue date
+// and due date, only when a fulfillmentDate is resolved.
+describe("generateInvoicePdf — fulfillment date meta segment (AC6)", () => {
+  it("draws the fulfillment date segment when set", async () => {
+    const invoice = makeInvoice({ fulfillmentDate: "2026-06-03" });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(
+      mockDrawnTexts.includes(labels.fulfillmentDate.toUpperCase())
+    ).toBe(true);
+  });
+
+  it("does not draw a fulfillment date segment when unset", async () => {
+    const invoice = makeInvoice({ fulfillmentDate: undefined });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(
+      mockDrawnTexts.includes(labels.fulfillmentDate.toUpperCase())
+    ).toBe(false);
+  });
+
+  it("never prints the issue date value under the fulfillment-date label", async () => {
+    const invoice = makeInvoice({ fulfillmentDate: undefined, issueDate: "2026-06-01" });
+    const labels = documentLabels();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
+
+    expect(mockDrawnTexts.includes(labels.fulfillmentDate.toUpperCase())).toBe(false);
+    expect(mockDrawnTexts).toContain(labels.issueDate.toUpperCase());
+  });
+});
+
 // AC12: each line item row prints its own net amount.
 describe("generateInvoicePdf — line item net column (AC12)", () => {
   it("prints lineItemNetTotal(item) formatted for the invoice currency", async () => {
@@ -785,5 +821,39 @@ describe("generateInvoicePdf — notes continuation listener cleanup (AC6)", () 
 
     expect(mockDocs).toHaveLength(1);
     expect(mockDocs[0]!.listenerCount("pageAdded")).toBe(0);
+  });
+});
+
+describe("generateInvoicePdf — modifying documents (Áfa tv. 170. §)", () => {
+  it("names the original invoice on a helyesbítő and a storno", async () => {
+    const labels = documentLabels();
+    await generateInvoicePdf({
+      invoice: makeInvoice({ documentType: "modify", invoiceNumber: "INV-2026-000147-M1" }),
+      referencedInvoiceNumber: "INV-2026-000147",
+    });
+    expect(mockDrawnTexts).toContain(labels.referenceModify.replace("{{number}}", "INV-2026-000147"));
+
+    mockDrawnTexts = [];
+    await generateInvoicePdf({
+      invoice: makeInvoice({ documentType: "storno", invoiceNumber: "INV-2026-000147-S" }),
+      referencedInvoiceNumber: "INV-2026-000147",
+    });
+    expect(mockDrawnTexts).toContain(labels.referenceStorno.replace("{{number}}", "INV-2026-000147"));
+  });
+
+  it("labels a net-negative total as a refund and drops the payment box", async () => {
+    const labels = documentLabels();
+    await generateInvoicePdf({
+      invoice: makeInvoice({
+        documentType: "modify",
+        paymentMethod: "transfer",
+        lineItems: [makeLineItem({ quantity: -4, unitPrice: 18500 })],
+      }),
+      company: { name: "Demo Kft.", bankAccount: "11773016-01234567-00000000" },
+      referencedInvoiceNumber: "INV-2026-000147",
+    });
+    expect(mockDrawnTexts).toContain(labels.refundTotal.toUpperCase());
+    expect(mockDrawnTexts).not.toContain(labels.grossTotal.toUpperCase());
+    expect(mockDrawnTexts).not.toContain(labels.paymentDetails.toUpperCase());
   });
 });

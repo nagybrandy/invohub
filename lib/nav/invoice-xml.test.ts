@@ -16,6 +16,8 @@ describe("buildNavInvoiceXml", () => {
       userId: "u1",
       name: "Demo Kft.",
       taxNumber: "87654321-2-41",
+      // SimpleAddressType needs all of country/postal/city/additionalAddressDetail.
+      address: "Andrássy út 1.",
       city: "Budapest",
       zipCode: "1052",
       bankAccount: "12345678-12345678",
@@ -198,6 +200,37 @@ describe("buildNavInvoiceXml", () => {
     );
     expect(extractTag(xml, "invoiceAppearance")).toBe("ELECTRONIC");
     expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-03");
+  });
+
+  // AC5: fulfillmentDate drives invoiceDeliveryDate.
+  it("uses invoice.fulfillmentDate for invoiceDeliveryDate when set", () => {
+    const invoice = makeInvoice({ issueDate: "2026-05-01", fulfillmentDate: "2026-05-02" });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-02");
+  });
+
+  it("still lets an explicit NavInvoiceExtra.invoiceDeliveryDate override fulfillmentDate", () => {
+    const invoice = makeInvoice({ issueDate: "2026-05-01", fulfillmentDate: "2026-05-02" });
+    const xml = buildNavInvoiceXml(
+      { ...invoice, invoiceDeliveryDate: "2026-05-03" },
+      null
+    );
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-03");
+  });
+
+  it("falls back to issueDate when neither invoiceDeliveryDate nor fulfillmentDate are set", () => {
+    const invoice = makeInvoice({ issueDate: "2026-05-01", fulfillmentDate: undefined });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-01");
+  });
+
+  it("date-normalizes a fulfillmentDate that carries a time part", () => {
+    const invoice = makeInvoice({
+      issueDate: "2026-05-01",
+      fulfillmentDate: "2026-05-02T09:00:00Z",
+    });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "invoiceDeliveryDate")).toBe("2026-05-02");
   });
 
   it("omits <invoiceReference> for a plain CREATE (no invoiceReference passed)", () => {

@@ -247,6 +247,11 @@ export type InvoicePdfContext = {
   company?: InvoicePdfCompany;
   buyer?: InvoicePdfBuyer;
   template?: InvoicePdfTemplate;
+  /**
+   * Sorszám of the invoice a storno / helyesbítő document refers to — Áfa tv.
+   * 170. § requires a modifying document to reference it.
+   */
+  referencedInvoiceNumber?: string;
 };
 
 export function invoicePdfFilename(invoiceNumber: string): string {
@@ -448,6 +453,23 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
 
         doc.y = Math.max(identityBottom, titleY) + 22;
 
+        // Áfa tv. 170. § — a storno / helyesbítő must name the invoice it
+        // modifies, right under the header where it can't be missed.
+        const referenceTemplate =
+          invoice.documentType === "modify"
+            ? labels.referenceModify
+            : invoice.documentType === "storno"
+              ? labels.referenceStorno
+              : null;
+        if (referenceTemplate && ctx.referencedInvoiceNumber) {
+          const referenceText = referenceTemplate.replace("{{number}}", ctx.referencedInvoiceNumber);
+          doc.font(docFonts.bold).fontSize(fonts.body).fillColor(ink.heading);
+          const referenceY = doc.y - 10;
+          doc.text(referenceText, left, referenceY, { width: pageWidth });
+          doc.fillColor("#000000");
+          doc.y = referenceY + doc.heightOfString(referenceText, { width: pageWidth }) + 14;
+        }
+
         // -------------------------------------------------------------
         // Meta strip: equal-width cells between two hairlines — issue
         // date (date only; an invoice states a day, not a clock time), due
@@ -456,8 +478,13 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // -------------------------------------------------------------
         const metaCells: Array<{ label: string; value: string }> = [
           { label: labels.issueDate, value: formatDateOnly(invoice.issueDate) },
-          { label: labels.dueDate, value: formatInvoiceDueDate(invoice) },
         ];
+        // Teljesítés kelte (AC6): only when a fulfillment date is actually
+        // resolved — the issue date is never printed under this label.
+        if (invoice.fulfillmentDate) {
+          metaCells.push({ label: labels.fulfillmentDate, value: formatDateOnly(invoice.fulfillmentDate) });
+        }
+        metaCells.push({ label: labels.dueDate, value: formatInvoiceDueDate(invoice) });
         if (invoice.paymentMethod) {
           metaCells.push({
             label: labels.paymentMethod,
@@ -685,7 +712,9 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             totalsRowGap,
           0
         );
-        const dueLabel = labels.grossTotal;
+        // A net-negative correction/storno is money owed TO the buyer.
+        const isRefund = totals.totalAmount < 0;
+        const dueLabel = isRefund ? labels.refundTotal : labels.grossTotal;
         const dueValue = formatDocumentAmount(totals.totalAmount, invoice.currency);
         const duePadX = 14;
         const duePadY = 11;
@@ -708,6 +737,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
 
         // --- left column: payment details (transfer with a bank account) ---
         const showPaymentBox =
+          !isRefund &&
           template.showBankDetails &&
           !!company?.bankAccount &&
           (invoice.paymentMethod === undefined || invoice.paymentMethod === "transfer");

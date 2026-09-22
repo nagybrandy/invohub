@@ -24,6 +24,11 @@ jest.mock("@/lib/api/idempotency", () => ({
   }),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { POST } from "@/app/api/v1/invoices/[id]/finalize+api";
 import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { finalizeInvoice, upsertInvoice } from "@/lib/invoices/service";
@@ -53,7 +58,10 @@ function params(id: string) {
 }
 
 describe("POST /api/v1/invoices/[id]/finalize", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAutoSubmit.mockResolvedValue(null);
+  });
 
   it("returns 401 without a valid key", async () => {
     mockAuth.mockResolvedValue({
@@ -116,6 +124,41 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     expect(mockFinalize).toHaveBeenCalledWith("user-1", "inv-1");
   });
 
+  it("auto-submits the finalized invoice to NAV and returns the result", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({ id: "inv-1", status: "unpaid", invoiceNumber: "INV-2026-00008" });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutoSubmit.mockResolvedValue({ outcome: "submitted", submission: { submissionId: "s1" } });
+
+    const body = await (await POST(req("inv-1"), params("inv-1"))).json();
+
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, finalized);
+    expect(body.nav.outcome).toBe("submitted");
+  });
+
+  it("never submits when finalization was refused", async () => {
+    authOk();
+    mockFinalize.mockResolvedValue({ ok: false, reason: "not_draft" });
+    await POST(req("inv-1"), params("inv-1"));
+    expect(mockAutoSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits to NAV only after the MNB safety net filled in the rate", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({ id: "inv-1", status: "unpaid", currency: "EUR", exchangeRate: undefined });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutofill.mockResolvedValue(397.5);
+    mockUpsert.mockResolvedValue({ ...finalized, exchangeRate: 397.5 });
+
+    await POST(req("inv-1"), params("inv-1"));
+
+    expect(mockAutoSubmit).toHaveBeenCalledWith(
+      "user-1",
+      null,
+      expect.objectContaining({ id: "inv-1", exchangeRate: 397.5 })
+    );
+  });
+
   it("auto-fills the MNB rate when finalizing leaves a non-HUF invoice with no rate", async () => {
     authOk("user-1");
     const finalized = makeInvoice({
@@ -136,6 +179,27 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     expect(mockUpsert).toHaveBeenCalledWith(
       "user-1",
       expect.objectContaining({ id: "inv-1", exchangeRate: 397.5 })
+    );
+  });
+
+  it("fetches the rate for the persisted fulfillment date, not the issue date (Áfa tv. 80. §)", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({
+      id: "inv-1",
+      status: "unpaid",
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+      fulfillmentDate: "2026-09-15",
+    });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutofill.mockResolvedValue(398.1);
+    mockUpsert.mockResolvedValue({ ...finalized, exchangeRate: 398.1 });
+
+    await POST(req("inv-1"), params("inv-1"));
+
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
     );
   });
 
