@@ -38,6 +38,13 @@ jest.mock("@/lib/theme/icon-colors", () => ({
 
 jest.mock("@/components/i18n/LanguageSwitcher", () => ({ LanguageSwitcher: () => null }));
 
+jest.mock("@/components/settings/TaxAuditExportCard", () => ({
+  TaxAuditExportCard: () => {
+    const { Text } = require("react-native");
+    return <Text>TaxAuditExportCard</Text>;
+  },
+}));
+
 jest.mock("@/components/layout/ScreenLayout", () => ({
   ScreenLayout: ({ children }: { children?: React.ReactNode }) => children ?? null,
 }));
@@ -97,6 +104,19 @@ describe("Settings hub — demo data button (S1)", () => {
     const demoIndex = json.indexOf("settings.demoData");
     expect(signOutIndex).toBeGreaterThan(-1);
     expect(demoIndex).toBeGreaterThan(signOutIndex);
+    act(() => tree.unmount());
+  });
+});
+
+describe("Settings hub — adóhatósági ellenőrzési adatszolgáltatás", () => {
+  it("renders the 23/2014. NGM 11/A. § export card instead of the old CSV link", async () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(<SettingsScreen />);
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("TaxAuditExportCard");
+    expect(json).not.toContain("settings.exportHint");
     act(() => tree.unmount());
   });
 });
