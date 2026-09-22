@@ -175,6 +175,9 @@ describe("useInvoiceComposer", () => {
     const ref = await renderComposer({ mode: "create" });
     act(() => {
       ref.current!.setClientName("Acme Kft.");
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
       ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
     });
 
@@ -197,6 +200,9 @@ describe("useInvoiceComposer", () => {
       ref.current!.setClientName("Acme Kft.");
       ref.current!.setClientEmail("acme@example.com");
       ref.current!.setEmailOnSend(true);
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
       ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
     });
 
@@ -209,6 +215,62 @@ describe("useInvoiceComposer", () => {
     expect(body.status).toBe("sent");
     expect(mockApiFetch.mock.calls.some(([path]) => String(path).endsWith("/send"))).toBe(true);
     expect(mockRouterReplace).toHaveBeenCalled();
+  });
+
+  it("blocks 'finalize' and points at the partner step with the address panel open when the buyer address is incomplete (Áfa tv. 169. § e)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    let result: unknown;
+    await act(async () => {
+      result = await ref.current!.save("finalize");
+    });
+
+    expect(result).toBeUndefined();
+    expect(ref.current!.step).toBe("partner");
+    expect(ref.current!.errors.buyerAddress).toBeTruthy();
+    expect(ref.current!.showClientDetails).toBe(true);
+    expect(ref.current!.focusField).toBe("clientZip");
+    expect(mockApiFetch).not.toHaveBeenCalledWith(
+      "/api/invoices",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("allows 'draft' saves with no buyer address at all", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    let result: unknown;
+    await act(async () => {
+      result = await ref.current!.save("draft");
+    });
+
+    expect(result).toBeTruthy();
+    expect(ref.current!.errors.buyerAddress).toBeFalsy();
+  });
+
+  it("never requires a buyer address for a proforma (díjbekérő)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setDocumentType("proforma");
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    let result: unknown;
+    await act(async () => {
+      result = await ref.current!.save("finalize");
+    });
+
+    expect(result).toBeTruthy();
+    expect(ref.current!.errors.buyerAddress).toBeFalsy();
   });
 
   it("blocks save and points at the partner step when the partner name is empty (INV-4)", async () => {

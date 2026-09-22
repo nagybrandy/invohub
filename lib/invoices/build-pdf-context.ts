@@ -23,10 +23,31 @@ function mapCompany(
   };
 }
 
-// The invoice row itself only stores the buyer's name and tax number; the
-// address the document must print (Áfa tv. 169. § e) lives on the linked
-// partner. Missing/deleted partner -> no address block, never a throw.
-async function loadBuyer(userId: string, clientId?: string): Promise<InvoicePdfBuyer | undefined> {
+// The buyer's address printed on the document (Áfa tv. 169. § e) is a
+// SNAPSHOT captured directly on the invoice row at save time (see
+// db/schema.ts's clientZipCode/clientCity/clientAddress/clientCountry/
+// clientEuVatNumber, and lib/invoices/mappers.ts). Invoices saved before
+// that snapshot existed have none of those columns set, so this falls back
+// to the linked partner row for those — which may have moved since, but is
+// still better than no address at all. Missing/deleted partner and no
+// snapshot -> no address block, never a throw.
+function snapshotBuyer(invoice: Invoice): InvoicePdfBuyer | undefined {
+  const hasSnapshot =
+    invoice.clientZipCode || invoice.clientCity || invoice.clientAddress || invoice.clientCountry || invoice.clientEuVatNumber;
+  if (!hasSnapshot) return undefined;
+  return {
+    address: invoice.clientAddress,
+    city: invoice.clientCity,
+    zipCode: invoice.clientZipCode,
+    country: invoice.clientCountry,
+    euVatNumber: invoice.clientEuVatNumber,
+  };
+}
+
+async function loadBuyerFromClient(
+  userId: string,
+  clientId?: string
+): Promise<InvoicePdfBuyer | undefined> {
   if (!clientId) return undefined;
   const partner = await getClientById(userId, clientId);
   if (!partner) return undefined;
@@ -39,6 +60,12 @@ async function loadBuyer(userId: string, clientId?: string): Promise<InvoicePdfB
   };
 }
 
+async function loadBuyer(userId: string, invoice: Invoice): Promise<InvoicePdfBuyer | undefined> {
+  const fromSnapshot = snapshotBuyer(invoice);
+  if (fromSnapshot) return fromSnapshot;
+  return loadBuyerFromClient(userId, invoice.clientId);
+}
+
 export async function buildInvoicePdfContext(
   userId: string,
   invoice: Invoice
@@ -46,7 +73,7 @@ export async function buildInvoicePdfContext(
   const [company, template, buyer] = await Promise.all([
     getCompanyByUserId(userId),
     getPdfTemplate(userId),
-    loadBuyer(userId, invoice.clientId),
+    loadBuyer(userId, invoice),
   ]);
 
   return {

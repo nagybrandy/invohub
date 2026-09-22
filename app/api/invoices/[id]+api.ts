@@ -9,7 +9,7 @@ import {
   getInvoiceById,
   upsertInvoice,
 } from "@/lib/invoices/service";
-import type { Invoice } from "@/lib/invoices/types";
+import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
 
 /** True when the stored value isn't a usable positive, finite rate. */
 function needsExchangeRate(currency: Invoice["currency"], rate: number | undefined): boolean {
@@ -70,6 +70,19 @@ export async function PATCH(
       lineItems: body.lineItems ?? existing.lineItems,
       updatedAt: new Date().toISOString(),
     };
+
+    // Áfa tv. 169. § e) — same finalize-time gate as POST /api/invoices
+    // (composer resolves status directly, no separate finalize call here).
+    if (requiresCompleteBuyerAddress(updated) && !hasBuyerAddress(updated)) {
+      return jsonResponse(
+        {
+          error:
+            "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+          code: "buyerAddressMissing",
+        },
+        422
+      );
+    }
 
     // Server safety net (item 6): covers both an edit that switches
     // currency away from HUF and the composer's "Véglegesítés" (finalize)

@@ -173,6 +173,20 @@ export const invoice = pgTable(
     documentType: text("document_type").notNull().default("invoice"),
     clientName: text("client_name").notNull(),
     clientTaxNumber: text("client_tax_number"),
+    /**
+     * Buyer address SNAPSHOT as of issuance (Áfa tv. 169. § e) requires the
+     * buyer's name AND address on the document itself) — captured from the
+     * composer/v1 payload at save time, never re-derived from the linked
+     * client, which may move afterwards. Nullable/additive: older invoices
+     * saved before this column existed have none, so PDF/preview generation
+     * falls back to the linked client row for those (see
+     * lib/invoices/build-pdf-context.ts).
+     */
+    clientZipCode: text("client_zip_code"),
+    clientCity: text("client_city"),
+    clientAddress: text("client_address"),
+    clientCountry: text("client_country"),
+    clientEuVatNumber: text("client_eu_vat_number"),
     issueDate: text("issue_date").notNull(),
     dueDate: text("due_date").notNull(),
     status: text("status").notNull().default("draft"),
@@ -243,6 +257,8 @@ export const invoiceLineItem = pgTable(
     unitPrice: numeric("unit_price", { precision: 12, scale: 2 })
       .notNull()
       .default("0"),
+    /** Unit of measure (db/óra/nap/…) — nullable/additive, shown next to quantity on PDF/HTML. */
+    unit: text("unit"),
     vatRate: integer("vat_rate").notNull().default(27),
     /** normal | AAM | TAM | KBAET | AHK | FAD | ATK — NAV VAT exemption/reverse-charge case. */
     vatCategory: text("vat_category").notNull().default("normal"),

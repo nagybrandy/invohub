@@ -98,6 +98,12 @@ export function parseDraftPreviewInvoice(body: unknown): Parsed {
       clientName: text(raw.clientName, 500).trim() || "—",
       clientTaxNumber: optionalText(raw.clientTaxNumber, 64),
       clientId: optionalText(raw.clientId, 64),
+      // Buyer address snapshot (Áfa tv. 169. § e) — the preview must show what the finalized PDF will.
+      clientZipCode: optionalText(raw.clientZipCode, 16),
+      clientCity: optionalText(raw.clientCity, 120),
+      clientAddress: optionalText(raw.clientAddress, 300),
+      clientCountry: optionalText(raw.clientCountry, 80),
+      clientEuVatNumber: optionalText(raw.clientEuVatNumber, 32),
       issueDate: dateText(raw.issueDate),
       dueDate: dateText(raw.dueDate),
       status: "draft",

@@ -12,7 +12,7 @@ import {
   listInvoices,
   upsertInvoice,
 } from "@/lib/invoices/service";
-import type { Invoice } from "@/lib/invoices/types";
+import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
 
 /** Only a positive, finite rate on a non-HUF invoice is ever persisted. */
 function normalizeExchangeRate(
@@ -100,6 +100,11 @@ export async function POST(request: Request) {
     documentType: body.documentType ?? "invoice",
     clientName: body.clientName ?? "",
     clientTaxNumber: body.clientTaxNumber,
+    clientZipCode: body.clientZipCode,
+    clientCity: body.clientCity,
+    clientAddress: body.clientAddress,
+    clientCountry: body.clientCountry,
+    clientEuVatNumber: body.clientEuVatNumber,
     issueDate,
     dueDate: body.dueDate ?? now.slice(0, 10),
     status: body.status ?? "draft",
@@ -111,6 +116,21 @@ export async function POST(request: Request) {
     createdAt: body.createdAt ?? now,
     updatedAt: now,
   };
+
+  // Áfa tv. 169. § e) — the composer resolves status directly (no separate
+  // "finalize" call for the internal API — see resolveStatusForAction in
+  // components/invoices/composer/composer-logic.ts), so a save whose status
+  // already leaves "draft" is a finalize and needs a complete buyer address.
+  if (requiresCompleteBuyerAddress(invoice) && !hasBuyerAddress(invoice)) {
+    return jsonResponse(
+      {
+        error:
+          "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+        code: "buyerAddressMissing",
+      },
+      422
+    );
+  }
 
   const saved = await upsertInvoice(session.user.id, invoice);
   return jsonResponse({ invoice: saved }, 201);

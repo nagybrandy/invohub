@@ -113,9 +113,53 @@ describe("PATCH /api/invoices/[id] — MNB safety net", () => {
     expect(response.status).toBe(404);
   });
 
+  function patchRequest(body: unknown) {
+    return new Request("http://localhost/api/invoices/inv-1", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("allows a draft update with no buyer address", async () => {
+    mockGet.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const response = await PATCH(patchRequest({ status: "draft" }), {
+      params: { id: "inv-1" },
+    });
+    expect(response.status).toBe(200);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects finalizing (status !== draft) without a complete buyer address with 422 buyerAddressMissing", async () => {
+    mockGet.mockResolvedValue(makeInvoice({ id: "inv-1", status: "draft" }));
+    const response = await PATCH(patchRequest({ status: "unpaid" }), {
+      params: { id: "inv-1" },
+    });
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("allows finalizing (status !== draft) once the buyer address is complete", async () => {
+    mockGet.mockResolvedValue(
+      makeInvoice({
+        id: "inv-1",
+        status: "draft",
+        clientZipCode: "1011",
+        clientCity: "Budapest",
+        clientAddress: "Fő utca 1.",
+      })
+    );
+    const response = await PATCH(patchRequest({ status: "unpaid" }), {
+      params: { id: "inv-1" },
+    });
+    expect(response.status).toBe(200);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
   it("auto-fills the MNB rate when a PATCH finalizes (or edits) a non-HUF invoice with no rate", async () => {
     mockGet.mockResolvedValue(
-      makeInvoice({ id: "inv-1", status: "draft", currency: "EUR", exchangeRate: undefined })
+      makeInvoice({ id: "inv-1", status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", currency: "EUR", exchangeRate: undefined })
     );
     mockAutofill.mockResolvedValue(397.5);
 
@@ -131,7 +175,7 @@ describe("PATCH /api/invoices/[id] — MNB safety net", () => {
 
   it("never overrides an already-valid manual rate", async () => {
     mockGet.mockResolvedValue(
-      makeInvoice({ id: "inv-1", status: "draft", currency: "EUR", exchangeRate: 390.5 })
+      makeInvoice({ id: "inv-1", status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", currency: "EUR", exchangeRate: 390.5 })
     );
 
     const response = await patch("inv-1", { status: "unpaid" });
@@ -152,7 +196,7 @@ describe("PATCH /api/invoices/[id] — MNB safety net", () => {
 
   it("leaves exchangeRate undefined (existing banner fallback) when MNB returns nothing", async () => {
     mockGet.mockResolvedValue(
-      makeInvoice({ id: "inv-1", status: "draft", currency: "EUR", exchangeRate: undefined })
+      makeInvoice({ id: "inv-1", status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", currency: "EUR", exchangeRate: undefined })
     );
     mockAutofill.mockResolvedValue(undefined);
 

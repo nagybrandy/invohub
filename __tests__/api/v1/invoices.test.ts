@@ -30,6 +30,7 @@ jest.mock("@/lib/api/idempotency", () => ({
 import { GET, POST } from "@/app/api/v1/invoices+api";
 import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { createInvoiceFromPayload } from "@/lib/invoices/create-from-payload";
+import { BuyerAddressMissingError } from "@/lib/invoices/errors";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
 import { listInvoices } from "@/lib/invoices/service";
 import { withIdempotency } from "@/lib/api/idempotency";
@@ -160,5 +161,25 @@ describe("POST /api/v1/invoices", () => {
     const [, userId, requestBody] = mockWithIdempotency.mock.calls[0];
     expect(userId).toBe("user-1");
     expect(requestBody).toMatchObject({ clientName: "Acme Kft." });
+  });
+
+  it("returns 422 with code buyerAddressMissing when the buyer address is incomplete for a finalized create", async () => {
+    mockCreate.mockRejectedValue(new BuyerAddressMissingError());
+
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          lineItems: [{ description: "x", quantity: 1, unitPrice: 100 }],
+          status: "sent",
+          sendEmail: false,
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
   });
 });

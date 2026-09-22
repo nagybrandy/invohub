@@ -40,6 +40,16 @@ export async function POST(
       if (result.reason === "not_found") {
         return { status: 404, body: { error: "Invoice not found." } };
       }
+      if (result.reason === "buyer_address_missing") {
+        return {
+          status: 422,
+          body: {
+            error:
+              "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+            code: "buyerAddressMissing",
+          },
+        };
+      }
       return {
         status: 409,
         body: { error: "Only a draft invoice can be finalized.", code: "notDraft" },

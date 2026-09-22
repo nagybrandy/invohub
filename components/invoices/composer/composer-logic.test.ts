@@ -8,6 +8,7 @@ import {
   groupVatRows,
   resolveStatusForAction,
   shouldSendOnAction,
+  validateBuyerAddressStep,
   validateDueDate,
   validateExchangeRateInput,
   validateLineItemsStep,
@@ -53,6 +54,30 @@ describe("validatePartnerStep (INV-4)", () => {
 
   it("accepts a non-empty partner name", () => {
     expect(validatePartnerStep("Tech Solutions Kft.")).toEqual({ valid: true });
+  });
+});
+
+describe("validateBuyerAddressStep (Áfa tv. 169. § e)", () => {
+  const complete = { clientZip: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." };
+
+  it("accepts when zip, city and address are all filled in", () => {
+    expect(validateBuyerAddressStep(complete)).toEqual({ valid: true });
+  });
+
+  it("rejects a missing zip code, focusing clientZip", () => {
+    expect(validateBuyerAddressStep({ ...complete, clientZip: "" })).toEqual({
+      valid: false,
+      errorKey: "invoices.errors.buyerAddressRequired",
+      focusField: "clientZip",
+    });
+  });
+
+  it("rejects a missing city", () => {
+    expect(validateBuyerAddressStep({ ...complete, clientCity: "  " }).valid).toBe(false);
+  });
+
+  it("rejects a missing street address", () => {
+    expect(validateBuyerAddressStep({ ...complete, clientAddress: "" }).valid).toBe(false);
   });
 });
 

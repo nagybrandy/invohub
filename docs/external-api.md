@@ -158,9 +158,15 @@ Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **e-
 | `lineItems[].unitPrice` | number | igen | Egységár |
 | `lineItems[].vatRate` | `0 \| 5 \| 18 \| 27` | nem | ÁFA % (default: `27`) |
 | `lineItems[].vatCategory` | string | nem | `normal`, `AAM`, `TAM`, `KBAET`, `AHK`, `FAD`, `ATK` |
+| `lineItems[].unit` | string | nem | Mértékegység (pl. `db`, `óra`, `nap`) — a PDF/HTML a mennyiség mellett jeleníti meg |
 | `invoiceNumber` | string | nem | Egyedi szám; ha nincs, auto-generált véglegesítéskor |
 | `documentType` | string | nem | `invoice`, `proforma`, `advance` (default: `invoice`) |
 | `clientTaxNumber` | string | nem | Ügyfél adószáma |
+| `clientZipCode` | string | csak véglegesítéskor | Vevő irányítószáma — a számla saját SNAPSHOTja (lásd lent) |
+| `clientCity` | string | csak véglegesítéskor | Vevő települése — snapshot |
+| `clientAddress` | string | csak véglegesítéskor | Vevő utca/házszáma — snapshot |
+| `clientCountry` | string | nem | Vevő országa (opcionális; belföldi vevőnél kihagyható) |
+| `clientEuVatNumber` | string | nem | Vevő közösségi adószáma (fordított adózáshoz) |
 | `issueDate` | string | nem | `YYYY-MM-DD` (default: ma) |
 | `dueDate` | string | nem | `YYYY-MM-DD` (default: issueDate) |
 | `status` | string | nem | `draft`, `proforma`, `sent`, `paid`, `unpaid`, `overdue`, `cancelled` (default: `draft`) |
@@ -172,6 +178,8 @@ Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **e-
 | `emailTo` | string \| string[] | nem | Címzett(ek) felülírása |
 | `emailCc` | string \| string[] | nem | Másolat (Cc) címzettek |
 | `submitToNav` | boolean | nem | NAV beküldés azonnal (default: `false`) |
+
+> ⚠️ **Vevő cím — Áfa tv. 169. § e):** a `clientZipCode`/`clientCity`/`clientAddress` mezők a számlán szereplő **snapshot** címet adják meg (a kiállítás pillanatában, függetlenül attól, hogy az ügyfél később elköltözik-e) — nem az `/api/v1/clients` végponton tárolt ügyfél aktuális címét. Draft (`status: "draft"` vagy nincs `status`) létrehozásakor a cím hiányozhat; amint a `status` bármi más lesz (vagy a `POST .../finalize` fut le), a vevő neve **és** teljes címe (mind a három mező) kötelező — hiányában a válasz `422` + `code: "buyerAddressMissing"`. Díjbekérő (`documentType: "proforma"`) esetén ez soha nem kötelező — a díjbekérő nem adóügyi bizonylat.
 
 #### Példa — cURL (draft létrehozása, e-mail nélkül)
 
@@ -221,7 +229,7 @@ Válasz (`200`): `{ "invoice": { "...": "..." } }`
 
 `PATCH /api/v1/invoices/{id}`
 
-**Csak draft állapotú** számla módosítható — a request body ugyanazokkal a szabályokkal validált, mint a létrehozásnál (5.2). Egy már véglegesített (nem-draft) számla módosítása `409`-et ad:
+**Csak draft állapotú** számla módosítható — a request body ugyanazokkal a szabályokkal validált, mint a létrehozásnál (5.2), beleértve a hiányos vevő cím `422` + `code: "buyerAddressMissing"` válaszát is, ha a `status` mező itt már nem `"draft"`. Egy már véglegesített (nem-draft) számla módosítása `409`-et ad:
 
 ```json
 { "error": "Only a draft invoice can be updated.", "code": "notDraft" }
@@ -249,7 +257,7 @@ curl -X PATCH "https://invohub.vercel.app/api/v1/invoices/abc123" \
 
 Draftból véglegesített bizonylatot csinál — **pontosan ugyanazon a kódúton oszt ki számot**, mint az alkalmazás UI-ja (`lib/invoices/service.ts` `upsertInvoice`/`assignInvoiceNumberIfNeeded`, a composer „Véglegesítés” gombjával megegyező logika): egy díjbekérő (`documentType: "proforma"`) `status: "proforma"` lesz, minden más `status: "unpaid"`. **Nem küld e-mailt** — ehhez lásd 5.8.
 
-Nem-draft számlán `409` + `code: "notDraft"`.
+Nem-draft számlán `409` + `code: "notDraft"`. Hiányos vevő cím esetén (Áfa tv. 169. § e) — lásd az 5.2 figyelmeztetést) `422` + `code: "buyerAddressMissing"`, szám kiosztása nélkül.
 
 ```bash
 curl -X POST "https://invohub.vercel.app/api/v1/invoices/abc123/finalize" \

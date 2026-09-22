@@ -131,6 +131,92 @@ describe("POST /api/invoices", () => {
     expect(savedInvoice.exchangeRate).toBeUndefined();
   });
 
+  it("passes the buyer address snapshot fields through for a draft (Áfa tv. 169. § e)", async () => {
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          clientZipCode: "1011",
+          clientCity: "Budapest",
+          clientAddress: "Fő utca 1.",
+          clientCountry: "Magyarország",
+          clientEuVatNumber: "HU12345678",
+          lineItems: [],
+        }),
+      })
+    );
+
+    const [, savedInvoice] = mockUpsert.mock.calls[0];
+    expect(savedInvoice.clientZipCode).toBe("1011");
+    expect(savedInvoice.clientCity).toBe("Budapest");
+    expect(savedInvoice.clientAddress).toBe("Fő utca 1.");
+    expect(savedInvoice.clientCountry).toBe("Magyarország");
+    expect(savedInvoice.clientEuVatNumber).toBe("HU12345678");
+  });
+
+  it("allows a draft with no buyer address at all", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", lineItems: [], status: "draft" }),
+      })
+    );
+    expect(response.status).toBe(201);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects finalizing (status !== draft) without a complete buyer address with 422 buyerAddressMissing", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          lineItems: [{ id: "l1", description: "X", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+          status: "unpaid",
+        }),
+      })
+    );
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("never requires a buyer address for a proforma (díjbekérő) — not an accounting document", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          documentType: "proforma",
+          lineItems: [{ id: "l1", description: "X", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+          status: "proforma",
+        }),
+      })
+    );
+    expect(response.status).toBe(201);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows finalizing (status !== draft) once the buyer address is complete", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          clientZipCode: "1011",
+          clientCity: "Budapest",
+          clientAddress: "Fő utca 1.",
+          lineItems: [{ id: "l1", description: "X", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+          status: "unpaid",
+        }),
+      })
+    );
+    expect(response.status).toBe(201);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
   it("auto-fills the MNB rate when a non-HUF create omits exchangeRate (safety net)", async () => {
     mockAutofill.mockResolvedValue(397.5);
 

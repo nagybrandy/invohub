@@ -81,4 +81,27 @@ describe("parseDraftPreviewInvoice", () => {
     expect(result.invoice.clientName.length).toBeLessThanOrEqual(500);
     expect((result.invoice.notes ?? "").length).toBeLessThanOrEqual(10_000);
   });
+
+  it("keeps the buyer address snapshot so the live preview matches the final PDF", () => {
+    const result = parseDraftPreviewInvoice({
+      invoice: {
+        clientName: "Duna Kft.",
+        clientZipCode: "1051",
+        clientCity: "Budapest",
+        clientAddress: "Október 6. utca 12.",
+        clientCountry: "Magyarország",
+        clientEuVatNumber: "HU24681357",
+        lineItems: [],
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.invoice).toMatchObject({
+      clientZipCode: "1051",
+      clientCity: "Budapest",
+      clientAddress: "Október 6. utca 12.",
+      clientCountry: "Magyarország",
+      clientEuVatNumber: "HU24681357",
+    });
+  });
 });
