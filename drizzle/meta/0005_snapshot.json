@@ -1,5 +1,5 @@
 {
-  "id": "8704f7b0-5c94-46e8-9b63-4e308da74553",
+  "id": "e7329210-2dde-4606-853c-325bf7b68617",
   "prevId": "bc65ce68-9ae2-4378-be04-4dfdfad36ce3",
   "version": "7",
   "dialect": "postgresql",
@@ -754,13 +754,13 @@
           "name": "response_status",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "response_body": {
           "name": "response_body",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

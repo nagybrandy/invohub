@@ -544,8 +544,10 @@ export const idempotencyKey = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     requestHash: text("request_hash").notNull(),
-    responseStatus: integer("response_status").notNull(),
-    responseBody: text("response_body").notNull(),
+    // Both null while the first request holding this key is still running
+    // (claimed, not yet completed) — see lib/api/idempotency.ts.
+    responseStatus: integer("response_status"),
+    responseBody: text("response_body"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [

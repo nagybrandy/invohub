@@ -3,8 +3,8 @@ CREATE TABLE "idempotency_key" (
 	"user_id" text NOT NULL,
 	"key" text NOT NULL,
 	"request_hash" text NOT NULL,
-	"response_status" integer NOT NULL,
-	"response_body" text NOT NULL,
+	"response_status" integer,
+	"response_body" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

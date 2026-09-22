@@ -63,7 +63,7 @@ A `code` mező nem mindig van jelen (pl. egy egyszerű 404-nél elég az `error`
 | `401` | Hiányzó vagy érvénytelen kulcs |
 | `403` | Kulcs letiltva |
 | `404` | Erőforrás nem található (ide tartozik: másik user rekordja) |
-| `409` | Állapotütközés (pl. nem-draft számla módosítása/törlése, dupla konverzió, Idempotency-Key ütközés) |
+| `409` | Állapotütközés (pl. nem-draft számla módosítása/törlése, dupla konverzió, még futó Idempotency-Key kérés) |
 | `429` | Rate limit túllépve |
 | `500` / `502` | Szerver / NAV hiba |
 
@@ -94,10 +94,14 @@ Idempotency-Key: <egyedi string, pl. UUID>
 
 Szabályok:
 
-- **Ugyanaz a kulcs + ugyanaz a request body**, ugyanattól a felhasználótól, **24 órán belül** → a **korábbi válasz visszajátszása** (nem történik második számla/szám-kiosztás/e-mail/NAV hívás).
+- **Ugyanaz a kulcs + ugyanaz a végpont + ugyanaz a request body**, ugyanattól a felhasználótól, **24 órán belül** → a **korábbi válasz visszajátszása** (nem történik második számla/szám-kiosztás/e-mail/NAV hívás).
+- A kulcs a **végponthoz is kötve van** (HTTP metódus + útvonal, pl. `/api/v1/invoices/<id>/finalize`): ugyanaz a kulcs egy másik végponton vagy másik számlán → `422`, soha nem egy másik kérés válasza.
 - **Ugyanaz a kulcs, más request body** → `422` és `code: "idempotencyKeyConflict"`.
+- **Egyidejű kérések**: ha az első, ugyanazzal a kulccsal küldött kérés még fut (pl. timeout utáni azonnali retry), a második `409` választ kap `code: "idempotencyKeyInProgress"` kóddal és `Retry-After: 1` fejléccel — a művelet csak egyszer fut le. Várj, majd küldd újra ugyanazt a kérést: a befejezett első válasz visszajátszódik.
+- **Szerverhiba (5xx) vagy megszakadt feldolgozás esetén a kulcs nem tárolódik** — ugyanazzal a kulccsal biztonságosan újrapróbálható.
+- A kulcs legfeljebb 255 karakter lehet (hosszabb → `400`, `code: "idempotencyKeyTooLong"`).
 - 24 óra után a kulcs lejár, újrafelhasználható.
-- A kulcs a **felhasználóhoz és az `Idempotency-Key` értékéhez** van kötve — más felhasználó ugyanazt a kulcsot szabadon újra felhasználhatja.
+- A kulcs a **felhasználóhoz** van kötve — más felhasználó ugyanazt a kulcsot szabadon újra felhasználhatja.
 - Ha nincs `Idempotency-Key` fejléc, a kérés mindig ténylegesen lefut (nincs védelem duplikált POST-ok ellen).
 
 Ajánlott: mindig generálj egy stabil kulcsot (pl. a saját rendszered tranzakció-azonosítójából) minden retry-képes híváshoz.
