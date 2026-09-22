@@ -6,7 +6,7 @@ import {
   useInvoiceComposer,
   type UseInvoiceComposerOptions,
 } from "@/components/invoices/composer/useInvoiceComposer";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 import type { Client } from "@/lib/clients/service";
 
@@ -20,6 +20,10 @@ jest.mock("react-i18next", () => ({
 
 jest.mock("@/lib/api/client", () => ({
   apiFetch: jest.fn(),
+  // The real ApiError has no dependencies of its own — keep it real so
+  // `e instanceof ApiError` in useInvoiceComposer.ts's save() still works
+  // against an error built with THIS (mocked) module's export.
+  ApiError: jest.requireActual("@/lib/api/client").ApiError,
 }));
 
 const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>;
@@ -60,6 +64,13 @@ function setupApiFetch(overrides: Partial<Record<string, unknown>> = {}) {
           updatedAt: "",
         },
       });
+    }
+    if (path.startsWith("/api/exchange-rates?")) {
+      // Deliberately unmocked by default (rejects) so tests that aren't
+      // about the MNB auto-fetch never depend on it succeeding — see the
+      // dedicated "MNB exchange rate auto-fetch" describe block below for
+      // success/failure coverage.
+      return Promise.reject(new Error("exchange rate not mocked in this test"));
     }
     if (path.startsWith("/api/invoices?")) {
       return jsonResponse({
@@ -165,6 +176,9 @@ describe("useInvoiceComposer", () => {
     const ref = await renderComposer({ mode: "create" });
     act(() => {
       ref.current!.setClientName("Acme Kft.");
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
       ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
     });
 
@@ -187,6 +201,9 @@ describe("useInvoiceComposer", () => {
       ref.current!.setClientName("Acme Kft.");
       ref.current!.setClientEmail("acme@example.com");
       ref.current!.setEmailOnSend(true);
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
       ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
     });
 
@@ -207,6 +224,9 @@ describe("useInvoiceComposer", () => {
       ref.current!.setClientName("Acme Kft.");
       ref.current!.setClientEmail("acme@example.com");
       ref.current!.setEmailOnSend(true);
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
       ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
     });
 
@@ -219,6 +239,62 @@ describe("useInvoiceComposer", () => {
 
     expect(mockApiFetch.mock.calls.some(([path]) => path === "/api/nav/submit")).toBe(false);
     expect("navEnabled" in ref.current!).toBe(false);
+  });
+
+  it("blocks 'finalize' and points at the partner step with the address panel open when the buyer address is incomplete (Áfa tv. 169. § e)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    let result: unknown;
+    await act(async () => {
+      result = await ref.current!.save("finalize");
+    });
+
+    expect(result).toBeUndefined();
+    expect(ref.current!.step).toBe("partner");
+    expect(ref.current!.errors.buyerAddress).toBeTruthy();
+    expect(ref.current!.showClientDetails).toBe(true);
+    expect(ref.current!.focusField).toBe("clientZip");
+    expect(mockApiFetch).not.toHaveBeenCalledWith(
+      "/api/invoices",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("allows 'draft' saves with no buyer address at all", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    let result: unknown;
+    await act(async () => {
+      result = await ref.current!.save("draft");
+    });
+
+    expect(result).toBeTruthy();
+    expect(ref.current!.errors.buyerAddress).toBeFalsy();
+  });
+
+  it("never requires a buyer address for a proforma (díjbekérő)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setDocumentType("proforma");
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+    });
+
+    let result: unknown;
+    await act(async () => {
+      result = await ref.current!.save("finalize");
+    });
+
+    expect(result).toBeTruthy();
+    expect(ref.current!.errors.buyerAddress).toBeFalsy();
   });
 
   it("blocks save and points at the partner step when the partner name is empty (INV-4)", async () => {
@@ -295,6 +371,30 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.bankAccount).toBe("12345678-12345678-12345678");
     expect(ref.current!.deadlineDays).toBe(15);
     expect(ref.current!.lineItems[0].vatCategory).toBe("AAM");
+  });
+
+  it("companyProfileIncomplete is true when the loaded company is missing required fields (default fixture: no taxNumber/address)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.companyProfileIncomplete).toBe(true);
+  });
+
+  it("companyProfileIncomplete is false once every required field is present", async () => {
+    setupApiFetch({
+      company: {
+        id: "c1",
+        userId: "u1",
+        name: "Demo Kft.",
+        taxNumber: "12345678-1-23",
+        zipCode: "1011",
+        city: "Budapest",
+        address: "Fő utca 1.",
+        vatExempt: false,
+        createdAt: "",
+        updatedAt: "",
+      },
+    });
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.companyProfileIncomplete).toBe(false);
   });
 
   it("edit mode seeds state from the loaded invoice and does not apply company defaults", async () => {
@@ -464,6 +564,37 @@ describe("useInvoiceComposer", () => {
     );
   });
 
+  it("shows a translated companyProfileIncomplete message (not the raw English API error) when finalize is refused server-side", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      // A complete buyer address, so the client-side buyer-address gate
+      // (Áfa tv. 169. § e) passes and the save actually reaches the server.
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás" })]);
+    });
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (path === "/api/invoices" && method === "POST") {
+        return Promise.reject(
+          new ApiError("Company profile is incomplete.", 422, "companyProfileIncomplete")
+        );
+      }
+      return jsonResponse({});
+    });
+
+    let result;
+    await act(async () => {
+      result = await ref.current!.save("finalize");
+    });
+
+    expect(result).toBeUndefined();
+    expect(ref.current!.saveError).toBe("invoices.composer.companyProfileIncomplete");
+  });
+
   it("saves a non-HUF invoice once a valid exchange rate is entered (AC13)", async () => {
     const ref = await renderComposer({ mode: "create" });
     act(() => {
@@ -492,5 +623,187 @@ describe("useInvoiceComposer", () => {
     const ref = await renderComposer({ mode: "create", initialClientId: "client-1" });
     expect(ref.current!.clientName).toBe("Tech Solutions Kft.");
     expect(ref.current!.clientId).toBe("client-1");
+  });
+});
+
+// Owner request: "az árfolyamot mindig valami külső helyről kérje le, mint
+// a számlázz.hu" — the composer auto-fetches the MNB rate instead of
+// requiring the user to type it. These tests own that surface end to end;
+// the main describe block above deliberately rejects /api/exchange-rates by
+// default so it stays independent of this behaviour.
+describe("useInvoiceComposer — MNB exchange rate auto-fetch", () => {
+  beforeEach(() => {
+    mockApiFetch.mockReset();
+    mockRouterReplace.mockReset();
+    setupApiFetch();
+  });
+
+  function mockExchangeRateSuccess(rate: number, rateDate: string) {
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/exchange-rates?")) {
+        return jsonResponse({ currency: "EUR", rate, rateDate, source: "MNB" });
+      }
+      // Fall back to the shared setup for everything else.
+      const method = init?.method ?? "GET";
+      if (path === "/api/clients") return jsonResponse({ clients: [CLIENT] });
+      if (path === "/api/products") return jsonResponse({ products: [] });
+      if (path === "/api/companies") {
+        return jsonResponse({
+          company: { id: "c1", userId: "u1", name: "Demo Kft.", vatExempt: false, createdAt: "", updatedAt: "" },
+        });
+      }
+      if (path.startsWith("/api/invoices?")) {
+        return jsonResponse({
+          invoices: [],
+          total: 0,
+          limit: 20,
+          offset: 0,
+          stats: { count: 0, thisMonthCount: 0, monthlyTotal: 0 },
+        });
+      }
+      if (path === "/api/invoices" && method === "POST") {
+        const body = JSON.parse(init!.body as string);
+        return jsonResponse({ invoice: { ...body, invoiceNumber: "INV-2026-100" } });
+      }
+      return jsonResponse({});
+    });
+  }
+
+  it("fetches and fills the rate as soon as the currency changes away from HUF", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRate).toBe("397.5");
+    expect(ref.current!.exchangeRateSource).toBe("mnb");
+    expect(ref.current!.exchangeRateAsOf).toBe("2026-09-22");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/exchange-rates?currency=EUR&date=")
+    );
+  });
+
+  it("re-fetches when the fulfillment date changes for an already-non-HUF invoice", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    mockApiFetch.mockClear();
+    mockExchangeRateSuccess(396.8, "2026-09-18");
+
+    await act(async () => {
+      ref.current!.setFulfillmentDate("2026-09-18");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRate).toBe("396.8");
+    expect(ref.current!.exchangeRateAsOf).toBe("2026-09-18");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringContaining("date=2026-09-18")
+    );
+  });
+
+  it("never overwrites a manually-typed rate with a fetch response, and marks it as manual", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => {
+      ref.current!.setExchangeRate("400");
+    });
+
+    expect(ref.current!.exchangeRate).toBe("400");
+    expect(ref.current!.exchangeRateSource).toBe("manual");
+  });
+
+  it("shows a Hungarian error and stops loading when the fetch fails", async () => {
+    // Default setupApiFetch() rejects /api/exchange-rates.
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRateFetchError).toBeTruthy();
+    expect(ref.current!.exchangeRateLoading).toBe(false);
+    expect(ref.current!.exchangeRateSource).not.toBe("mnb");
+  });
+
+  it("keeps a manually-typed rate even when a later fetch (triggered by a date change) fails", async () => {
+    // Default setupApiFetch() rejects /api/exchange-rates.
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(ref.current!.exchangeRateFetchError).toBeTruthy();
+
+    act(() => {
+      ref.current!.setExchangeRate("400");
+    });
+    expect(ref.current!.exchangeRateFetchError).toBeNull();
+
+    await act(async () => {
+      ref.current!.setFulfillmentDate("2026-09-18");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ref.current!.exchangeRate).toBe("400");
+    expect(ref.current!.exchangeRateFetchError).toBeTruthy();
+    expect(ref.current!.exchangeRateLoading).toBe(false);
+  });
+
+  it("clears the source/caption when currency switches back to HUF", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(ref.current!.exchangeRateSource).toBe("mnb");
+
+    act(() => {
+      ref.current!.setCurrency("HUF");
+    });
+
+    expect(ref.current!.exchangeRateSource).toBeNull();
+  });
+
+  it("does not overwrite an already-valid manual rate when opening the edit screen (no surprise fetch on mount)", async () => {
+    mockExchangeRateSuccess(999, "2026-09-22"); // would be an obvious tell if this got applied
+    const invoice = makeInvoice({
+      id: "inv-1",
+      currency: "EUR",
+      exchangeRate: 390.5,
+      status: "draft",
+    });
+
+    const ref = await renderComposer({ mode: "edit", invoice });
+
+    expect(ref.current!.exchangeRate).toBe("390.5");
+    expect(ref.current!.exchangeRateSource).toBe("manual");
+    expect(mockApiFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/exchange-rates?")
+    );
   });
 });

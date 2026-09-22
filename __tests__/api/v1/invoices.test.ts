@@ -21,9 +21,23 @@ jest.mock("@/lib/nav/auto-submit", () => ({
   toNavAutoSubmitResult: jest.fn((outcome: { kind: string }) => ({ outcome: outcome.kind, submission: null })),
 }));
 
-jest.mock("@/lib/invoices/service", () => ({
-  listInvoices: jest.fn(),
-}));
+jest.mock("@/lib/invoices/service", () => {
+  // Mirrors the real class's shape so `e instanceof CompanyProfileIncompleteError`
+  // in the route works against an error built with the SAME (mocked)
+  // export from a test in this file.
+  class CompanyProfileIncompleteError extends Error {
+    missingFields: string[];
+    constructor(missingFields: string[]) {
+      super("Company profile is incomplete.");
+      this.name = "CompanyProfileIncompleteError";
+      this.missingFields = missingFields;
+    }
+  }
+  return {
+    listInvoices: jest.fn(),
+    CompanyProfileIncompleteError,
+  };
+});
 
 jest.mock("@/lib/api/idempotency", () => ({
   withIdempotency: jest.fn(async (_request, _userId, _body, handler) => {
@@ -35,8 +49,9 @@ jest.mock("@/lib/api/idempotency", () => ({
 import { GET, POST } from "@/app/api/v1/invoices+api";
 import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { createInvoiceFromPayload } from "@/lib/invoices/create-from-payload";
+import { BuyerAddressMissingError } from "@/lib/invoices/errors";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
-import { listInvoices } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, listInvoices } from "@/lib/invoices/service";
 import { withIdempotency } from "@/lib/api/idempotency";
 import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
@@ -195,6 +210,29 @@ describe("POST /api/v1/invoices", () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
+  it("returns 422 with code companyProfileIncomplete instead of a generic 400 (create-with-finalize)", async () => {
+    mockCreate.mockRejectedValue(
+      new CompanyProfileIncompleteError(["taxNumber", "zipCode", "city", "address"])
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          lineItems: [{ description: "x", quantity: 1, unitPrice: 100 }],
+          status: "sent",
+          sendEmail: false,
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("companyProfileIncomplete");
+    expect(body.missingFields).toEqual(["taxNumber", "zipCode", "city", "address"]);
+  });
+
   it("routes the request through withIdempotency using the parsed body", async () => {
     await POST(
       new Request("http://localhost/api/v1/invoices", {
@@ -212,5 +250,25 @@ describe("POST /api/v1/invoices", () => {
     const [, userId, requestBody] = mockWithIdempotency.mock.calls[0];
     expect(userId).toBe("user-1");
     expect(requestBody).toMatchObject({ clientName: "Acme Kft." });
+  });
+
+  it("returns 422 with code buyerAddressMissing when the buyer address is incomplete for a finalized create", async () => {
+    mockCreate.mockRejectedValue(new BuyerAddressMissingError());
+
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          lineItems: [{ description: "x", quantity: 1, unitPrice: 100 }],
+          status: "sent",
+          sendEmail: false,
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
   });
 });

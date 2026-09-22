@@ -11,6 +11,8 @@ export type InvoiceClientFormFields = {
   clientZip: string;
   clientCity: string;
   clientAddress: string;
+  /** EU VAT number snapshot — carried through when a saved client is picked, no dedicated composer input yet. */
+  clientEuVatNumber: string;
 };
 
 export function emptyClientFormFields(
@@ -25,6 +27,7 @@ export function emptyClientFormFields(
     clientZip: "",
     clientCity: "",
     clientAddress: "",
+    clientEuVatNumber: "",
     ...defaults,
   };
 }
@@ -39,6 +42,7 @@ export function applyClientToFormFields(client: Client): InvoiceClientFormFields
     clientZip: client.zipCode ?? "",
     clientCity: client.city ?? "",
     clientAddress: client.address ?? "",
+    clientEuVatNumber: client.euVatNumber ?? "",
   };
 }
 

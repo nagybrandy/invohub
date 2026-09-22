@@ -10,10 +10,21 @@ import {
 } from "@/lib/api/api-key-auth";
 import { withIdempotency } from "@/lib/api/idempotency";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
-import { finalizeInvoice } from "@/lib/invoices/service";
+import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { finalizeInvoice, upsertInvoice } from "@/lib/invoices/service";
+import type { Invoice } from "@/lib/invoices/types";
 import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 type Params = { id: string };
+
+/** True when the stored value isn't a usable positive, finite rate. */
+function needsExchangeRate(currency: Invoice["currency"], rate: number | undefined): boolean {
+  return (
+    requiresExchangeRate(currency) &&
+    !(typeof rate === "number" && Number.isFinite(rate) && rate > 0)
+  );
+}
 
 export async function POST(
   request: Request,
@@ -30,14 +41,51 @@ export async function POST(
       if (result.reason === "not_found") {
         return { status: 404, body: { error: "Invoice not found." } };
       }
+      if (result.reason === "buyer_address_missing") {
+        return {
+          status: 422,
+          body: {
+            error:
+              "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+            code: "buyerAddressMissing",
+          },
+        };
+      }
+      if (result.reason === "company_profile_incomplete") {
+        return {
+          status: 422,
+          body: {
+            error: "Company profile is incomplete.",
+            code: "companyProfileIncomplete",
+            missingFields: result.missingFields,
+          },
+        };
+      }
       return {
         status: 409,
         body: { error: "Only a draft invoice can be finalized.", code: "notDraft" },
       };
     }
+
+    let invoice = result.invoice;
+    // Server safety net (item 6): a draft that reached finalize with no
+    // rate (e.g. created before this feature, or MNB was down at create
+    // time) still gets one now instead of shipping finalized-but-empty.
+    if (needsExchangeRate(invoice.currency, invoice.exchangeRate)) {
+      const exchangeRate = await autofillMissingExchangeRate({
+        currency: invoice.currency,
+        exchangeRate: invoice.exchangeRate,
+        issueDate: invoice.issueDate,
+      });
+      if (exchangeRate !== undefined) {
+        invoice = await upsertInvoice(auth.userId, { ...invoice, exchangeRate });
+      }
+    }
+
     // finalizeInvoice only ever finalizes a draft, so this is always a
-    // finalization: report it to NAV when configured (never throws).
-    const nav = await autoSubmitToNavOnFinalize(auth.userId, null, result.invoice);
-    return { status: 200, body: { invoice: result.invoice, nav } };
+    // finalization: report it to NAV when configured (never throws). Runs
+    // after the rate safety net so the XML carries the filled-in rate.
+    const nav = await autoSubmitToNavOnFinalize(auth.userId, null, invoice);
+    return { status: 200, body: { invoice, nav } };
   });
 }

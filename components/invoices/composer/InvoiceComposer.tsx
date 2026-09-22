@@ -6,8 +6,13 @@
 // line-item-horizontal-scroll-1440 — see the ADR under docs/decisions/).
 // Mobile: one step at a time, a 48px sticky total bar, and a single-row
 // footer (spec §2.2, INV-19/M1).
+// Live preview (owner feedback 2026-09-22): ≥1024px the real PDF of the
+// unsaved draft sits beside the form on every step (ComposerSideLayout,
+// composerPreviewLayout); narrower screens — or a user who hid the panel —
+// get an "Előnézet" button that opens the same PDF in a drawer.
 import * as React from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions } from "react-native";
+import { router } from "expo-router";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
@@ -19,6 +24,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ComposerPreviewButton } from "@/components/invoices/composer/ComposerPreviewButton";
+import { ComposerSideLayout } from "@/components/invoices/composer/ComposerSideLayout";
 import { ComposerStepper } from "@/components/invoices/composer/ComposerStepper";
 import { ComposerSummary } from "@/components/invoices/composer/ComposerSummary";
 import { StepPartner } from "@/components/invoices/composer/StepPartner";
@@ -27,6 +33,7 @@ import { StepReview } from "@/components/invoices/composer/StepReview";
 import {
   COMPOSER_STEP_ORDER,
   composerDesktopLayout,
+  composerPreviewLayout,
   type ComposerStepId,
 } from "@/components/invoices/composer/composer-logic";
 import {
@@ -34,9 +41,12 @@ import {
   type UseInvoiceComposerOptions,
 } from "@/components/invoices/composer/useInvoiceComposer";
 import { DocumentTypeTabs } from "@/components/invoices/DocumentTypeTabs";
-import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
+import { InvoicePdfPreview } from "@/components/invoices/InvoicePdfPreview";
+import { apiFetch, ApiError } from "@/lib/api/client";
+import type { Invoice } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useIsDesktop } from "@/lib/useIsDesktop";
+import { confirmAsync } from "@/lib/ui/confirm";
 
 const STEP_LABEL_KEYS: Record<ComposerStepId, string> = {
   partner: "invoices.composer.steps.partner",
@@ -47,6 +57,9 @@ const STEP_LABEL_KEYS: Record<ComposerStepId, string> = {
 export function InvoiceComposer(props: UseInvoiceComposerOptions) {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
+  const viewport = useWindowDimensions();
+  const [previewHidden, setPreviewHidden] = React.useState(false);
+  const previewLayout = composerPreviewLayout(viewport, previewHidden);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const { invoice = null } = props;
   const composer = useInvoiceComposer(props);
@@ -58,7 +71,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
     setDocumentType,
     documentTabsDisabled,
     draftInvoice,
-    company,
+    companyProfileIncomplete,
     totals,
     currency,
     lineItems,
@@ -115,6 +128,78 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
 
   const readOnly = mode === "edit" && invoice != null && invoice.status !== "draft";
 
+  // Only a NEW document's finalize buttons can hit the server-side
+  // CompanyProfileIncompleteError — editing an existing (draft-only, see
+  // `readOnly` above) invoice always saves back as "draft"
+  // (composer-logic.ts's resolveStatusForAction("draft", …)), so it never
+  // triggers number assignment and never needs this gate.
+  const finalizeBlockedByProfile = mode === "create" && companyProfileIncomplete;
+
+  // A finalized invoice never gets its form back — the ONLY way to change
+  // it is sztornó (full reversal) or helyesbítő (correction draft), the
+  // same two actions the detail screen's DangerZone/overflow menu offer
+  // (app/(app)/invoices/[id]/index.tsx's handleStorno/handleCorrection).
+  const [readOnlyActionBusy, setReadOnlyActionBusy] = React.useState<"storno" | "correction" | null>(
+    null
+  );
+  const [readOnlyActionError, setReadOnlyActionError] = React.useState<string | null>(null);
+  const isReadOnlyProforma = readOnly && invoice?.documentType === "proforma";
+
+  async function handleReadOnlyStorno() {
+    if (!invoice) return;
+    const confirmed = await confirmAsync({
+      title: t("invoices.detail.stornoTitle"),
+      message: t("invoices.detail.stornoMessage"),
+      confirmLabel: t("invoices.detail.stornoConfirm"),
+      cancelLabel: t("common.cancel"),
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    setReadOnlyActionError(null);
+    setReadOnlyActionBusy("storno");
+    try {
+      const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/storno`, {
+        method: "POST",
+      });
+      router.replace(routes.invoiceDetail(data.invoice.id));
+    } catch (e) {
+      setReadOnlyActionError(
+        e instanceof ApiError && e.code === "proformaNotStornoable"
+          ? t("invoices.errors.proformaNotStornoable")
+          : e instanceof Error
+            ? e.message
+            : t("invoices.detail.actionFailed")
+      );
+    } finally {
+      setReadOnlyActionBusy(null);
+    }
+  }
+
+  async function handleReadOnlyCorrection() {
+    if (!invoice) return;
+    const confirmed = await confirmAsync({
+      title: t("invoices.correction.confirmTitle"),
+      message: t("invoices.correction.confirmMessage"),
+      confirmLabel: t("invoices.correction.confirm"),
+      cancelLabel: t("common.cancel"),
+    });
+    if (!confirmed) return;
+
+    setReadOnlyActionError(null);
+    setReadOnlyActionBusy("correction");
+    try {
+      const data = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${invoice.id}/modify`, {
+        method: "POST",
+      });
+      router.push(routes.invoiceEdit(data.invoice.id));
+    } catch (e) {
+      setReadOnlyActionError(e instanceof Error ? e.message : t("invoices.detail.actionFailed"));
+    } finally {
+      setReadOnlyActionBusy(null);
+    }
+  }
+
   const stepIndex = COMPOSER_STEP_ORDER.indexOf(step);
   const mobileStepLabel = `${stepIndex + 1}/${COMPOSER_STEP_ORDER.length} · ${t(STEP_LABEL_KEYS[step])}`;
   const desktopLayout = composerDesktopLayout(step);
@@ -167,6 +252,209 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
     </Box>
   ) : null;
 
+  const mainContent = (
+    <>
+      <Breadcrumb items={breadcrumbItems} />
+
+      {/* Every nested NativeWind View gets an explicit z-0 (not "auto"),
+          so each is its own stacking context — the finalize dropdown's
+          z-20 only wins WITHIN this header row unless the row itself
+          also outranks its sibling (DocumentTypeTabs, later in the DOM)
+          at the parent level. relative z-30 here does that. */}
+      <Box className="relative z-30 gap-3 md:flex-row md:items-start md:justify-between">
+        <VStack space="xs">
+          <Heading size="2xl" className="text-foreground">
+            {title}
+          </Heading>
+          {dirtyIndicator}
+        </VStack>
+
+        {isDesktop ? (
+          <HStack space="sm" className="items-center">
+            {previewLayout.sideAvailable && !previewLayout.side ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => setPreviewHidden(false)}
+                testID="composer-show-preview"
+              >
+                <ButtonText>{t("invoices.preview.show")}</ButtonText>
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={() => void handleSave("draft")}
+              disabled={saving}
+              testID="composer-save-draft"
+            >
+              <ButtonText>{t("invoices.actions.saveDraft")}</ButtonText>
+            </Button>
+            {mode === "edit" ? (
+              <Button
+                size="sm"
+                onPress={() => void handleSave("draft")}
+                disabled={saving}
+                testID="composer-save-changes"
+              >
+                <ButtonText>{t("invoices.edit.saveChanges")}</ButtonText>
+              </Button>
+            ) : (
+              <Box className="relative">
+                <Button
+                  size="sm"
+                  onPress={() => setFinalizeMenuOpen((v) => !v)}
+                  disabled={saving || finalizeBlockedByProfile}
+                  testID="composer-finalize-menu-trigger"
+                >
+                  <ButtonText>{t("invoices.actions.finalize")}</ButtonText>
+                  {finalizeMenuOpen ? <ChevronUp size={14} color="white" /> : <ChevronDown size={14} color="white" />}
+                </Button>
+                {finalizeMenuOpen && !finalizeBlockedByProfile ? (
+                  <VStack className="absolute right-0 top-10 z-20 w-56 rounded-lg border border-border bg-card shadow-sm">
+                    <Pressable
+                      onPress={() => void handleSave("finalize")}
+                      className="border-b border-subtle px-3 py-2.5"
+                      testID="composer-action-finalize"
+                    >
+                      <Text size="sm" className="text-foreground">
+                        {t("invoices.actions.finalize")}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void handleSave("finalizeAndSend")}
+                      className="px-3 py-2.5"
+                      testID="composer-action-finalize-send"
+                    >
+                      <Text size="sm" className="text-foreground">
+                        {t("invoices.actions.finalizeAndSend")}
+                      </Text>
+                    </Pressable>
+                  </VStack>
+                ) : null}
+              </Box>
+            )}
+          </HStack>
+        ) : null}
+      </Box>
+
+      <DocumentTypeTabs
+        selected={documentType}
+        onChange={setDocumentType}
+        disabled={documentTabsDisabled}
+      />
+
+      <ComposerStepper current={step} invalidSteps={invalidSteps} onSelect={setStep} t={t} />
+      {!isDesktop ? (
+        <HStack space="sm" className="items-center justify-between">
+          <Text size="xs" className="text-muted-foreground" testID="composer-mobile-step-label">
+            {mobileStepLabel}
+          </Text>
+          <ComposerPreviewButton invoice={draftInvoice} t={t} testID="composer-mobile-open-preview" />
+        </HStack>
+      ) : null}
+
+      {finalizeBlockedByProfile ? (
+        <Box
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5"
+          testID="composer-company-profile-incomplete-notice"
+        >
+          <VStack space="xs">
+            <Text size="sm" className="text-destructive">
+              {t("invoices.composer.companyProfileIncomplete")}
+            </Text>
+            <Pressable
+              onPress={() => router.push(routes.settingsCompany)}
+              testID="composer-company-profile-incomplete-link"
+            >
+              <Text size="sm" className="font-medium text-primary">
+                {t("invoices.composer.companyProfileIncompleteLink")}
+              </Text>
+            </Pressable>
+          </VStack>
+        </Box>
+      ) : null}
+
+      {stepErrorMessage ? (
+        <Box className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+          <Text size="sm" className="text-destructive">
+            {stepErrorMessage}
+          </Text>
+        </Box>
+      ) : null}
+      {saveError ? (
+        <Box className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+          <Text size="sm" className="text-destructive">
+            {saveError}
+          </Text>
+        </Box>
+      ) : null}
+
+      <Box className={isDesktop ? "flex-row items-start gap-8" : "gap-4"}>
+        {/* The line-item grid is a table, not a stack of fields — it
+            legitimately needs more than 720px of row width (spec §2.4);
+            the 720px cap (spec §2.2, INV-3/E3) applies to individual
+            form fields on the Partner and Review steps. On the items
+            step composerDesktopLayout() drops both the cap and the
+            summary column so the grid fits without inner scrolling at
+            1440px (composer-line-item-horizontal-scroll-1440, ADR). */}
+        <Box
+          className="min-w-0 flex-1"
+          style={isDesktop && desktopLayout.formMaxWidth ? { maxWidth: desktopLayout.formMaxWidth } : undefined}
+        >
+          {step === "partner" ? <StepPartner {...composer} /> : null}
+          {step === "items" ? (
+            <StepLineItems
+              lineItems={composer.lineItems}
+              currency={composer.currency}
+              products={composer.products}
+              onUpdate={composer.updateLineItem}
+              onAdd={composer.addLineItem}
+              onAddFromProduct={composer.addLineItemFromProduct}
+              onRemove={composer.removeLineItem}
+              previewSlot={
+                previewLayout.side ? undefined : <ComposerPreviewButton invoice={draftInvoice} t={t} />
+              }
+              t={t}
+            />
+          ) : null}
+          {step === "review" ? <StepReview {...composer} /> : null}
+
+          {isDesktop ? (
+            <HStack space="sm" className="mt-6 justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => setStep(COMPOSER_STEP_ORDER[Math.max(0, stepIndex - 1)])}
+                disabled={stepIndex === 0}
+              >
+                <ButtonText>{t("invoices.composer.back")}</ButtonText>
+              </Button>
+              {stepIndex < COMPOSER_STEP_ORDER.length - 1 ? (
+                <Button
+                  size="sm"
+                  onPress={() => setStep(COMPOSER_STEP_ORDER[stepIndex + 1])}
+                >
+                  <ButtonText>{t("invoices.composer.next")}</ButtonText>
+                </Button>
+              ) : null}
+            </HStack>
+          ) : null}
+        </Box>
+
+        {isDesktop && desktopLayout.showSummaryColumn && !previewLayout.side ? (
+          <ComposerSummary
+            invoice={draftInvoice}
+            totals={totals}
+            currency={currency}
+            lineItems={lineItems}
+            t={t}
+          />
+        ) : null}
+      </Box>
+    </>
+  );
+
   if (readOnly && invoice) {
     return (
       <Box className="flex-1 bg-background">
@@ -180,18 +468,62 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             {title}
           </Heading>
           <Box className="rounded-lg border border-primary/30 bg-accent p-4">
-            <VStack space="xs">
-              <Text className="font-semibold text-foreground">
-                {t("invoices.edit.readOnlyTitle")}
-              </Text>
-              <Text size="sm" className="text-muted-foreground">
-                {t("invoices.edit.readOnlyHint")}
-              </Text>
+            <VStack space="sm">
+              <VStack space="xs">
+                <Text className="font-semibold text-foreground">
+                  {t("invoices.edit.readOnlyTitle")}
+                </Text>
+                <Text size="sm" className="text-muted-foreground">
+                  {t("invoices.edit.readOnlyHint")}
+                </Text>
+              </VStack>
+
+              {readOnlyActionError ? (
+                <Text size="sm" className="text-destructive">
+                  {readOnlyActionError}
+                </Text>
+              ) : null}
+
+              <HStack space="sm" className="flex-wrap">
+                {!isReadOnlyProforma ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="border-destructive/40"
+                      disabled={readOnlyActionBusy === "storno"}
+                      onPress={() => void handleReadOnlyStorno()}
+                      testID="composer-readonly-storno"
+                    >
+                      <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={readOnlyActionBusy === "correction"}
+                      onPress={() => void handleReadOnlyCorrection()}
+                      testID="composer-readonly-correction"
+                    >
+                      <ButtonText>{t("invoices.correction.action")}</ButtonText>
+                    </Button>
+                  </>
+                ) : null}
+                <Button
+                  variant="outline"
+                  onPress={() => router.push(routes.invoiceDetail(invoice.id))}
+                  testID="composer-readonly-back"
+                >
+                  <ButtonText>{t("invoices.edit.backToInvoice")}</ButtonText>
+                </Button>
+              </HStack>
             </VStack>
           </Box>
           <DocumentTypeTabs selected="invoice" onChange={() => {}} disabled />
           <StepReview {...composer} readOnly />
-          <InvoiceDocumentPreview invoice={invoice} invoiceId={invoice.id} />
+          <InvoicePdfPreview
+            source={{ kind: "saved", invoiceId: invoice.id, version: invoice.updatedAt }}
+            filename={`${invoice.invoiceNumber || "invoice"}.pdf`}
+            openLabel={t("invoices.list.pdfAction")}
+            height={isDesktop ? 900 : 560}
+          />
         </ScrollView>
       </Box>
     );
@@ -207,183 +539,27 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
         <ScrollView
           className="flex-1"
           contentContainerClassName={
-            isDesktop
-              ? "mx-auto w-full max-w-[1200px] gap-5 p-4 pb-10 md:gap-6 md:px-10 md:py-6"
-              : "gap-4 p-4 pb-32"
+            previewLayout.side
+              ? "mx-auto w-full max-w-[1760px] gap-5 p-4 pb-10 md:gap-6 md:px-10 md:py-6"
+              : isDesktop
+                ? "mx-auto w-full max-w-[1200px] gap-5 p-4 pb-10 md:gap-6 md:px-10 md:py-6"
+                : "gap-4 p-4 pb-32"
           }
           keyboardShouldPersistTaps="handled"
         >
-          <Breadcrumb items={breadcrumbItems} />
-
-          {/* Every nested NativeWind View gets an explicit z-0 (not "auto"),
-              so each is its own stacking context — the finalize dropdown's
-              z-20 only wins WITHIN this header row unless the row itself
-              also outranks its sibling (DocumentTypeTabs, later in the DOM)
-              at the parent level. relative z-30 here does that. */}
-          <Box className="relative z-30 gap-3 md:flex-row md:items-start md:justify-between">
-            <VStack space="xs">
-              <Heading size="2xl" className="text-foreground">
-                {title}
-              </Heading>
-              {dirtyIndicator}
-            </VStack>
-
-            {isDesktop ? (
-              <HStack space="sm" className="items-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={() => void handleSave("draft")}
-                  disabled={saving}
-                  testID="composer-save-draft"
-                >
-                  <ButtonText>{t("invoices.actions.saveDraft")}</ButtonText>
-                </Button>
-                {mode === "edit" ? (
-                  <Button
-                    size="sm"
-                    onPress={() => void handleSave("draft")}
-                    disabled={saving}
-                    testID="composer-save-changes"
-                  >
-                    <ButtonText>{t("invoices.edit.saveChanges")}</ButtonText>
-                  </Button>
-                ) : (
-                  <Box className="relative">
-                    <Button
-                      size="sm"
-                      onPress={() => setFinalizeMenuOpen((v) => !v)}
-                      disabled={saving}
-                      testID="composer-finalize-menu-trigger"
-                    >
-                      <ButtonText>{t("invoices.actions.finalize")}</ButtonText>
-                      {finalizeMenuOpen ? <ChevronUp size={14} color="white" /> : <ChevronDown size={14} color="white" />}
-                    </Button>
-                    {finalizeMenuOpen ? (
-                      <VStack className="absolute right-0 top-10 z-20 w-56 rounded-lg border border-border bg-card shadow-sm">
-                        <Pressable
-                          onPress={() => void handleSave("finalize")}
-                          className="border-b border-subtle px-3 py-2.5"
-                          testID="composer-action-finalize"
-                        >
-                          <Text size="sm" className="text-foreground">
-                            {t("invoices.actions.finalize")}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => void handleSave("finalizeAndSend")}
-                          className="px-3 py-2.5"
-                          testID="composer-action-finalize-send"
-                        >
-                          <Text size="sm" className="text-foreground">
-                            {t("invoices.actions.finalizeAndSend")}
-                          </Text>
-                        </Pressable>
-                      </VStack>
-                    ) : null}
-                  </Box>
-                )}
-              </HStack>
-            ) : null}
-          </Box>
-
-          <DocumentTypeTabs
-            selected={documentType}
-            onChange={setDocumentType}
-            disabled={documentTabsDisabled}
-          />
-
-          <ComposerStepper current={step} invalidSteps={invalidSteps} onSelect={setStep} t={t} />
-          {!isDesktop ? (
-            <Text size="xs" className="text-muted-foreground" testID="composer-mobile-step-label">
-              {mobileStepLabel}
-            </Text>
-          ) : null}
-
-          {stepErrorMessage ? (
-            <Box className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
-              <Text size="sm" className="text-destructive">
-                {stepErrorMessage}
-              </Text>
-            </Box>
-          ) : null}
-          {saveError ? (
-            <Box className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
-              <Text size="sm" className="text-destructive">
-                {saveError}
-              </Text>
-            </Box>
-          ) : null}
-
-          <Box className={isDesktop ? "flex-row items-start gap-8" : "gap-4"}>
-            {/* The line-item grid is a table, not a stack of fields — it
-                legitimately needs more than 720px of row width (spec §2.4);
-                the 720px cap (spec §2.2, INV-3/E3) applies to individual
-                form fields on the Partner and Review steps. On the items
-                step composerDesktopLayout() drops both the cap and the
-                summary column so the grid fits without inner scrolling at
-                1440px (composer-line-item-horizontal-scroll-1440, ADR). */}
-            <Box
-              className="min-w-0 flex-1"
-              style={isDesktop && desktopLayout.formMaxWidth ? { maxWidth: desktopLayout.formMaxWidth } : undefined}
+          {previewLayout.side ? (
+            <ComposerSideLayout
+              invoice={draftInvoice}
+              previewWidth={previewLayout.previewWidth}
+              previewHeight={previewLayout.previewHeight}
+              onHidePreview={() => setPreviewHidden(true)}
+              t={t}
             >
-              {step === "partner" ? <StepPartner {...composer} /> : null}
-              {step === "items" ? (
-                <StepLineItems
-                  lineItems={composer.lineItems}
-                  currency={composer.currency}
-                  products={composer.products}
-                  onUpdate={composer.updateLineItem}
-                  onAdd={composer.addLineItem}
-                  onAddFromProduct={composer.addLineItemFromProduct}
-                  onRemove={composer.removeLineItem}
-                  previewSlot={
-                    <ComposerPreviewButton
-                      invoice={draftInvoice}
-                      invoiceId={mode === "edit" ? invoice?.id : undefined}
-                      company={company ?? undefined}
-                      t={t}
-                    />
-                  }
-                  t={t}
-                />
-              ) : null}
-              {step === "review" ? <StepReview {...composer} /> : null}
-
-              {isDesktop ? (
-                <HStack space="sm" className="mt-6 justify-between">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onPress={() => setStep(COMPOSER_STEP_ORDER[Math.max(0, stepIndex - 1)])}
-                    disabled={stepIndex === 0}
-                  >
-                    <ButtonText>{t("invoices.composer.back")}</ButtonText>
-                  </Button>
-                  {stepIndex < COMPOSER_STEP_ORDER.length - 1 ? (
-                    <Button
-                      size="sm"
-                      onPress={() => setStep(COMPOSER_STEP_ORDER[stepIndex + 1])}
-                    >
-                      <ButtonText>{t("invoices.composer.next")}</ButtonText>
-                    </Button>
-                  ) : null}
-                </HStack>
-              ) : null}
-            </Box>
-
-            {isDesktop && desktopLayout.showSummaryColumn ? (
-              <ComposerSummary
-                invoice={draftInvoice}
-                invoiceId={mode === "edit" ? invoice?.id : undefined}
-                company={company ?? undefined}
-                totals={totals}
-                currency={currency}
-                lineItems={lineItems}
-                t={t}
-              />
-            ) : null}
-          </Box>
+              {mainContent}
+            </ComposerSideLayout>
+          ) : (
+            mainContent
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -441,7 +617,11 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             <Button
               size="sm"
               className="flex-1"
-              disabled={saving}
+              disabled={
+                saving ||
+                (stepIndex === COMPOSER_STEP_ORDER.length - 1 && finalizeBlockedByProfile)
+              }
+              testID="composer-mobile-primary-action"
               onPress={() =>
                 stepIndex < COMPOSER_STEP_ORDER.length - 1
                   ? setStep(COMPOSER_STEP_ORDER[stepIndex + 1])

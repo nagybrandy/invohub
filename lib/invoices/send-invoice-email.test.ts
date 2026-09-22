@@ -3,10 +3,21 @@ jest.mock("@/lib/invoices/generate-pdf", () => ({
   invoicePdfFilename: jest.fn((invoiceNumber: string) => `${invoiceNumber}.pdf`),
 }));
 
-jest.mock("@/lib/invoices/service", () => ({
-  getInvoiceById: jest.fn(),
-  upsertInvoice: jest.fn(),
-}));
+jest.mock("@/lib/invoices/service", () => {
+  class CompanyProfileIncompleteError extends Error {
+    missingFields: string[];
+    constructor(missingFields: string[]) {
+      super("Company profile is incomplete.");
+      this.name = "CompanyProfileIncompleteError";
+      this.missingFields = missingFields;
+    }
+  }
+  return {
+    getInvoiceById: jest.fn(),
+    upsertInvoice: jest.fn(),
+    CompanyProfileIncompleteError,
+  };
+});
 
 jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn(),
@@ -35,7 +46,7 @@ import { sendEmail } from "@/lib/email/send";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
-import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockGetInvoice = getInvoiceById as jest.MockedFunction<typeof getInvoiceById>;
@@ -55,11 +66,13 @@ describe("sendInvoiceNotificationEmail", () => {
   });
 
   it("auto-submits to NAV when sending finalizes a draft (before -> after)", async () => {
-    const draft = makeInvoice({ status: "draft", invoiceNumber: "" });
+    const draft = makeInvoice({ status: "draft", invoiceNumber: "", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
     const finalized = makeInvoice({ status: "sent", invoiceNumber: "INV-2026-007" });
     mockGetInvoice.mockResolvedValue(draft);
     mockUpsert.mockResolvedValue(finalized);
-    mockResolveRecipients.mockResolvedValue([]);
+    // A recipient + complete buyer address are both checked before the
+    // draft is finalized (never burn a number on a send that can't happen).
+    mockResolveRecipients.mockResolvedValue(["buyer@example.com"]);
 
     await sendInvoiceNotificationEmail("user-1", draft.id);
 
@@ -75,6 +88,20 @@ describe("sendInvoiceNotificationEmail", () => {
     expect(mockAutoSubmit).not.toHaveBeenCalled();
   });
 
+  it("returns a companyProfileIncomplete failure instead of throwing when finalizing a draft fails", async () => {
+    const invoice = makeInvoice({ status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["buyer@example.com"]);
+    mockUpsert.mockRejectedValue(new CompanyProfileIncompleteError(["taxNumber", "address"]));
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("companyProfileIncomplete");
+    expect(result.missingFields).toEqual(["taxNumber", "address"]);
+    expect(mockBuildPdf).not.toHaveBeenCalled();
+  });
+
   it("returns error when recipient cannot be resolved", async () => {
     const invoice = makeInvoice();
     mockGetInvoice.mockResolvedValue(invoice);
@@ -87,7 +114,7 @@ describe("sendInvoiceNotificationEmail", () => {
   });
 
   it("sends email with pdf attachment", async () => {
-    const invoice = makeInvoice({ status: "draft" });
+    const invoice = makeInvoice({ status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
     mockGetInvoice.mockResolvedValue(invoice);
     mockResolveRecipients.mockResolvedValue(["bendeguznagy55@gmail.com"]);
     mockGetTemplate.mockResolvedValue({
@@ -128,7 +155,7 @@ describe("sendInvoiceNotificationEmail", () => {
   });
 
   it("finalizes (assigns a number) a draft BEFORE building the PDF, not after sending", async () => {
-    const draft = makeInvoice({ status: "draft", invoiceNumber: "" });
+    const draft = makeInvoice({ status: "draft", invoiceNumber: "", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
     const finalized = { ...draft, status: "sent" as const, invoiceNumber: "INV-2026-042" };
 
     mockGetInvoice.mockResolvedValue(draft);
@@ -169,7 +196,7 @@ describe("sendInvoiceNotificationEmail", () => {
   });
 
   it("skips the finalize step when markSent is false", async () => {
-    const draft = makeInvoice({ status: "draft", invoiceNumber: "" });
+    const draft = makeInvoice({ status: "draft", invoiceNumber: "", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
     mockGetInvoice.mockResolvedValue(draft);
     mockResolveRecipients.mockResolvedValue(["client@example.com"]);
     mockGetTemplate.mockResolvedValue({
@@ -226,5 +253,37 @@ describe("sendInvoiceNotificationEmail", () => {
         cc: ["cc@x.com"],
       })
     );
+  });
+
+  it("never assigns a number when there is no recipient (a failed send must not burn a sorszám)", async () => {
+    const invoice = makeInvoice({ status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1." });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue([]);
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result).toMatchObject({ ok: false, code: "noRecipient" });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to finalize a draft without a buyer address (Áfa tv. 169. § e)", async () => {
+    const invoice = makeInvoice({ status: "draft", clientZipCode: undefined, clientCity: undefined, clientAddress: undefined });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["buyer@example.com"]);
+
+    const result = await sendInvoiceNotificationEmail("user-1", invoice.id);
+
+    expect(result).toMatchObject({ ok: false, code: "buyerAddressMissing" });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("does not require a buyer address to e-mail a proforma (díjbekérő)", async () => {
+    const invoice = makeInvoice({ status: "draft", documentType: "proforma", clientZipCode: undefined, clientCity: undefined, clientAddress: undefined });
+    mockGetInvoice.mockResolvedValue(invoice);
+    mockResolveRecipients.mockResolvedValue(["buyer@example.com"]);
+    mockUpsert.mockRejectedValue(new Error("stop here"));
+
+    await expect(sendInvoiceNotificationEmail("user-1", invoice.id)).rejects.toThrow("stop here");
+    expect(mockUpsert).toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 {
-  "id": "d4fe7917-58c9-4fe5-8ec8-13c739efef04",
-  "prevId": "dd4835f6-39af-4945-ae4a-cf8e5cc720cb",
+  "id": "d7a16509-d23e-4283-92e4-2ce3d2e3ceba",
+  "prevId": "ac56eecb-a6a1-4249-9ca8-aabd0c6f33e8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -294,12 +294,6 @@
         },
         "country": {
           "name": "country",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "party_type": {
-          "name": "party_type",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -728,6 +722,79 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.exchange_rate": {
+      "name": "exchange_rate",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate_date": {
+          "name": "rate_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate": {
+          "name": "rate",
+          "type": "numeric(14, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'MNB'"
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "exchange_rate_currency_date_unique_idx": {
+          "name": "exchange_rate_currency_date_unique_idx",
+          "columns": [
+            {
+              "expression": "currency",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "rate_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.idempotency_key": {
       "name": "idempotency_key",
       "schema": "",
@@ -1036,6 +1103,36 @@
           "primaryKey": false,
           "notNull": false
         },
+        "client_zip_code": {
+          "name": "client_zip_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_city": {
+          "name": "client_city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_address": {
+          "name": "client_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_country": {
+          "name": "client_country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_eu_vat_number": {
+          "name": "client_eu_vat_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "issue_date": {
           "name": "issue_date",
           "type": "text",
@@ -1047,12 +1144,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "fulfillment_date": {
-          "name": "fulfillment_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "status": {
           "name": "status",
@@ -1400,6 +1491,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'0'"
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "vat_rate": {
           "name": "vat_rate",

@@ -22,7 +22,7 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
+import { InvoicePdfPreview } from "@/components/invoices/InvoicePdfPreview";
 import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
 import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/InvoiceTimeline";
 import { NavStatusCard } from "@/components/invoices/NavStatusCard";
@@ -41,6 +41,7 @@ import { useRouteParam } from "@/lib/routing/route-param";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
 import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 
 type InvoiceLinks = {
   originalInvoice: Invoice | null;
@@ -83,6 +84,7 @@ export default function InvoiceDetailScreen() {
   const navError = useRouteParam("navError");
   const { t } = useTranslation();
   const icons = useIconColors();
+  const isDesktop = useIsDesktop();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [links, setLinks] = React.useState<InvoiceLinks | null>(null);
   const [navSubmission, setNavSubmission] = React.useState<NavSubmissionRow | null>(null);
@@ -364,7 +366,7 @@ export default function InvoiceDetailScreen() {
       disabled: invoice.status === "draft" || invoice.status === "cancelled" || isProforma,
       onPress: () => void handleCorrection(),
     },
-    { label: t("invoices.list.pdfAction"), icon: Download, onPress: () => router.push(routes.invoiceDetail(id!)) },
+    { label: t("invoices.list.pdfAction"), icon: Download, onPress: () => void handleDownloadPdf() },
     {
       label: t("invoices.detail.revolut"),
       icon: Wallet,
@@ -545,7 +547,13 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
-        <InvoiceDocumentPreview invoice={invoice} invoiceId={id} layout="single" />
+        <InvoicePdfPreview
+          source={{ kind: "saved", invoiceId: invoice.id, version: invoice.updatedAt }}
+          filename={`${invoice.invoiceNumber || "invoice"}.pdf`}
+          openLabel={t("invoices.list.pdfAction")}
+          openTestID="invoice-preview-download-pdf"
+          height={isDesktop ? 900 : 560}
+        />
 
         {showMarkPaid ? (
           <Card className="p-4">
@@ -619,28 +627,25 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
+        {/* A finalized (non-draft) invoice is a legal document once it has
+            a real number — Áfa tv. 169. § means it can never be deleted
+            again, only sztornózva. A draft has no number yet, so it stays
+            freely deletable. A finalized proforma (díjbekérő) is neither:
+            storno explicitly refuses proforma documents (see
+            lib/invoices/storno-handler.ts), so there is nothing safe to
+            offer here once it's been sent — no DangerZone at all. */}
         {finalized && !isProforma ? (
           <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
-            <HStack space="sm" className="flex-wrap">
-              <Button
-                variant="outline"
-                className="border-destructive/40"
-                disabled={busy === "storno" || invoice.status === "cancelled"}
-                onPress={() => void handleStorno()}
-              >
-                <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
-              </Button>
-              <Button
-                variant="outline"
-                className="border-destructive/40"
-                disabled={busy === "delete"}
-                onPress={() => void handleDelete()}
-              >
-                <ButtonText className="text-destructive">{t("invoices.detail.deleteAction")}</ButtonText>
-              </Button>
-            </HStack>
+            <Button
+              variant="outline"
+              className="border-destructive/40 self-start"
+              disabled={busy === "storno" || invoice.status === "cancelled"}
+              onPress={() => void handleStorno()}
+            >
+              <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
+            </Button>
           </DangerZone>
-        ) : (
+        ) : !finalized ? (
           <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
             <Button
               variant="outline"
@@ -651,7 +656,7 @@ export default function InvoiceDetailScreen() {
               <ButtonText className="text-destructive">{t("invoices.detail.deleteAction")}</ButtonText>
             </Button>
           </DangerZone>
-        )}
+        ) : null}
       </VStack>
     </ScreenLayout>
   );

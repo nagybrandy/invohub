@@ -47,15 +47,22 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1790074805661,
-      "tag": "0006_invoice-fulfillment-date-persist-nav",
+      "when": 1790075298793,
+      "tag": "0006_exchange-rate-cache",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1790075130353,
-      "tag": "0007_client-party-type",
+      "when": 1790076862970,
+      "tag": "0007_invoice-buyer-address-and-line-item-unit",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790080225620,
+      "tag": "0008_nav-fulfillment-date-and-party-type",
       "breakpoints": true
     }
   ]

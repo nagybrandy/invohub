@@ -68,6 +68,42 @@ describe("mapLineItemFromDb", () => {
     };
     expect(mapLineItemFromDb(row).vatExemptionReason).toBe("Custom reason");
   });
+
+  it("maps a unit column value through", () => {
+    const row = {
+      id: "line-1",
+      invoiceId: "inv-1",
+      description: "Consulting",
+      quantity: "1",
+      unitPrice: "100",
+      vatRate: 27,
+      vatCategory: "normal",
+      vatExemptionReason: null,
+      unit: "óra",
+      sortOrder: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    expect(mapLineItemFromDb(row).unit).toBe("óra");
+  });
+
+  it("maps a null unit column to undefined", () => {
+    const row = {
+      id: "line-1",
+      invoiceId: "inv-1",
+      description: "Consulting",
+      quantity: "1",
+      unitPrice: "100",
+      vatRate: 27,
+      vatCategory: "normal",
+      vatExemptionReason: null,
+      unit: null,
+      sortOrder: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    expect(mapLineItemFromDb(row).unit).toBeUndefined();
+  });
 });
 
 describe("mapInvoiceFromDb", () => {
@@ -97,6 +133,32 @@ describe("mapInvoiceFromDb", () => {
     createdAt: now,
     updatedAt: now,
   };
+
+  it("maps buyer address snapshot fields through (Áfa tv. 169. § e)", () => {
+    const row = {
+      ...baseRow,
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+      clientCountry: "Magyarország",
+      clientEuVatNumber: "HU12345678",
+    };
+    const invoice = mapInvoiceFromDb(row, []);
+    expect(invoice.clientZipCode).toBe("1011");
+    expect(invoice.clientCity).toBe("Budapest");
+    expect(invoice.clientAddress).toBe("Fő utca 1.");
+    expect(invoice.clientCountry).toBe("Magyarország");
+    expect(invoice.clientEuVatNumber).toBe("HU12345678");
+  });
+
+  it("maps missing buyer address snapshot columns to undefined (legacy rows)", () => {
+    const invoice = mapInvoiceFromDb(baseRow, []);
+    expect(invoice.clientZipCode).toBeUndefined();
+    expect(invoice.clientCity).toBeUndefined();
+    expect(invoice.clientAddress).toBeUndefined();
+    expect(invoice.clientCountry).toBeUndefined();
+    expect(invoice.clientEuVatNumber).toBeUndefined();
+  });
 
   it("maps invoice row and sorts line items", () => {
     const items = [
@@ -198,7 +260,14 @@ describe("mapLineItemToDb", () => {
       vatRate: 27,
       vatCategory: "normal",
       vatExemptionReason: null,
+      unit: null,
       sortOrder: 0,
+    });
+  });
+
+  it("passes a set unit through", () => {
+    expect(mapLineItemToDb(makeLineItem({ unit: "óra" }), "inv-1", 0)).toMatchObject({
+      unit: "óra",
     });
   });
 });
@@ -225,6 +294,30 @@ describe("mapInvoiceToDb", () => {
     const inv = makeInvoice({ fulfillmentDate: "2026-09-12" });
     expect(mapInvoiceToDb(inv, "user-1")).toMatchObject({
       fulfillmentDate: "2026-09-12",
+    });
+  });
+
+  it("serializes the buyer address snapshot, and nulls out unset fields", () => {
+    const inv = makeInvoice({
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+      clientCountry: "Magyarország",
+      clientEuVatNumber: "HU12345678",
+    });
+    expect(mapInvoiceToDb(inv, "user-1")).toMatchObject({
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+      clientCountry: "Magyarország",
+      clientEuVatNumber: "HU12345678",
+    });
+    expect(mapInvoiceToDb(makeInvoice(), "user-1")).toMatchObject({
+      clientZipCode: null,
+      clientCity: null,
+      clientAddress: null,
+      clientCountry: null,
+      clientEuVatNumber: null,
     });
   });
 

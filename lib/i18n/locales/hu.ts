@@ -126,14 +126,17 @@ export default {
     empty: "Még nincsenek számlák",
     searchPlaceholder: "Keresés partner, számlaszám vagy adószám alapján",
     preview: {
-      title: "Dokumentum előnézet",
+      title: "Előnézet",
+      frameTitle: "Bizonylat PDF előnézete",
       openPdf: "PDF megnyitása",
-      openPdfInBrowser: "PDF megnyitása böngészőben",
-      htmlWebOnly: "Az előnézet weben érhető el.",
-      pdfWebOnly:
-        "A PDF előnézet weben érhető el. Ha nem töltődik be, nyisd meg böngészőben.",
-      htmlLoadFailed: "Az előnézet betöltése sikertelen.",
-      pdfLoadFailed: "A PDF betöltése sikertelen.",
+      refreshing: "Frissítés…",
+      loadFailed: "Az előnézet nem tölthető be.",
+      refreshFailed: "Az előnézet frissítése sikertelen — a legutóbbi változat látható.",
+      retry: "Újra",
+      nativeHint: "A PDF a készülék PDF-nézőjében nyílik meg.",
+      draftNote: "Piszkozat — a sorszámot véglegesítéskor kapja.",
+      hide: "Előnézet elrejtése",
+      show: "Előnézet mutatása",
     },
     document: {
       documentNumber: "Sorszám",
@@ -286,10 +289,6 @@ export default {
       unpaid: "Fizetetlen",
       overdue: "Lejárt",
     },
-    screenModes: {
-      edit: "Szerkesztés",
-      preview: "Előnézet",
-    },
     documentTypes: {
       invoice: "Számla",
       proforma: "Díjbekérő",
@@ -326,7 +325,10 @@ export default {
       bankAccount: "Bankszámlaszám",
       exchangeRate: "Árfolyam (HUF-ra)",
       exchangeRateHint:
-        "Egyelőre kézi megadás — az automatikus MNB árfolyam-lekérdezés tervben van.",
+        "Az árfolyamot automatikusan lekérjük az MNB hivatalos árfolyamai közül; szükség esetén felülírhatod.",
+      exchangeRateLoading: "Árfolyam lekérdezése…",
+      exchangeRateSourceMnb: "MNB árfolyam, {{date}}",
+      exchangeRateSourceManual: "kézzel megadva",
       productName: "Terméknév",
       netUnitPrice: "Nettó egységár",
       vat: "ÁFA",
@@ -382,8 +384,11 @@ export default {
       navSubmitFailed: "A számla mentve, de a NAV beküldés sikertelen.",
       navSubmitFailedWithReason: "A számla mentve, de a NAV beküldés sikertelen: {{reason}}",
       dueBeforeIssue: "A fizetési határidő nem lehet korábbi, mint a kiállítás dátuma.",
+      buyerAddressRequired:
+        "A véglegesítéshez kötelező megadni a vevő irányítószámát, városát és címét.",
       exchangeRateRequired: "Nem forint pénznemű számlához kötelező megadni az árfolyamot.",
       exchangeRateInvalid: "Az árfolyam csak nullánál nagyobb szám lehet.",
+      exchangeRateFetchFailed: "Nem sikerült lekérni az MNB árfolyamot — add meg kézzel.",
       navExchangeRateMissing: "A NAV beküldés nem indítható el: hiányzik a számla HUF árfolyama.",
       proformaNotStornoable:
         "A díjbekérő nem adóügyi bizonylat — nem sztornózható és nem helyesbíthető. Töröld, vagy készíts belőle számlát.",
@@ -424,7 +429,7 @@ export default {
       addFromCatalog: "+ Termék a katalógusból",
       noProducts: "Nincs mentett termék",
       summaryTitle: "Összesítő",
-      openFullPreview: "Teljes előnézet",
+      openFullPreview: "Előnézet",
       fullPreviewTitle: "Bizonylat előnézete",
       breadcrumbNew: "Új számla",
       breadcrumbDraft: "Piszkozat",
@@ -435,6 +440,9 @@ export default {
       next: "Tovább",
       moreActions: "Továbbiak",
       stepErrorBanner: "Ez a lépés hibát tartalmaz — javítsd a jelölt mezőt.",
+      companyProfileIncomplete:
+        "A cégadataid hiányosak — számla véglegesítéséhez add meg a cégnevet, adószámot és a székhely címét.",
+      companyProfileIncompleteLink: "Cégadatok kitöltése",
     },
     vat: {
       categoryLabel: "ÁFA kezelés",
@@ -460,6 +468,7 @@ export default {
       descriptionPlaceholder: "Termék vagy szolgáltatás",
       quantity: "Menny.",
       quantityUnit: "Menny. / Egység",
+      unitShort: "Egység",
       unitPrice: "Egységár",
       vatRate: "ÁFA kulcs",
       amountColumn: "Összesen",
@@ -513,6 +522,7 @@ export default {
       readOnlyTitle: "Ez a bizonylat kiállítva",
       readOnlyHint:
         "Egy kiállított bizonylatot nem lehet közvetlenül szerkeszteni. A módosításhoz használj sztornót vagy helyesbítő számlát.",
+      backToInvoice: "Vissza a számlához",
       saveChanges: "Változások mentése",
     },
     detail: {
@@ -545,10 +555,6 @@ export default {
       revolut: "Fizetési link (Revolut)",
       barion: "Fizetési link (Barion)",
       overflowLabel: "Továbbiak",
-      previewTitle: "Előnézet",
-      previewErrorTitle: "Az előnézet nem tölthető be",
-      previewErrorDescription: "Próbáld újra, vagy töltsd le PDF-ként.",
-      previewRetry: "Újra",
     },
   },
   receipts: {
@@ -908,6 +914,7 @@ export default {
       title: "Cég adatai",
       subtitle: "Add meg a vállalkozásod adatait a számlázáshoz.",
       companyName: "Cégnév",
+      companyNameRequired: "A cégnév megadása kötelező.",
       taxNumber: "Adószám",
       taxNumberHint: "8 jegyű törzsszám-ÁFA kód-megyekód (pl. 12345678-1-12)",
       address: "Székhely címe",

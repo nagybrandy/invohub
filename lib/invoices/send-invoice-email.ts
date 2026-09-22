@@ -8,13 +8,16 @@ import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
 import { invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
-import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
 import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
-import type { Invoice } from "@/lib/invoices/types";
 
 export type SendInvoiceEmailResult = {
   ok: boolean;
   error?: string;
+  /** Machine-readable code for a known failure — e.g. "companyProfileIncomplete". */
+  code?: string;
+  missingFields?: string[];
   to?: string[];
   cc?: string[];
   invoice?: Invoice;
@@ -44,29 +47,55 @@ export async function sendInvoiceNotificationEmail(
     return { ok: false, error: "Invoice not found." };
   }
 
-  // Finalize (assign the real invoice number) BEFORE building the PDF/email
-  // vars below — otherwise a still-draft invoice would be emailed with a
-  // blank invoiceNumber and only get its number afterwards.
-  if (options?.markSent !== false && invoice.status === "draft") {
-    const draft = invoice;
-    invoice = await upsertInvoice(userId, {
-      ...invoice,
-      status: "sent",
-      updatedAt: new Date().toISOString(),
-    });
-    // This IS a finalization (the draft just got its number): report it to
-    // NAV like every other finalization path. Never throws — a NAV problem
-    // is recorded on the submission row, the email still goes out.
-    await autoSubmitToNavOnFinalize(userId, draft, invoice);
-  }
-
+  // Everything that can make the send fail must be checked BEFORE the draft
+  // is finalized — otherwise a failed send still burns an invoice number
+  // (sorszám), which can never be reused.
   const to = await resolveInvoiceEmailRecipients(userId, invoice.clientName, options?.to);
   if (to.length === 0) {
     return {
       ok: false,
       error:
         "No invoice email recipient configured. Set a default in Company profile or provide emailTo.",
+      code: "noRecipient",
     };
+  }
+
+  const finalizing = options?.markSent !== false && invoice.status === "draft";
+  // Áfa tv. 169. § e) — same gate as every other finalize path.
+  if (finalizing && requiresCompleteBuyerAddress({ ...invoice, status: "sent" }) && !hasBuyerAddress(invoice)) {
+    return {
+      ok: false,
+      error: "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+      code: "buyerAddressMissing",
+    };
+  }
+
+  // Finalize (assign the real invoice number) BEFORE building the PDF/email
+  // vars below — otherwise a still-draft invoice would be emailed with a
+  // blank invoiceNumber and only get its number afterwards.
+  if (finalizing) {
+    const draft = invoice;
+    try {
+      invoice = await upsertInvoice(userId, {
+        ...invoice,
+        status: "sent",
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      if (error instanceof CompanyProfileIncompleteError) {
+        return {
+          ok: false,
+          error: "Company profile is incomplete.",
+          code: "companyProfileIncomplete",
+          missingFields: error.missingFields,
+        };
+      }
+      throw error;
+    }
+    // This IS a finalization (the draft just got its number): report it to
+    // NAV like every other finalization path. Never throws — a NAV problem
+    // is recorded on the submission row, the email still goes out.
+    await autoSubmitToNavOnFinalize(userId, draft, invoice);
   }
 
   const template = await getEmailTemplateByType(

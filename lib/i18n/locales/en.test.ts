@@ -36,11 +36,24 @@ describe("hu/en locale parity", () => {
     }
   });
 
-  it("defines the invoices.document / invoices.preview / invoices.detail.previewTitle keys in both locales", () => {
+  it("defines the invoices.document / invoices.preview keys (single PDF preview) in both locales", () => {
     for (const locale of [en, hu]) {
       expect(locale.invoices.document.buyer).toBeTruthy();
-      expect(locale.invoices.preview.title).toBeTruthy();
-      expect(locale.invoices.detail.previewTitle).toBeTruthy();
+      for (const key of [
+        "title",
+        "frameTitle",
+        "openPdf",
+        "refreshing",
+        "loadFailed",
+        "refreshFailed",
+        "retry",
+        "nativeHint",
+        "draftNote",
+        "hide",
+        "show",
+      ] as const) {
+        expect(locale.invoices.preview[key]).toBeTruthy();
+      }
     }
   });
 

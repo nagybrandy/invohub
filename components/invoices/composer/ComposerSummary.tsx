@@ -1,6 +1,9 @@
 // components/invoices/composer/ComposerSummary.tsx
-// Desktop sticky right column: live Nettó/ÁFA/Bruttó totals + a shrunk live
-// document preview that never replaces the form (spec §2.2, INV-9, INV-13).
+// Sticky right column on mid-width desktops (768–1023px, or when the live
+// side preview is hidden): live Nettó/ÁFA/Bruttó totals + an "Előnézet"
+// button that opens the real PDF in a drawer, never replacing the form
+// (spec §2.2, INV-9, INV-13). ≥1024px the composer shows the live PDF
+// itself in this column instead (InvoiceComposer).
 import * as React from "react";
 import { Box } from "@/components/ui/box";
 import { Card } from "@/components/ui/card";
@@ -11,23 +14,16 @@ import { VStack } from "@/components/ui/vstack";
 import { ComposerPreviewButton } from "@/components/invoices/composer/ComposerPreviewButton";
 import { groupVatRows } from "@/components/invoices/composer/composer-logic";
 import { formatCurrency } from "@/lib/invoices/calculations";
-import type { InvoicePdfCompany } from "@/lib/invoices/generate-pdf";
 import type { Invoice, InvoiceCurrency, InvoiceLineItem, InvoiceTotals } from "@/lib/invoices/types";
 
 export function ComposerSummary({
   invoice,
-  invoiceId,
-  company,
   totals,
   currency,
   lineItems,
   t,
 }: {
   invoice: Invoice;
-  /** Saved invoice id — only set once the invoice has actually been persisted (mode="edit"). */
-  invoiceId?: string;
-  /** The signed-in user's own company — for the unsaved-draft preview's issuer block. */
-  company?: InvoicePdfCompany;
   totals: InvoiceTotals;
   currency: InvoiceCurrency;
   lineItems: InvoiceLineItem[];
@@ -88,15 +84,7 @@ export function ComposerSummary({
         </VStack>
       </Card>
 
-      <Card className="overflow-hidden p-3">
-        <ComposerPreviewButton
-          invoice={invoice}
-          invoiceId={invoiceId}
-          company={company}
-          showThumbnail
-          t={t}
-        />
-      </Card>
+      <ComposerPreviewButton invoice={invoice} t={t} />
     </VStack>
   );
 }

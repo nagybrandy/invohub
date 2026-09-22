@@ -16,6 +16,7 @@ import { PartnerPicker } from "@/components/invoices/composer/PartnerPicker";
 import { DEADLINE_QUICK_DAYS } from "@/components/invoices/composer/useInvoiceComposer";
 import type { Client } from "@/lib/clients/service";
 import type { InvoiceComposerState } from "@/components/invoices/composer/useInvoiceComposer";
+import { formatDateOnly } from "@/lib/dates/format";
 import type { InvoiceCurrency, PaymentMethod } from "@/lib/invoices/types";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
@@ -66,6 +67,10 @@ export function StepPartner(composer: InvoiceComposerState) {
     setCurrency,
     exchangeRate,
     setExchangeRate,
+    exchangeRateSource,
+    exchangeRateLoading,
+    exchangeRateFetchError,
+    exchangeRateAsOf,
     deadlineDays,
     setDeadlineDays,
     bankAccount,
@@ -83,6 +88,7 @@ export function StepPartner(composer: InvoiceComposerState) {
   // props instead of the underlying TextInput instance, so a plain
   // { focus } ref type doesn't structurally match without the cast.
   const exchangeRateInputRef = React.useRef<{ focus: () => void } | null>(null);
+  const clientZipInputRef = React.useRef<{ focus: () => void } | null>(null);
 
   React.useEffect(() => {
     if (focusField === "clientName") {
@@ -102,15 +108,44 @@ export function StepPartner(composer: InvoiceComposerState) {
       exchangeRateInputRef.current?.focus?.();
       clearFocusField();
     }
-  }, [focusField, clearFocusField, showDatesPayment, setShowDatesPayment]);
+    if (focusField === "clientZip") {
+      // The buyer-address panel is collapsed by default — same
+      // expand-then-focus pattern as exchangeRate above
+      // (validateBuyerAddressStep, Áfa tv. 169. § e).
+      if (!showClientDetails) {
+        setShowClientDetails(true);
+        return;
+      }
+      clientZipInputRef.current?.focus?.();
+      clearFocusField();
+    }
+  }, [
+    focusField,
+    clearFocusField,
+    showDatesPayment,
+    setShowDatesPayment,
+    showClientDetails,
+    setShowClientDetails,
+  ]);
 
-  async function handleCreateNewClient(input: { name: string; email: string; taxNumber: string }) {
+  async function handleCreateNewClient(input: {
+    name: string;
+    email: string;
+    taxNumber: string;
+    zip: string;
+    city: string;
+    address: string;
+  }) {
     // Composer-local partner: not persisted to /api/clients from here —
     // keeps the composer independent of the clients CRUD surface. The
-    // invoice still carries the typed name/e-mail/tax number.
+    // invoice still carries the typed name/e-mail/tax number/address as its
+    // own buyer-address snapshot (Áfa tv. 169. § e — required to finalize).
     setClientName(input.name);
     setClientEmail(input.email);
     setClientTaxNumber(input.taxNumber);
+    setClientZip(input.zip);
+    setClientCity(input.city);
+    setClientAddress(input.address);
   }
 
   return (
@@ -172,10 +207,21 @@ export function StepPartner(composer: InvoiceComposerState) {
             error={clientName.trim() ? undefined : errors.partner}
             t={t}
           />
+          {clientName.trim() && !showClientDetails ? (
+            // Also the only way to reach the address fields for a buyer
+            // that isn't a linked saved client (typed freehand, or added
+            // via PartnerPicker's inline "+ Új partner") — required to
+            // finalize (Áfa tv. 169. § e), see validateBuyerAddressStep.
+            <Pressable onPress={() => setShowClientDetails(true)} className="self-start">
+              <Text size="sm" className="font-medium text-primary">
+                {t("invoices.composer.editPartnerDetails")}
+              </Text>
+            </Pressable>
+          ) : null}
         </VStack>
       )}
 
-      {clientId && selectedClient && showClientDetails ? (
+      {showClientDetails && clientName.trim() ? (
         <VStack space="sm" className="rounded-lg border border-border bg-card p-4">
           <HStack className="items-center justify-between">
             <Text className="font-medium text-foreground">{t("invoices.composer.editPartnerDetails")}</Text>
@@ -187,13 +233,35 @@ export function StepPartner(composer: InvoiceComposerState) {
             <LabeledInput label={t("invoices.fields.taxNumber")} value={clientTaxNumber} onChangeText={setClientTaxNumber} />
             <HStack space="sm">
               <VStack className="w-[100px]">
-                <LabeledInput label={t("invoices.fields.zipCode")} value={clientZip} onChangeText={setClientZip} />
+                <LabeledInput
+                  label={t("invoices.fields.zipCode")}
+                  value={clientZip}
+                  onChangeText={setClientZip}
+                  testID="composer-client-zip"
+                  required
+                  inputRef={clientZipInputRef}
+                />
               </VStack>
               <VStack className="flex-1">
-                <LabeledInput label={t("invoices.fields.city")} value={clientCity} onChangeText={setClientCity} />
+                <LabeledInput
+                  label={t("invoices.fields.city")}
+                  value={clientCity}
+                  onChangeText={setClientCity}
+                  testID="composer-client-city"
+                  required
+                />
               </VStack>
             </HStack>
-            <LabeledInput label={t("invoices.fields.address")} value={clientAddress} onChangeText={setClientAddress} />
+            <LabeledInput
+              label={t("invoices.fields.address")}
+              value={clientAddress}
+              onChangeText={setClientAddress}
+              testID="composer-client-address"
+              required
+            />
+            {errors.buyerAddress ? (
+              <Text size="xs" className="text-destructive">{errors.buyerAddress}</Text>
+            ) : null}
             <LabeledInput label={t("invoices.fields.country")} value={clientCountry} onChangeText={setClientCountry} />
             <LabeledInput
               label={t("invoices.fields.email")}
@@ -301,6 +369,23 @@ export function StepPartner(composer: InvoiceComposerState) {
                     testID="composer-exchange-rate"
                   />
                 </Input>
+                {exchangeRateLoading ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground" testID="composer-exchange-rate-loading">
+                    {t("invoices.fields.exchangeRateLoading")}
+                  </Text>
+                ) : exchangeRateFetchError ? (
+                  <Text size="xs" className="mt-1 text-destructive" testID="composer-exchange-rate-fetch-error">
+                    {exchangeRateFetchError}
+                  </Text>
+                ) : exchangeRateSource === "mnb" && exchangeRateAsOf ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground" testID="composer-exchange-rate-caption">
+                    {t("invoices.fields.exchangeRateSourceMnb", { date: formatDateOnly(exchangeRateAsOf) })}
+                  </Text>
+                ) : exchangeRateSource === "manual" ? (
+                  <Text size="xs" className="mt-1 text-muted-foreground" testID="composer-exchange-rate-caption">
+                    {t("invoices.fields.exchangeRateSourceManual")}
+                  </Text>
+                ) : null}
               </VStack>
             ) : null}
           </HStack>
@@ -333,6 +418,9 @@ function LabeledInput({
   hint,
   placeholder,
   keyboardType,
+  testID,
+  required,
+  inputRef,
 }: {
   label: string;
   value: string;
@@ -340,16 +428,23 @@ function LabeledInput({
   hint?: string;
   placeholder?: string;
   keyboardType?: "default" | "decimal-pad" | "email-address";
+  testID?: string;
+  required?: boolean;
+  inputRef?: React.RefObject<{ focus: () => void } | null>;
 }) {
   return (
     <VStack space="xs">
-      <Text size="xs" className="text-muted-foreground">{label}</Text>
+      <Text size="xs" className="text-muted-foreground">
+        {label} {required ? <Text className="text-destructive">*</Text> : null}
+      </Text>
       <Input>
         <InputField
+          ref={inputRef as never}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
           keyboardType={keyboardType}
+          testID={testID}
         />
       </Input>
       {hint ? (

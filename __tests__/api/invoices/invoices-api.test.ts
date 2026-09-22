@@ -6,12 +6,27 @@ jest.mock("@/lib/api/session", () => ({
   jsonResponse: (data: unknown, status = 200) => Response.json(data, { status }),
 }));
 
-jest.mock("@/lib/invoices/service", () => ({
-  getInvoiceById: jest.fn(),
-  listInvoices: jest.fn(),
-  getInvoiceStats: jest.fn(),
-  upsertInvoice: jest.fn(),
-  findLiveConversionsForProformas: jest.fn(),
+jest.mock("@/lib/invoices/service", () => {
+  class CompanyProfileIncompleteError extends Error {
+    missingFields: string[];
+    constructor(missingFields: string[]) {
+      super("Company profile is incomplete.");
+      this.name = "CompanyProfileIncompleteError";
+      this.missingFields = missingFields;
+    }
+  }
+  return {
+    getInvoiceById: jest.fn(),
+    listInvoices: jest.fn(),
+    getInvoiceStats: jest.fn(),
+    upsertInvoice: jest.fn(),
+    findLiveConversionsForProformas: jest.fn(),
+    CompanyProfileIncompleteError,
+  };
+});
+
+jest.mock("@/lib/invoices/exchange-rate-autofill", () => ({
+  autofillMissingExchangeRate: jest.fn(),
 }));
 
 const mockAutoSubmit = jest.fn();
@@ -22,15 +37,20 @@ jest.mock("@/lib/nav/auto-submit", () => ({
 import { requireSession } from "@/lib/api/session";
 import { GET, POST } from "@/app/api/invoices+api";
 import {
+  CompanyProfileIncompleteError,
   findLiveConversionsForProformas,
   getInvoiceStats,
   listInvoices,
   upsertInvoice,
 } from "@/lib/invoices/service";
+import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
 const mockUpsert = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
+const mockAutofill = autofillMissingExchangeRate as jest.MockedFunction<
+  typeof autofillMissingExchangeRate
+>;
 const mockListInvoices = listInvoices as jest.MockedFunction<typeof listInvoices>;
 const mockGetStats = getInvoiceStats as jest.MockedFunction<typeof getInvoiceStats>;
 const mockFindLiveConversions = findLiveConversionsForProformas as jest.MockedFunction<
@@ -42,6 +62,14 @@ describe("POST /api/invoices", () => {
     jest.clearAllMocks();
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockUpsert.mockImplementation(async (_userId, invoice) => invoice as never);
+    // Mirrors the real fallback logic (no MNB fetch in these tests — that's
+    // covered by lib/invoices/exchange-rate-autofill.test.ts) so existing
+    // exchangeRate-passthrough expectations below still hold.
+    mockAutofill.mockImplementation(async ({ exchangeRate }) =>
+      typeof exchangeRate === "number" && Number.isFinite(exchangeRate) && exchangeRate > 0
+        ? exchangeRate
+        : undefined
+    );
     mockAutoSubmit.mockResolvedValue(null);
   });
 
@@ -61,7 +89,7 @@ describe("POST /api/invoices", () => {
     const response = await POST(
       new Request("http://localhost/api/invoices", {
         method: "POST",
-        body: JSON.stringify({ clientName: "Acme Kft.", status: "unpaid", invoiceNumber: "INV-2026-001", lineItems: [] }),
+        body: JSON.stringify({ clientName: "Acme Kft.", status: "unpaid", invoiceNumber: "INV-2026-001", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", lineItems: [] }),
       })
     );
     const body = await response.json();
@@ -144,6 +172,157 @@ describe("POST /api/invoices", () => {
     const [, savedInvoice] = mockUpsert.mock.calls[0];
     expect(savedInvoice.currency).toBe("HUF");
     expect(savedInvoice.exchangeRate).toBeUndefined();
+  });
+
+  it("returns 422 with code companyProfileIncomplete instead of throwing when a first-save finalize can't be numbered", async () => {
+    mockUpsert.mockRejectedValue(
+      new CompanyProfileIncompleteError(["taxNumber", "zipCode", "city", "address"])
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          clientZipCode: "1011",
+          clientCity: "Budapest",
+          clientAddress: "Fő utca 1.",
+          status: "unpaid",
+          lineItems: [],
+        }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("companyProfileIncomplete");
+    expect(body.missingFields).toEqual(["taxNumber", "zipCode", "city", "address"]);
+  });
+
+  it("passes the buyer address snapshot fields through for a draft (Áfa tv. 169. § e)", async () => {
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          clientZipCode: "1011",
+          clientCity: "Budapest",
+          clientAddress: "Fő utca 1.",
+          clientCountry: "Magyarország",
+          clientEuVatNumber: "HU12345678",
+          lineItems: [],
+        }),
+      })
+    );
+
+    const [, savedInvoice] = mockUpsert.mock.calls[0];
+    expect(savedInvoice.clientZipCode).toBe("1011");
+    expect(savedInvoice.clientCity).toBe("Budapest");
+    expect(savedInvoice.clientAddress).toBe("Fő utca 1.");
+    expect(savedInvoice.clientCountry).toBe("Magyarország");
+    expect(savedInvoice.clientEuVatNumber).toBe("HU12345678");
+  });
+
+  it("allows a draft with no buyer address at all", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", lineItems: [], status: "draft" }),
+      })
+    );
+    expect(response.status).toBe(201);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects finalizing (status !== draft) without a complete buyer address with 422 buyerAddressMissing", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          lineItems: [{ id: "l1", description: "X", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+          status: "unpaid",
+        }),
+      })
+    );
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.code).toBe("buyerAddressMissing");
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("never requires a buyer address for a proforma (díjbekérő) — not an accounting document", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          documentType: "proforma",
+          lineItems: [{ id: "l1", description: "X", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+          status: "proforma",
+        }),
+      })
+    );
+    expect(response.status).toBe(201);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows finalizing (status !== draft) once the buyer address is complete", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          clientZipCode: "1011",
+          clientCity: "Budapest",
+          clientAddress: "Fő utca 1.",
+          lineItems: [{ id: "l1", description: "X", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+          status: "unpaid",
+        }),
+      })
+    );
+    expect(response.status).toBe(201);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-fills the MNB rate when a non-HUF create omits exchangeRate (safety net)", async () => {
+    mockAutofill.mockResolvedValue(397.5);
+
+    const response = await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          currency: "EUR",
+          issueDate: "2026-09-22",
+          lineItems: [],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockAutofill).toHaveBeenCalledWith({
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+    });
+    const [, savedInvoice] = mockUpsert.mock.calls[0];
+    expect(savedInvoice.exchangeRate).toBe(397.5);
+  });
+
+  it("never calls the MNB autofill for a HUF invoice", async () => {
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", currency: "HUF", lineItems: [] }),
+      })
+    );
+
+    // Still called (it's the single fallback chokepoint) but the helper
+    // itself short-circuits HUF — verified in exchange-rate-autofill.test.ts.
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: "HUF", exchangeRate: undefined })
+    );
   });
 });
 

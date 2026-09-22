@@ -41,6 +41,7 @@ export function mapLineItemFromDb(row: LineItemRow): InvoiceLineItem {
     vatRate: row.vatRate as VatRate,
     vatCategory: (row.vatCategory as VatCategory | undefined) ?? "normal",
     vatExemptionReason: row.vatExemptionReason ?? undefined,
+    unit: row.unit ?? undefined,
   };
 }
 
@@ -54,6 +55,11 @@ export function mapInvoiceFromDb(
     documentType: (row.documentType as InvoiceDocumentType | undefined) ?? "invoice",
     clientName: row.clientName,
     clientTaxNumber: row.clientTaxNumber ?? undefined,
+    clientZipCode: row.clientZipCode ?? undefined,
+    clientCity: row.clientCity ?? undefined,
+    clientAddress: row.clientAddress ?? undefined,
+    clientCountry: row.clientCountry ?? undefined,
+    clientEuVatNumber: row.clientEuVatNumber ?? undefined,
     clientId: row.clientId ?? undefined,
     issueDate: row.issueDate,
     dueDate: row.dueDate,
@@ -91,6 +97,7 @@ export function mapLineItemToDb(
     vatRate: item.vatRate,
     vatCategory: item.vatCategory,
     vatExemptionReason: item.vatExemptionReason ?? null,
+    unit: item.unit ?? null,
     sortOrder,
   };
 }
@@ -109,6 +116,11 @@ export function mapInvoiceToDb(
     documentType: inv.documentType,
     clientName: inv.clientName,
     clientTaxNumber: inv.clientTaxNumber ?? null,
+    clientZipCode: inv.clientZipCode ?? null,
+    clientCity: inv.clientCity ?? null,
+    clientAddress: inv.clientAddress ?? null,
+    clientCountry: inv.clientCountry ?? null,
+    clientEuVatNumber: inv.clientEuVatNumber ?? null,
     issueDate: inv.issueDate,
     dueDate: inv.dueDate,
     fulfillmentDate: inv.fulfillmentDate ?? null,

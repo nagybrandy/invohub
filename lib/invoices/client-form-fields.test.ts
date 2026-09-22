@@ -32,7 +32,14 @@ describe("applyClientToFormFields", () => {
       clientZip: "1011",
       clientCity: "Budapest",
       clientAddress: "Fő utca 1.",
+      clientEuVatNumber: "",
     });
+  });
+
+  it("copies the EU VAT number when the client has one", () => {
+    expect(applyClientToFormFields({ ...client, euVatNumber: "HU12345678" }).clientEuVatNumber).toBe(
+      "HU12345678"
+    );
   });
 });
 

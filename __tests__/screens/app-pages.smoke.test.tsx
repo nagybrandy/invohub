@@ -272,8 +272,8 @@ jest.mock("@/components/layout/FormScreen", () => ({
   FormScreen: ({ children }: { children?: unknown }) => children ?? null,
 }));
 
-jest.mock("@/components/invoices/InvoiceDocumentPreview", () => ({
-  InvoiceDocumentPreview: () => null,
+jest.mock("@/components/invoices/InvoicePdfPreview", () => ({
+  InvoicePdfPreview: () => null,
 }));
 
 jest.mock("@/lib/useIsDesktop", () => ({
