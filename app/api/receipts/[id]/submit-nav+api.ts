@@ -7,6 +7,9 @@ import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/se
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
+import { safeErrorMessage } from "@/lib/api/safe-error";
+import { isNavProductionEnabled } from "@/lib/nav/environment";
+import { NavCredentialsMissingError, openCompanyNavSecrets } from "@/lib/nav/resolve-credentials";
 import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
 import type { NavReceiptCredentials, NavReceiptEnvironment } from "@/lib/nav-receipt/types";
 import type { NavReceiptSubmissionResult } from "@/lib/nav-receipt/types";
@@ -51,6 +54,28 @@ export async function POST(
         400
       );
     }
+    if (navMode === "production" && !isNavProductionEnabled()) {
+      return jsonResponse({ error: "Az éles NAV környezet jelenleg nincs engedélyezve ezen a szerveren." }, 400);
+    }
+
+    // Stored secrets are sealed (lib/nav/credentials.ts); open them only now,
+    // right before the NAV call, and before any pending row is written.
+    let credentials: NavReceiptCredentials | null = null;
+    if (navMode !== "demo") {
+      let secrets: ReturnType<typeof openCompanyNavSecrets>;
+      try {
+        secrets = openCompanyNavSecrets(comp);
+      } catch (e) {
+        if (e instanceof NavCredentialsMissingError) return jsonResponse({ error: e.message }, 400);
+        throw e;
+      }
+      credentials = {
+        technicalUser: comp.navTechnicalUser!,
+        technicalPassword: secrets.password!,
+        signingKey: secrets.signKey!,
+        taxNumber: comp.taxNumber!,
+      };
+    }
 
     const issuedDate = new Date(receiptRecord.issuedAt);
     const reportDate = issuedDate.toISOString().slice(0, 10);
@@ -80,12 +105,6 @@ export async function POST(
       // Demo mode: simulate acceptance, no network call to the unverified endpoint.
       navResult = { ok: true, transactionId: `RECEIPT-DEMO-${Date.now()}` };
     } else {
-      const credentials: NavReceiptCredentials = {
-        technicalUser: comp!.navTechnicalUser!,
-        technicalPassword: comp!.navTechnicalPassword!,
-        signingKey: comp!.navXmlSignKey!,
-        taxNumber: comp!.taxNumber!,
-      };
       const env: NavReceiptEnvironment = navMode === "production" ? "production" : "test";
 
       navResult = await submitDailyReceiptReport(
@@ -106,7 +125,7 @@ export async function POST(
             receiptCount: v.itemCount,
           })),
         },
-        credentials,
+        credentials!,
         env
       );
     }
@@ -140,7 +159,6 @@ export async function POST(
       error: navResult.error,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "NAV submission failed.";
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: safeErrorMessage(e, "NAV submission failed.") }, 500);
   }
 }
