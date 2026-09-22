@@ -7,6 +7,7 @@ import type { Company } from "@/lib/companies/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { createId } from "@/lib/id";
 import { fetchIncomingInvoices, type NavCredentials } from "@/lib/nav/client";
+import { openCompanyNavSecrets } from "@/lib/nav/resolve-credentials";
 
 // This demo-shaped stub predates (and is out of scope for) the OSA 3.0
 // manageInvoice/queryTaxpayer work in lib/nav/{real-client,simulator}.ts —
@@ -14,7 +15,8 @@ import { fetchIncomingInvoices, type NavCredentials } from "@/lib/nav/client";
 function buildLegacyNavCredentials(company: Company | null): NavCredentials {
   return {
     technicalUser: company?.navTechnicalUser ?? "sandbox",
-    xmlSignKey: company?.navXmlSignKey ?? "sandbox",
+    // Sealed at rest — opened here, only for this request.
+    xmlSignKey: (company ? openCompanyNavSecrets(company).signKey : undefined) ?? "sandbox",
     taxNumber: company?.taxNumber ?? "00000000-0-00",
     environment: company?.navEnvironment === "production" ? "production" : "test",
   };

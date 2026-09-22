@@ -14,6 +14,7 @@ jest.mock("@/lib/clients/service", () => ({
 import { db } from "@/db";
 import { findClientByName } from "@/lib/clients/service";
 import {
+  getCompanyByUserId,
   resolveInvoiceEmailRecipient,
   resolveInvoiceEmailRecipients,
   toPublicCompany,
@@ -177,10 +178,86 @@ describe("upsertCompany", () => {
     await upsertCompany("user-1", { name: "Demo Kft.", navXmlSignKey: "plain-sign-key" });
     expect(storedValues?.navXmlSignKey).toEqual(expect.any(String));
     expect(storedValues?.navXmlSignKey).not.toBe("plain-sign-key");
-    expect(String(storedValues?.navXmlSignKey)).toMatch(/^gcm1:/);
+    expect(String(storedValues?.navXmlSignKey)).toMatch(/^gcm2:/);
 
     if (originalKey === undefined) delete process.env.NAV_CREDENTIALS_KEY;
     else process.env.NAV_CREDENTIALS_KEY = originalKey;
+  });
+
+  describe("NAV secrets", () => {
+    const originalKey = process.env.NAV_CREDENTIALS_KEY;
+    beforeEach(() => {
+      process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 3).toString("base64");
+    });
+    afterEach(() => {
+      if (originalKey === undefined) delete process.env.NAV_CREDENTIALS_KEY;
+      else process.env.NAV_CREDENTIALS_KEY = originalKey;
+    });
+
+    function existingRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: "c1",
+        userId: "user-1",
+        name: "Demo Kft.",
+        navTechnicalUser: "nav-user",
+        navTechnicalPassword: "gcm2:k1:stored-pw-iv:tag:ct",
+        navXmlSignKey: "gcm2:k1:stored-sign-iv:tag:ct",
+        navXmlChangeKey: "gcm2:k1:stored-change-iv:tag:ct",
+        createdAt: new Date("2026-01-01"),
+        updatedAt: new Date("2026-01-01"),
+        ...overrides,
+      };
+    }
+
+    function captureUpdate() {
+      const captured: { values?: Record<string, unknown> } = {};
+      mockDb.update.mockReturnValue({
+        set: jest.fn((v: Record<string, unknown>) => {
+          captured.values = v;
+          return {
+            where: jest.fn(() => ({
+              returning: jest.fn().mockResolvedValue([{ ...existingRow(), ...v }]),
+            })),
+          };
+        }),
+      });
+      return captured;
+    }
+
+    it("leaves stored secrets untouched when the client omits them (no need to resend)", async () => {
+      mockCompanySelect(existingRow());
+      const captured = captureUpdate();
+
+      await upsertCompany("user-1", { name: "Renamed Kft." });
+
+      expect(captured.values?.navTechnicalPassword).toBe("gcm2:k1:stored-pw-iv:tag:ct");
+      expect(captured.values?.navXmlSignKey).toBe("gcm2:k1:stored-sign-iv:tag:ct");
+      expect(captured.values?.navXmlChangeKey).toBe("gcm2:k1:stored-change-iv:tag:ct");
+    });
+
+    it("treats a masked value echoed back by the client as 'leave unchanged'", async () => {
+      mockCompanySelect(existingRow());
+      const captured = captureUpdate();
+
+      await upsertCompany("user-1", {
+        name: "Demo Kft.",
+        navTechnicalPassword: "••••••••",
+        navXmlSignKey: "••••",
+      });
+
+      expect(captured.values?.navTechnicalPassword).toBe("gcm2:k1:stored-pw-iv:tag:ct");
+      expect(captured.values?.navXmlSignKey).toBe("gcm2:k1:stored-sign-iv:tag:ct");
+    });
+
+    it("does not decrypt NAV secrets when reading the company (they stay sealed until request signing)", async () => {
+      // An undecryptable value must not break ordinary reads (PDF, e-mail, settings).
+      mockCompanySelect(existingRow());
+      const company = await getCompanyByUserId("user-1");
+
+      expect(company?.name).toBe("Demo Kft.");
+      expect(company?.navTechnicalPassword).toBe("gcm2:k1:stored-pw-iv:tag:ct");
+      expect(company?.navXmlSignKey).toBe("gcm2:k1:stored-sign-iv:tag:ct");
+    });
   });
 });
 

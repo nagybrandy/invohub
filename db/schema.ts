@@ -88,10 +88,12 @@ export const company = pgTable(
     invoiceEmailTo: text("invoice_email_to"),
     invoiceEmailCc: text("invoice_email_cc"),
     navTechnicalUser: text("nav_technical_user"),
-    // navTechnicalPassword, navXmlSignKey, navXmlChangeKey are stored
-    // AES-256-GCM encrypted (see lib/nav/credentials.ts) when
-    // NAV_CREDENTIALS_KEY is configured; legacy plaintext rows are still
-    // read transparently.
+    // navTechnicalPassword, navXmlSignKey, navXmlChangeKey are always
+    // written AES-256-GCM encrypted (gcm2:<keyId>:iv:tag:ct, see
+    // lib/nav/credentials.ts); saving is refused without NAV_CREDENTIALS_KEY.
+    // Legacy plaintext / gcm1 rows are still readable and are rewritten by
+    // scripts/reencrypt-nav-secrets.mjs. They are only decrypted right before
+    // a NAV request is signed — never in the Company read model.
     navTechnicalPassword: text("nav_technical_password"),
     navXmlSignKey: text("nav_xml_sign_key"),
     navXmlChangeKey: text("nav_xml_change_key"),

@@ -53,6 +53,12 @@ openssl rand -base64 32
 Ez nélkül **nem lehet** teszt/éles NAV hitelesítő adatot elmenteni (a mentés hibaüzenettel
 elutasításra kerül) — demó módhoz erre nincs szükség.
 
+**Kulcscsere (rotáció):** az új kulcsot állítsd be `NAV_CREDENTIALS_KEY`-ként új
+`NAV_CREDENTIALS_KEY_ID`-vel (pl. `k2`), a régit tedd át a
+`NAV_CREDENTIALS_PREVIOUS_KEYS=k1:<régi base64 kulcs>` változóba, deployolj, majd futtasd:
+`node scripts/reencrypt-nav-secrets.mjs` (száraz futás) → `--apply`. Ezután a régi kulcs
+törölhető. Ugyanez a szkript titkosítja a régi, esetleg titkosítatlanul tárolt értékeket is.
+
 ## 4. Környezeti változók beállítása (Vercel / `.env`)
 
 Másold be az `.env.example` NAV szekcióját, és töltsd ki:

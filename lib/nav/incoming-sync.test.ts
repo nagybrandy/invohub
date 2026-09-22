@@ -124,4 +124,28 @@ describe("syncIncomingInvoices", () => {
     );
     expect(existenceCheckWhere).toHaveBeenCalledWith(expectedCondition);
   });
+
+  it("opens the sealed sign key only when building the NAV credentials", async () => {
+    const { encryptNavSecret } = jest.requireActual("@/lib/nav/credentials");
+    const { getCompanyByUserId } = jest.requireMock("@/lib/companies/service");
+    const { fetchIncomingInvoices } = jest.requireMock("@/lib/nav/client");
+    const originalKey = process.env.NAV_CREDENTIALS_KEY;
+    process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 2).toString("base64");
+    try {
+      getCompanyByUserId.mockResolvedValueOnce({
+        navTechnicalUser: "tech-user",
+        navXmlSignKey: encryptNavSecret("real-sign-key"),
+        taxNumber: "12345678-1-23",
+      });
+      fetchIncomingInvoices.mockResolvedValueOnce([]);
+      db.select.mockReturnValue({ from: jest.fn(() => ({ where: jest.fn().mockResolvedValue([]) })) });
+
+      await syncIncomingInvoices("user-1");
+
+      expect(fetchIncomingInvoices).toHaveBeenCalledWith(expect.objectContaining({ xmlSignKey: "real-sign-key" }));
+    } finally {
+      if (originalKey === undefined) delete process.env.NAV_CREDENTIALS_KEY;
+      else process.env.NAV_CREDENTIALS_KEY = originalKey;
+    }
+  });
 });
