@@ -36,13 +36,13 @@ export async function POST(
     });
 
     if (!result.ok) {
-      if (result.code === "companyProfileIncomplete") {
+      if (result.code === "companyProfileIncomplete" || result.code === "buyerAddressMissing") {
         return {
           status: 422,
           body: { error: result.error, code: result.code, missingFields: result.missingFields },
         };
       }
-      const status = result.error?.toLowerCase().includes("not found") ? 404 : 500;
+      const status = result.error?.toLowerCase().includes("not found") ? 404 : result.code === "noRecipient" ? 422 : 500;
       return { status, body: { error: result.error, to: result.to } };
     }
 

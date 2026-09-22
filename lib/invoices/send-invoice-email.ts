@@ -9,7 +9,7 @@ import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculati
 import { invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
-import type { Invoice } from "@/lib/invoices/types";
+import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
 
 export type SendInvoiceEmailResult = {
   ok: boolean;
@@ -46,10 +46,33 @@ export async function sendInvoiceNotificationEmail(
     return { ok: false, error: "Invoice not found." };
   }
 
+  // Everything that can make the send fail must be checked BEFORE the draft
+  // is finalized — otherwise a failed send still burns an invoice number
+  // (sorszám), which can never be reused.
+  const to = await resolveInvoiceEmailRecipients(userId, invoice.clientName, options?.to);
+  if (to.length === 0) {
+    return {
+      ok: false,
+      error:
+        "No invoice email recipient configured. Set a default in Company profile or provide emailTo.",
+      code: "noRecipient",
+    };
+  }
+
+  const finalizing = options?.markSent !== false && invoice.status === "draft";
+  // Áfa tv. 169. § e) — same gate as every other finalize path.
+  if (finalizing && requiresCompleteBuyerAddress({ ...invoice, status: "sent" }) && !hasBuyerAddress(invoice)) {
+    return {
+      ok: false,
+      error: "Buyer name and address (clientZipCode, clientCity, clientAddress) are required to finalize an invoice.",
+      code: "buyerAddressMissing",
+    };
+  }
+
   // Finalize (assign the real invoice number) BEFORE building the PDF/email
   // vars below — otherwise a still-draft invoice would be emailed with a
   // blank invoiceNumber and only get its number afterwards.
-  if (options?.markSent !== false && invoice.status === "draft") {
+  if (finalizing) {
     try {
       invoice = await upsertInvoice(userId, {
         ...invoice,
@@ -67,15 +90,6 @@ export async function sendInvoiceNotificationEmail(
       }
       throw error;
     }
-  }
-
-  const to = await resolveInvoiceEmailRecipients(userId, invoice.clientName, options?.to);
-  if (to.length === 0) {
-    return {
-      ok: false,
-      error:
-        "No invoice email recipient configured. Set a default in Company profile or provide emailTo.",
-    };
   }
 
   const template = await getEmailTemplateByType(

@@ -27,13 +27,13 @@ export async function POST(
   });
 
   if (!result.ok) {
-    if (result.code === "companyProfileIncomplete") {
+    if (result.code === "companyProfileIncomplete" || result.code === "buyerAddressMissing") {
       return jsonResponse(
         { error: result.error, code: result.code, missingFields: result.missingFields },
         422
       );
     }
-    return jsonResponse({ error: result.error, to: result.to }, result.error?.includes("not found") ? 404 : 500);
+    return jsonResponse({ error: result.error, to: result.to }, result.error?.includes("not found") ? 404 : result.code === "noRecipient" ? 422 : 500);
   }
 
   return jsonResponse({
