@@ -21,3 +21,21 @@ export class BuyerAddressMissingError extends Error {
     this.name = "BuyerAddressMissingError";
   }
 }
+
+/**
+ * Thrown by upsertInvoice when a document that already carries an issued
+ * number (status off "draft" + non-blank invoiceNumber) would be assigned a
+ * second one — either the caller lost the number, or (the race this guards)
+ * another request finalized the same draft between our read and our write.
+ * Continuous numbering means a document gets exactly one number, ever.
+ */
+export class InvoiceAlreadyFinalizedError extends Error {
+  readonly code = "invoiceFinalized" as const;
+  readonly invoiceNumber: string;
+
+  constructor(invoiceNumber: string) {
+    super("This invoice is already finalized and numbered.");
+    this.name = "InvoiceAlreadyFinalizedError";
+    this.invoiceNumber = invoiceNumber;
+  }
+}

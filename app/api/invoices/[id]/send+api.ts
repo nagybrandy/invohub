@@ -33,6 +33,9 @@ export async function POST(
         422
       );
     }
+    if (result.code === "invoiceFinalized") {
+      return jsonResponse({ error: result.error, code: result.code }, 409);
+    }
     return jsonResponse({ error: result.error, to: result.to }, result.error?.includes("not found") ? 404 : result.code === "noRecipient" ? 422 : 500);
   }
 
