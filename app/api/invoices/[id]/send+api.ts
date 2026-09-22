@@ -27,7 +27,13 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return jsonResponse({ error: result.error, to: result.to }, result.error?.includes("not found") ? 404 : 500);
+    if (result.code === "companyProfileIncomplete" || result.code === "buyerAddressMissing") {
+      return jsonResponse(
+        { error: result.error, code: result.code, missingFields: result.missingFields },
+        422
+      );
+    }
+    return jsonResponse({ error: result.error, to: result.to }, result.error?.includes("not found") ? 404 : result.code === "noRecipient" ? 422 : 500);
   }
 
   return jsonResponse({

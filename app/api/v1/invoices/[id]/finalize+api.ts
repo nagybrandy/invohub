@@ -50,6 +50,16 @@ export async function POST(
           },
         };
       }
+      if (result.reason === "company_profile_incomplete") {
+        return {
+          status: 422,
+          body: {
+            error: "Company profile is incomplete.",
+            code: "companyProfileIncomplete",
+            missingFields: result.missingFields,
+          },
+        };
+      }
       return {
         status: 409,
         body: { error: "Only a draft invoice can be finalized.", code: "notDraft" },

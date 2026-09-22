@@ -1,9 +1,24 @@
 // lib/invoices/create-from-payload.test.ts
-jest.mock("@/lib/invoices/service", () => ({
-  listInvoices: jest.fn(),
-  upsertInvoice: jest.fn(),
-  getInvoiceById: jest.fn(),
-}));
+jest.mock("@/lib/invoices/service", () => {
+  // A minimal stand-in for the real CompanyProfileIncompleteError — same
+  // shape (name/missingFields), so `instanceof` checks in
+  // create-from-payload.ts work against errors constructed with THIS
+  // class from the test file (both resolve the same mocked module).
+  class CompanyProfileIncompleteError extends Error {
+    missingFields: string[];
+    constructor(missingFields: string[]) {
+      super("Company profile is incomplete.");
+      this.name = "CompanyProfileIncompleteError";
+      this.missingFields = missingFields;
+    }
+  }
+  return {
+    listInvoices: jest.fn(),
+    upsertInvoice: jest.fn(),
+    getInvoiceById: jest.fn(),
+    CompanyProfileIncompleteError,
+  };
+});
 
 jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn().mockResolvedValue(null),
@@ -20,7 +35,7 @@ import {
   validateExternalInvoiceInput,
   type ExternalInvoiceInput,
 } from "@/lib/invoices/create-from-payload";
-import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
+import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
@@ -361,6 +376,29 @@ describe("updateDraftInvoiceFromPayload", () => {
     expect(result.invoice.clientName).toBe("Updated Kft.");
     expect(result.invoice.lineItems[0].description).toBe("New line");
     expect(mockUpsertInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces company_profile_incomplete instead of throwing when upsertInvoice refuses to number the draft", async () => {
+    mockGetInvoiceById.mockResolvedValue(
+      makeInvoice({ id: "inv-1", status: "draft", clientName: "Old Kft." })
+    );
+    mockUpsertInvoice.mockRejectedValue(
+      new CompanyProfileIncompleteError(["taxNumber", "address"])
+    );
+
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      status: "sent",
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "company_profile_incomplete",
+      missingFields: ["taxNumber", "address"],
+    });
   });
 
   it("carries the buyer address snapshot and line-item unit through an update", async () => {

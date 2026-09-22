@@ -69,6 +69,16 @@ export async function PATCH(
         422
       );
     }
+    if (result.reason === "company_profile_incomplete") {
+      return jsonApiResponse(
+        {
+          error: "Company profile is incomplete.",
+          code: "companyProfileIncomplete",
+          missingFields: result.missingFields,
+        },
+        422
+      );
+    }
     return jsonApiResponse({ error: result.message, code: "validationError" }, 400);
   }
 
