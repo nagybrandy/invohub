@@ -548,6 +548,7 @@ export default {
       emailReminder: "E-mail emlékeztető",
       revolut: "Fizetési link (Revolut)",
       barion: "Fizetési link (Barion)",
+      paymentProviderUnavailable: "Ez a fizetési szolgáltató még nem elérhető.",
       overflowLabel: "Továbbiak",
     },
   },
