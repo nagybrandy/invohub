@@ -126,6 +126,8 @@ export async function PATCH(
         currency: updated.currency,
         exchangeRate: updated.exchangeRate,
         issueDate: updated.issueDate,
+        // Áfa tv. 80. §: the teljesítés date's rate when known.
+        fulfillmentDate: updated.fulfillmentDate,
       });
     }
 

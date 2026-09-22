@@ -712,6 +712,23 @@ describe("useInvoiceComposer — MNB exchange rate auto-fetch", () => {
     );
   });
 
+  it("fetches for the issue date when the fulfillment date is cleared (Áfa tv. 80. § fallback)", async () => {
+    mockExchangeRateSuccess(397.5, "2026-09-22");
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setIssueDate("2026-09-20");
+      ref.current!.setFulfillmentDate("");
+      ref.current!.setCurrency("EUR");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringContaining("date=2026-09-20")
+    );
+  });
+
   it("never overwrites a manually-typed rate with a fetch response, and marks it as manual", async () => {
     mockExchangeRateSuccess(397.5, "2026-09-22");
     const ref = await renderComposer({ mode: "create" });

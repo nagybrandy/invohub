@@ -80,7 +80,10 @@ export type ExternalInvoiceInput = {
   notes?: string;
   paymentMethod?: PaymentMethod;
   submitToNav?: boolean;
-  /** Send invoice email immediately after creation (default true). */
+  /**
+   * Send the invoice email right after creation (default false). An explicit
+   * true on a draft finalizes it first (number assigned, status "sent").
+   */
   sendEmail?: boolean;
   /** Override To recipients; string, comma-separated string, or array. */
   emailTo?: string | string[];
@@ -189,10 +192,12 @@ export async function createInvoiceFromPayload(
   const currency: InvoiceCurrency =
     body.currency ?? (company?.country === "HU" || !company?.country ? "HUF" : "EUR");
   const issueDate = body.issueDate ?? now.slice(0, 10);
+  const fulfillmentDate = normalizeFulfillmentDateInput(body.fulfillmentDate) ?? undefined;
   // Server safety net (item 6): a non-HUF create with no (valid) caller-
-  // supplied rate gets the official MNB rate instead of being left empty.
+  // supplied rate gets the official MNB rate instead of being left empty —
+  // for the teljesítés date when known, else the issue date (Áfa tv. 80. §).
   const exchangeRate = requiresExchangeRate(currency)
-    ? await autofillMissingExchangeRate({ currency, exchangeRate: body.exchangeRate, issueDate })
+    ? await autofillMissingExchangeRate({ currency, exchangeRate: body.exchangeRate, issueDate, fulfillmentDate })
     : undefined;
   const invoice: Invoice = {
     id: createId(),
@@ -208,7 +213,7 @@ export async function createInvoiceFromPayload(
     clientEuVatNumber: body.clientEuVatNumber?.trim(),
     issueDate,
     dueDate: body.dueDate ?? body.issueDate ?? now.slice(0, 10),
-    fulfillmentDate: normalizeFulfillmentDateInput(body.fulfillmentDate) ?? undefined,
+    fulfillmentDate,
     status: body.status ?? "draft",
     currency,
     exchangeRate,

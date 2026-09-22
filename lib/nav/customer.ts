@@ -77,27 +77,49 @@ function normalizeVatNumber(value: string | undefined | null): string | null {
 }
 
 /**
- * The one place the NAV XML reads the buyer's address from. Today that's
- * the linked partner (client row); when the invoice-level buyer-address
- * snapshot lands (slice/buyer-address-and-unit-persist), switch only this
- * accessor to read the snapshot fields off `invoice`.
+ * The one place the NAV XML reads the buyer's address from. A finalized
+ * invoice carries its own buyer-address snapshot (clientZipCode/clientCity/
+ * clientAddress/clientCountry, frozen at issue — Áfa tv. 169. § e)), which
+ * always wins: renaming or moving the partner later must never change what
+ * an issued invoice reports. Only invoices from before the snapshot existed
+ * (no snapshot address field at all) fall back to the linked partner.
  */
-export function navBuyerAddressOf(_invoice: Invoice, client: Client | null): NavBuyerAddress {
+export function navBuyerAddressOf(invoice: Invoice, client: Client | null): NavBuyerAddress {
+  const snapshot = {
+    postalCode: invoice.clientZipCode?.trim(),
+    city: invoice.clientCity?.trim(),
+    street: invoice.clientAddress?.trim(),
+  };
+  if (snapshot.postalCode || snapshot.city || snapshot.street) {
+    const address: NavBuyerAddress = {};
+    const country = invoice.clientCountry?.trim() || client?.country?.trim();
+    if (country) address.country = country;
+    if (snapshot.postalCode) address.postalCode = snapshot.postalCode;
+    if (snapshot.city) address.city = snapshot.city;
+    if (snapshot.street) address.street = snapshot.street;
+    return address;
+  }
+
   if (!client) return {};
   const address: NavBuyerAddress = {};
-  if (client.country) address.country = client.country;
+  const country = invoice.clientCountry?.trim() || client.country;
+  if (country) address.country = country;
   if (client.zipCode) address.postalCode = client.zipCode;
   if (client.city) address.city = client.city;
   if (client.address) address.street = client.address;
   return address;
 }
 
-/** Buyer as NAV sees it: name/tax number from the invoice snapshot, the rest from the partner. */
+/**
+ * Buyer as NAV sees it: name, tax number, EU VAT number and address from the
+ * invoice snapshot (partner as fallback for pre-snapshot invoices); the party
+ * type is only known on the partner.
+ */
 export function resolveNavBuyer(invoice: Invoice, client: Client | null): NavBuyer {
   return {
     name: invoice.clientName,
     taxNumber: invoice.clientTaxNumber?.trim() || undefined,
-    euVatNumber: client?.euVatNumber?.trim() || undefined,
+    euVatNumber: invoice.clientEuVatNumber?.trim() || client?.euVatNumber?.trim() || undefined,
     partyType: client?.partyType,
     address: navBuyerAddressOf(invoice, client),
   };

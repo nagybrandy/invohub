@@ -310,6 +310,22 @@ describe("createInvoiceFromPayload", () => {
     });
   });
 
+  it("passes the persisted fulfillment date to the MNB autofill (Áfa tv. 80. §)", async () => {
+    mockAutofill.mockResolvedValue(398.1);
+
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      currency: "EUR",
+      issueDate: "2026-09-22",
+      fulfillmentDate: "2026-09-15",
+    });
+
+    expect(saved.fulfillmentDate).toBe("2026-09-15");
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
+    );
+  });
+
   it("never calls the MNB autofill helper for a HUF invoice", async () => {
     await createInvoiceFromPayload("user-1", input);
     expect(mockAutofill).not.toHaveBeenCalled();

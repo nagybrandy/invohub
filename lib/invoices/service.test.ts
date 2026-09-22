@@ -148,6 +148,7 @@ jest.mock("@/lib/id", () => ({
     .mockReturnValueOnce("storno-line-id")
     .mockReturnValueOnce("modify-inv-id")
     .mockReturnValueOnce("modify-line-id")
+    .mockReturnValueOnce("modify-line-copy-id")
     .mockReturnValueOnce("converted-inv-id")
     .mockReturnValueOnce("converted-line-id"),
 }));
@@ -307,6 +308,7 @@ describe("createModificationDraft", () => {
     // AC12: the helyesbítő draft keeps the source's fulfillmentDate.
     expect(draft.fulfillmentDate).toBe("2026-06-10");
   });
+
 });
 
 describe("convertProformaToInvoice", () => {
@@ -814,5 +816,35 @@ describe("buildInvoiceListWhere", () => {
     const names = collectColumnNames(sql);
     expect(names.has("currency")).toBe(false);
     expect(names.has("exchange_rate")).toBe(false);
+  });
+});
+
+// Last in the file: it consumes createId() values, and the mocked id
+// sequence above is shared by the tests before it.
+describe("createModificationDraft — difference lines", () => {
+  it("persists a zero-difference start: reversing line + editable copy per original line", async () => {
+    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const original = source.lineItems[0];
+    mockSelectQueue = [[], [], [], []];
+    mockDb.insert.mockClear();
+
+    await createModificationDraft("user-1", source).catch(() => undefined);
+
+    const insertedRows = mockDb.insert.mock.results
+      .map((r) => (r.value as { values: jest.Mock }).values.mock.calls[0]?.[0])
+      .find((rows): rows is Record<string, unknown>[] => Array.isArray(rows));
+    expect(insertedRows).toHaveLength(2);
+    expect(insertedRows![0]).toMatchObject({
+      description: original.description,
+      quantity: String(-original.quantity),
+      unitPrice: String(original.unitPrice),
+      vatRate: original.vatRate,
+      sortOrder: 0,
+    });
+    expect(insertedRows![1]).toMatchObject({
+      description: original.description,
+      quantity: String(original.quantity),
+      sortOrder: 1,
+    });
   });
 });

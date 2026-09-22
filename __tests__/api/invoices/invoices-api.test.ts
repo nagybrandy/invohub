@@ -310,6 +310,29 @@ describe("POST /api/invoices", () => {
     expect(savedInvoice.exchangeRate).toBe(397.5);
   });
 
+  it("asks MNB for the fulfillment (teljesítés) date's rate when one is given (Áfa tv. 80. §)", async () => {
+    mockAutofill.mockResolvedValue(398.1);
+    await POST(
+      new Request("http://localhost/api/invoices", {
+        method: "POST",
+        body: JSON.stringify({
+          clientName: "Acme Kft.",
+          currency: "EUR",
+          issueDate: "2026-09-22",
+          fulfillmentDate: "2026-09-15",
+          lineItems: [],
+        }),
+      })
+    );
+    expect(mockAutofill).toHaveBeenCalledWith({
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+      fulfillmentDate: "2026-09-15",
+    });
+    expect(mockUpsert.mock.calls[0][1].fulfillmentDate).toBe("2026-09-15");
+  });
+
   it("never calls the MNB autofill for a HUF invoice", async () => {
     await POST(
       new Request("http://localhost/api/invoices", {

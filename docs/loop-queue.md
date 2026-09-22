@@ -176,8 +176,9 @@ first one next, ahead of everything below:**
   through `deleteDraftInvoiceById` (added for the v1 API — returns
   not_found / not_draft / deleted) and return 409 for a non-draft; add a
   route test. Same check for any bulk-delete path if one exists.
-- [ ] **Decide the v1 `POST /api/v1/invoices` `sendEmail` default** (owner
-  decision). It defaults to `true`, and `sendInvoiceNotificationEmail`
+- [x] **Decide the v1 `POST /api/v1/invoices` `sendEmail` default** (owner
+  decision — 2026-09-22: default is now `false`; explicit `true` still
+  finalizes + sends. Shipped on slice/nav-submission-and-xml-fixes). It defaults to `true`, and `sendInvoiceNotificationEmail`
   finalizes a draft before emailing it — so a plain "create draft" call
   silently assigns a number, flips it to sent and emails the customer.
   That breaks the documented create → finalize → send flow unless the

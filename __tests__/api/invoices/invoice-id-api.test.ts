@@ -344,6 +344,19 @@ describe("PATCH /api/invoices/[id] — MNB safety net", () => {
     expect(savedInvoice.exchangeRate).toBe(397.5);
   });
 
+  it("fetches the rate for the draft's persisted fulfillment date when finalizing (Áfa tv. 80. §)", async () => {
+    mockGet.mockResolvedValue(
+      makeInvoice({ id: "inv-1", status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", currency: "EUR", exchangeRate: undefined, issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
+    );
+    mockAutofill.mockResolvedValue(398.1);
+
+    await patch("inv-1", { status: "unpaid" });
+
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
+    );
+  });
+
   it("never overrides an already-valid manual rate", async () => {
     mockGet.mockResolvedValue(
       makeInvoice({ id: "inv-1", status: "draft", clientZipCode: "1011", clientCity: "Budapest", clientAddress: "Fő utca 1.", currency: "EUR", exchangeRate: 390.5 })

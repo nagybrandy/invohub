@@ -95,6 +95,7 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const currency = body.currency ?? "HUF";
   const issueDate = body.issueDate ?? now.slice(0, 10);
+  const fulfillmentDate = normalizeFulfillmentDate(body.fulfillmentDate);
   // Server safety net (item 6): a non-HUF create with no (valid) manual
   // rate gets the official MNB rate instead of being left empty — same
   // fallback-to-undefined-on-failure as everywhere else this helper is used.
@@ -102,6 +103,8 @@ export async function POST(request: Request) {
     currency,
     exchangeRate: normalizeExchangeRate(currency, body.exchangeRate),
     issueDate,
+    // Áfa tv. 80. §: the teljesítés date's rate when known, else issue date.
+    fulfillmentDate,
   });
   const invoice: Invoice = {
     id: body.id ?? createId(),
@@ -120,7 +123,7 @@ export async function POST(request: Request) {
     clientEuVatNumber: body.clientEuVatNumber,
     issueDate,
     dueDate: body.dueDate ?? now.slice(0, 10),
-    fulfillmentDate: normalizeFulfillmentDate(body.fulfillmentDate),
+    fulfillmentDate,
     status: body.status ?? "draft",
     currency,
     exchangeRate,

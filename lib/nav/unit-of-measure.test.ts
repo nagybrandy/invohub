@@ -1,6 +1,7 @@
 // lib/nav/unit-of-measure.test.ts
 import { navLineUnitOf, toNavUnitOfMeasure } from "@/lib/nav/unit-of-measure";
 import { makeLineItem } from "@/__tests__/fixtures/invoices";
+import { mapLineItemFromDb } from "@/lib/invoices/mappers";
 
 describe("toNavUnitOfMeasure", () => {
   it.each([
@@ -53,8 +54,40 @@ describe("toNavUnitOfMeasure", () => {
 });
 
 describe("navLineUnitOf", () => {
-  it("reads the line item's unit (single accessor — switch here when the unit is persisted)", () => {
+  it("reads the line item's unit", () => {
     expect(navLineUnitOf(makeLineItem({ unit: "óra" }))).toBe("óra");
     expect(navLineUnitOf(makeLineItem({ unit: undefined }))).toBeUndefined();
+    expect(navLineUnitOf(makeLineItem({ unit: "  " }))).toBeUndefined();
+  });
+
+  it("uses the unit persisted on invoice_line_item (round-trips through mapLineItemFromDb)", () => {
+    const line = mapLineItemFromDb({
+      id: "li-1",
+      invoiceId: "inv-1",
+      description: "Tanácsadás",
+      quantity: "2",
+      unitPrice: "1000",
+      vatRate: 27,
+      vatCategory: "normal",
+      vatExemptionReason: null,
+      unit: "óra",
+    } as unknown as Parameters<typeof mapLineItemFromDb>[0]);
+    expect(navLineUnitOf(line)).toBe("óra");
+    expect(toNavUnitOfMeasure(navLineUnitOf(line))).toEqual({ unitOfMeasure: "HOUR" });
+  });
+
+  it("reports a legacy line with no persisted unit (NULL) as PIECE", () => {
+    const line = mapLineItemFromDb({
+      id: "li-1",
+      invoiceId: "inv-1",
+      description: "Régi tétel",
+      quantity: "1",
+      unitPrice: "1000",
+      vatRate: 27,
+      vatCategory: "normal",
+      vatExemptionReason: null,
+      unit: null,
+    } as unknown as Parameters<typeof mapLineItemFromDb>[0]);
+    expect(toNavUnitOfMeasure(navLineUnitOf(line))).toEqual({ unitOfMeasure: "PIECE" });
   });
 });

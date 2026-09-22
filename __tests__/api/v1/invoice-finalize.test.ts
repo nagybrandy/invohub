@@ -182,6 +182,27 @@ describe("POST /api/v1/invoices/[id]/finalize", () => {
     );
   });
 
+  it("fetches the rate for the persisted fulfillment date, not the issue date (Áfa tv. 80. §)", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({
+      id: "inv-1",
+      status: "unpaid",
+      currency: "EUR",
+      exchangeRate: undefined,
+      issueDate: "2026-09-22",
+      fulfillmentDate: "2026-09-15",
+    });
+    mockFinalize.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutofill.mockResolvedValue(398.1);
+    mockUpsert.mockResolvedValue({ ...finalized, exchangeRate: 398.1 });
+
+    await POST(req("inv-1"), params("inv-1"));
+
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
+    );
+  });
+
   it("never calls the autofill helper for a HUF invoice", async () => {
     authOk("user-1");
     const finalized = makeInvoice({ id: "inv-1", status: "unpaid", currency: "HUF" });

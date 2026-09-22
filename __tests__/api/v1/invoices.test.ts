@@ -158,10 +158,43 @@ describe("POST /api/v1/invoices", () => {
     await POST(
       new Request("http://localhost/api/v1/invoices", {
         method: "POST",
-        body: JSON.stringify({ clientName: "Acme Kft.", status: "draft" }),
+        body: JSON.stringify({ clientName: "Acme Kft.", status: "draft", sendEmail: true }),
       })
     );
     expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, finalized);
+  });
+
+  it("does NOT e-mail (or finalize) by default when sendEmail is omitted", async () => {
+    const draft = makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" });
+    mockCreate.mockResolvedValue(draft);
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", lineItems: [{ description: "x", quantity: 1, unitPrice: 100 }] }),
+      })
+    );
+    const body = await response.json();
+    expect(response.status).toBe(201);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(body.email).toEqual({ sent: false, skipped: true });
+    expect(body.invoice.status).toBe("draft");
+    expect(body.invoice.invoiceNumber).toBe("");
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, draft);
+  });
+
+  it("still finalizes and e-mails when sendEmail is explicitly true", async () => {
+    const finalized = makeInvoice({ id: "inv-1", status: "sent", invoiceNumber: "INV-2026-010" });
+    mockSendEmail.mockResolvedValue({ ok: true, invoice: finalized, to: ["a@b.hu"], cc: [], pdfAttached: true } as never);
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", sendEmail: true, emailTo: "a@b.hu" }),
+      })
+    );
+    const body = await response.json();
+    expect(mockSendEmail).toHaveBeenCalledWith("user-1", "inv-1", expect.objectContaining({ markSent: true, to: "a@b.hu" }));
+    expect(body.invoice.invoiceNumber).toBe("INV-2026-010");
+    expect(body.email.sent).toBe(true);
   });
 
   it("still honours an explicit submitToNav when auto-submit didn't apply", async () => {

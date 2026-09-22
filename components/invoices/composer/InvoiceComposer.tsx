@@ -412,6 +412,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
               onAdd={composer.addLineItem}
               onAddFromProduct={composer.addLineItemFromProduct}
               onRemove={composer.removeLineItem}
+              isModification={invoice?.documentType === "modify"}
               previewSlot={
                 previewLayout.side ? undefined : <ComposerPreviewButton invoice={draftInvoice} t={t} />
               }

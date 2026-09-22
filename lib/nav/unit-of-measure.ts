@@ -86,10 +86,11 @@ export function toNavUnitOfMeasure(unit: string | undefined | null): NavUnitResu
 }
 
 /**
- * The one place the NAV XML reads a line's unit from. Today that's the
- * in-memory InvoiceLineItem.unit; when the persisted line-item unit lands
- * (slice/buyer-address-and-unit-persist), switch only this accessor.
+ * The one place the NAV XML reads a line's unit from: the persisted
+ * invoice_line_item.unit (mapLineItemFromDb -> InvoiceLineItem.unit), i.e.
+ * exactly what the PDF printed. Blank/legacy (null) units come back
+ * undefined, which toNavUnitOfMeasure reports as PIECE.
  */
 export function navLineUnitOf(line: InvoiceLineItem): string | undefined {
-  return line.unit;
+  return line.unit?.trim() || undefined;
 }

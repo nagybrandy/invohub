@@ -261,6 +261,9 @@ export function useInvoiceComposer({
   // (editing an existing non-HUF invoice) so nothing gets silently
   // overwritten on mount — every run after that always (re-)fetches, since
   // a currency/date change invalidates whatever rate was there before.
+  // Áfa tv. 80. §: the teljesítés date's rate; a cleared fulfillment date
+  // falls back to the issue date (same rule as the server-side autofill).
+  const exchangeRateDate = fulfillmentDate.trim() || issueDate;
   React.useEffect(() => {
     if (currency === "HUF") {
       setExchangeRateSource(null);
@@ -282,7 +285,7 @@ export function useInvoiceComposer({
     let cancelled = false;
 
     apiFetch<{ rate: number; rateDate: string; source: string }>(
-      `/api/exchange-rates?currency=${currency}&date=${fulfillmentDate}`
+      `/api/exchange-rates?currency=${currency}&date=${exchangeRateDate}`
     )
       .then((data) => {
         if (cancelled || exchangeRateManualRef.current) return;
@@ -308,7 +311,7 @@ export function useInvoiceComposer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currency, fulfillmentDate]);
+  }, [currency, exchangeRateDate]);
 
   /** Manual override (spec item 5) — marks the rate as user-owned so the next fetch response can't clobber it mid-flight. */
   function setExchangeRate(value: string) {

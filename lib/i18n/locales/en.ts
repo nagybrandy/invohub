@@ -494,8 +494,10 @@ export default {
       action: "Correction invoice",
       confirmTitle: "Create a correction invoice",
       confirmMessage:
-        "Starts a helyesbítő draft prefilled with this invoice's lines, for you to adjust and finalize.",
+        "Starts a helyesbítő draft with each of this invoice's lines both reversed and copied — edit the copies, then finalize.",
       confirm: "Create draft",
+      draftHint:
+        "The original lines appear reversed; edit the copies to the correct values, and you can delete pairs that did not change.",
     },
     convert: {
       action: "Create invoice from this",

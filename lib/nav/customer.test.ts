@@ -56,7 +56,27 @@ describe("parseHungarianTaxNumber", () => {
 });
 
 describe("navBuyerAddressOf (single accessor for the buyer address)", () => {
-  it("reads the linked client's address today", () => {
+  it("prefers the invoice's buyer-address snapshot over the (possibly since-edited) client", () => {
+    const address = navBuyerAddressOf(
+      makeInvoice({ clientZipCode: "6720", clientCity: "Szeged", clientAddress: "Kárász utca 2.", clientCountry: "HU" }),
+      makeClient({ country: "Magyarország", zipCode: "1052", city: "Budapest", address: "Váci utca 1." })
+    );
+    expect(address).toEqual({ country: "HU", postalCode: "6720", city: "Szeged", street: "Kárász utca 2." });
+  });
+
+  it("uses the snapshot even with no linked client, and never mixes in client address parts", () => {
+    expect(
+      navBuyerAddressOf(makeInvoice({ clientZipCode: "6720", clientCity: "Szeged", clientAddress: "Kárász utca 2." }), null)
+    ).toEqual({ postalCode: "6720", city: "Szeged", street: "Kárász utca 2." });
+    expect(
+      navBuyerAddressOf(
+        makeInvoice({ clientZipCode: "6720", clientCity: "Szeged", clientAddress: undefined }),
+        makeClient({ zipCode: "1052", city: "Budapest", address: "Váci utca 1." })
+      )
+    ).toEqual({ postalCode: "6720", city: "Szeged" });
+  });
+
+  it("falls back to the linked client for a pre-snapshot invoice (no snapshot address fields)", () => {
     const address = navBuyerAddressOf(
       makeInvoice(),
       makeClient({ country: "Magyarország", zipCode: "1052", city: "Budapest", address: "Váci utca 1." })
@@ -80,6 +100,14 @@ describe("resolveNavBuyer", () => {
     expect(result.euVatNumber).toBe("HU11111111");
     expect(result.partyType).toBe("company");
     expect(result.address.city).toBe("Budapest");
+  });
+
+  it("prefers the invoice's EU VAT number snapshot over the client's", () => {
+    const result = resolveNavBuyer(
+      makeInvoice({ clientEuVatNumber: "DE123456789" }),
+      makeClient({ euVatNumber: "AT U12345678" })
+    );
+    expect(result.euVatNumber).toBe("DE123456789");
   });
 });
 

@@ -5,6 +5,7 @@
 import { buildNavInvoiceXml } from "@/lib/nav/invoice-xml";
 import { deriveNavCustomer } from "@/lib/nav/customer";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
+import { buildModificationDraftLineItems } from "@/lib/invoices/modification-lines";
 import {
   CUSTOMER_INFO_SEQUENCE,
   LINE_SEQUENCE,
@@ -199,6 +200,64 @@ describe("buildNavInvoiceXml — modification documents (storno / helyesbítő)"
       expect(firstElement(ref, "lineNumberReference")!.textContent).toBe(String(3 + index + 1));
       expect(firstElement(ref, "lineOperation")!.textContent).toBe("CREATE");
     });
+  });
+
+  it("helyesbítő difference lines: reversal + corrected copy go out as consecutive CREATE lines with signed amounts", () => {
+    const original = [
+      makeLineItem({ id: "a", description: "Tanácsadás", quantity: 3, unit: "óra", unitPrice: 10000, vatRate: 27 }),
+      makeLineItem({ id: "b", description: "Könyv", quantity: 1, unit: "db", unitPrice: 5000, vatRate: 5 }),
+    ];
+    const lines = buildModificationDraftLineItems(original);
+    // User corrected the hours from 3 to 4; the book pair stays (nets to 0).
+    lines[1] = { ...lines[1], quantity: 4 };
+    const invoice = makeInvoice({ documentType: "modify", currency: "HUF", lineItems: lines });
+    const root = parseNavXml(
+      buildNavInvoiceXml({ ...invoice, invoiceReference: reference, lineNumberReferenceBase: 2 }, company)
+    );
+
+    const xmlLines = allElements(root, "line");
+    expect(xmlLines).toHaveLength(4);
+    expect(xmlLines.map((l) => firstElement(l, "lineNumber")!.textContent)).toEqual(["1", "2", "3", "4"]);
+    expect(xmlLines.map((l) => firstElement(l, "lineNumberReference")!.textContent)).toEqual(["3", "4", "5", "6"]);
+    expect(xmlLines.map((l) => firstElement(l, "lineOperation")!.textContent)).toEqual([
+      "CREATE",
+      "CREATE",
+      "CREATE",
+      "CREATE",
+    ]);
+    expect(xmlLines.map((l) => firstElement(l, "quantity")!.textContent)).toEqual(["-3.00", "4.00", "-1.00", "1.00"]);
+    expect(xmlLines.map((l) => firstElement(l, "unitOfMeasure")!.textContent)).toEqual(["HOUR", "HOUR", "PIECE", "PIECE"]);
+    expect(xmlLines.map((l) => firstElement(l, "lineNetAmount")!.textContent)).toEqual([
+      "-30000.00",
+      "40000.00",
+      "-5000.00",
+      "5000.00",
+    ]);
+    for (const line of xmlLines) expectSequence(childNames(line), LINE_SEQUENCE);
+
+    // The document total is exactly the difference: +1 hour at 27%.
+    expect(firstElement(root, "invoiceNetAmount")!.textContent).toBe("10000.00");
+    expect(firstElement(root, "invoiceVatAmount")!.textContent).toBe("2700.00");
+    const byRate = allElements(root, "summaryByVatRate").map((el) => ({
+      net: firstElement(el, "vatRateNetAmount")!.textContent,
+      vat: firstElement(el, "vatRateVatAmount")!.textContent,
+    }));
+    expect(byRate).toEqual([
+      { net: "10000.00", vat: "2700.00" },
+      { net: "0.00", vat: "0.00" },
+    ]);
+  });
+
+  it("a non-HUF helyesbítő pair nets to exactly 0 HUF, even on half-cent conversions", () => {
+    const lines = buildModificationDraftLineItems([
+      makeLineItem({ id: "a", quantity: 1, unitPrice: 0.125, vatRate: 27 }),
+    ]);
+    const invoice = makeInvoice({ documentType: "modify", currency: "EUR", exchangeRate: 1, lineItems: lines });
+    const root = parseNavXml(
+      buildNavInvoiceXml({ ...invoice, invoiceReference: reference, lineNumberReferenceBase: 1 }, company)
+    );
+    expect(firstElement(root, "invoiceNetAmountHUF")!.textContent).toBe("0.00");
+    expect(firstElement(root, "invoiceVatAmountHUF")!.textContent).toBe("0.00");
   });
 
   it("does not add lineModificationReference to a plain CREATE invoice", () => {

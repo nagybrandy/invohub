@@ -493,8 +493,10 @@ export default {
       action: "Helyesbítő számla",
       confirmTitle: "Helyesbítő számla létrehozása",
       confirmMessage:
-        "Az eredeti számla tételeivel előtöltött piszkozatot hoz létre, amit szerkeszthetsz és kiállíthatsz.",
+        "Piszkozatot hoz létre, amelyben az eredeti számla minden tétele ellentételezve és másolatként is szerepel — a másolatokat írd át, majd állítsd ki.",
       confirm: "Piszkozat létrehozása",
+      draftHint:
+        "Az eredeti tételek ellentételezve szerepelnek; a másolatokat írd át a helyes értékekre, a változatlan párokat törölheted.",
     },
     convert: {
       action: "Számla készítése ebből",

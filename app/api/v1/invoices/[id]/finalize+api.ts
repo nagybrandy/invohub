@@ -76,6 +76,8 @@ export async function POST(
         currency: invoice.currency,
         exchangeRate: invoice.exchangeRate,
         issueDate: invoice.issueDate,
+        // Áfa tv. 80. §: the teljesítés date's rate when known.
+        fulfillmentDate: invoice.fulfillmentDate,
       });
       if (exchangeRate !== undefined) {
         invoice = await upsertInvoice(auth.userId, { ...invoice, exchangeRate });

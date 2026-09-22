@@ -57,13 +57,11 @@ async function createInvoiceAndSideEffects(
   try {
     const invoice = await createInvoiceFromPayload(userId, body as ExternalInvoiceInput);
 
-    // NOTE(sendEmail default): sendEmail defaults to true even for a
-    // status: "draft" body — a draft has no invoiceNumber yet, so
-    // sendInvoiceNotificationEmail finalizes it (assigns a number, flips
-    // status to "sent") before emailing. That is existing behaviour
-    // (create-from-payload.ts / send-invoice-email.ts), not something this
-    // slice changed — flagged in the PR description, not fixed here.
-    const shouldSendEmail = body.sendEmail !== false;
+    // Owner decision (2026-09-22): creating never e-mails by default. Only
+    // an explicit `sendEmail: true` sends — and, for a draft body, that send
+    // finalizes it first (assigns the number, status -> "sent"; see
+    // send-invoice-email.ts). A default create leaves a draft a draft.
+    const shouldSendEmail = body.sendEmail === true;
     let emailResult: Awaited<ReturnType<typeof sendInvoiceNotificationEmail>> | null = null;
     if (shouldSendEmail) {
       emailResult = await sendInvoiceNotificationEmail(userId, invoice.id, {

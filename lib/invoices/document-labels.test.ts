@@ -70,6 +70,19 @@ describe("formatDocumentAmount", () => {
   });
 });
 
+describe("formatDocumentAmount — negatives", () => {
+  it("keeps the sign of a real negative amount (storno / helyesbítő reversal)", () => {
+    expect(formatDocumentAmount(-1234.5, "EUR")).toMatch(/^-1\s234,50\s€$/);
+    expect(formatDocumentAmount(-45000, "HUF")).toMatch(/^-45\s000\sFt$/);
+  });
+
+  it("never prints a negative zero for a netted-out or float-residue amount", () => {
+    expect(formatDocumentAmount(-0, "HUF")).toMatch(/^0\sFt$/);
+    expect(formatDocumentAmount(-0.4, "HUF")).toMatch(/^0\sFt$/);
+    expect(formatDocumentAmount(-1e-13, "EUR")).toMatch(/^0,00\s€$/);
+  });
+});
+
 describe("toWinAnsiSafe / isWinAnsiSafe", () => {
   it("transliterates ő/ű (and uppercase) to ö/ü, leaving everything else unchanged", () => {
     expect(toWinAnsiSafe("Vevő űrlap ŐSZ ŰR")).toBe("Vevö ürlap ÖSZ ÜR");
@@ -114,5 +127,14 @@ describe("formatDocumentQuantity", () => {
 
   it("prints a bare integer without a unit", () => {
     expect(formatDocumentQuantity(3)).toBe("3");
+  });
+
+  it("prints a reversing line's negative quantity with its unit", () => {
+    expect(formatDocumentQuantity(-2, "óra")).toBe("-2 óra");
+    expect(formatDocumentQuantity(-1.5)).toBe("-1,5");
+  });
+
+  it("never prints -0", () => {
+    expect(formatDocumentQuantity(-0, "db")).toBe("0 db");
   });
 });
