@@ -226,6 +226,9 @@ export function StepPartner(composer: InvoiceComposerState) {
             <VStack className="min-w-[160px] flex-1">
               <Text size="xs" className="mb-1 text-muted-foreground">{t("invoices.fields.fulfillmentDate")}</Text>
               <DateInput value={fulfillmentDate} onChangeText={setFulfillmentDate} />
+              <Text size="xs" className="mt-1 text-muted-foreground">
+                {t("invoices.fields.fulfillmentDateHint")}
+              </Text>
             </VStack>
             <VStack className="min-w-[160px] flex-1">
               <Text size="xs" className="mb-1 text-muted-foreground">{t("invoices.fields.issueDate")}</Text>

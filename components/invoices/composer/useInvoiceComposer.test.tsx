@@ -296,6 +296,84 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.documentTabsDisabled).toBe(true);
   });
 
+  // AC9: edit mode initializes fulfillmentDate from the invoice, falling
+  // back to issueDate only when the invoice has none.
+  it("edit mode initializes fulfillmentDate from invoice.fulfillmentDate when set (AC9)", async () => {
+    const invoice = makeInvoice({
+      id: "inv-43",
+      issueDate: "2026-09-01",
+      fulfillmentDate: "2026-09-12",
+    });
+
+    const ref = await renderComposer({ mode: "edit", invoice });
+
+    expect(ref.current!.fulfillmentDate).toBe("2026-09-12");
+  });
+
+  it("edit mode falls back to issueDate when the invoice has no fulfillmentDate (AC9)", async () => {
+    const invoice = makeInvoice({
+      id: "inv-44",
+      issueDate: "2026-09-01",
+      fulfillmentDate: undefined,
+    });
+
+    const ref = await renderComposer({ mode: "edit", invoice });
+
+    expect(ref.current!.fulfillmentDate).toBe("2026-09-01");
+  });
+
+  it("changing fulfillmentDate marks the composer dirty (AC9)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.isDirty).toBe(false);
+
+    act(() => {
+      ref.current!.setFulfillmentDate("2026-09-12");
+    });
+
+    expect(ref.current!.fulfillmentDate).toBe("2026-09-12");
+    expect(ref.current!.isDirty).toBe(true);
+  });
+
+  // AC8: the save payload and the live-preview draftInvoice both carry
+  // fulfillmentDate (trimmed; undefined when blank).
+  it("save payload and draftInvoice carry the trimmed fulfillmentDate (AC8)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+      ref.current!.setFulfillmentDate("  2026-09-12  ");
+    });
+
+    expect(ref.current!.draftInvoice.fulfillmentDate).toBe("2026-09-12");
+
+    await act(async () => {
+      await ref.current!.save("draft");
+    });
+
+    const invoiceCall = mockApiFetch.mock.calls.find(([path]) => path === "/api/invoices");
+    const body = JSON.parse((invoiceCall![1] as RequestInit).body as string);
+    expect(body.fulfillmentDate).toBe("2026-09-12");
+  });
+
+  it("save payload and draftInvoice omit fulfillmentDate when blank (AC8)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Acme Kft.");
+      ref.current!.setLineItems([makeLineItem({ description: "Tanácsadás", unitPrice: 1000 })]);
+      ref.current!.setFulfillmentDate("   ");
+    });
+
+    expect(ref.current!.draftInvoice.fulfillmentDate).toBeUndefined();
+
+    await act(async () => {
+      await ref.current!.save("draft");
+    });
+
+    const invoiceCall = mockApiFetch.mock.calls.find(([path]) => path === "/api/invoices");
+    const body = JSON.parse((invoiceCall![1] as RequestInit).body as string);
+    expect(body.fulfillmentDate).toBeUndefined();
+  });
+
   it("clears the partner error banner as soon as a name is typed (spec §2.6)", async () => {
     const ref = await renderComposer({ mode: "create" });
     act(() => {

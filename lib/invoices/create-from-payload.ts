@@ -3,6 +3,7 @@
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
+import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
@@ -53,6 +54,8 @@ export type ExternalInvoiceInput = {
   clientTaxNumber?: string;
   issueDate?: string;
   dueDate?: string;
+  /** Teljesítés dátuma — ISO YYYY-MM-DD; a parseable ISO datetime is sliced to its date part. */
+  fulfillmentDate?: string;
   status?: InvoiceStatus;
   currency?: InvoiceCurrency;
   /** Manual HUF exchange rate — required (positive, finite) when currency isn't HUF. */
@@ -116,6 +119,12 @@ export function validateExternalInvoiceInput(
   if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
     return `paymentMethod must be one of ${PAYMENT_METHODS.join(", ")}.`;
   }
+  if (
+    body.fulfillmentDate !== undefined &&
+    normalizeFulfillmentDateInput(body.fulfillmentDate) === null
+  ) {
+    return "fulfillmentDate must be a YYYY-MM-DD date.";
+  }
 
   const emailToError = validateEmailRecipientsInput("emailTo", body.emailTo);
   if (emailToError) return emailToError;
@@ -166,6 +175,7 @@ export async function createInvoiceFromPayload(
     clientTaxNumber: body.clientTaxNumber?.trim(),
     issueDate: body.issueDate ?? now.slice(0, 10),
     dueDate: body.dueDate ?? body.issueDate ?? now.slice(0, 10),
+    fulfillmentDate: normalizeFulfillmentDateInput(body.fulfillmentDate) ?? undefined,
     status: body.status ?? "draft",
     currency,
     exchangeRate: requiresExchangeRate(currency) ? body.exchangeRate : undefined,

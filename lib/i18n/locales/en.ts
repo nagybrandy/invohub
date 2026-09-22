@@ -147,6 +147,7 @@ export default {
       taxNumber: "Tax number",
       bankAccount: "Bank account",
       issueDate: "Issue date",
+      fulfillmentDate: "Fulfillment date",
       dueDate: "Due date",
       paymentMethod: "Payment method",
       currency: "Currency",
@@ -310,6 +311,8 @@ export default {
       email: "Email",
       emailHint: "We'll send the document here",
       fulfillmentDate: "Fulfillment date",
+      fulfillmentDateHint:
+        "Shown on the invoice when it differs from the issue date, and reported to NAV.",
       issueDate: "Issue date",
       continuousPerformance: "Continuous performance",
       paymentMethod: "Payment method",

@@ -379,8 +379,13 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // -------------------------------------------------------------
         const metaCells: Array<{ label: string; value: string }> = [
           { label: labels.issueDate, value: formatDateOnly(invoice.issueDate) },
-          { label: labels.dueDate, value: formatInvoiceDueDate(invoice) },
         ];
+        // Teljesítés kelte (AC6): only when a fulfillment date is actually
+        // resolved — the issue date is never printed under this label.
+        if (invoice.fulfillmentDate) {
+          metaCells.push({ label: labels.fulfillmentDate, value: formatDateOnly(invoice.fulfillmentDate) });
+        }
+        metaCells.push({ label: labels.dueDate, value: formatInvoiceDueDate(invoice) });
         if (invoice.paymentMethod) {
           metaCells.push({
             label: labels.paymentMethod,

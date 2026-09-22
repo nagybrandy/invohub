@@ -147,6 +147,7 @@ export default {
       taxNumber: "Adószám",
       bankAccount: "Bankszámlaszám",
       issueDate: "Kiállítás kelte",
+      fulfillmentDate: "Teljesítés kelte",
       dueDate: "Fizetési határidő",
       paymentMethod: "Fizetési mód",
       currency: "Pénznem",
@@ -311,6 +312,8 @@ export default {
       email: "E-mail cím",
       emailHint: "Ide küldjük a bizonylatot",
       fulfillmentDate: "Teljesítés dátuma",
+      fulfillmentDateHint:
+        "Ha eltér a számla keltétől, a számlán is megjelenik, és ez kerül a NAV-adatszolgáltatásba.",
       issueDate: "Számla kelte",
       continuousPerformance: "Folyamatos teljesítés",
       paymentMethod: "Fizetési mód",

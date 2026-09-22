@@ -168,6 +168,14 @@ describe("duplicateInvoice", () => {
     expect(copy.paidAmount).toBeUndefined();
     expect(copy.paidAt).toBeUndefined();
   });
+
+  // AC12: duplicate keeps the source's fulfillmentDate (already spread
+  // ...source; a regression guard, not new logic).
+  it("keeps the source's fulfillmentDate", () => {
+    const source = makeInvoice({ fulfillmentDate: "2026-06-20" });
+    const copy = duplicateInvoice(source);
+    expect(copy.fulfillmentDate).toBe("2026-06-20");
+  });
 });
 
 describe("buildStornoLineItems", () => {
@@ -181,7 +189,11 @@ describe("buildStornoLineItems", () => {
 
 describe("createStornoInvoice", () => {
   it("creates a new finalized storno document and cancels the original", async () => {
-    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const source = makeInvoice({
+      id: "inv-orig",
+      invoiceNumber: "INV-2026-001",
+      fulfillmentDate: "2026-05-28",
+    });
 
     // Storno is finalized immediately, so it allocates a number from the shared invoice sequence.
     mockSequenceQueue = [2];
@@ -196,6 +208,7 @@ describe("createStornoInvoice", () => {
           documentType: "storno",
           status: "sent",
           originalInvoiceId: "inv-orig",
+          fulfillmentDate: "2026-05-28",
         }),
       ],
       [dbLineItemRow({ id: "storno-line-id", invoiceId: "storno-inv-id", quantity: "-2" })],
@@ -208,6 +221,8 @@ describe("createStornoInvoice", () => {
     expect(saved.originalInvoiceId).toBe("inv-orig");
     expect(saved.status).toBe("sent");
     expect(saved.lineItems[0].quantity).toBe(-2);
+    // AC12: the storno document keeps the source's fulfillmentDate.
+    expect(saved.fulfillmentDate).toBe("2026-05-28");
 
     // The original invoice was flipped to cancelled via a direct update.
     expect(mockDb.update).toHaveBeenCalledTimes(1);
@@ -216,7 +231,11 @@ describe("createStornoInvoice", () => {
 
 describe("createModificationDraft", () => {
   it("creates a minimal draft pointing at the source with modificationIndex 1", async () => {
-    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const source = makeInvoice({
+      id: "inv-orig",
+      invoiceNumber: "INV-2026-001",
+      fulfillmentDate: "2026-06-10",
+    });
 
     mockSelectQueue = [
       [], // findInvoicesReferencing(modifiesInvoiceId) -> no prior corrections
@@ -229,6 +248,7 @@ describe("createModificationDraft", () => {
           status: "draft",
           modifiesInvoiceId: "inv-orig",
           modificationIndex: 1,
+          fulfillmentDate: "2026-06-10",
         }),
       ],
       [dbLineItemRow({ id: "modify-line-id", invoiceId: "modify-inv-id" })],
@@ -242,6 +262,8 @@ describe("createModificationDraft", () => {
     expect(draft.invoiceNumber).toBe("");
     expect(draft.modifiesInvoiceId).toBe("inv-orig");
     expect(draft.modificationIndex).toBe(1);
+    // AC12: the helyesbítő draft keeps the source's fulfillmentDate.
+    expect(draft.fulfillmentDate).toBe("2026-06-10");
   });
 });
 
