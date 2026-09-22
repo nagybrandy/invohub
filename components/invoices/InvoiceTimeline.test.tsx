@@ -174,6 +174,21 @@ describe("InvoiceTimeline", () => {
     expect(() => tree.root.findByProps({ testID: "invoice-timeline-nav" })).toThrow();
   });
 
+  it("hides the NAV row on a díjbekérő, which is never reported to NAV", () => {
+    const tree = renderTimeline({ invoice: makeInvoice({ documentType: "proforma", status: "proforma" }) });
+    expect(() => tree.root.findByProps({ testID: "invoice-timeline-nav" })).toThrow();
+  });
+
+  it("tones a failed (error) submission as destructive, like an aborted one", () => {
+    const json = JSON.stringify(
+      renderTimeline({
+        invoice: makeInvoice({ status: "sent" }),
+        nav: { status: "error", label: "Sikertelen beküldés", transactionId: null },
+      }).toJSON()
+    );
+    expect(json).toContain("text-destructive");
+  });
+
   it("stacks the steps vertically when the card is phone-narrow", () => {
     const tree = renderTimeline({ invoice: makeInvoice({ status: "sent", dueDate: "2026-12-31" }), layout: "auto" });
     act(() => {

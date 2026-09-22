@@ -140,6 +140,9 @@ export default {
     },
     document: {
       documentNumber: "Sorszám",
+      referenceModify: "Az {{number}} sorszámú számla helyesbítése",
+      referenceStorno: "Az {{number}} sorszámú számla sztornója",
+      refundTotal: "Visszatérítendő összeg",
       vatSummary: "ÁFA-összesítő",
       vatRateColumn: "ÁFA-kulcs",
       paymentDetails: "Fizetési információ",
@@ -150,6 +153,7 @@ export default {
       taxNumber: "Adószám",
       bankAccount: "Bankszámlaszám",
       issueDate: "Kiállítás kelte",
+      fulfillmentDate: "Teljesítés kelte",
       dueDate: "Fizetési határidő",
       paymentMethod: "Fizetési mód",
       currency: "Pénznem",
@@ -243,6 +247,7 @@ export default {
       submit: "Beküldés a NAV-nak",
       submitting: "Beküldés…",
       submitFailed: "A NAV beküldés sikertelen.",
+      retry: "Újrapróbálás",
       refresh: "Státusz frissítése",
       refreshing: "Frissítés…",
       refreshFailed: "A NAV státusz frissítése sikertelen.",
@@ -253,9 +258,11 @@ export default {
         sent: "Beküldve",
         received: "Fogadva",
         processing: "Feldolgozás alatt",
+        pending: "Beküldés folyamatban",
         saved: "Mentve",
         done: "Kész",
         aborted: "Elutasítva",
+        error: "Sikertelen beküldés",
       },
     },
     timeline: {
@@ -310,6 +317,8 @@ export default {
       email: "E-mail cím",
       emailHint: "Ide küldjük a bizonylatot",
       fulfillmentDate: "Teljesítés dátuma",
+      fulfillmentDateHint:
+        "Ha eltér a számla keltétől, a számlán is megjelenik, és ez kerül a NAV-adatszolgáltatásba.",
       issueDate: "Számla kelte",
       continuousPerformance: "Folyamatos teljesítés",
       paymentMethod: "Fizetési mód",
@@ -336,7 +345,7 @@ export default {
       days: "nap",
       navSubmit: "NAV Online Számla beküldése",
       navSubmitHint:
-        "A számla automatikusan beküldésre kerül a NAV rendszerébe",
+        "Véglegesítéskor a számla automatikusan beküldésre kerül a NAV-nak, ha a NAV-beküldés be van állítva (Cégadatok, demó vagy teszt mód). Az állapotot a számla adatlapján követheted.",
       postalMailing: "Bizonylat postázása",
       sendEmail: "Bizonylat postázása e-mailben",
       sendEmailHint: "A bizonylat automatikusan kiküldésre kerül a partner e-mail címére",
@@ -487,8 +496,10 @@ export default {
       action: "Helyesbítő számla",
       confirmTitle: "Helyesbítő számla létrehozása",
       confirmMessage:
-        "Az eredeti számla tételeivel előtöltött piszkozatot hoz létre, amit szerkeszthetsz és kiállíthatsz.",
+        "Piszkozatot hoz létre, amelyben az eredeti számla minden tétele ellentételezve és másolatként is szerepel — a másolatokat írd át, majd állítsd ki.",
       confirm: "Piszkozat létrehozása",
+      draftHint:
+        "Az eredeti tételek ellentételezve szerepelnek; a másolatokat írd át a helyes értékekre, a változatlan párokat törölheted.",
     },
     convert: {
       action: "Számla készítése ebből",
@@ -948,6 +959,10 @@ export default {
     edit: "Ügyfél szerkesztése",
     loadFailed: "Nem sikerült betölteni.",
     saveChanges: "Változások mentése",
+    privatePerson: "Magánszemély",
+    privatePersonHint:
+      "Nem áfaalany természetes személy. A NAV felé csak a státusz kerül beküldésre, név, cím és adószám nélkül.",
+    euVatNumber: "Közösségi adószám",
   },
   landing: {
     getStarted: "Kezdés",

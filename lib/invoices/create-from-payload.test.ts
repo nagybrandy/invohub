@@ -155,6 +155,34 @@ describe("validateExternalInvoiceInput", () => {
   it("accepts a payload with no paymentMethod at all", () => {
     expect(validateExternalInvoiceInput(valid)).toBeNull();
   });
+
+  it("accepts a valid YYYY-MM-DD fulfillmentDate", () => {
+    expect(
+      validateExternalInvoiceInput({ ...valid, fulfillmentDate: "2026-09-12" })
+    ).toBeNull();
+  });
+
+  it("accepts a parseable ISO datetime fulfillmentDate (sliced later)", () => {
+    expect(
+      validateExternalInvoiceInput({
+        ...valid,
+        fulfillmentDate: "2026-09-12T10:00:00.000Z",
+      })
+    ).toBeNull();
+  });
+
+  it("rejects a non-YYYY-MM-DD fulfillmentDate, naming the field", () => {
+    const error = validateExternalInvoiceInput({
+      ...valid,
+      fulfillmentDate: "not-a-date",
+    });
+    expect(error).not.toBeNull();
+    expect(error).toContain("fulfillmentDate");
+  });
+
+  it("accepts a payload with no fulfillmentDate at all", () => {
+    expect(validateExternalInvoiceInput(valid)).toBeNull();
+  });
 });
 
 describe("createInvoiceFromPayload", () => {
@@ -227,6 +255,34 @@ describe("createInvoiceFromPayload", () => {
     expect(saved.currency).toBe("HUF");
   });
 
+  it("carries a valid fulfillmentDate through to the built Invoice (AC10)", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      fulfillmentDate: "2026-09-12",
+    });
+    expect(saved.fulfillmentDate).toBe("2026-09-12");
+  });
+
+  it("slices a parseable ISO datetime fulfillmentDate to its date part (AC10)", async () => {
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      fulfillmentDate: "2026-09-12T10:00:00.000Z",
+    });
+    expect(saved.fulfillmentDate).toBe("2026-09-12");
+  });
+
+  it("leaves fulfillmentDate undefined when omitted (AC10)", async () => {
+    const saved = await createInvoiceFromPayload("user-1", input);
+    expect(saved.fulfillmentDate).toBeUndefined();
+  });
+
+  it("throws naming fulfillmentDate for an invalid value instead of persisting it raw (AC10)", async () => {
+    await expect(
+      createInvoiceFromPayload("user-1", { ...input, fulfillmentDate: "not-a-date" })
+    ).rejects.toThrow(/fulfillmentDate/);
+    expect(mockUpsertInvoice).not.toHaveBeenCalled();
+  });
+
   it("sets exchangeRate on the created invoice for a non-HUF payload (AC11)", async () => {
     const saved = await createInvoiceFromPayload("user-1", {
       ...input,
@@ -252,6 +308,22 @@ describe("createInvoiceFromPayload", () => {
       exchangeRate: undefined,
       issueDate: "2026-09-22",
     });
+  });
+
+  it("passes the persisted fulfillment date to the MNB autofill (Áfa tv. 80. §)", async () => {
+    mockAutofill.mockResolvedValue(398.1);
+
+    const saved = await createInvoiceFromPayload("user-1", {
+      ...input,
+      currency: "EUR",
+      issueDate: "2026-09-22",
+      fulfillmentDate: "2026-09-15",
+    });
+
+    expect(saved.fulfillmentDate).toBe("2026-09-15");
+    expect(mockAutofill).toHaveBeenCalledWith(
+      expect.objectContaining({ issueDate: "2026-09-22", fulfillmentDate: "2026-09-15" })
+    );
   });
 
   it("never calls the MNB autofill helper for a HUF invoice", async () => {

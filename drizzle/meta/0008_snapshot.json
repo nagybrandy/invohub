@@ -1,5 +1,5 @@
 {
-  "id": "8a8546ba-49f0-4de6-ac92-8254a646ed56",
+  "id": "1b544589-b92e-4a79-b6fa-b7a47ef82fbc",
   "prevId": "d7a16509-d23e-4283-92e4-2ce3d2e3ceba",
   "version": "7",
   "dialect": "postgresql",
@@ -294,6 +294,12 @@
         },
         "country": {
           "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "party_type": {
+          "name": "party_type",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1144,6 +1150,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "fulfillment_date": {
+          "name": "fulfillment_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -2813,18 +2825,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'entrepreneur'"
-        },
-        "closed_at": {
-          "name": "closed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "retention_until": {
-          "name": "retention_until",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",

@@ -18,6 +18,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
 import { useClients } from "@/hooks/useClients";
+import { ClientPartyTypeSwitch } from "@/components/clients/ClientPartyTypeSwitch";
+import type { ClientPartyType } from "@/lib/clients/party-type";
 
 export default function EditClientScreen() {
   const id = useRouteParam("id");
@@ -28,6 +30,10 @@ export default function EditClientScreen() {
   const [taxNumber, setTaxNumber] = React.useState("");
   const [address, setAddress] = React.useState("");
   const [city, setCity] = React.useState("");
+  const [zipCode, setZipCode] = React.useState("");
+  const [country, setCountry] = React.useState("");
+  const [euVatNumber, setEuVatNumber] = React.useState("");
+  const [partyType, setPartyType] = React.useState<ClientPartyType | undefined>(undefined);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -41,6 +47,10 @@ export default function EditClientScreen() {
         setTaxNumber(client.taxNumber ?? "");
         setAddress(client.address ?? "");
         setCity(client.city ?? "");
+        setZipCode(client.zipCode ?? "");
+        setCountry(client.country ?? "");
+        setEuVatNumber(client.euVatNumber ?? "");
+        setPartyType(client.partyType);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("clients.loadFailed")))
       .finally(() => setLoading(false));
@@ -59,6 +69,10 @@ export default function EditClientScreen() {
         taxNumber: taxNumber.trim() || undefined,
         address: address.trim() || undefined,
         city: city.trim() || undefined,
+        zipCode: zipCode.trim() || undefined,
+        country: country.trim() || undefined,
+        euVatNumber: euVatNumber.trim() || undefined,
+        partyType,
       });
       router.replace(routes.clients);
     } catch (e) {
@@ -105,10 +119,18 @@ export default function EditClientScreen() {
         </FormControl>
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>{t("company.address")}</FormControlLabelText>
+            <FormControlLabelText>{t("clients.euVatNumber")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
-            <InputField value={address} onChangeText={setAddress} />
+            <InputField value={euVatNumber} onChangeText={setEuVatNumber} placeholder="DE123456789" />
+          </Input>
+        </FormControl>
+        <FormControl>
+          <FormControlLabel>
+            <FormControlLabelText>{t("invoices.fields.zipCode")}</FormControlLabelText>
+          </FormControlLabel>
+          <Input>
+            <InputField value={zipCode} onChangeText={setZipCode} />
           </Input>
         </FormControl>
         <FormControl>
@@ -119,6 +141,23 @@ export default function EditClientScreen() {
             <InputField value={city} onChangeText={setCity} />
           </Input>
         </FormControl>
+        <FormControl>
+          <FormControlLabel>
+            <FormControlLabelText>{t("company.address")}</FormControlLabelText>
+          </FormControlLabel>
+          <Input>
+            <InputField value={address} onChangeText={setAddress} />
+          </Input>
+        </FormControl>
+        <FormControl>
+          <FormControlLabel>
+            <FormControlLabelText>{t("invoices.fields.country")}</FormControlLabelText>
+          </FormControlLabel>
+          <Input>
+            <InputField value={country} onChangeText={setCountry} placeholder="HU" />
+          </Input>
+        </FormControl>
+        <ClientPartyTypeSwitch value={partyType} onChange={setPartyType} />
         {error ? <Text className="text-destructive">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
           <ButtonText>{t("clients.saveChanges")}</ButtonText>

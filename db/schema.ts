@@ -135,6 +135,11 @@ export const client = pgTable(
     city: text("city"),
     zipCode: text("zip_code"),
     country: text("country"),
+    // "company" | "private_person" — drives NAV customerVatStatus (a natural
+    // person who is not a VAT subject is PRIVATE_PERSON, whose name/address
+    // must NOT be reported). Nullable: legacy rows fall back to inference
+    // from the tax data (see lib/nav/customer.ts).
+    partyType: text("party_type"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -204,6 +209,13 @@ export const invoice = pgTable(
     clientEuVatNumber: text("client_eu_vat_number"),
     issueDate: text("issue_date").notNull(),
     dueDate: text("due_date").notNull(),
+    /**
+     * Teljesítés dátuma (ISO YYYY-MM-DD) — Áfa tv. 169. § performance date and
+     * NAV <invoiceDeliveryDate>. Nullable: legacy rows kept it inside notes as a
+     * "Teljesítés: …" line (see lib/invoices/fulfillment-date.ts), and rows with
+     * neither fall back to issueDate at read time.
+     */
+    fulfillmentDate: text("fulfillment_date"),
     status: text("status").notNull().default("draft"),
     currency: text("currency").notNull().default("HUF"),
     /** Manual HUF exchange rate for non-HUF invoices (MNB rate fetch is a follow-up). */

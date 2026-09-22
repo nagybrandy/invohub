@@ -118,6 +118,7 @@ describe("mapInvoiceFromDb", () => {
     clientTaxNumber: null,
     issueDate: "2026-06-01",
     dueDate: "2026-06-15",
+    fulfillmentDate: null,
     status: "draft",
     currency: "HUF",
     exchangeRate: null,
@@ -223,6 +224,29 @@ describe("mapInvoiceFromDb", () => {
     const row = { ...baseRow, documentType: undefined as unknown as string };
     expect(mapInvoiceFromDb(row, []).documentType).toBe("invoice");
   });
+
+  it("reads fulfillmentDate from the column when set", () => {
+    const row = { ...baseRow, fulfillmentDate: "2026-09-12" };
+    expect(mapInvoiceFromDb(row, []).fulfillmentDate).toBe("2026-09-12");
+  });
+
+  it("falls back to the legacy notes line when the column is null (AC4)", () => {
+    const row = { ...baseRow, fulfillmentDate: null, notes: "Teljesítés: 2026-09-12" };
+    expect(mapInvoiceFromDb(row, []).fulfillmentDate).toBe("2026-09-12");
+  });
+
+  it("prefers the column over a conflicting legacy notes line (AC4)", () => {
+    const row = {
+      ...baseRow,
+      fulfillmentDate: "2026-09-01",
+      notes: "Teljesítés: 2026-09-12",
+    };
+    expect(mapInvoiceFromDb(row, []).fulfillmentDate).toBe("2026-09-01");
+  });
+
+  it("is undefined when neither the column nor the notes have a fulfillment date", () => {
+    expect(mapInvoiceFromDb(baseRow, []).fulfillmentDate).toBeUndefined();
+  });
 });
 
 describe("mapLineItemToDb", () => {
@@ -262,6 +286,14 @@ describe("mapInvoiceToDb", () => {
       paymentMethod: null,
       originalInvoiceId: null,
       modifiesInvoiceId: null,
+      fulfillmentDate: null,
+    });
+  });
+
+  it("writes fulfillmentDate when set (AC3)", () => {
+    const inv = makeInvoice({ fulfillmentDate: "2026-09-12" });
+    expect(mapInvoiceToDb(inv, "user-1")).toMatchObject({
+      fulfillmentDate: "2026-09-12",
     });
   });
 

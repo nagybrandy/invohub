@@ -15,6 +15,11 @@ jest.mock("@/lib/invoices/service", () => ({
   createStornoInvoice: jest.fn(),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { POST } from "@/app/api/invoices/[id]/storno+api";
 import { requireSession } from "@/lib/api/session";
 import { createStornoInvoice, getInvoiceById } from "@/lib/invoices/service";

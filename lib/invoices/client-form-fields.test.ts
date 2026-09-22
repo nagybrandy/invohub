@@ -3,6 +3,7 @@ import {
   applyClientToFormFields,
   composeInvoiceNotes,
   formatClientBillToLines,
+  type InvoiceMetaNotesInput,
 } from "@/lib/invoices/client-form-fields";
 import type { Client } from "@/lib/clients/service";
 
@@ -58,20 +59,35 @@ describe("composeInvoiceNotes", () => {
         userNotes: "Köszönjük!",
         paymentMethod: "Átutalás",
         bankAccount: "11773016-00000000",
-        fulfillmentDate: "2026-09-12",
         billToLines: ["1011 Budapest Fő utca 1."],
       }),
     ).toBe(
       [
         "Köszönjük!",
         "",
-        "Teljesítés: 2026-09-12",
         "Fizetés: Átutalás",
         "Bankszámla: 11773016-00000000",
         "Számlázási cím:",
         "1011 Budapest Fő utca 1.",
       ].join("\n"),
     );
+  });
+
+  // AC11: fulfillmentDate is a real column now (printed from its own
+  // field) — composeInvoiceNotes must never append a "Teljesítés: …" line,
+  // or a resaved invoice would print the date twice.
+  it("never appends a Teljesítés: line, even if one is passed through legacy fields", () => {
+    // fulfillmentDate was removed from InvoiceMetaNotesInput — simulate a
+    // stale caller still sending it, via an untyped object.
+    const legacyInput = {
+      userNotes: "Köszönjük!",
+      paymentMethod: "Átutalás",
+      bankAccount: "11773016-00000000",
+      billToLines: ["1011 Budapest Fő utca 1."],
+      fulfillmentDate: "2026-09-12",
+    };
+    const output = composeInvoiceNotes(legacyInput as InvoiceMetaNotesInput);
+    expect(output).not.toContain("Teljesítés:");
   });
 
   it("returns undefined when everything is blank", () => {

@@ -148,7 +148,7 @@ function hintClass(step: TimelineStep): string {
 function navTone(status: string): { chip: string; text: string } {
   const s = status.toLowerCase();
   if (s === "done") return { chip: "bg-[#15803d]/10", text: "text-[#15803d]" };
-  if (s === "aborted") return { chip: "bg-destructive/10", text: "text-destructive" };
+  if (s === "aborted" || s === "error") return { chip: "bg-destructive/10", text: "text-destructive" };
   return { chip: "bg-primary/10", text: "text-primary" };
 }
 
@@ -281,7 +281,8 @@ export function InvoiceTimeline({
   const width = measuredWidth ?? window.width;
   const vertical = layout === "vertical" || (layout === "auto" && width < TIMELINE_VERTICAL_BELOW);
   const steps = timelineSteps(invoice, now);
-  const showNav = invoice.status !== "draft";
+  // A díjbekérő is not an invoice for NAV — no NAV row at all.
+  const showNav = invoice.status !== "draft" && invoice.documentType !== "proforma";
 
   return (
     <VStack
