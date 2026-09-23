@@ -98,7 +98,10 @@ describe("OnboardingScreen", () => {
     mockSave.mockResolvedValue({});
     const tree = await renderOnboarding();
 
-    const nameInput = tree.root.findByProps({ placeholder: "Példa Kft." });
+    // By testID, not by placeholder copy: the placeholder is translated now
+    // (company.onboarding.companyNamePlaceholder), and a test that pins the
+    // Hungarian string breaks on every wording change.
+    const nameInput = tree.root.findAllByProps({ testID: "onboarding-company-name" })[0];
     await act(async () => {
       nameInput.props.onChangeText("Acme Kft.");
     });

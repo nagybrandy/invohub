@@ -91,17 +91,40 @@ before or alongside Phase 1 items that depend on it.
       dump. Superseded (slice/tax-audit-data-export): the CSV export was
       removed; its replacement `lib/invoices/tax-audit-export/generate.ts`
       is session-scoped and capped at 5000 invoices per file.
-- [ ] i18n gap sweep — use `.claude/skills/i18n-sync/SKILL.md` to enumerate
+- [x] i18n gap sweep — use `.claude/skills/i18n-sync/SKILL.md` to enumerate
       every screen still missing translation coverage and file the gaps as
-      sub-items here once the sweep names them (a prior audit flagged ~11
-      screens with gaps but they need re-confirming against current code
-      before being listed individually). Update 2026-09-14: a
-      continuous-audit pass named 9 specific screens (InvoiceCard,
-      invoices list/detail, clients/[id]/edit, app/receipts/view,
-      settings/api-keys, settings/pdf, products/index,
-      products/[id]/edit, import/index, settings/templates) and all were
-      fixed in the platform-overhaul branch — re-run the sweep fresh
-      rather than assuming full coverage elsewhere.
+      sub-items here once the sweep names them. Done
+      (slice/i18n-gap-sweep), 2026-09-23. Two halves:
+      * **Key parity: clean, and now CI-enforced.** hu.ts and en.ts had no
+        missing key in either direction. `lib/i18n/locales/parity.test.ts`
+        now fails the build on a one-sided key, a shape mismatch (object vs
+        string), drifting `{{placeholders}}`, or an empty string — so the
+        "both files in the same change" rule stops depending on reviewer
+        memory.
+      * **Hardcoded strings: 24 candidates, 3 real screen gaps, fixed
+        here.** The sweep grepped `app/` and `components/` for Hungarian
+        prose literals outside `t()`. The screen-level gaps were all
+        placeholders: `onboarding.tsx` company name + address, and
+        `settings/pdf.tsx` footer text — now `company.onboarding.*` /
+        `settings.pdfScreen.footerTextPlaceholder` in both locales.
+      Not gaps: the marketing/SEO copy (`app/index.tsx`, `app/blog/index.tsx`
+      meta descriptions, `ProductShowcase` demo company names) is a
+      deliberately Hungarian-only surface, and one hit was a false positive
+      (a JSX comment in `LineItemRow.tsx`, which the line-comment filter
+      doesn't catch — worth knowing if the sweep is re-run).
+- [ ] API routes answer with Hungarian prose instead of an error code, so
+      the message can never follow the user's language — filed by the
+      2026-09-23 i18n sweep. 16 messages across 9 routes:
+      `app/api/nav/check` (4), `app/api/m2m/check` (3), `app/api/nav/status`
+      (2), `app/api/nav/submit` (2), `app/api/receipts/[id]/submit-nav`,
+      `app/api/m2m/demo`, and `app/api/v1/invoices/[id]/{storno,modify,
+      convert}` — the last one is also half-English ("This díjbekérő was
+      already converted."). The pattern to follow already exists:
+      `lib/invoices/errors.ts` carries a `code`, and
+      `lib/invoices/send-error-i18n.ts` maps codes to i18n keys client-side
+      (slice/invoice-email-replyto-and-hu-errors). Server-side prose also
+      leaks Hungarian into the public `app/api/v1/*` API, which has
+      non-Hungarian consumers.
 - [x] API key secret verification (`lib/api-keys/crypto.ts`'s
       `verifySecretKey`) compares hashes with plain `===` instead of
       `crypto.timingSafeEqual` — low practical risk since both sides are

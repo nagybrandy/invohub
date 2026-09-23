@@ -149,7 +149,8 @@ export default function OnboardingScreen() {
               </FormControlLabel>
               <Input>
                 <InputField
-                  placeholder="Példa Kft."
+                  testID="onboarding-company-name"
+                  placeholder={t("company.onboarding.companyNamePlaceholder")}
                   value={name}
                   onChangeText={setName}
                   className="font-light"
@@ -218,7 +219,7 @@ export default function OnboardingScreen() {
               </FormControlLabel>
               <Input>
                 <InputField
-                  placeholder="utca, házszám"
+                  placeholder={t("company.onboarding.addressPlaceholder")}
                   value={address}
                   onChangeText={setAddress}
                   className="font-light"
