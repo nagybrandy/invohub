@@ -11,6 +11,7 @@ import {
   validateBuyerAddressStep,
   validateDueDate,
   validateExchangeRateInput,
+  validateComposerStep,
   validateLineItemsStep,
   validatePartnerStep,
 } from "@/components/invoices/composer/composer-logic";
@@ -211,5 +212,40 @@ describe("composerPreviewLayout (live side PDF preview)", () => {
     expect(composerPreviewLayout({ width: 1920, height: 1080 }, false).previewWidth).toBe(560);
     expect(composerPreviewLayout({ width: 1440, height: 900 }, false).previewHeight).toBe(750);
     expect(composerPreviewLayout({ width: 1440, height: 500 }, false).previewHeight).toBe(480);
+  });
+});
+
+describe("validateComposerStep — the step the user is leaving must be valid", () => {
+  const withItem = [makeLineItem({ description: "Tanácsadás" })];
+  const emptyItem = [makeLineItem({ description: "" })];
+
+  it("blocks leaving the partner step without a partner name", () => {
+    const result = validateComposerStep("partner", { clientName: "  ", lineItems: withItem });
+    expect(result).toMatchObject({
+      valid: false,
+      errorKey: "invoices.errors.clientRequired",
+      focusField: "clientName",
+    });
+  });
+
+  it("lets the partner step through once a name is set", () => {
+    expect(validateComposerStep("partner", { clientName: "Tech Solutions Kft.", lineItems: emptyItem })).toEqual({
+      valid: true,
+    });
+  });
+
+  it("blocks leaving the items step with no described line item", () => {
+    expect(validateComposerStep("items", { clientName: "Tech", lineItems: emptyItem })).toMatchObject({
+      valid: false,
+      errorKey: "invoices.errors.lineItemRequired",
+    });
+  });
+
+  it("lets the items step through once a line item is described", () => {
+    expect(validateComposerStep("items", { clientName: "Tech", lineItems: withItem })).toEqual({ valid: true });
+  });
+
+  it("never blocks the review step (it is the last one)", () => {
+    expect(validateComposerStep("review", { clientName: "", lineItems: emptyItem })).toEqual({ valid: true });
   });
 });

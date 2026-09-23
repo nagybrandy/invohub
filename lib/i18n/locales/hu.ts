@@ -347,7 +347,7 @@ export default {
       navSubmitHint:
         "Véglegesítéskor a számla automatikusan beküldésre kerül a NAV-nak, ha a NAV-beküldés be van állítva (Cégadatok, demó vagy teszt mód). Az állapotot a számla adatlapján követheted.",
       postalMailing: "Bizonylat postázása",
-      sendEmail: "Bizonylat postázása e-mailben",
+      sendEmail: "Bizonylat elküldése e-mailben",
       sendEmailHint: "A bizonylat automatikusan kiküldésre kerül a partner e-mail címére",
     },
     totals: {
@@ -361,6 +361,7 @@ export default {
       backToEdit: "Vissza a szerkesztéshez",
       finalize: "Véglegesítés",
       finalizeAndSend: "Véglegesítés és küldés",
+      finalizeOptions: "További kiállítási lehetőségek",
     },
     paymentMethods: {
       transfer: "Átutalás",

@@ -31,3 +31,26 @@ export function toPublicCompany(company: Company): PublicCompany {
     navXmlChangeKeySet: !!navXmlChangeKey,
   };
 }
+
+/**
+ * Does this company have a usable NAV Online Számla setup? Works on the
+ * redacted client-side shape (the secrets arrive as "…Set" booleans), so the
+ * composer can default its NAV submission toggle from it — adatszolgáltatás
+ * is mandatory for an issued invoice, and a company without credentials
+ * would only get a failing submission.
+ */
+export function isNavConfigured(
+  company:
+    | (Pick<PublicCompany, "navTechnicalUser"> &
+        Partial<Pick<PublicCompany, "navTechnicalPasswordSet" | "navXmlSignKeySet" | "navXmlChangeKeySet">>)
+    | null
+    | undefined
+): boolean {
+  if (!company) return false;
+  return Boolean(
+    company.navTechnicalUser?.trim() &&
+      company.navTechnicalPasswordSet &&
+      company.navXmlSignKeySet &&
+      company.navXmlChangeKeySet
+  );
+}

@@ -32,6 +32,7 @@ export function ComposerStepper({
         const isInvalid = invalidSteps[stepId];
         return (
           <Pressable
+            testID={`composer-stepper-${stepId}`}
             key={stepId}
             onPress={() => onSelect(stepId)}
             accessibilityRole="tab"
