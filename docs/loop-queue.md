@@ -23,9 +23,20 @@ before or alongside Phase 1 items that depend on it.
       reachable in production (`app/api/admin/**`, `lib/admin/service.ts`).
       Plan:
       `docs/plans/2026-09-14-seed-demo-data-admin-endpoint-security-audit.md`
-- [ ] Reminders cron reliability — confirm `app/api/cron`/`app/api/reminders`
+- [x] Reminders cron reliability — confirm `app/api/cron`/`app/api/reminders`
       + `lib/reminders/process.ts` handle retries and partial failures, not
-      just the happy path
+      just the happy path. Done (slice/reminders-cron-reliability): the run
+      was all-or-nothing — one user whose data failed to load, or one send
+      that threw instead of returning `{ok:false}`, aborted the whole
+      nightly job and left every later user unprocessed until the next day.
+      Failures are now isolated per user and per invoice, counted in a new
+      `failed` field, and a send whose bookkeeping fails afterwards is
+      reported with the duplicate risk spelled out (the mail is already
+      delivered, so the next run would repeat it). The template is loaded
+      once per user instead of once per invoice. The route answers 500 only
+      when the run could not happen at all — per-item failures stay a 200
+      with counts, so one permanently undeliverable address does not mark
+      every nightly cron job as failed.
 - [ ] Auth E2E test user/fixture so authenticated Playwright specs can run
       (this unblocks the Phase 1 "create→preview→PDF E2E" item below)
 - [ ] Credential encryption audit across NAV, M2M, and API-key storage —
