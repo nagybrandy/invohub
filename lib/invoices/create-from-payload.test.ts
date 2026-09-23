@@ -38,6 +38,7 @@ import {
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockUpsertInvoice = upsertInvoice as jest.MockedFunction<typeof upsertInvoice>;
@@ -471,6 +472,23 @@ describe("updateDraftInvoiceFromPayload", () => {
       reason: "company_profile_incomplete",
       missingFields: ["taxNumber", "address"],
     });
+  });
+
+  it("maps a lost finalize race (InvoiceAlreadyFinalizedError) to not_draft", async () => {
+    mockGetInvoiceById.mockResolvedValue(
+      makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "", clientName: "Old Kft." })
+    );
+    mockUpsertInvoice.mockRejectedValue(new InvoiceAlreadyFinalizedError("INV-2026-00001"));
+
+    const result = await updateDraftInvoiceFromPayload("user-1", "inv-1", {
+      ...validBody,
+      status: "sent",
+      clientZipCode: "1011",
+      clientCity: "Budapest",
+      clientAddress: "Fő utca 1.",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_draft" });
   });
 
   it("carries the buyer address snapshot and line-item unit through an update", async () => {

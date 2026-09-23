@@ -8,7 +8,7 @@ import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
-import { BuyerAddressMissingError } from "@/lib/invoices/errors";
+import { BuyerAddressMissingError, InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { hasBuyerAddress, requiresCompleteBuyerAddress } from "@/lib/invoices/types";
 import type {
   Invoice,
@@ -304,6 +304,11 @@ export async function updateDraftInvoiceFromPayload(
         reason: "company_profile_incomplete",
         missingFields: error.missingFields,
       };
+    }
+    // A concurrent request finalized this draft first — the numbering
+    // transaction rolled back without taking a number.
+    if (error instanceof InvoiceAlreadyFinalizedError) {
+      return { ok: false, reason: "not_draft" };
     }
     throw error;
   }

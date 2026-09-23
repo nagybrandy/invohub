@@ -42,6 +42,9 @@ export async function POST(
           body: { error: result.error, code: result.code, missingFields: result.missingFields },
         };
       }
+      if (result.code === "invoiceFinalized") {
+        return { status: 409, body: { error: result.error, code: result.code } };
+      }
       const status = result.error?.toLowerCase().includes("not found") ? 404 : result.code === "noRecipient" ? 422 : 500;
       return { status, body: { error: result.error, to: result.to } };
     }

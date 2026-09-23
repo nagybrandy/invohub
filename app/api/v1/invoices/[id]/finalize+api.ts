@@ -1,7 +1,7 @@
 // app/api/v1/invoices/[id]/finalize+api.ts
 // External API: turn a draft into an issued invoice — assigns the number
 // the exact same way the app already does (lib/invoices/service.ts's
-// upsertInvoice -> assignInvoiceNumberIfNeeded; see finalizeInvoice, which
+// upsertInvoice's atomic numbering transaction; see finalizeInvoice, which
 // mirrors the composer's "Véglegesítés" action). Supports Idempotency-Key
 // so a retried request never allocates a second number.
 import {

@@ -9,6 +9,7 @@ import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/se
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
+import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
 import {
   CompanyProfileIncompleteError,
@@ -145,6 +146,17 @@ export async function PATCH(
           missingFields: error.missingFields,
         },
         422
+      );
+    }
+    if (error instanceof InvoiceAlreadyFinalizedError) {
+      // Lost a race against a concurrent finalize of the same draft: the
+      // numbering transaction rolled back without taking a number.
+      return jsonResponse(
+        {
+          error: "This invoice is already finalized and can no longer be edited.",
+          code: "invoiceFinalized",
+        },
+        409
       );
     }
     console.error("[PATCH /api/invoices/:id]", error);
