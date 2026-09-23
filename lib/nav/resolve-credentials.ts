@@ -5,6 +5,7 @@
 // owner) when the company hasn't entered its own. Demo mode never needs
 // real credentials — callers should branch on mode before calling this.
 import type { Company } from "@/lib/companies/service";
+import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import { isNavProductionEnabled, type NavEnvironment } from "@/lib/nav/environment";
 
 export type NavRealCredentials = {
@@ -65,11 +66,34 @@ function sharedTestCredentials(): NavRealCredentials {
   return { login, password, signKey, exchangeKey, taxNumber, environment: "test", source: "shared" };
 }
 
+/**
+ * Opens the sealed NAV secrets stored on the company. This is the one place
+ * (besides the receipt submit path) where they exist as plaintext, and only
+ * for the lifetime of the NAV request being built. Any decryption failure
+ * (missing/rotated key, tampering) becomes a user-facing
+ * NavCredentialsMissingError whose message never contains the stored value.
+ */
+export function openCompanyNavSecrets(company: Pick<Company, "navTechnicalPassword" | "navXmlSignKey" | "navXmlChangeKey">): {
+  password: string | undefined;
+  signKey: string | undefined;
+  exchangeKey: string | undefined;
+} {
+  try {
+    return {
+      password: decryptNavSecretOrPassthrough(company.navTechnicalPassword),
+      signKey: decryptNavSecretOrPassthrough(company.navXmlSignKey),
+      exchangeKey: decryptNavSecretOrPassthrough(company.navXmlChangeKey),
+    };
+  } catch {
+    throw new NavCredentialsMissingError(
+      "A tárolt NAV technikai felhasználó titkai nem olvashatók (a szerver titkosítási kulcsa megváltozott vagy hiányzik). Adja meg újra a jelszót, az aláíró és a cserekulcsot a Beállítások > Cégadatok NAV szekcióban."
+    );
+  }
+}
+
 function ownCredentials(company: Company, environment: "test" | "production"): NavRealCredentials {
   const login = company.navTechnicalUser;
-  const password = company.navTechnicalPassword;
-  const signKey = company.navXmlSignKey;
-  const exchangeKey = company.navXmlChangeKey;
+  const { password, signKey, exchangeKey } = openCompanyNavSecrets(company);
   const taxNumber = normalizeTaxNumber(company.taxNumber);
   if (!login || !password || !signKey || !exchangeKey || !taxNumber) {
     throw new NavCredentialsMissingError(

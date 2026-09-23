@@ -1,4 +1,5 @@
 // lib/nav-receipt/credentials.ts
+import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import type { NavReceiptCredentials } from "./types";
 
 export function isNavReceiptConfigured(): boolean {
@@ -41,8 +42,9 @@ export function loadNavReceiptCredentialsFromCompany(company: {
   }
   return {
     technicalUser: company.navTechnicalUser,
-    technicalPassword: company.navTechnicalPassword,
-    signingKey: company.navXmlSignKey,
+    // Stored sealed (lib/nav/credentials.ts) — opened only here, for the request.
+    technicalPassword: decryptNavSecretOrPassthrough(company.navTechnicalPassword)!,
+    signingKey: decryptNavSecretOrPassthrough(company.navXmlSignKey)!,
     taxNumber: company.taxNumber,
   };
 }

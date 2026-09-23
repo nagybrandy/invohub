@@ -127,4 +127,22 @@ describe("GET /api/m2m/demo", () => {
       seed: undefined,
     });
   });
+
+  describe("production guard", () => {
+    const original = process.env.M2M_ENV;
+    afterEach(() => {
+      if (original === undefined) delete process.env.M2M_ENV;
+      else process.env.M2M_ENV = original;
+    });
+
+    it("refuses to query NAV M2M production with the shared server credentials (any user could pick any taxpayerId)", async () => {
+      process.env.M2M_ENV = "production";
+      mockIsConfigured.mockReturnValue(true);
+
+      const response = await GET(new Request("http://localhost/api/m2m/demo?taxpayerId=12345678"));
+
+      expect(response.status).toBe(403);
+      expect(mockFetchSnapshot).not.toHaveBeenCalled();
+    });
+  });
 });

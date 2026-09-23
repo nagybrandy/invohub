@@ -195,9 +195,9 @@ export async function seedDemoData(userId: string): Promise<SeedResult> {
     zipCode: "1132",
     country: "HU",
     bankAccount: "11773322-12345678-00000000",
-    navTechnicalUser: "DEMO_TECH_USER",
-    navTechnicalPassword: "demo-password-placeholder",
-    navXmlSignKey: "demo-sign-key-placeholder",
+    // No NAV technical-user secrets: they may only ever be stored encrypted
+    // (lib/nav/credentials.ts), and "test" mode without own credentials uses
+    // the shared InvoHub NAV test account.
     navEnvironment: "test",
     createdAt: now,
     updatedAt: now,
