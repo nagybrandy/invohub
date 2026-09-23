@@ -169,3 +169,102 @@ describe("processPaymentReminders", () => {
     expect(result.errors).toHaveLength(1);
   });
 });
+
+describe("processPaymentReminders — partial failures must not sink the run", () => {
+  const otherUserSchedule = { ...schedule, id: "sched-2", userId: "user-2" };
+  const otherInvoice = { ...overdueInvoice, id: "inv-2", invoiceNumber: "INV-2026-002" };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDb.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue([schedule, otherUserSchedule]),
+      }),
+    });
+    mockDb.update.mockImplementation(() => mockUpdateChain());
+    mockGetCompany.mockResolvedValue({ name: "InvoHub Demo" } as never);
+    mockGetTemplate.mockResolvedValue(template as never);
+    mockSendEmail.mockResolvedValue({ ok: true });
+    mockListClients.mockResolvedValue([
+      { id: "client-1", userId: "user-1", name: "Tech Solutions Kft.", email: "szamlazas@techsolutions.hu" },
+    ] as never);
+    mockListInvoices.mockResolvedValue({ invoices: [overdueInvoice], total: 1, limit: 500, offset: 0 } as never);
+  });
+
+  it("keeps processing the other users when one user's data can't be loaded", async () => {
+    mockListInvoices.mockImplementation(async (uid: string) => {
+      if (uid === "user-1") throw new Error("Neon: connection reset");
+      return { invoices: [otherInvoice], total: 1, limit: 500, offset: 0 } as never;
+    });
+
+    const result = await processPaymentReminders();
+
+    // user-2 still got its reminder
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(result.sent).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.errors.join(" ")).toMatch(/user-1/);
+    expect(result.errors.join(" ")).toMatch(/connection reset/);
+  });
+
+  it("keeps processing the other invoices when one send throws instead of returning an error", async () => {
+    mockListInvoices.mockResolvedValue({
+      invoices: [overdueInvoice, otherInvoice],
+      total: 2,
+      limit: 500,
+      offset: 0,
+    } as never);
+    mockSendEmail
+      .mockRejectedValueOnce(new Error("SMTP socket hang up"))
+      .mockResolvedValue({ ok: true });
+
+    const result = await processPaymentReminders("user-1");
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(2);
+    expect(result.sent).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.errors.join(" ")).toMatch(/INV-2026-001/);
+    expect(result.errors.join(" ")).toMatch(/socket hang up/);
+  });
+
+  it("counts a send the provider refused as failed, not silently processed", async () => {
+    mockSendEmail.mockResolvedValue({ ok: false, error: "550 mailbox unavailable" });
+
+    const result = await processPaymentReminders("user-1");
+
+    expect(result.sent).toBe(0);
+    expect(result.failed).toBe(1);
+    expect(result.errors.join(" ")).toMatch(/550 mailbox unavailable/);
+  });
+
+  it("flags the duplicate risk when the e-mail went out but its bookkeeping did not", async () => {
+    // The mail is already in the client's inbox at this point; if the counter
+    // never lands, the next run sends the same reminder again.
+    mockDb.update.mockImplementation(() => ({
+      set: jest.fn().mockReturnValue({
+        where: jest.fn().mockRejectedValue(new Error("write conflict")),
+      }),
+    }));
+
+    const result = await processPaymentReminders("user-1");
+
+    expect(result.sent).toBe(1);
+    expect(result.errors.join(" ")).toMatch(/INV-2026-001/);
+    expect(result.errors.join(" ")).toMatch(/write conflict/);
+    // named clearly enough that an operator knows a repeat may follow
+    expect(result.errors.join(" ")).toMatch(/duplicate|ismétl|újraküld/i);
+  });
+
+  it("loads the e-mail template once per user, not once per invoice", async () => {
+    mockListInvoices.mockResolvedValue({
+      invoices: [overdueInvoice, otherInvoice],
+      total: 2,
+      limit: 500,
+      offset: 0,
+    } as never);
+
+    await processPaymentReminders("user-1");
+
+    expect(mockGetTemplate).toHaveBeenCalledTimes(1);
+  });
+});
