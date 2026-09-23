@@ -367,15 +367,15 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
       />
 
       {!onePage ? (
-        <>
-          <ComposerStepper current={step} invalidSteps={invalidSteps} onSelect={setStep} t={t} />
-          <HStack space="sm" className="items-center justify-end">
-            {/* The stepper above already names the current step — the
-                "2/3 · Tételek" line under it was the same thing twice, on the
-                screen with the least room to spare. */}
-            <ComposerPreviewButton invoice={draftInvoice} t={t} testID="composer-mobile-open-preview" />
-          </HStack>
-        </>
+        // One row for both: the stepper names the current step (the
+        // "2/3 · Tételek" line under it was the same thing twice) and the
+        // preview button rides along instead of taking a row of its own.
+        <HStack space="sm" className="items-center justify-between">
+          <Box className="min-w-0 flex-1">
+            <ComposerStepper current={step} invalidSteps={invalidSteps} onSelect={setStep} t={t} />
+          </Box>
+          <ComposerPreviewButton invoice={draftInvoice} t={t} testID="composer-mobile-open-preview" />
+        </HStack>
       ) : null}
 
       {finalizeBlockedByProfile ? (
