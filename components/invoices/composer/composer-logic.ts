@@ -145,6 +145,22 @@ export function validateLineItemsStep(lineItems: InvoiceLineItem[]): StepValidat
   };
 }
 
+/**
+ * The guard the stepper's "Tovább" runs before it leaves a step. Saving
+ * already validates everything (useInvoiceComposer.save), but a wizard that
+ * silently walks past a required field only reports the problem at the very
+ * end — so each step re-uses its own validator on the way out. The review
+ * step is last, so nothing follows it to block.
+ */
+export function validateComposerStep(
+  step: ComposerStepId,
+  fields: { clientName: string; lineItems: InvoiceLineItem[] }
+): StepValidationResult {
+  if (step === "partner") return validatePartnerStep(fields.clientName);
+  if (step === "items") return validateLineItemsStep(fields.lineItems);
+  return { valid: true };
+}
+
 /** INV-8: the due date may never sit before the issue date. */
 export function validateDueDate(issueDate: string, dueDate: string): StepValidationResult {
   if (!issueDate || !dueDate || dueDate >= issueDate) return { valid: true };

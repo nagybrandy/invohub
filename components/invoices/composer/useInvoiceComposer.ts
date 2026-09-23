@@ -15,12 +15,14 @@ import {
   resolveStatusForAction,
   shouldSendOnAction,
   validateBuyerAddressStep,
+  validateComposerStep,
   validateDueDate,
   validateExchangeRateInput,
   validateLineItemsStep,
   validatePartnerStep,
 } from "@/components/invoices/composer/composer-logic";
 import { useClients } from "@/hooks/useClients";
+import { isNavConfigured } from "@/lib/companies/public-company";
 import { useCompany } from "@/hooks/useCompany";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useProducts } from "@/hooks/useProducts";
@@ -355,6 +357,12 @@ export function useInvoiceComposer({
     if (mode !== "create" || !company || appliedCompanyDefaults.current) return;
     appliedCompanyDefaults.current = true;
 
+    // NAV adatszolgáltatás is mandatory for an issued invoice, so the toggle
+    // starts on for a company that has its NAV credentials on file — leaving it
+    // off by default made every invoice depend on the user remembering it.
+    // Companies without NAV set up keep it off; nothing would come of it.
+    if (isNavConfigured(company)) setNavEnabled(true);
+
     if (company.defaultCurrency) setCurrency(company.defaultCurrency);
     if (company.defaultPaymentMethod) setPaymentMethod(company.defaultPaymentMethod);
     if (company.bankAccount) setBankAccount(company.bankAccount);
@@ -510,6 +518,26 @@ export function useInvoiceComposer({
     setFocusField(null);
   }
 
+  /**
+   * The stepper's "Tovább": validates the step being left, so a missing
+   * partner or line item is reported where it can still be fixed instead of
+   * at finalize time. Invalid steps keep the user where they are, with the
+   * offending field focused.
+   */
+  function goToNextStep() {
+    const check = validateComposerStep(step, { clientName, lineItems });
+    if (!check.valid) {
+      setErrors(step === "partner" ? { partner: t(check.errorKey!) } : { lineItems: t(check.errorKey!) });
+      setFocusField(check.focusField ?? null);
+      return;
+    }
+
+    setErrors({});
+    setFocusField(null);
+    const next = COMPOSER_STEP_ORDER[COMPOSER_STEP_ORDER.indexOf(step) + 1];
+    if (next) setStep(next);
+  }
+
   async function save(action: SaveAction): Promise<Invoice | undefined> {
     setSaveError(null);
 
@@ -663,6 +691,7 @@ export function useInvoiceComposer({
     mode,
     step,
     setStep,
+    goToNextStep,
     documentType,
     setDocumentType: (type: DocumentType) => {
       setDocumentType(type);

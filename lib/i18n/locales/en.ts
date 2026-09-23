@@ -334,9 +334,9 @@ export default {
       notesPlaceholder: "Search saved notes...",
       days: "days",
       navSubmit: "NAV Online Számla submission",
-      navSubmitHint: "The invoice will be automatically submitted to NAV.",
+      navSubmitHint: "We submit it to NAV Online Számla when you issue the invoice.",
       postalMailing: "Postal mailing",
-      sendEmail: "Email document to partner",
+      sendEmail: "Send the document by e-mail",
       sendEmailHint:
         "The document will be automatically sent to the partner's email address",
     },
@@ -351,6 +351,7 @@ export default {
       backToEdit: "Back to editing",
       finalize: "Finalize",
       finalizeAndSend: "Finalize & send",
+      finalizeOptions: "More issuing options",
     },
     paymentMethods: {
       transfer: "Bank transfer",

@@ -336,9 +336,9 @@ export default {
       days: "nap",
       navSubmit: "NAV Online Számla beküldése",
       navSubmitHint:
-        "A számla automatikusan beküldésre kerül a NAV rendszerébe",
+        "Kiállításkor beküldjük a NAV Online Számla rendszerébe.",
       postalMailing: "Bizonylat postázása",
-      sendEmail: "Bizonylat postázása e-mailben",
+      sendEmail: "Bizonylat elküldése e-mailben",
       sendEmailHint: "A bizonylat automatikusan kiküldésre kerül a partner e-mail címére",
     },
     totals: {
@@ -352,6 +352,7 @@ export default {
       backToEdit: "Vissza a szerkesztéshez",
       finalize: "Véglegesítés",
       finalizeAndSend: "Véglegesítés és küldés",
+      finalizeOptions: "További kiállítási lehetőségek",
     },
     paymentMethods: {
       transfer: "Átutalás",
