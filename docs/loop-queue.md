@@ -37,8 +37,26 @@ before or alongside Phase 1 items that depend on it.
       when the run could not happen at all — per-item failures stay a 200
       with counts, so one permanently undeliverable address does not mark
       every nightly cron job as failed.
-- [ ] Auth E2E test user/fixture so authenticated Playwright specs can run
-      (this unblocks the Phase 1 "create→preview→PDF E2E" item below)
+- [~] folyamatban (owner action: repository secrets)
+      Auth E2E test user/fixture so authenticated Playwright specs can run
+      (this unblocks the Phase 1 "create→preview→PDF E2E" item below).
+      The local half is done and was already there: `e2e/web/fixtures/auth.ts`
+      signs in once per worker, `scripts/create-test-user.mjs` seeds the
+      account, TESTING.md documents both. The CI half was NOT:
+      `.github/workflows/test.yml` passed only `CI: true`, so all **61**
+      authenticated specs — every signed-in flow — skipped silently on every
+      PR, and the green "Web E2E" check covered the unauthenticated specs
+      alone (slice/auth-e2e-fixture-verification).
+      Now: the workflow passes `E2E_TEST_EMAIL`, `E2E_TEST_PASSWORD`,
+      `DATABASE_URL` (from `E2E_DATABASE_URL`) and `E2E_BETTER_AUTH_SECRET`
+      through from repository secrets — inert while unset, since an empty
+      string reads the same as "not configured" to the specs' own guard — and
+      `e2e/reporters/auth-coverage.ts` prints the skipped count and writes it
+      to the GitHub job summary, so the gap can no longer hide behind a green
+      badge.
+      **Remaining, and it is the owner's to do:** add those four secrets
+      (pointing at a scratch database, never production) and run
+      `npm run create-test-user` against it once. No code change follows.
 - [x] Credential encryption audit across NAV, M2M, and API-key storage —
       confirm `lib/nav/credentials.ts`, `lib/m2m/credentials.ts`, and
       `lib/api-keys/crypto.ts` actually encrypt at rest (check the
