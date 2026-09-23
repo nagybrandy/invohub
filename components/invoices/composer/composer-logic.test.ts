@@ -38,9 +38,9 @@ describe("resolveStatusForAction (INV-15)", () => {
 
 describe("shouldSendOnAction (INV-2, INV-15)", () => {
   it("only finalizeAndSend triggers a send", () => {
-    expect(shouldSendOnAction("draft")).toBe(false);
-    expect(shouldSendOnAction("finalize")).toBe(false);
-    expect(shouldSendOnAction("finalizeAndSend")).toBe(true);
+    expect(shouldSendOnAction("draft", false)).toBe(false);
+    expect(shouldSendOnAction("finalize", false)).toBe(false);
+    expect(shouldSendOnAction("finalizeAndSend", false)).toBe(true);
   });
 });
 
@@ -247,5 +247,21 @@ describe("validateComposerStep — the step the user is leaving must be valid", 
 
   it("never blocks the review step (it is the last one)", () => {
     expect(validateComposerStep("review", { clientName: "", lineItems: emptyItem })).toEqual({ valid: true });
+  });
+});
+
+describe("shouldSendOnAction — the toggle and the action both mean 'send'", () => {
+  it("sends for 'Véglegesítés és küldés' even when the review toggle was never touched", () => {
+    // The toggle defaults to off, so requiring BOTH meant the action named
+    // "és küldés" quietly sent nothing.
+    expect(shouldSendOnAction("finalizeAndSend", false)).toBe(true);
+  });
+
+  it("sends on a plain finalize when the user asked for it with the toggle", () => {
+    expect(shouldSendOnAction("finalize", true)).toBe(true);
+  });
+
+  it("never sends a draft, whatever the toggle says", () => {
+    expect(shouldSendOnAction("draft", true)).toBe(false);
   });
 });

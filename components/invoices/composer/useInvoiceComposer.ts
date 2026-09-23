@@ -22,7 +22,6 @@ import {
   validatePartnerStep,
 } from "@/components/invoices/composer/composer-logic";
 import { useClients } from "@/hooks/useClients";
-import { isNavConfigured } from "@/lib/companies/public-company";
 import { useCompany } from "@/hooks/useCompany";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useProducts } from "@/hooks/useProducts";
@@ -361,12 +360,6 @@ export function useInvoiceComposer({
     if (mode !== "create" || !company || appliedCompanyDefaults.current) return;
     appliedCompanyDefaults.current = true;
 
-    // NAV adatszolgáltatás is mandatory for an issued invoice, so the toggle
-    // starts on for a company that has its NAV credentials on file — leaving it
-    // off by default made every invoice depend on the user remembering it.
-    // Companies without NAV set up keep it off; nothing would come of it.
-    if (isNavConfigured(company)) setNavEnabled(true);
-
     if (company.defaultCurrency) setCurrency(company.defaultCurrency);
     if (company.defaultPaymentMethod) setPaymentMethod(company.defaultPaymentMethod);
     if (company.bankAccount) setBankAccount(company.bankAccount);
@@ -601,7 +594,7 @@ export function useInvoiceComposer({
 
     setErrors({});
 
-    const willSend = shouldSendOnAction(action) && emailOnSend;
+    const willSend = shouldSendOnAction(action, emailOnSend);
     if (willSend && !clientEmail.trim()) {
       setErrors({ partner: t("invoices.errors.clientEmailRequired") });
       setStep("review");

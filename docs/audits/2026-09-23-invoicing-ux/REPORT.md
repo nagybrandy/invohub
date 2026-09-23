@@ -65,9 +65,11 @@ sorszámot éget el.
    magasság ~15%-át használja. A 3 lépcsős varázsló egy oldalon is elférne —
    ezt a `slice/ux-one-page-composer` ág célozza (félbehagyva).
 
-8. **(KÖZEPES) Az előnézet panel nem néz ki semmit.** Desktopon a jobb oldali
-   dobozban a „A PDF a készülék PDF-nézőjében nyílik meg." mobilos szöveg áll,
-   közben munkamenetenként 4 `POST /api/invoices/preview/pdf` hívás fut le.
+8. ~~**Az előnézet panel nem néz ki semmit.**~~ **VISSZAVONVA.** A panel
+   valódi böngészőben kirajzolja a PDF-et. A `browserCanEmbedPdf()`
+   (`InvoicePdfPreview.tsx:30`) a `navigator.pdfViewerEnabled` értékét nézi,
+   ami a régi headless Chromium shellben `false`, valódi Chrome-ban `true` —
+   az auditot futtató böngésző műterméke volt, nem hiba. Nem nyúltam hozzá.
 
 9. **(KÖZEPES) Mobilon a fejlécek elviszik a képernyő ~58%-át.** A 812 px-ből
    ~470 px fejléc + értesítési sáv + morzsamenü + cím + bizonylattípus fülek +
@@ -95,3 +97,65 @@ mindkét nézetben — 10/10 ellenőrzés rendben:
 - 0 konzolhiba
 
 Unit: 264 suite / 1938 teszt zöld, `tsc --noEmit` tiszta.
+
+---
+
+# Második kör — 2026-09-23 délután
+
+A fenti nyitott tételek elvégzése közben az **éles lánc mérése** két olyan
+hibát hozott elő, amit statikus olvasással nem lehetett látni.
+
+## Javítva a második körben
+
+- **Egyoldalas composer desktopon.** 1440×900-on egy lépés helyett a partner,
+  a tételek és a kiküldés egyszerre látszik; az ellenőrzés lépés ott elhagyja a
+  read-only összegző kártyáit (a szekciók fölötte szerkeszthetők). Mobilon
+  marad a varázsló.
+- **Mobil fejléc.** Az első mező **y=497 → y=305** (a képernyő 61%-áról 38%-ára
+  csökkent a fejléc). Elhagyva: morzsamenü (a fejléc és a tabsáv ugyanazt
+  mondja), a stepperrel duplikált „2/3 · Tételek" felirat, a külön sorban álló
+  „Előnézet" gomb (beköltözött a stepper sorába), és a stepper már csak az
+  aktuális lépést írja ki, így egy sorban elfér.
+- **Partnertalálatok szemantikája.** `combobox` + `listbox`/`option`,
+  `aria-expanded`, soronként 44 px-es célpont.
+- **Érintési célpontok.** Alsó tabsáv 38×38 → 73×48 (és a felirat is
+  kattintható lett, eddig nem volt), szekció-„Szerkesztés" linkek és a
+  nyelvváltó 44 px-re nőtt. Az értesítési sáv szándékos 40 px-es magassága
+  marad, de a bezárás gombja 22×22 → 40×40.
+
+## Az éles mérés eredménye (INV-2026-00002)
+
+| Lépés | Eredmény |
+|---|---|
+| Véglegesítés | ✅ sorszám kiosztva, státusz „Fizetetlen", a felhasználó a számla adatlapján landol |
+| PDF | ✅ 14 005 bájt, valódi `%PDF-` |
+| NAV | ⚠️ `Nincs beküldve` — a cég NAV-beállítása hiányos (lásd lent) |
+| E-mail | ❌ **nem ment ki**, pedig a kapcsoló be volt kapcsolva |
+
+### Új hiba: a küldés két feltételhez volt kötve
+
+`shouldSendOnAction()` csak a „Véglegesítés és küldés" műveletnél adott
+`true`-t, és a hívó ezt még `&& emailOnSend`-del is szűkítette. Emiatt:
+
+- a **„Véglegesítés és küldés" sem küldött semmit**, ha a kapcsoló ki volt
+  kapcsolva — márpedig az az alapértelmezés;
+- a kapcsoló bekapcsolása sima „Véglegesítés" mellett szintén nem küldött.
+
+Javítva: a művelet *vagy* a kapcsoló elég; piszkozat továbbra sem megy ki.
+
+### Üzemeltetési lelet: hiányzó adatbázis-migrációk
+
+Az éles adatbázisból hiányzik a **0008** és a **0009** migráció
+(`client.party_type`, `invoice.fulfillment_date`, `user.closed_at`,
+`user.retention_until`). A most mergelt main ezekre az oszlopokra épít — a
+bejelentkezés is elszáll nélkülük (`column "closed_at" does not exist`).
+**A következő éles deploy előtt le kell futtatni a `npm run db:push`-t.**
+A jelenlegi production ettől még működik: a #40 óta nincs automatikus deploy.
+
+### A cég NAV-beállítása hiányos
+
+`navEnvironment: "test"`, technikai felhasználó, jelszó és aláírókulcs
+megvan, de a **csere kulcs (`navXmlChangeKey`) hiányzik**, így valódi
+beküldés nem jön létre. A #31 óta a beküldés szerver oldalon automatikus, a
+composer kapcsolója helyett tájékoztató szöveg áll — ezt a #31 már megoldotta,
+az én korábbi kapcsoló-alapérték javításom emiatt tárgytalanná vált, kivettem.

@@ -90,9 +90,17 @@ export function resolveStatusForAction(
   return "sent";
 }
 
-/** Only "Véglegesítés és küldés" ever triggers the send-email API call. */
-export function shouldSendOnAction(action: SaveAction): boolean {
-  return action === "finalizeAndSend";
+/**
+ * Does this save also e-mail the document? Either the action says so
+ * ("Véglegesítés és küldés") or the review step's toggle does. It used to
+ * need both, which meant the action named "és küldés" sent nothing unless
+ * the user had also flipped a toggle that defaults to off — and flipping
+ * that toggle before a plain "Véglegesítés" did nothing either. A draft is
+ * never sent: it has no number yet.
+ */
+export function shouldSendOnAction(action: SaveAction, emailOnSend: boolean): boolean {
+  if (action === "draft") return false;
+  return action === "finalizeAndSend" || emailOnSend;
 }
 
 export type StepValidationResult = {
