@@ -8,12 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { Textarea, TextareaInput } from "@/components/ui/textarea";
 import { VStack } from "@/components/ui/vstack";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { groupVatRows } from "@/components/invoices/composer/composer-logic";
 import { formatCurrency, lineItemGrossTotal } from "@/lib/invoices/calculations";
 import type { InvoiceComposerState } from "@/components/invoices/composer/useInvoiceComposer";
 
 export function StepReview(
-  composer: InvoiceComposerState & { readOnly?: boolean }
+  composer: InvoiceComposerState & { readOnly?: boolean; variant?: "full" | "dispatch" }
 ) {
   const {
     t,
@@ -41,13 +42,20 @@ export function StepReview(
     setStep,
     totals,
     readOnly,
+    // "dispatch" drops the partner/dates/items summary cards: the desktop
+    // one-page composer has those sections open and editable right above,
+    // so repeating them read-only only made the page longer.
+    variant = "full",
   } = composer;
+  const showSummaries = variant === "full";
 
   const vatRows = groupVatRows(lineItems);
   const address = [clientZip, clientCity, clientAddress].filter(Boolean).join(" ");
 
   return (
     <VStack space="lg">
+      {showSummaries ? (
+        <>
       <ReviewSection title={t("invoices.composer.reviewPartner")} onEdit={readOnly ? undefined : () => setStep("partner")} t={t}>
         <Text className="font-medium text-foreground">{clientName || "—"}</Text>
         {clientTaxNumber ? <Text size="sm" className="text-muted-foreground">{clientTaxNumber}</Text> : null}
@@ -104,6 +112,8 @@ export function StepReview(
           </VStack>
         </VStack>
       </ReviewSection>
+        </>
+      ) : null}
 
       {!readOnly ? (
         <ReviewSection title={t("invoices.composer.dispatchTitle")} t={t}>
@@ -180,7 +190,12 @@ function ReviewSection({
           {title}
         </Text>
         {onEdit ? (
-          <Pressable onPress={onEdit}>
+          <Pressable
+            onPress={onEdit}
+            accessibilityRole="button"
+            accessibilityLabel={`${t("invoices.composer.editSection")} — ${title}`}
+            className={`justify-center px-2 ${TAP_TARGET_MIN_H}`}
+          >
             <Text size="sm" className="font-medium text-primary">
               {t("invoices.composer.editSection")}
             </Text>

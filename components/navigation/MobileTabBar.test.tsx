@@ -100,3 +100,33 @@ describe("MobileTabBar", () => {
     act(() => tree.unmount());
   });
 });
+
+describe("MobileTabBar — tap targets", () => {
+  async function render() {
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(
+        <MobileTabBar pathname="/invoices" onNavigate={jest.fn()} onOpenMore={jest.fn()} />,
+      );
+    });
+    return tree;
+  }
+
+  it("gives every tab a 44px target (the icon-only box was 38x38)", async () => {
+    const tree = await render();
+    const tabs = tree.root.findAll((n) => n.props?.accessibilityRole === "tab");
+
+    expect(tabs.length).toBeGreaterThan(0);
+    tabs.forEach((tab) => expect(String(tab.props.className)).toMatch(/min-h-11/));
+  });
+
+  it("puts the label inside the pressable, so the word is tappable too", async () => {
+    const tree = await render();
+    const tabs = tree.root.findAll((n) => n.props?.accessibilityRole === "tab");
+
+    const withLabel = tabs.filter(
+      (tab) => tab.findAll((c) => typeof c.props?.children === "string").length > 0,
+    );
+    expect(withLabel.length).toBe(tabs.length);
+  });
+});

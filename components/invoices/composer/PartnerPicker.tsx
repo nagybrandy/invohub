@@ -10,6 +10,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import type { Client } from "@/lib/clients/service";
+import { LISTBOX_ROLE, TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
 const MAX_RESULTS = 8;
@@ -97,6 +98,9 @@ export function PartnerPicker({
           placeholder={t("invoices.composer.partnerSearchPlaceholder")}
           value={value}
           onChangeText={onChangeText}
+          role="combobox"
+          aria-expanded={showResults}
+          aria-controls="composer-partner-results"
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 120)}
           className="font-light"
@@ -118,7 +122,9 @@ export function PartnerPicker({
               <Pressable
                 key={client.id}
                 onPress={() => onSelect(client)}
-                className="rounded-full border border-border bg-background px-3 py-1.5"
+                accessibilityRole="button"
+                accessibilityLabel={client.name}
+                className={`items-center justify-center rounded-full border border-border bg-background px-3 py-1.5 ${TAP_TARGET_MIN_H}`}
               >
                 <Text size="xs" className="font-light text-foreground">
                   {client.name}
@@ -130,13 +136,23 @@ export function PartnerPicker({
       ) : null}
 
       {showResults ? (
-        <VStack className="rounded-lg border border-border bg-card" space="xs">
+        <VStack
+          nativeID="composer-partner-results"
+          role={LISTBOX_ROLE}
+          accessibilityRole="list"
+          className="rounded-lg border border-border bg-card"
+          space="xs"
+        >
           {results.length > 0 ? (
             results.map((client) => (
               <Pressable
                 key={client.id}
                 onPress={() => onSelect(client)}
-                className="flex-row items-center gap-2 border-b border-subtle px-3 py-2 last:border-b-0"
+                role="option"
+                aria-selected={false}
+                accessibilityRole="button"
+                accessibilityLabel={client.name}
+                className={`flex-row items-center gap-2 border-b border-subtle px-3 py-2 last:border-b-0 ${TAP_TARGET_MIN_H}`}
               >
                 <Search size={14} color={icons.muted} />
                 <VStack className="flex-1">

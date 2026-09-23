@@ -180,3 +180,45 @@ describe("PartnerPicker (INV-18)", () => {
     expect(json).toContain("invoices.composer.recentPartners");
   });
 });
+
+describe("PartnerPicker — combobox semantics", () => {
+  it("exposes the result list as a listbox of options", () => {
+    const clients = makeClients(3);
+    const { tree } = render({ clients, value: "Partner" });
+
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    expect(input.props.role).toBe("combobox");
+    expect(input.props["aria-expanded"]).toBe(true);
+
+    const listbox = tree.root.findAll((n) => n.props?.role === "listbox");
+    expect(listbox.length).toBeGreaterThan(0);
+
+    const options = tree.root.findAll((n) => n.props?.role === "option");
+    expect(options.length).toBeGreaterThan(0);
+    expect(options[0].props.accessibilityRole).toBe("button");
+  });
+
+  it("gives every result row a 44px tap target", () => {
+    const clients = makeClients(3);
+    const { tree } = render({ clients, value: "Partner" });
+
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const options = tree.root.findAll((n) => n.props?.role === "option");
+    options.forEach((o) => expect(String(o.props.className)).toMatch(/min-h-11/));
+  });
+
+  it("marks the list collapsed when nothing is showing", () => {
+    const { tree } = render({ clients: makeClients(3), value: "" });
+    const input = findByTestId(tree.root, "composer-partner-search");
+
+    expect(input.props["aria-expanded"]).toBe(false);
+  });
+});

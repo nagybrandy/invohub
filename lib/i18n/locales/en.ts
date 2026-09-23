@@ -346,7 +346,7 @@ export default {
       navSubmitHint:
         "On finalization the invoice is submitted to NAV automatically when NAV submission is set up (Company settings, demo or test mode). Track its status on the invoice page.",
       postalMailing: "Postal mailing",
-      sendEmail: "Email document to partner",
+      sendEmail: "Send the document by e-mail",
       sendEmailHint:
         "The document will be automatically sent to the partner's email address",
     },
@@ -361,6 +361,7 @@ export default {
       backToEdit: "Back to editing",
       finalize: "Finalize",
       finalizeAndSend: "Finalize & send",
+      finalizeOptions: "More issuing options",
     },
     paymentMethods: {
       transfer: "Bank transfer",

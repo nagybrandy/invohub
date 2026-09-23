@@ -10,13 +10,17 @@ jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"
 
 const t = (key: string) => key;
 
-function render(current: "partner" | "items" | "review" = "partner", onSelect = jest.fn()) {
+function render(
+  current: "partner" | "items" | "review" = "partner",
+  onSelect = jest.fn(),
+  invalidSteps = { partner: false, items: false, review: false }
+) {
   let tree: TestRenderer.ReactTestRenderer;
   act(() => {
     tree = TestRenderer.create(
       <ComposerStepper
         current={current}
-        invalidSteps={{ partner: false, items: false, review: false }}
+        invalidSteps={invalidSteps}
         onSelect={onSelect}
         t={t}
       />
@@ -36,9 +40,11 @@ describe("ComposerStepper", () => {
 
   it("calls onSelect with the pressed step id", () => {
     const { tree, onSelect } = render("partner");
+    // Non-current steps render as a numbered circle only (the labels wrapped
+    // the row at 375px), so address the row by its testID.
     const step = tree.root
       .findAll((n) => typeof n.props?.onPress === "function")
-      .find((n) => n.findAll((c) => c.props?.children === "invoices.composer.steps.review").length > 0);
+      .find((n) => n.props?.testID === "composer-stepper-review");
     act(() => {
       step?.props.onPress?.();
     });
@@ -54,5 +60,28 @@ describe("ComposerStepper", () => {
     for (const row of rows) {
       expect(String(row.props.className)).toContain("min-h-11");
     }
+  });
+});
+
+describe("ComposerStepper — compact on a narrow screen", () => {
+  it("spells out only the current step", () => {
+    const { tree } = render("items");
+    const labels = tree.root
+      .findAll((n) => typeof n.props?.children === "string")
+      .map((n) => n.props.children as string)
+      .filter((l) => l.startsWith("invoices.composer.steps."));
+
+    // the same label matches on several fiber nodes — uniqueness is the point
+    expect([...new Set(labels)]).toEqual(["invoices.composer.steps.items"]);
+  });
+
+  it("keeps the label of a step that has a blocking error, so it stays findable", () => {
+    const { tree } = render("partner", jest.fn(), { partner: false, items: true, review: false });
+    const labels = tree.root
+      .findAll((n) => typeof n.props?.children === "string")
+      .map((n) => n.props.children as string)
+      .filter((l) => l.startsWith("invoices.composer.steps."));
+
+    expect(labels).toContain("invoices.composer.steps.items");
   });
 });
