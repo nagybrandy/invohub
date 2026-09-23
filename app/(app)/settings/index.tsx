@@ -1,5 +1,6 @@
 // app/(app)/settings/index.tsx
-// Settings hub: profile, templates, reminders, theme, export, demo data, sign out.
+// Settings hub: profile, templates, reminders, theme, adóhatósági ellenőrzési
+// adatszolgáltatás (tax-audit XML export), demo data, sign out.
 import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,6 @@ import {
   Building2,
   ChevronRight,
   Database,
-  FileSpreadsheet,
   FileText,
   Languages,
   LogOut,
@@ -17,6 +17,7 @@ import {
   Shield,
 } from "lucide-react-native";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { TaxAuditExportCard } from "@/components/settings/TaxAuditExportCard";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
@@ -112,14 +113,6 @@ export default function SettingsScreen() {
     router.replace(routes.login);
   }
 
-  function handleExport() {
-    const from = "2026-01-01";
-    const to = new Date().toISOString().slice(0, 10);
-    if (typeof window !== "undefined") {
-      window.open(`/api/export/tax-audit?from=${from}&to=${to}`, "_blank");
-    }
-  }
-
   return (
     <ScreenLayout
       header={
@@ -164,13 +157,8 @@ export default function SettingsScreen() {
 
         <VStack space="sm">
           <Text className="font-semibold text-foreground">{t("settings.tools")}</Text>
+          <TaxAuditExportCard />
           <HStack space="sm" className="flex-wrap">
-            <FeatureLinkCard
-              icon={FileSpreadsheet}
-              title={t("settings.export")}
-              description={t("settings.exportHint")}
-              onPress={handleExport}
-            />
             <Pressable onPress={() => void toggleTheme()} className="flex-1 min-w-[45%]">
               <Card className="h-full p-4 active:opacity-80">
                 <HStack className="items-start justify-between">
