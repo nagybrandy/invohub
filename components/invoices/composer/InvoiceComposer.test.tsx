@@ -318,7 +318,9 @@ describe("InvoiceComposer — the stepper refuses to skip a required field", () 
       await Promise.resolve();
     });
 
-    expect(stepLabels(tree).some((l) => l.startsWith("1/3"))).toBe(true);
+    // still on the partner step: its section is up, the items one is not
+    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-items")).toHaveLength(0);
     expect(stepLabels(tree)).toContain("invoices.errors.clientRequired");
   });
 
@@ -370,5 +372,43 @@ describe("InvoiceComposer — finalize is one click, sending is the secondary op
 
     const [finalize] = findByTestID(tree, "composer-action-finalize");
     expect(finalize.props.disabled).toBe(true);
+  });
+});
+
+describe("InvoiceComposer — desktop shows the whole document on one page", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCompany = COMPLETE_COMPANY;
+  });
+
+  it("renders partner, items and dispatch together on desktop, with no step buttons", async () => {
+    mockUseIsDesktop.mockReturnValue(true);
+    const tree = await renderComposer({ mode: "create" });
+
+    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-items").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-dispatch").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-desktop-next")).toHaveLength(0);
+  });
+
+  it("drops the duplicate review summaries — the sections above are already editable", async () => {
+    mockUseIsDesktop.mockReturnValue(true);
+    const tree = await renderComposer({ mode: "create" });
+
+    const texts = tree.root
+      .findAll((n) => typeof n.props?.children === "string")
+      .map((n) => n.props.children as string);
+
+    expect(texts).toContain("invoices.composer.dispatchTitle");
+    expect(texts).not.toContain("invoices.composer.reviewPartner");
+  });
+
+  it("keeps the one-step-at-a-time wizard on mobile", async () => {
+    mockUseIsDesktop.mockReturnValue(false);
+    const tree = await renderComposer({ mode: "create" });
+
+    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-items")).toHaveLength(0);
+    expect(findByTestID(tree, "composer-mobile-primary-action").length).toBeGreaterThan(0);
   });
 });

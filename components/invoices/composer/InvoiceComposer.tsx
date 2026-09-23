@@ -204,7 +204,17 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
   const stepIndex = COMPOSER_STEP_ORDER.indexOf(step);
   const isLastStep = stepIndex === COMPOSER_STEP_ORDER.length - 1;
   const mobileStepLabel = `${stepIndex + 1}/${COMPOSER_STEP_ORDER.length} · ${t(STEP_LABEL_KEYS[step])}`;
-  const desktopLayout = composerDesktopLayout(step);
+  // Desktop shows the whole document at once: a 1440x900 screen spent ~85%
+  // of its height on nothing while the wizard asked for one field at a time.
+  // Mobile keeps the step-by-step flow, where it earns its place.
+  const onePage = isDesktop;
+  const desktopLayout = onePage
+    ? { showSummaryColumn: false, formMaxWidth: undefined }
+    : composerDesktopLayout(step);
+  const sectionCap = onePage ? { maxWidth: 720 } : undefined;
+  const showPartnerSection = onePage || step === "partner";
+  const showItemsSection = onePage || step === "items";
+  const showReviewSection = onePage || step === "review";
 
   const stepErrorMessage =
     step === "partner"
@@ -256,7 +266,10 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
 
   const mainContent = (
     <>
-      <Breadcrumb items={breadcrumbItems} />
+      {/* The mobile composer spent ~470px of an 812px screen on chrome before
+          the first field. The breadcrumb repeats what the header and the tab
+          bar already say, so it stays on desktop only. */}
+      {isDesktop ? <Breadcrumb items={breadcrumbItems} /> : null}
 
       {/* Every nested NativeWind View gets an explicit z-0 (not "auto"),
           so each is its own stacking context — the finalize dropdown's
@@ -353,14 +366,16 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
         disabled={documentTabsDisabled}
       />
 
-      <ComposerStepper current={step} invalidSteps={invalidSteps} onSelect={setStep} t={t} />
-      {!isDesktop ? (
-        <HStack space="sm" className="items-center justify-between">
-          <Text size="xs" className="text-muted-foreground" testID="composer-mobile-step-label">
-            {mobileStepLabel}
-          </Text>
-          <ComposerPreviewButton invoice={draftInvoice} t={t} testID="composer-mobile-open-preview" />
-        </HStack>
+      {!onePage ? (
+        <>
+          <ComposerStepper current={step} invalidSteps={invalidSteps} onSelect={setStep} t={t} />
+          <HStack space="sm" className="items-center justify-end">
+            {/* The stepper above already names the current step — the
+                "2/3 · Tételek" line under it was the same thing twice, on the
+                screen with the least room to spare. */}
+            <ComposerPreviewButton invoice={draftInvoice} t={t} testID="composer-mobile-open-preview" />
+          </HStack>
+        </>
       ) : null}
 
       {finalizeBlockedByProfile ? (
@@ -411,26 +426,40 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
           className="min-w-0 flex-1"
           style={isDesktop && desktopLayout.formMaxWidth ? { maxWidth: desktopLayout.formMaxWidth } : undefined}
         >
-          {step === "partner" ? <StepPartner {...composer} /> : null}
-          {step === "items" ? (
-            <StepLineItems
-              lineItems={composer.lineItems}
-              currency={composer.currency}
-              products={composer.products}
-              onUpdate={composer.updateLineItem}
-              onAdd={composer.addLineItem}
-              onAddFromProduct={composer.addLineItemFromProduct}
-              onRemove={composer.removeLineItem}
-              isModification={invoice?.documentType === "modify"}
-              previewSlot={
-                previewLayout.side ? undefined : <ComposerPreviewButton invoice={draftInvoice} t={t} />
-              }
-              t={t}
-            />
+          {showPartnerSection ? (
+            <Box testID="composer-section-partner" style={sectionCap}>
+              <StepPartner {...composer} />
+            </Box>
           ) : null}
-          {step === "review" ? <StepReview {...composer} /> : null}
+          {showItemsSection ? (
+            <Box testID="composer-section-items" className={onePage ? "mt-8" : undefined}>
+              <StepLineItems
+                lineItems={composer.lineItems}
+                currency={composer.currency}
+                products={composer.products}
+                onUpdate={composer.updateLineItem}
+                onAdd={composer.addLineItem}
+                onAddFromProduct={composer.addLineItemFromProduct}
+                onRemove={composer.removeLineItem}
+                isModification={invoice?.documentType === "modify"}
+                previewSlot={
+                  previewLayout.side ? undefined : <ComposerPreviewButton invoice={draftInvoice} t={t} />
+                }
+                t={t}
+              />
+            </Box>
+          ) : null}
+          {showReviewSection ? (
+            <Box
+              testID="composer-section-dispatch"
+              className={onePage ? "mt-8" : undefined}
+              style={sectionCap}
+            >
+              <StepReview {...composer} variant={onePage ? "dispatch" : "full"} />
+            </Box>
+          ) : null}
 
-          {isDesktop ? (
+          {isDesktop && !onePage ? (
             <HStack space="sm" className="mt-6 justify-between">
               <Button
                 variant="outline"
