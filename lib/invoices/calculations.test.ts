@@ -71,6 +71,15 @@ describe("formatCurrency", () => {
   it("formats HUF with symbol suffix", () => {
     expect(formatCurrency(45000, "HUF")).toMatch(/Ft$/);
   });
+
+  it("never shows a negative zero for a netted-out helyesbítő total", () => {
+    expect(formatCurrency(-0, "HUF")).toBe("0 Ft");
+    expect(formatCurrency(-1e-12, "EUR")).not.toContain("-");
+  });
+
+  it("keeps the sign of a real negative total", () => {
+    expect(formatCurrency(-45000, "HUF")).toMatch(/^-/);
+  });
 });
 
 describe("createEmptyLineItem", () => {

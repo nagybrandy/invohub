@@ -4,6 +4,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { requiresExchangeRate } from "@/lib/invoices/exchange-rate";
+import { normalizeFulfillmentDateInput } from "@/lib/invoices/fulfillment-date";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoices/payment-status";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
@@ -69,6 +70,8 @@ export type ExternalInvoiceInput = {
   clientEuVatNumber?: string;
   issueDate?: string;
   dueDate?: string;
+  /** Teljesítés dátuma — ISO YYYY-MM-DD; a parseable ISO datetime is sliced to its date part. */
+  fulfillmentDate?: string;
   status?: InvoiceStatus;
   currency?: InvoiceCurrency;
   /** Manual HUF exchange rate — required (positive, finite) when currency isn't HUF. */
@@ -77,7 +80,10 @@ export type ExternalInvoiceInput = {
   notes?: string;
   paymentMethod?: PaymentMethod;
   submitToNav?: boolean;
-  /** Send invoice email immediately after creation (default true). */
+  /**
+   * Send the invoice email right after creation (default false). An explicit
+   * true on a draft finalizes it first (number assigned, status "sent").
+   */
   sendEmail?: boolean;
   /** Override To recipients; string, comma-separated string, or array. */
   emailTo?: string | string[];
@@ -137,6 +143,12 @@ export function validateExternalInvoiceInput(
   if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
     return `paymentMethod must be one of ${PAYMENT_METHODS.join(", ")}.`;
   }
+  if (
+    body.fulfillmentDate !== undefined &&
+    normalizeFulfillmentDateInput(body.fulfillmentDate) === null
+  ) {
+    return "fulfillmentDate must be a YYYY-MM-DD date.";
+  }
 
   const emailToError = validateEmailRecipientsInput("emailTo", body.emailTo);
   if (emailToError) return emailToError;
@@ -180,10 +192,12 @@ export async function createInvoiceFromPayload(
   const currency: InvoiceCurrency =
     body.currency ?? (company?.country === "HU" || !company?.country ? "HUF" : "EUR");
   const issueDate = body.issueDate ?? now.slice(0, 10);
+  const fulfillmentDate = normalizeFulfillmentDateInput(body.fulfillmentDate) ?? undefined;
   // Server safety net (item 6): a non-HUF create with no (valid) caller-
-  // supplied rate gets the official MNB rate instead of being left empty.
+  // supplied rate gets the official MNB rate instead of being left empty —
+  // for the teljesítés date when known, else the issue date (Áfa tv. 80. §).
   const exchangeRate = requiresExchangeRate(currency)
-    ? await autofillMissingExchangeRate({ currency, exchangeRate: body.exchangeRate, issueDate })
+    ? await autofillMissingExchangeRate({ currency, exchangeRate: body.exchangeRate, issueDate, fulfillmentDate })
     : undefined;
   const invoice: Invoice = {
     id: createId(),
@@ -199,6 +213,7 @@ export async function createInvoiceFromPayload(
     clientEuVatNumber: body.clientEuVatNumber?.trim(),
     issueDate,
     dueDate: body.dueDate ?? body.issueDate ?? now.slice(0, 10),
+    fulfillmentDate,
     status: body.status ?? "draft",
     currency,
     exchangeRate,

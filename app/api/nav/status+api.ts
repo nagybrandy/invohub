@@ -1,7 +1,7 @@
 // app/api/nav/status+api.ts
 // Poll/refresh NAV transaction status for an invoice's latest submission —
 // backs the "Státusz frissítése" action on the invoice detail screen.
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { navSubmission } from "@/db/schema";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
@@ -38,12 +38,9 @@ export async function POST(request: Request) {
   const invoice = await getInvoiceById(session.user.id, body.invoiceId);
   if (!invoice) return jsonResponse({ error: "Invoice not found." }, 404);
 
-  const [submission] = await db
-    .select()
-    .from(navSubmission)
-    .where(eq(navSubmission.invoiceId, invoice.id))
-    .orderBy(desc(navSubmission.createdAt))
-    .limit(1);
+  // Latest submission NAV actually received (has a transactionId) — a newer
+  // failed attempt (status "error", no transaction) must not hide it.
+  const submission = (await listNavSubmissionsForInvoice(invoice.id)).find((row) => !!row.transactionId);
 
   if (!submission || !submission.transactionId) {
     return jsonResponse({ error: "Ehhez a számlához nincs NAV beküldés." }, 404);

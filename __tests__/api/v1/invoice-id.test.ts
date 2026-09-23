@@ -17,6 +17,11 @@ jest.mock("@/lib/invoices/create-from-payload", () => ({
   updateDraftInvoiceFromPayload: jest.fn(),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { DELETE, GET, PATCH } from "@/app/api/v1/invoices/[id]+api";
 import { requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { deleteDraftInvoiceById, getInvoiceById } from "@/lib/invoices/service";
@@ -149,6 +154,18 @@ describe("PATCH /api/v1/invoices/[id]", () => {
     expect(response.status).toBe(200);
     expect(body.invoice.clientName).toBe("Updated Kft.");
     expect(mockUpdate).toHaveBeenCalledWith("user-1", "inv-1", expect.objectContaining({ clientName: "Updated Kft." }));
+  });
+
+  it("hands the updated invoice to NAV auto-submit (a PATCH that sets a final status is a finalization)", async () => {
+    authOk("user-1");
+    const finalized = makeInvoice({ id: "inv-1", status: "unpaid", invoiceNumber: "INV-2026-011" });
+    mockUpdate.mockResolvedValue({ ok: true, invoice: finalized });
+    mockAutoSubmit.mockResolvedValue({ outcome: "submitted", submission: null });
+    const body = await (
+      await PATCH(req("PATCH", "inv-1", { clientName: "A", lineItems: [], status: "unpaid" }), params("inv-1"))
+    ).json();
+    expect(mockAutoSubmit).toHaveBeenCalledWith("user-1", null, finalized);
+    expect(body.nav.outcome).toBe("submitted");
   });
 });
 

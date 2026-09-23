@@ -31,6 +31,7 @@ export function StepLineItems({
   onAddFromProduct,
   onRemove,
   previewSlot,
+  isModification = false,
   t,
 }: {
   lineItems: InvoiceLineItem[];
@@ -42,6 +43,12 @@ export function StepLineItems({
   onRemove: (id: string) => void;
   /** "Teljes előnézet" button, rendered in the sticky totals bar (AC10). */
   previewSlot?: React.ReactNode;
+  /**
+   * Helyesbítő (modify) draft: it starts as reversing line + editable copy
+   * per original line (lib/invoices/modification-lines.ts). Shows the hint
+   * and lets a quantity stay negative instead of being clamped to 0.
+   */
+  isModification?: boolean;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const totals = calculateInvoiceTotals(lineItems);
@@ -60,6 +67,13 @@ export function StepLineItems({
 
   return (
     <VStack space="md" onLayout={handleLayout} testID="line-items-container">
+      {isModification ? (
+        <VStack className="rounded-lg border border-border bg-muted/50 px-3 py-2" testID="modification-draft-hint">
+          <Text size="sm" className="text-foreground">
+            {t("invoices.correction.draftHint")}
+          </Text>
+        </VStack>
+      ) : null}
       {/* Grid only when the measured column fits the full row
           (composerGridMinWidth = 860px); otherwise every line is a
           compact card — no min-width, no horizontal scroll. */}
@@ -88,6 +102,7 @@ export function StepLineItems({
               currency={currency}
               products={products}
               canDelete={lineItems.length > 1}
+              allowNegativeQuantity={isModification}
               onChange={(patch) => onUpdate(item.id, patch)}
               onRemove={() => onRemove(item.id)}
               onFillFromProduct={(product) => onUpdate(item.id, {

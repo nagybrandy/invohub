@@ -25,6 +25,7 @@ import { VStack } from "@/components/ui/vstack";
 import { InvoicePdfPreview } from "@/components/invoices/InvoicePdfPreview";
 import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
 import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/InvoiceTimeline";
+import { NavStatusCard } from "@/components/invoices/NavStatusCard";
 import { DangerZone } from "@/components/layout/DangerZone";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -465,6 +466,13 @@ export default function InvoiceDetailScreen() {
         ) : null}
 
         <InvoiceTimeline invoice={invoice} nav={nav} />
+
+        {/* NAV Online Számla: status, "Beküldés"/"Újrapróbálás", polling.
+            Every finalized számla-type document (incl. storno/helyesbítő);
+            never a draft or a díjbekérő. */}
+        {finalized && !isProforma ? (
+          <NavStatusCard invoiceId={invoice.id} onChanged={() => void reload()} />
+        ) : null}
 
         {links &&
         (links.originalInvoice ||

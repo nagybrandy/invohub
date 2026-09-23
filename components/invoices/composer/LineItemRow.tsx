@@ -41,6 +41,7 @@ export function LineItemRow({
   onChange,
   onRemove,
   onFillFromProduct,
+  allowNegativeQuantity = false,
   t,
 }: {
   layout: LineItemLayout;
@@ -52,6 +53,8 @@ export function LineItemRow({
   onChange: (patch: Partial<InvoiceLineItem>) => void;
   onRemove: () => void;
   onFillFromProduct: (product: Product) => void;
+  /** Helyesbítő reversing lines carry a negative quantity — keep it. */
+  allowNegativeQuantity?: boolean;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const icons = useIconColors();
@@ -119,7 +122,10 @@ export function LineItemRow({
         testID={`lineItem-${index}-quantity`}
         keyboardType="decimal-pad"
         value={String(item.quantity)}
-        onChangeText={(value) => onChange({ quantity: Math.max(0, Number(value) || 0) })}
+        onChangeText={(value) => {
+          const parsed = Number(value) || 0;
+          onChange({ quantity: allowNegativeQuantity ? parsed : Math.max(0, parsed) });
+        }}
         className="min-w-0 tabular-nums"
       />
     </Input>

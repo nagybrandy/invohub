@@ -34,6 +34,6 @@ export async function POST(
       return { status: 400, body: { error: "Invoice is already cancelled." } };
     }
 
-    return { status: 201, body: { invoice: result.invoice } };
+    return { status: 201, body: { invoice: result.invoice, nav: result.nav } };
   });
 }

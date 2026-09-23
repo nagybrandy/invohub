@@ -15,6 +15,7 @@ import { INVOICE_LIST_LIMIT, INVOICE_LIST_MAX_LIMIT } from "@/lib/invoices/const
 import { normalizeInvoiceListFilters } from "@/lib/invoices/list-query";
 import { CompanyProfileIncompleteError, listInvoices } from "@/lib/invoices/service";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
+import { autoSubmitToNavOnFinalize, toNavAutoSubmitResult, type NavAutoSubmitResult } from "@/lib/nav/auto-submit";
 import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
 
 function parseLimit(url: URL): number {
@@ -56,18 +57,11 @@ async function createInvoiceAndSideEffects(
   try {
     const invoice = await createInvoiceFromPayload(userId, body as ExternalInvoiceInput);
 
-    let navSubmission: Awaited<ReturnType<typeof submitOutgoingInvoiceToNav>> | null = null;
-    if (body.submitToNav === true) {
-      navSubmission = await submitOutgoingInvoiceToNav(userId, invoice);
-    }
-
-    // NOTE(sendEmail default): sendEmail defaults to true even for a
-    // status: "draft" body — a draft has no invoiceNumber yet, so
-    // sendInvoiceNotificationEmail finalizes it (assigns a number, flips
-    // status to "sent") before emailing. That is existing behaviour
-    // (create-from-payload.ts / send-invoice-email.ts), not something this
-    // slice changed — flagged in the PR description, not fixed here.
-    const shouldSendEmail = body.sendEmail !== false;
+    // Owner decision (2026-09-22): creating never e-mails by default. Only
+    // an explicit `sendEmail: true` sends — and, for a draft body, that send
+    // finalizes it first (assigns the number, status -> "sent"; see
+    // send-invoice-email.ts). A default create leaves a draft a draft.
+    const shouldSendEmail = body.sendEmail === true;
     let emailResult: Awaited<ReturnType<typeof sendInvoiceNotificationEmail>> | null = null;
     if (shouldSendEmail) {
       emailResult = await sendInvoiceNotificationEmail(userId, invoice.id, {
@@ -77,17 +71,22 @@ async function createInvoiceAndSideEffects(
       });
     }
 
+    // NAV runs after the email step because that step may be what
+    // finalizes a draft. A document created (or just made) final is
+    // submitted automatically when NAV is configured; `submitToNav: true`
+    // still forces an explicit (guarded, idempotent) attempt otherwise.
+    const finalInvoice = emailResult?.invoice ?? invoice;
+    let nav: NavAutoSubmitResult | null = await autoSubmitToNavOnFinalize(userId, null, finalInvoice);
+    if (!nav && body.submitToNav === true) {
+      nav = toNavAutoSubmitResult(await submitOutgoingInvoiceToNav(userId, finalInvoice));
+    }
+
     return {
       status: 201,
       body: {
-        invoice: emailResult?.invoice ?? invoice,
-        navSubmission: navSubmission
-          ? {
-              submissionId: navSubmission.submissionId,
-              status: navSubmission.status,
-              transactionId: navSubmission.transactionId,
-            }
-          : null,
+        invoice: finalInvoice,
+        navSubmission: nav?.submission ?? null,
+        nav,
         email: emailResult
           ? {
               sent: emailResult.ok,

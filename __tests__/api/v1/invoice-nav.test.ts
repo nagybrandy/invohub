@@ -74,26 +74,60 @@ describe("GET /api/v1/invoices/[id]/nav", () => {
   });
 });
 
-describe("POST /api/v1/invoices/[id]/nav (unchanged)", () => {
-  beforeEach(() => jest.clearAllMocks());
+function row(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "sub-1",
+    invoiceId: "inv-1",
+    status: "sent",
+    mode: "demo",
+    transactionId: "TX-1",
+    errorMessage: null,
+    messages: null,
+    checkedAt: null,
+    submittedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
-  it("still submits to NAV and returns navSubmission", async () => {
+async function post(id = "inv-1") {
+  return POST(new Request(`http://localhost/api/v1/invoices/${id}/nav`, { method: "POST" }), params(id));
+}
+
+describe("POST /api/v1/invoices/[id]/nav", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
     authOk("user-1");
-    const invoice = makeInvoice({ id: "inv-1" });
-    mockGet.mockResolvedValue(invoice);
-    mockSubmit.mockResolvedValue({
-      submissionId: "sub-1",
-      status: "accepted",
-      transactionId: "TX-1",
-    } as never);
+    mockGet.mockResolvedValue(makeInvoice({ id: "inv-1" }));
+  });
 
-    const response = await POST(
-      new Request("http://localhost/api/v1/invoices/inv-1/nav", { method: "POST" }),
-      params("inv-1")
-    );
+  it("submits to NAV and returns navSubmission", async () => {
+    mockSubmit.mockResolvedValue({ kind: "submitted", submission: row(), invoiceXml: "<x/>" } as never);
+    const response = await post();
     const body = await response.json();
-
     expect(response.status).toBe(200);
-    expect(body.navSubmission.transactionId).toBe("TX-1");
+    expect(body.navSubmission).toMatchObject({ submissionId: "sub-1", transactionId: "TX-1" });
+  });
+
+  it("returns the existing submission (alreadySubmitted) instead of re-submitting", async () => {
+    mockSubmit.mockResolvedValue({ kind: "existing", submission: row({ status: "done" }) } as never);
+    const body = await (await post()).json();
+    expect(body.alreadySubmitted).toBe(true);
+    expect(body.navSubmission.status).toBe("done");
+  });
+
+  it("refuses a draft/proforma with the guard's status and stable code", async () => {
+    mockSubmit.mockResolvedValue({ kind: "rejected", code: "proformaNotSubmittable", httpStatus: 422 } as never);
+    const response = await post();
+    expect(response.status).toBe(422);
+    expect((await response.json()).code).toBe("proformaNotSubmittable");
+  });
+
+  it("returns 502 navSubmitFailed for a recorded NAV failure", async () => {
+    mockSubmit.mockResolvedValue({ kind: "failed", submission: row({ status: "error" }), error: "boom" } as never);
+    const response = await post();
+    expect(response.status).toBe(502);
+    expect((await response.json()).code).toBe("navSubmitFailed");
   });
 });

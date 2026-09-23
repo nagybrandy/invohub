@@ -10,6 +10,7 @@ import { invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { buildInvoicePdfForUser } from "@/lib/invoices/invoice-pdf";
 import { CompanyProfileIncompleteError, getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import { hasBuyerAddress, requiresCompleteBuyerAddress, type Invoice } from "@/lib/invoices/types";
+import { autoSubmitToNavOnFinalize } from "@/lib/nav/auto-submit";
 
 export type SendInvoiceEmailResult = {
   ok: boolean;
@@ -73,6 +74,7 @@ export async function sendInvoiceNotificationEmail(
   // vars below — otherwise a still-draft invoice would be emailed with a
   // blank invoiceNumber and only get its number afterwards.
   if (finalizing) {
+    const draft = invoice;
     try {
       invoice = await upsertInvoice(userId, {
         ...invoice,
@@ -90,6 +92,10 @@ export async function sendInvoiceNotificationEmail(
       }
       throw error;
     }
+    // This IS a finalization (the draft just got its number): report it to
+    // NAV like every other finalization path. Never throws — a NAV problem
+    // is recorded on the submission row, the email still goes out.
+    await autoSubmitToNavOnFinalize(userId, draft, invoice);
   }
 
   const template = await getEmailTemplateByType(

@@ -68,11 +68,16 @@ export type InvoiceMetaNotesInput = {
   userNotes?: string;
   paymentMethod?: string;
   bankAccount?: string;
-  fulfillmentDate?: string;
   billToLines?: string[];
 };
 
-/** Append structured meta into invoice.notes so PDF/email keep the context without a schema migration. */
+/**
+ * Append structured meta into invoice.notes so PDF/email keep the context
+ * without a schema migration. No longer appends a "Teljesítés: …" line —
+ * fulfillmentDate is a real column now (db/schema.ts, lib/invoices/types.ts)
+ * printed from its own field; see lib/invoices/fulfillment-date.ts for the
+ * read-time fallback that still parses that line out of pre-migration rows.
+ */
 export function composeInvoiceNotes(input: InvoiceMetaNotesInput): string | undefined {
   const blocks: string[] = [];
   const userNotes = input.userNotes?.trim();
@@ -81,9 +86,6 @@ export function composeInvoiceNotes(input: InvoiceMetaNotesInput): string | unde
   }
 
   const meta: string[] = [];
-  if (input.fulfillmentDate?.trim()) {
-    meta.push(`Teljesítés: ${input.fulfillmentDate.trim()}`);
-  }
   if (input.paymentMethod?.trim()) {
     meta.push(`Fizetés: ${input.paymentMethod.trim()}`);
   }

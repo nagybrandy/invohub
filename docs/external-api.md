@@ -143,9 +143,9 @@ Válasz (`200`):
 
 `POST /api/v1/invoices`
 
-Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **e-mailt küld PDF csatolmánnyal** (`sendEmail: true`).
+Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **nem küld e-mailt** (`sendEmail: false`) — egy `status` nélküli (vagy `status: "draft"`) hívás tehát valódi, még számozatlan draftot hoz létre, amit a `POST .../finalize` és a `POST .../send` végpontokkal lehet tovább vinni.
 
-> ⚠️ **Fontos, meglévő viselkedés (nem ez a változtatás vezette be, csak dokumentáljuk):** ha a body `status: "draft"` (vagy nincs `status`, ami szintén draftot jelent) és `sendEmail` nincs explicit `false`-ra állítva, a rendszer **azonnal véglegesíti** a draftot (számot oszt ki, `status` → `sent`), mielőtt elküldi az e-mailt — lásd `lib/invoices/send-invoice-email.ts`. Ha valódi, még nem számozott draftot akarsz létrehozni, mindig küldd `sendEmail: false`-t.
+> ⚠️ **`sendEmail: true`:** ha explicit kéred az e-mailt, és a számla még draft, a rendszer a küldés előtt **véglegesíti** (számot oszt ki, `status` → `sent`) — lásd `lib/invoices/send-invoice-email.ts`. A véglegesítés kapui (vevő cím → `buyerAddressMissing`, hiányos cégprofil → `companyProfileIncomplete`, hiányzó címzett) ilyenkor is érvényesek; ha bármelyik elbukik, a számla draft marad és nem kap számot. *(Változás 2026-09-22: korábban a `sendEmail` alapértéke `true` volt.)*
 
 #### Request body
 
@@ -168,20 +168,21 @@ Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **e-
 | `clientCountry` | string | nem | Vevő országa (opcionális; belföldi vevőnél kihagyható) |
 | `clientEuVatNumber` | string | nem | Vevő közösségi adószáma (fordított adózáshoz) |
 | `issueDate` | string | nem | `YYYY-MM-DD` (default: ma) |
+| `fulfillmentDate` | string | nem | Teljesítés dátuma, `YYYY-MM-DD` — a PDF-en és a NAV XML-ben is ez szerepel; az automatikus MNB árfolyam is erre a napra kerül lekérésre (Áfa tv. 80. §) |
 | `dueDate` | string | nem | `YYYY-MM-DD` (default: issueDate) |
 | `status` | string | nem | `draft`, `proforma`, `sent`, `paid`, `unpaid`, `overdue`, `cancelled` (default: `draft`) |
 | `currency` | string | nem | `EUR` vagy `HUF` (default: cégprofil országa szerint) |
-| `exchangeRate` | number | nem | Manuális HUF árfolyam nem-HUF pénznemhez. Ha kihagyod, a rendszer automatikusan lekéri az aznapi (vagy a `issueDate`-hez legközelebbi korábbi) hivatalos MNB árfolyamot — lásd 7.1. szakasz — és ha ez sikeres, azzal menti a számlát; ha az MNB nem elérhető, a számla árfolyam nélkül marad (utólag pótolható a szerkesztő felületen). |
+| `exchangeRate` | number | nem | Manuális HUF árfolyam nem-HUF pénznemhez. Ha kihagyod, a rendszer automatikusan lekéri a teljesítés napjára (`fulfillmentDate`, ennek hiányában az `issueDate`-re — Áfa tv. 80. §) vagy az azt megelőző legutóbbi MNB-publikált napra érvényes hivatalos MNB árfolyamot — lásd 7.1. szakasz — és ha ez sikeres, azzal menti a számlát; ha az MNB nem elérhető, a számla árfolyam nélkül marad (utólag pótolható a szerkesztő felületen). |
 | `paymentMethod` | string | nem | `transfer`, `cash`, `card`, `other` |
 | `notes` | string | nem | Megjegyzés a számlán |
-| `sendEmail` | boolean | nem | E-mail küldés (default: `true`) — lásd a fenti figyelmeztetést |
+| `sendEmail` | boolean | nem | E-mail küldés (default: `false`); `true` egy draftot a küldés előtt véglegesít — lásd a fenti megjegyzést |
 | `emailTo` | string \| string[] | nem | Címzett(ek) felülírása |
 | `emailCc` | string \| string[] | nem | Másolat (Cc) címzettek |
-| `submitToNav` | boolean | nem | NAV beküldés azonnal (default: `false`) |
+| `submitToNav` | boolean | nem | NAV beküldés kérése akkor is, ha az automatikus (véglegesítéskori) beküldés nem futott (default: `false`) |
 
 > ⚠️ **Vevő cím — Áfa tv. 169. § e):** a `clientZipCode`/`clientCity`/`clientAddress` mezők a számlán szereplő **snapshot** címet adják meg (a kiállítás pillanatában, függetlenül attól, hogy az ügyfél később elköltözik-e) — nem az `/api/v1/clients` végponton tárolt ügyfél aktuális címét. Draft (`status: "draft"` vagy nincs `status`) létrehozásakor a cím hiányozhat; amint a `status` bármi más lesz (vagy a `POST .../finalize` fut le), a vevő neve **és** teljes címe (mind a három mező) kötelező — hiányában a válasz `422` + `code: "buyerAddressMissing"`. Díjbekérő (`documentType: "proforma"`) esetén ez soha nem kötelező — a díjbekérő nem adóügyi bizonylat.
 
-#### Példa — cURL (draft létrehozása, e-mail nélkül)
+#### Példa — cURL (draft létrehozása, e-mail nélkül — ez az alapértelmezés, a `sendEmail: false` csak az egyértelműség kedvéért szerepel)
 
 ```bash
 curl -X POST "https://invohub.vercel.app/api/v1/invoices" \
@@ -277,7 +278,10 @@ Sztornó (törlő) bizonylatot hoz létre, és az eredetit `cancelled` állapotb
 
 `POST /api/v1/invoices/{id}/modify`
 
-Helyesbítő (korrekciós) draftot indít, előtöltve az eredeti tételeivel — ezt a draftot a `PATCH`/`finalize` végpontokkal lehet tovább szerkeszteni és véglegesíteni. Díjbekérőre `400` + `code: "proformaNotStornoable"`.
+Helyesbítő (korrekciós) draftot indít. A NAV a helyesbítő tételeit **különbözetként** kezeli, ezért a draft nulla különbözettel indul: az eredeti számla minden tételéhez két sor kerül bele, sorrendben
+(a) egy **ellentételező sor** (azonos megnevezés, egység, egységár, ÁFA — negatív mennyiséggel), és
+(b) az eredeti tétel **szerkeszthető másolata**.
+A draft végösszege így 0; a másolatokat kell a helyes értékekre átírni (a változatlan párokat törölni lehet), és ami marad, az pontosan a különbözet. Ezt a draftot a `PATCH`/`finalize` végpontokkal lehet tovább szerkeszteni és véglegesíteni; a NAV-nak minden sor `lineOperation: CREATE`-ként, folytatólagos `lineNumberReference`-szel megy. Díjbekérőre `400` + `code: "proformaNotStornoable"`.
 
 ### 5.9 Díjbekérő → számla konverzió
 
@@ -339,9 +343,11 @@ Az adott számlához tartozó összes NAV beküldés (legutóbbi elöl):
 
 Kimenő számla továbbítása a NAV felé. Előfeltétel: NAV technikai user + jelszó a cégprofilban (teszt vagy demo mód — production NAV hitelesítő adat ebben a repóban soha nincs).
 
-Válasz (`200`): `{ "invoice": { "...": "..." }, "navSubmission": { "submissionId": "...", "status": "accepted", "transactionId": "TX-123" } }`
+Válasz (`200`): `{ "invoice": { "...": "..." }, "navSubmission": { "submissionId": "...", "status": "sent", "mode": "demo", "transactionId": "TX-123", "errorMessage": null } }`
 
-NAV beküldés számla létrehozáskor is kérhető: `"submitToNav": true` a create body-ban.
+Idempotens: ha a számlának már van folyamatban lévő vagy `done` beküldése, azt adja vissza (`"alreadySubmitted": true`), nem küldi be újra. Hibakódok: `409 draftNotSubmittable` (piszkozat), `422 proformaNotSubmittable` (díjbekérő — nem számla), `409 missingExchangeRate`, `502 navSubmitFailed` (a hiba rögzítve, újrapróbálható).
+
+**Automatikus beküldés:** minden számla jellegű bizonylat (számla, előleg, sztornó, helyesbítő — díjbekérő nem) véglegesítéskor automatikusan beküldésre kerül, ha a NAV be van állítva (demó mód, vagy teszt mód saját/közös teszt fiókkal). A `finalize`, `storno`, `PATCH` és create válaszokban a `nav` mező mutatja az eredményt. `"submitToNav": true` a create body-ban akkor is kér egy (idempotens) beküldést, ha az automatikus nem futott.
 
 ---
 
@@ -421,7 +427,7 @@ sequenceDiagram
   participant API as InvoHub API
 
   App->>API: POST /api/v1/clients (ügyfél létrehozása)
-  App->>API: POST /api/v1/invoices (sendEmail:false → draft)
+  App->>API: POST /api/v1/invoices (alapból draft, e-mail nélkül)
   App->>API: POST /api/v1/invoices/{id}/finalize (szám kiosztása)
   App->>API: GET /api/v1/invoices/{id}/pdf
   App->>API: POST /api/v1/invoices/{id}/send (e-mail)
@@ -432,7 +438,7 @@ sequenceDiagram
 ```
 
 1. **Ügyfél létrehozása** (opcionális, ha még nincs): `POST /api/v1/clients`.
-2. **Draft számla létrehozása**: `POST /api/v1/invoices` `sendEmail: false`-szal, hogy ne véglegesüljön/menjen ki azonnal.
+2. **Draft számla létrehozása**: `POST /api/v1/invoices` — alapértelmezetten (`sendEmail` nélkül) nem véglegesül és nem megy ki e-mail.
 3. **Véglegesítés**: `POST /api/v1/invoices/{id}/finalize` — ekkortól van végleges `invoiceNumber`.
 4. **PDF letöltés/megtekintés** (opcionális): `GET /api/v1/invoices/{id}/pdf`.
 5. **Küldés e-mailben**: `POST /api/v1/invoices/{id}/send`.

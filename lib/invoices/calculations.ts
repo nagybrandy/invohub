@@ -78,7 +78,10 @@ export function vatSummaryByRate(lineItems: InvoiceLineItem[]): VatSummaryRow[] 
 
 export function formatCurrency(amount: number, currency: Invoice["currency"]): string {
   const symbol = currency === "EUR" ? "€" : "Ft";
-  const formatted = amount.toLocaleString(undefined, {
+  const digits = currency === "EUR" ? 2 : 0;
+  // A helyesbítő draft nets to zero; never show "-0 Ft" for a float residue.
+  const value = Math.abs(amount) < 0.5 / 10 ** digits ? 0 : amount;
+  const formatted = value.toLocaleString(undefined, {
     minimumFractionDigits: currency === "EUR" ? 2 : 0,
     maximumFractionDigits: currency === "EUR" ? 2 : 0,
   });
