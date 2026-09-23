@@ -84,12 +84,18 @@ before or alongside Phase 1 items that depend on it.
       products/[id]/edit, import/index, settings/templates) and all were
       fixed in the platform-overhaul branch — re-run the sweep fresh
       rather than assuming full coverage elsewhere.
-- [ ] API key secret verification (`lib/api-keys/crypto.ts`'s
+- [x] API key secret verification (`lib/api-keys/crypto.ts`'s
       `verifySecretKey`) compares hashes with plain `===` instead of
       `crypto.timingSafeEqual` — low practical risk since both sides are
       hashes compared over an HTTP round trip, but a real departure from
       constant-time comparison discipline in the `app/api/v1/*` auth path
-      (2026-09-14 audit, security)
+      (2026-09-14 audit, security). Done
+      (slice/api-key-timing-safe-compare): both digests are decoded to
+      buffers and compared with `timingSafeEqual`. A stored hash of the
+      wrong length — a truncated or corrupted row, or a non-hex value,
+      which "hex" decoding turns into a short buffer — is rejected before
+      the comparison, since `timingSafeEqual` throws on a length mismatch
+      and a hash's length is not a secret.
 - [x] Dashboard "Customer service" button (`app/(app)/dashboard/index.tsx`)
       has no `onPress` handler, unlike the neighboring incoming-invoices
       button — wire it to a support contact flow (mailto, chat widget,
