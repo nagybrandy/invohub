@@ -39,10 +39,35 @@ before or alongside Phase 1 items that depend on it.
       every nightly cron job as failed.
 - [ ] Auth E2E test user/fixture so authenticated Playwright specs can run
       (this unblocks the Phase 1 "create→preview→PDF E2E" item below)
-- [ ] Credential encryption audit across NAV, M2M, and API-key storage —
+- [x] Credential encryption audit across NAV, M2M, and API-key storage —
       confirm `lib/nav/credentials.ts`, `lib/m2m/credentials.ts`, and
       `lib/api-keys/crypto.ts` actually encrypt at rest (check the
-      primitive, not just the file name) and never log a raw secret
+      primitive, not just the file name) and never log a raw secret.
+      Done (slice/credential-encryption-audit). What the primitives
+      actually are:
+      * **NAV** — real AES-256-GCM (`createCipheriv("aes-256-gcm")`), 96-bit
+        random IV per value, full 128-bit auth tag (truncated tags
+        rejected), keys from env only, versioned `gcm2:<kid>:…` format with
+        key rotation and a re-encrypt script. Already covered by 20+ tests
+        including tamper detection and "errors never contain the plaintext
+        or the stored value".
+      * **M2M** — env-only, never persisted, so there is nothing at rest to
+        encrypt. The one real risk was the config error growing to echo the
+        values; pinned by a new test that it names only the *missing*
+        variables.
+      * **API keys** — not encryption but the right primitive for the job:
+        the secret is 32 random bytes and only its SHA-256 digest is
+        stored. New tests assert the stored value is a 64-hex digest that
+        contains no part of the secret, and that generation is unique.
+      Logging: the only `console.*` in these paths is
+      `lib/nav/auto-submit.ts:76`, which logs the error object, and NAV
+      client errors are built from `errorCode`/`message` extracted from
+      NAV's *response* — no request echo, so no `passwordHash` or
+      `requestSignature` reaches a log or the `nav_submission.error_message`
+      column. API responses go through `toPublicCompany()`, which replaces
+      the three secret columns with booleans.
+      Residual gap, tracked as its own item below: `verifySecretKey` still
+      compares with `===` instead of `crypto.timingSafeEqual`.
 - [x] Tax-audit export size/row limit — confirm `lib/export/tax-audit.ts`
       and its API route are scoped per-user and bounded, not an unbounded
       dump. Superseded (slice/tax-audit-data-export): the CSV export was
