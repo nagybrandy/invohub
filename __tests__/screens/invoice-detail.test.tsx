@@ -534,6 +534,63 @@ describe("InvoiceDetailScreen", () => {
     expect(textUnder(tree.root)).toContain("invoices.convert.notProforma");
   });
 
+  it("on a 'noRecipient' failure from /send, shows the translated invoices.errors.noRecipient copy instead of the raw English API error", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/send")) {
+        throw new ApiError("No invoice email recipient configured.", 422, "noRecipient");
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.detail.emailReminder");
+    expect(primaryButton).toBeTruthy();
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const messages = textUnder(tree.root);
+    expect(messages).toContain("invoices.errors.noRecipient");
+    expect(messages).not.toContain("No invoice email recipient configured.");
+  });
+
+  it("on an 'emailSendFailed' failure from /send, never shows the raw SMTP error text", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/send")) {
+        throw new ApiError("535 Authentication failed for smtp-user@example.com", 502, "emailSendFailed");
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.detail.emailReminder");
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const messages = textUnder(tree.root);
+    expect(messages).toContain("invoices.errors.emailSendFailed");
+    expect(messages).not.toContain("535 Authentication failed");
+  });
+
   it("on a finalized díjbekérő, the Helyesbítő entry is disabled and there is no danger zone at all (not stornoable, not deletable)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {

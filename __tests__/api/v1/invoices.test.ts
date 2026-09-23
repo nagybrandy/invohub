@@ -197,6 +197,23 @@ describe("POST /api/v1/invoices", () => {
     expect(body.email.sent).toBe(true);
   });
 
+  it("surfaces the stable failure code (not just the English error) when sendEmail:true fails", async () => {
+    mockSendEmail.mockResolvedValue({
+      ok: false,
+      error: "No invoice email recipient configured.",
+      code: "noRecipient",
+    } as never);
+    const response = await POST(
+      new Request("http://localhost/api/v1/invoices", {
+        method: "POST",
+        body: JSON.stringify({ clientName: "Acme Kft.", sendEmail: true }),
+      })
+    );
+    const body = await response.json();
+    expect(body.email.sent).toBe(false);
+    expect(body.email.code).toBe("noRecipient");
+  });
+
   it("still honours an explicit submitToNav when auto-submit didn't apply", async () => {
     mockSubmit.mockResolvedValue({ kind: "rejected", code: "draftNotSubmittable", httpStatus: 409 } as never);
     const response = await POST(

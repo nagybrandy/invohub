@@ -31,6 +31,7 @@ import { isCompanyProfileComplete } from "@/lib/companies/completeness";
 import { calculateInvoiceTotals, createEmptyLineItem, createId } from "@/lib/invoices/calculations";
 import { applyClientToFormFields } from "@/lib/invoices/client-form-fields";
 import { parseExchangeRateInput } from "@/lib/invoices/exchange-rate";
+import { SEND_INVOICE_ERROR_I18N_KEY } from "@/lib/invoices/send-error-i18n";
 import type { Product } from "@/lib/products/service";
 import type {
   Invoice,
@@ -654,16 +655,13 @@ export function useInvoiceComposer({
     } catch (e) {
       // The composer already disables finalize while the profile is known
       // incomplete (companyProfileIncomplete above) — this only fires on
-      // the rare race where it changed between page load and save, so it
-      // still needs a translated message instead of the raw English one
-      // the API sends.
-      setSaveError(
-        e instanceof ApiError && e.code === "companyProfileIncomplete"
-          ? t("invoices.composer.companyProfileIncomplete")
-          : e instanceof Error
-            ? e.message
-            : t("invoices.errors.saveFailed")
-      );
+      // the rare race where it changed between page load and save, or on
+      // any other server-side failure of the save/send call (see
+      // lib/invoices/send-error-i18n.ts for the full code list). Either
+      // way, the user must only ever see translated text — never the raw
+      // English `error` string the API sends (AGENTS.md workflow rules).
+      const codeKey = e instanceof ApiError && e.code ? SEND_INVOICE_ERROR_I18N_KEY[e.code] : undefined;
+      setSaveError(codeKey ? t(codeKey) : t("invoices.errors.saveFailed"));
       return undefined;
     } finally {
       setSaving(false);

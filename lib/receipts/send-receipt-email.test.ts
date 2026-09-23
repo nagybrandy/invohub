@@ -13,9 +13,14 @@ jest.mock("@/lib/email/send", () => ({
   sendEmail: jest.fn(),
 }));
 
+jest.mock("@/lib/email/sender", () => ({
+  resolveSenderIdentity: jest.fn(),
+}));
+
 const { getReceiptById } = require("@/lib/receipts/service");
 const { getCompanyByUserId } = require("@/lib/companies/service");
 const { sendEmail } = require("@/lib/email/send");
+const { resolveSenderIdentity } = require("@/lib/email/sender");
 
 const sampleReceipt = {
   id: "r1",
@@ -37,6 +42,7 @@ const sampleReceipt = {
 describe("sendReceiptEmail", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resolveSenderIdentity.mockResolvedValue({ fromName: "InvoHub", replyTo: undefined });
   });
 
   it("sends email with receipt details", async () => {
@@ -55,6 +61,23 @@ describe("sendReceiptEmail", () => {
     expect(emailCall.subject).toContain("Acme Kft.");
     expect(emailCall.html).toContain("NYG-2026-001");
     expect(emailCall.html).toContain("Test Client");
+  });
+
+  it("sends with the issuer's From name and Reply-To (a customer's reply must reach the issuer, not InvoHub)", async () => {
+    getReceiptById.mockResolvedValue(sampleReceipt);
+    getCompanyByUserId.mockResolvedValue({ name: "Acme Kft." });
+    resolveSenderIdentity.mockResolvedValue({
+      fromName: "Acme Kft. via InvoHub",
+      replyTo: "acme@example.com",
+    });
+    sendEmail.mockResolvedValue({ ok: true });
+
+    await sendReceiptEmail("u1", "r1", "test@example.com");
+
+    expect(resolveSenderIdentity).toHaveBeenCalledWith("u1", { name: "Acme Kft." });
+    const emailCall = sendEmail.mock.calls[0][0];
+    expect(emailCall.fromName).toBe("Acme Kft. via InvoHub");
+    expect(emailCall.replyTo).toBe("acme@example.com");
   });
 
   it("returns error when receipt not found", async () => {

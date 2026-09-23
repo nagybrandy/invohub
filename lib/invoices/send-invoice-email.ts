@@ -3,6 +3,7 @@
 import { getCompanyByUserId, resolveInvoiceEmailRecipients } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
 import { normalizeEmailList } from "@/lib/email/recipients";
+import { resolveSenderIdentity } from "@/lib/email/sender";
 import { renderTemplate } from "@/lib/email/templates/render";
 import { getEmailTemplateByType } from "@/lib/email/templates/service";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
@@ -45,7 +46,7 @@ export async function sendInvoiceNotificationEmail(
 ): Promise<SendInvoiceEmailResult> {
   let invoice = await getInvoiceById(userId, invoiceId);
   if (!invoice) {
-    return { ok: false, error: "Invoice not found." };
+    return { ok: false, error: "Invoice not found.", code: "invoiceNotFound" };
   }
 
   // Everything that can make the send fail must be checked BEFORE the draft
@@ -113,15 +114,16 @@ export async function sendInvoiceNotificationEmail(
     (options?.templateType as "invoice_notification") ?? "invoice_notification"
   );
   if (!template) {
-    return { ok: false, error: "Invoice email template not found." };
+    return { ok: false, error: "Invoice email template not found.", code: "templateNotFound" };
   }
 
   const pdfResult = await buildInvoicePdfForUser(userId, invoiceId);
   if (!pdfResult) {
-    return { ok: false, error: "Failed to generate PDF." };
+    return { ok: false, error: "Failed to generate PDF.", code: "pdfFailed" };
   }
 
   const company = await getCompanyByUserId(userId);
+  const sender = await resolveSenderIdentity(userId, company);
   const ccOverride = options?.cc !== undefined ? normalizeEmailList(options.cc) : undefined;
   const cc = ccOverride ?? parseCcList(company?.invoiceEmailCc);
   const totals = calculateInvoiceTotals(invoice.lineItems);
@@ -147,10 +149,12 @@ export async function sendInvoiceNotificationEmail(
       },
     ],
     cc: cc.length > 0 ? cc : undefined,
+    fromName: sender.fromName,
+    replyTo: sender.replyTo,
   });
 
   if (!result.ok) {
-    return { ok: false, error: result.error, to, cc };
+    return { ok: false, error: result.error, code: "emailSendFailed", to, cc };
   }
 
   return { ok: true, to, cc, invoice, pdfAttached: true };
