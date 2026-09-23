@@ -218,7 +218,7 @@ export default function PdfSettingsScreen() {
                     <TextareaInput
                       value={draft.footerText}
                       onChangeText={(v) => updateDraft({ footerText: v })}
-                      placeholder="Köszönjük a bizalmat!"
+                      placeholder={t("settings.pdfScreen.footerTextPlaceholder")}
                     />
                   </Textarea>
                 </FormControl>
