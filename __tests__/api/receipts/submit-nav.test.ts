@@ -51,6 +51,8 @@ import { getReceiptById, getDailyVatAggregation } from "@/lib/receipts/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
 import { POST } from "@/app/api/receipts/[id]/submit-nav+api";
+import { db } from "@/db";
+import { encryptNavSecret } from "@/lib/nav/credentials";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
 const mockGetReceipt = getReceiptById as jest.MockedFunction<typeof getReceiptById>;
@@ -214,5 +216,71 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
 
     expect(res.status).toBe(500);
     expect(body.error).toBe("DB connection lost");
+  });
+
+  describe("credential handling", () => {
+    const saved: Record<string, string | undefined> = {};
+    const KEYS = ["NAV_CREDENTIALS_KEY", "NAV_CREDENTIALS_KEY_ID", "NAV_CREDENTIALS_PREVIOUS_KEYS", "NAV_PRODUCTION_ENABLED"];
+    beforeEach(() => {
+      for (const k of KEYS) {
+        saved[k] = process.env[k];
+        delete process.env[k];
+      }
+      process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 4).toString("base64");
+    });
+    afterEach(() => {
+      for (const k of KEYS) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    });
+
+    it("decrypts the sealed password/sign key only for the NAV call", async () => {
+      mockGetCompany.mockResolvedValue({
+        ...fakeCompany,
+        navTechnicalPassword: encryptNavSecret("real-pass"),
+        navXmlSignKey: encryptNavSecret("real-sign"),
+      } as never);
+      mockSubmit.mockResolvedValue({ ok: true, transactionId: "TX" } as never);
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(mockSubmit).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ technicalPassword: "real-pass", signingKey: "real-sign" }),
+        "test"
+      );
+      expect(JSON.stringify(body)).not.toContain("real-pass");
+      expect(JSON.stringify(body)).not.toContain("real-sign");
+    });
+
+    it("returns 400 (no NAV call, no pending row) when the stored secret can't be decrypted", async () => {
+      const sealed = encryptNavSecret("real-pass");
+      process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 8).toString("base64");
+      mockGetCompany.mockResolvedValue({
+        ...fakeCompany,
+        navTechnicalPassword: sealed,
+        navXmlSignKey: sealed,
+      } as never);
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(body)).not.toContain(sealed);
+      expect(mockSubmit).not.toHaveBeenCalled();
+      expect((db as unknown as { insert: jest.Mock }).insert).not.toHaveBeenCalled();
+    });
+
+    it("refuses a stored production mode when NAV_PRODUCTION_ENABLED is off", async () => {
+      mockGetCompany.mockResolvedValue({ ...fakeCompany, navEnvironment: "production" } as never);
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+
+      expect(res.status).toBe(400);
+      expect(mockSubmit).not.toHaveBeenCalled();
+    });
   });
 });

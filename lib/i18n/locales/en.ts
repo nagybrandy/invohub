@@ -346,7 +346,7 @@ export default {
       navSubmitHint:
         "On finalization the invoice is submitted to NAV automatically when NAV submission is set up (Company settings, demo or test mode). Track its status on the invoice page.",
       postalMailing: "Postal mailing",
-      sendEmail: "Email document to partner",
+      sendEmail: "Send the document by e-mail",
       sendEmailHint:
         "The document will be automatically sent to the partner's email address",
     },
@@ -361,6 +361,7 @@ export default {
       backToEdit: "Back to editing",
       finalize: "Finalize",
       finalizeAndSend: "Finalize & send",
+      finalizeOptions: "More issuing options",
     },
     paymentMethods: {
       transfer: "Bank transfer",
@@ -752,8 +753,49 @@ export default {
     seedFailed: "Seed failed.",
     seedResult:
       "Loaded {{invoices}} invoices, {{clients}} clients, {{products}} products, and {{receipts}} receipts.",
-    export: "Tax audit export",
-    exportHint: "Download CSV for tax authority audits.",
+    taxAudit: {
+      title: "Tax authority audit data export",
+      hint:
+        "Your issued invoices in the XML structure NAV prescribes (23/2014. (VI. 30.) NGM decree § 11/A), by period or invoice-number range. Drafts and proforma requests are never included.",
+      modeLabel: "Select by",
+      modeDate: "Period",
+      modeNumber: "Number range",
+      from: "Start date",
+      to: "End date",
+      fromNumber: "First invoice number",
+      toNumber: "Last invoice number",
+      download: "Download XML",
+      webOnly: "Downloading is currently only available in the web app.",
+      errors: {
+        selectionRequired: "Enter a period or an invoice-number range.",
+        ambiguousSelection: "Use either a period or a number range, not both.",
+        invalidDate: "Invalid date — use YYYY-MM-DD.",
+        invalidRange: "The start can't be after the end.",
+        invalidNumber: "Invalid invoice number (e.g. INV-2026-00001).",
+        numberSeriesMismatch: "Both numbers must belong to the same series (e.g. both INV-).",
+        noInvoices: "No invoices were issued in this range.",
+        tooManyInvoices: "Too many invoices (over {{limit}}) — narrow the range and download in parts.",
+        incompleteInvoiceData:
+          "The export can't be built because these invoices are missing data the NAV schema requires:",
+        exportFailed: "The export failed. Please try again later.",
+      },
+      fields: {
+        sellerTaxNumber: "your tax number is missing or invalid (Company profile)",
+        sellerName: "your name is missing (Company profile)",
+        sellerZipCode: "your postal code is missing or invalid (Company profile)",
+        sellerCity: "your city is missing (Company profile)",
+        sellerStreet: "your address is missing (Company profile)",
+        buyerName: "buyer name is missing",
+        buyerTaxNumber: "buyer tax number is invalid",
+        buyerZipCode: "buyer postal code is missing or invalid (4–10 characters)",
+        buyerCity: "buyer city is missing",
+        buyerStreet: "buyer address is missing",
+        issueDate: "issue date is invalid",
+        exchangeRate: "exchange rate is missing on a foreign-currency invoice",
+        originalInvoiceNumber: "the original (cancelled/corrected) invoice number can't be found",
+        lineItems: "no line items",
+      },
+    },
     demoData: "Demo data",
     demoDataHint:
       "Load sample clients, invoices, receipts, and NAV records.",

@@ -72,4 +72,22 @@ describe("loadNavReceiptCredentialsFromCompany", () => {
       taxNumber: "12345678",
     });
   });
+
+  it("decrypts sealed company secrets (they are stored encrypted)", () => {
+    const { encryptNavSecret } = jest.requireActual("@/lib/nav/credentials");
+    const originalKey = process.env.NAV_CREDENTIALS_KEY;
+    process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 1).toString("base64");
+    try {
+      const result = loadNavReceiptCredentialsFromCompany({
+        navTechnicalUser: "user",
+        navTechnicalPassword: encryptNavSecret("pass"),
+        navXmlSignKey: encryptNavSecret("key"),
+        taxNumber: "12345678",
+      });
+      expect(result).toMatchObject({ technicalPassword: "pass", signingKey: "key" });
+    } finally {
+      if (originalKey === undefined) delete process.env.NAV_CREDENTIALS_KEY;
+      else process.env.NAV_CREDENTIALS_KEY = originalKey;
+    }
+  });
 });

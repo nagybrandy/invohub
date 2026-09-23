@@ -884,3 +884,57 @@ describe("useInvoiceComposer — MNB exchange rate auto-fetch", () => {
     );
   });
 });
+
+describe("goToNextStep — the wizard refuses to walk past a required field", () => {
+  beforeEach(() => {
+    setupApiFetch();
+  });
+
+  it("stays on the partner step and surfaces the error when no partner is set", async () => {
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.goToNextStep();
+    });
+
+    expect(ref.current!.step).toBe("partner");
+    expect(ref.current!.errors.partner).toBe("invoices.errors.clientRequired");
+    expect(ref.current!.focusField).toBe("clientName");
+  });
+
+  it("advances once the partner is filled in, clearing the error", async () => {
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.goToNextStep();
+    });
+    await act(async () => {
+      ref.current!.setClientName("Tech Solutions Kft.");
+    });
+    await act(async () => {
+      ref.current!.goToNextStep();
+    });
+
+    expect(ref.current!.step).toBe("items");
+    expect(ref.current!.errors.partner).toBeUndefined();
+  });
+
+  it("blocks leaving the items step until a line item is described", async () => {
+    const ref = await renderComposer({ mode: "create" });
+
+    await act(async () => {
+      ref.current!.setClientName("Tech Solutions Kft.");
+    });
+    await act(async () => {
+      ref.current!.goToNextStep();
+    });
+    expect(ref.current!.step).toBe("items");
+
+    await act(async () => {
+      ref.current!.goToNextStep();
+    });
+    expect(ref.current!.step).toBe("items");
+    expect(ref.current!.errors.lineItems).toBe("invoices.errors.lineItemRequired");
+  });
+});
+

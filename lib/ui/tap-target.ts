@@ -62,3 +62,12 @@ export function hitSlopExcept(sides: readonly TapSide[], slop = TAP_SLOP_PX): Hi
 export function touchOverlapPx(gapPx: number, leftSlopRight: number, rightSlopLeft: number): number {
   return Math.max(0, 2 * Math.min(leftSlopRight, rightSlopLeft) - gapPx);
 }
+
+/**
+ * React Native's `Role` union has no "listbox" — the value predates it, but
+ * react-native-web passes it straight through to the DOM role, and native
+ * ignores a role it doesn't know. An autocomplete popup is a listbox in ARIA
+ * terms (its rows are `option`s, which RN *does* know), so the one conversion
+ * this needs lives here rather than at the call site.
+ */
+export const LISTBOX_ROLE = "listbox" as string as import("react-native").Role;

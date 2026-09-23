@@ -25,6 +25,21 @@ export const user = pgTable("user", {
   // server-side (lib/auth-signup-role.ts) before it ever reaches `role`.
   // Informational only — never itself an authorization check.
   signupRole: text("signup_role").notNull().default("entrepreneur"),
+  /**
+   * Account closure (lib/account/closure.ts). The user row is NEVER hard
+   * deleted while issued invoices must be retained (Áfa tv. 179. §, Art.
+   * 78. § / 202. §, Számv. tv. 169. § (2) — see
+   * docs/decisions/2026-09-22-invoice-retention-on-account-deletion.md).
+   * Closure revokes login and anonymizes personal data; `closedAt` marks it.
+   * Nullable/additive: null = active account.
+   */
+  closedAt: timestamp("closed_at"),
+  /**
+   * End of the retention window for this closed account's retained
+   * documents (31 Dec of the 8th year after the latest issued document /
+   * closure year). Informational until a purge job exists (TODO in the ADR).
+   */
+  retentionUntil: timestamp("retention_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -88,10 +103,12 @@ export const company = pgTable(
     invoiceEmailTo: text("invoice_email_to"),
     invoiceEmailCc: text("invoice_email_cc"),
     navTechnicalUser: text("nav_technical_user"),
-    // navTechnicalPassword, navXmlSignKey, navXmlChangeKey are stored
-    // AES-256-GCM encrypted (see lib/nav/credentials.ts) when
-    // NAV_CREDENTIALS_KEY is configured; legacy plaintext rows are still
-    // read transparently.
+    // navTechnicalPassword, navXmlSignKey, navXmlChangeKey are always
+    // written AES-256-GCM encrypted (gcm2:<keyId>:iv:tag:ct, see
+    // lib/nav/credentials.ts); saving is refused without NAV_CREDENTIALS_KEY.
+    // Legacy plaintext / gcm1 rows are still readable and are rewritten by
+    // scripts/reencrypt-nav-secrets.mjs. They are only decrypted right before
+    // a NAV request is signed — never in the Company read model.
     navTechnicalPassword: text("nav_technical_password"),
     navXmlSignKey: text("nav_xml_sign_key"),
     navXmlChangeKey: text("nav_xml_change_key"),

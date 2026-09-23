@@ -23,18 +23,31 @@ before or alongside Phase 1 items that depend on it.
       reachable in production (`app/api/admin/**`, `lib/admin/service.ts`).
       Plan:
       `docs/plans/2026-09-14-seed-demo-data-admin-endpoint-security-audit.md`
-- [ ] Reminders cron reliability — confirm `app/api/cron`/`app/api/reminders`
+- [x] Reminders cron reliability — confirm `app/api/cron`/`app/api/reminders`
       + `lib/reminders/process.ts` handle retries and partial failures, not
-      just the happy path
+      just the happy path. Done (slice/reminders-cron-reliability): the run
+      was all-or-nothing — one user whose data failed to load, or one send
+      that threw instead of returning `{ok:false}`, aborted the whole
+      nightly job and left every later user unprocessed until the next day.
+      Failures are now isolated per user and per invoice, counted in a new
+      `failed` field, and a send whose bookkeeping fails afterwards is
+      reported with the duplicate risk spelled out (the mail is already
+      delivered, so the next run would repeat it). The template is loaded
+      once per user instead of once per invoice. The route answers 500 only
+      when the run could not happen at all — per-item failures stay a 200
+      with counts, so one permanently undeliverable address does not mark
+      every nightly cron job as failed.
 - [ ] Auth E2E test user/fixture so authenticated Playwright specs can run
       (this unblocks the Phase 1 "create→preview→PDF E2E" item below)
 - [ ] Credential encryption audit across NAV, M2M, and API-key storage —
       confirm `lib/nav/credentials.ts`, `lib/m2m/credentials.ts`, and
       `lib/api-keys/crypto.ts` actually encrypt at rest (check the
       primitive, not just the file name) and never log a raw secret
-- [ ] Tax-audit export size/row limit — confirm `lib/export/tax-audit.ts`
+- [x] Tax-audit export size/row limit — confirm `lib/export/tax-audit.ts`
       and its API route are scoped per-user and bounded, not an unbounded
-      dump
+      dump. Superseded (slice/tax-audit-data-export): the CSV export was
+      removed; its replacement `lib/invoices/tax-audit-export/generate.ts`
+      is session-scoped and capped at 5000 invoices per file.
 - [ ] i18n gap sweep — use `.claude/skills/i18n-sync/SKILL.md` to enumerate
       every screen still missing translation coverage and file the gaps as
       sub-items here once the sweep names them (a prior audit flagged ~11
@@ -1724,6 +1737,18 @@ Remaining for the launch gate:
       (2026-09-21 ship review of slice/pdf-broken-pagination-blank-page,
       acceptance)
 
+- [~] folyamatban — PR for human sign-off (slice/tax-audit-data-export)
+      **Adóhatósági ellenőrzési adatszolgáltatás** (23/2014. (VI. 30.) NGM
+      rendelet 8. § (1) c), 11/A. §): built-in export of issued invoices by
+      date range or invoice-number range, in the decree's 3. melléklet XML
+      schema (NAV `23_2014_szamlasema.xsd`, saved under
+      `lib/invoices/tax-audit-export/schema/`). Replaces the old CSV
+      "Adóellenőrzési export", which was not in the prescribed format and
+      also exported drafts/proformas. TAX/LEGAL-GATED: the field mapping
+      (teljdatum = issue date, single-line address in kozterulet_neve,
+      HUF-only adoertek on foreign-currency invoices, exempt rows at
+      adokulcs 0, no EV nyilvántartási szám) needs owner / tax-professional
+      sign-off before merge.
 ### Research refill 2026-09-21 (market/NAV research, product strategist)
 
 - [~] needs sign-off (PR) — **Teljesítés dátuma is not a real field — NAV

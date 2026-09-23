@@ -15,6 +15,7 @@ import {
   resolveStatusForAction,
   shouldSendOnAction,
   validateBuyerAddressStep,
+  validateComposerStep,
   validateDueDate,
   validateExchangeRateInput,
   validateLineItemsStep,
@@ -517,6 +518,26 @@ export function useInvoiceComposer({
     setFocusField(null);
   }
 
+  /**
+   * The stepper's "Tovább": validates the step being left, so a missing
+   * partner or line item is reported where it can still be fixed instead of
+   * at finalize time. Invalid steps keep the user where they are, with the
+   * offending field focused.
+   */
+  function goToNextStep() {
+    const check = validateComposerStep(step, { clientName, lineItems });
+    if (!check.valid) {
+      setErrors(step === "partner" ? { partner: t(check.errorKey!) } : { lineItems: t(check.errorKey!) });
+      setFocusField(check.focusField ?? null);
+      return;
+    }
+
+    setErrors({});
+    setFocusField(null);
+    const next = COMPOSER_STEP_ORDER[COMPOSER_STEP_ORDER.indexOf(step) + 1];
+    if (next) setStep(next);
+  }
+
   async function save(action: SaveAction): Promise<Invoice | undefined> {
     setSaveError(null);
 
@@ -574,7 +595,7 @@ export function useInvoiceComposer({
 
     setErrors({});
 
-    const willSend = shouldSendOnAction(action) && emailOnSend;
+    const willSend = shouldSendOnAction(action, emailOnSend);
     if (willSend && !clientEmail.trim()) {
       setErrors({ partner: t("invoices.errors.clientEmailRequired") });
       setStep("review");
@@ -652,6 +673,7 @@ export function useInvoiceComposer({
     mode,
     step,
     setStep,
+    goToNextStep,
     documentType,
     setDocumentType: (type: DocumentType) => {
       setDocumentType(type);

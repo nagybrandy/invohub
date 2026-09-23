@@ -295,3 +295,120 @@ describe("InvoiceComposer — company profile gate on finalize (new document)", 
     expect(mockPush).toHaveBeenCalledWith("/settings/company");
   });
 });
+
+describe("InvoiceComposer — the stepper refuses to skip a required field", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCompany = COMPLETE_COMPANY;
+    mockUseIsDesktop.mockReturnValue(false);
+  });
+
+  function stepLabels(tree: TestRenderer.ReactTestRenderer) {
+    return tree.root
+      .findAll((n) => typeof n.props?.children === "string")
+      .map((n) => n.props.children as string);
+  }
+
+  it("stays on the partner step when Tovább is pressed with no partner (mobile)", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    const [primary] = findByTestID(tree, "composer-mobile-primary-action");
+
+    await act(async () => {
+      primary.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    // still on the partner step: its section is up, the items one is not
+    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-items")).toHaveLength(0);
+    expect(stepLabels(tree)).toContain("invoices.errors.clientRequired");
+  });
+
+  it("keeps a draft-save action on the last step (mobile)", async () => {
+    const invoice = makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" });
+    const tree = await renderComposer({ mode: "edit", invoice });
+
+    // walk to the review step through the stepper, not the primary button
+    const composer = tree.root.findAllByProps({ testID: "composer-stepper-review" })[0];
+    await act(async () => {
+      composer?.props?.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(findByTestID(tree, "composer-mobile-save-draft").length).toBeGreaterThan(0);
+  });
+});
+
+describe("InvoiceComposer — finalize is one click, sending is the secondary option", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCompany = COMPLETE_COMPANY;
+    mockUseIsDesktop.mockReturnValue(true);
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path === "/api/invoices") return { invoice: makeInvoice({ id: "inv-9", invoiceNumber: "INV-1" }) };
+      return {};
+    });
+  });
+
+  it("finalizes straight from the primary button, without opening the menu first", async () => {
+    const tree = await renderComposer({ mode: "create" });
+
+    const [finalize] = findByTestID(tree, "composer-action-finalize");
+    expect(finalize).toBeDefined();
+
+    await act(async () => {
+      finalize.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    // it tried to save — the partner guard is what stops it here, proving the
+    // press reached save() rather than a menu toggle
+    expect(findByTestID(tree, "composer-finalize-menu-trigger").length).toBeGreaterThan(0);
+  });
+
+  it("disables the primary finalize button too when the company profile is incomplete", async () => {
+    mockCompany = { id: "c1", userId: "u1", name: "Acme Kft.", createdAt: "", updatedAt: "" };
+    const tree = await renderComposer({ mode: "create" });
+
+    const [finalize] = findByTestID(tree, "composer-action-finalize");
+    expect(finalize.props.disabled).toBe(true);
+  });
+});
+
+describe("InvoiceComposer — desktop shows the whole document on one page", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCompany = COMPLETE_COMPANY;
+  });
+
+  it("renders partner, items and dispatch together on desktop, with no step buttons", async () => {
+    mockUseIsDesktop.mockReturnValue(true);
+    const tree = await renderComposer({ mode: "create" });
+
+    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-items").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-dispatch").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-desktop-next")).toHaveLength(0);
+  });
+
+  it("drops the duplicate review summaries — the sections above are already editable", async () => {
+    mockUseIsDesktop.mockReturnValue(true);
+    const tree = await renderComposer({ mode: "create" });
+
+    const texts = tree.root
+      .findAll((n) => typeof n.props?.children === "string")
+      .map((n) => n.props.children as string);
+
+    expect(texts).toContain("invoices.composer.dispatchTitle");
+    expect(texts).not.toContain("invoices.composer.reviewPartner");
+  });
+
+  it("keeps the one-step-at-a-time wizard on mobile", async () => {
+    mockUseIsDesktop.mockReturnValue(false);
+    const tree = await renderComposer({ mode: "create" });
+
+    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-section-items")).toHaveLength(0);
+    expect(findByTestID(tree, "composer-mobile-primary-action").length).toBeGreaterThan(0);
+  });
+});

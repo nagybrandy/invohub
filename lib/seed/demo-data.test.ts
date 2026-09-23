@@ -187,14 +187,18 @@ describe("seedDemoData", () => {
     expect(navReceiptInserts).toHaveLength(2);
   });
 
-  it("sets NAV credentials on company", async () => {
+  it("never seeds plaintext NAV secrets on the company (they must only ever be stored encrypted)", async () => {
     await seedDemoData("user-1");
 
     const insertCalls = (mockDb.insert as jest.Mock).mock.calls;
-    const companyInsert = insertCalls.find(
+    const companyIndex = insertCalls.findIndex(
       (call: any) => call[0] === require("@/db/schema").company
     );
-    expect(companyInsert).toBeDefined();
+    expect(companyIndex).toBeGreaterThanOrEqual(0);
+    const values = (mockDb.insert as jest.Mock).mock.results[companyIndex].value.values.mock.calls[0][0];
+    expect(values.navTechnicalPassword ?? null).toBeNull();
+    expect(values.navXmlSignKey ?? null).toBeNull();
+    expect(values.navXmlChangeKey ?? null).toBeNull();
   });
 
   it("seeds email templates and notifications", async () => {
