@@ -290,7 +290,7 @@ A draft végösszege így 0; a másolatokat kell a helyes értékekre átírni (
 „Számla készítése ebből” — egy díjbekérőt (proforma) draft számlává alakít. Nem-proforma vagy sztornózott proforma esetén `400` (`code: "notProforma"` / `code: "cancelled"`). **Ugyanaz a díjbekérő csak egyszer konvertálható**, amíg a konverzió él (nem sztornózott) — egy második konverziós kísérlet `409`-et ad, és visszaadja a már létező számlát:
 
 ```json
-{ "error": "This díjbekérő was already converted.", "code": "alreadyConverted", "invoice": { "...": "..." } }
+{ "error": "This proforma was already converted.", "code": "alreadyConverted", "invoice": { "...": "..." } }
 ```
 
 ### 5.10 PDF

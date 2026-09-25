@@ -27,7 +27,7 @@ export async function POST(
       }
       return {
         status: 400,
-        body: { error: "A díjbekérő nem helyesbíthető.", code: "proformaNotStornoable" },
+        body: { error: "A proforma cannot be corrected (helyesbítő).", code: "proformaNotStornoable" },
       };
     }
 

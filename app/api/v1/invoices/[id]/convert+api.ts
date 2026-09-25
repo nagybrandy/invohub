@@ -31,7 +31,7 @@ export async function POST(
       if (result.reason === "already_converted") {
         return {
           status: 409,
-          body: { error: "This díjbekérő was already converted.", code: "alreadyConverted", invoice: result.invoice },
+          body: { error: "This proforma was already converted.", code: "alreadyConverted", invoice: result.invoice },
         };
       }
       return { status: 400, body: { error: `Cannot convert: ${result.reason}.`, code: result.reason } };
