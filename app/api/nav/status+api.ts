@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const submission = (await listNavSubmissionsForInvoice(invoice.id)).find((row) => !!row.transactionId);
 
   if (!submission || !submission.transactionId) {
-    return jsonResponse({ error: "Ehhez a számlához nincs NAV beküldés." }, 404);
+    return jsonResponse({ error: "This invoice has no NAV submission.", code: "noSubmission" }, 404);
   }
 
   const company = await getCompanyByUserId(session.user.id);
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       messages: result.messages,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "NAV státusz lekérdezés sikertelen.";
-    return jsonResponse({ error: message }, 502);
+    const message = error instanceof Error ? error.message : "NAV status query failed.";
+    return jsonResponse({ error: message, code: "statusQueryFailed" }, 502);
   }
 }

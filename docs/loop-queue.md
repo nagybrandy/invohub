@@ -112,19 +112,33 @@ before or alongside Phase 1 items that depend on it.
       deliberately Hungarian-only surface, and one hit was a false positive
       (a JSX comment in `LineItemRow.tsx`, which the line-comment filter
       doesn't catch — worth knowing if the sweep is re-run).
-- [ ] API routes answer with Hungarian prose instead of an error code, so
+- [x] API routes answer with Hungarian prose instead of an error code, so
       the message can never follow the user's language — filed by the
-      2026-09-23 i18n sweep. 16 messages across 9 routes:
-      `app/api/nav/check` (4), `app/api/m2m/check` (3), `app/api/nav/status`
-      (2), `app/api/nav/submit` (2), `app/api/receipts/[id]/submit-nav`,
-      `app/api/m2m/demo`, and `app/api/v1/invoices/[id]/{storno,modify,
-      convert}` — the last one is also half-English ("This díjbekérő was
-      already converted."). The pattern to follow already exists:
-      `lib/invoices/errors.ts` carries a `code`, and
-      `lib/invoices/send-error-i18n.ts` maps codes to i18n keys client-side
-      (slice/invoice-email-replyto-and-hu-errors). Server-side prose also
-      leaks Hungarian into the public `app/api/v1/*` API, which has
-      non-Hungarian consumers.
+      2026-09-23 i18n sweep, done the same day
+      (slice/api-error-codes-i18n). Every one of the 16 messages across 9
+      routes now answers with a stable `code` plus an English string for
+      logs and for the public `app/api/v1/*` consumers, and the two screens
+      that render them — `NavStatusCard` and the company settings NAV
+      connection test — translate the code through
+      `lib/nav/nav-error-i18n.ts` (the same split
+      `lib/invoices/send-error-i18n.ts` already used for e-mail failures).
+      An unknown code falls back to a generic translated key, so a newer
+      server can never leave a raw string on screen.
+      Two notes for whoever touches these next:
+      * `app/api/v1/invoices/[id]/modify` answers with
+        `code: "proformaNotStornoable"` even though the operation is
+        helyesbítő, not storno. It reads like a copy-paste slip, but
+        `docs/external-api.md` documents that exact code for the endpoint,
+        so changing it would break a published contract — left alone
+        deliberately.
+      * The v1 routes keep English messages by design: they are the public
+        API, and their consumers are not all Hungarian.
+      * The sweep that filed this item only covered `app/` and
+        `components/`, so it missed that five of these messages actually
+        originate in `lib/nav/resolve-credentials.ts` — converted here too,
+        since they flow straight into the same API responses. The rest of
+        `lib/` has not been swept for Hungarian strings that reach a
+        response; worth a look if this class of bug shows up again.
 - [x] API key secret verification (`lib/api-keys/crypto.ts`'s
       `verifySecretKey`) compares hashes with plain `===` instead of
       `crypto.timingSafeEqual` — low practical risk since both sides are

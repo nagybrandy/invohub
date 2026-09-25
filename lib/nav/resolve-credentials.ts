@@ -60,7 +60,7 @@ function sharedTestCredentials(): NavRealCredentials {
   const taxNumber = normalizeTaxNumber(process.env.NAV_TEST_TAX_NUMBER);
   if (!login || !password || !signKey || !exchangeKey || !taxNumber) {
     throw new NavCredentialsMissingError(
-      "A közös InvoHub NAV teszt fiók nincs beállítva a szerveren (NAV_TEST_* környezeti változók)."
+      "The shared InvoHub NAV test account is not configured on this server (NAV_TEST_* environment variables)."
     );
   }
   return { login, password, signKey, exchangeKey, taxNumber, environment: "test", source: "shared" };
@@ -86,7 +86,7 @@ export function openCompanyNavSecrets(company: Pick<Company, "navTechnicalPasswo
     };
   } catch {
     throw new NavCredentialsMissingError(
-      "A tárolt NAV technikai felhasználó titkai nem olvashatók (a szerver titkosítási kulcsa megváltozott vagy hiányzik). Adja meg újra a jelszót, az aláíró és a cserekulcsot a Beállítások > Cégadatok NAV szekcióban."
+      "The stored NAV technical user secrets cannot be read (the server encryption key changed or is missing). Re-enter the password, signing key and exchange key under Settings > Company data > NAV."
     );
   }
 }
@@ -97,7 +97,7 @@ function ownCredentials(company: Company, environment: "test" | "production"): N
   const taxNumber = normalizeTaxNumber(company.taxNumber);
   if (!login || !password || !signKey || !exchangeKey || !taxNumber) {
     throw new NavCredentialsMissingError(
-      "Hiányzó NAV technikai felhasználó adatok. Töltse ki a Beállítások > Cégadatok NAV szekcióban (technikai felhasználó, jelszó, aláíró kulcs, cserekulcs, adószám)."
+      "NAV technical user details are missing. Fill them in under Settings > Company data > NAV (technical user, password, signing key, exchange key, tax number)."
     );
   }
   return { login, password, signKey, exchangeKey, taxNumber, environment, source: "own" };
@@ -113,12 +113,12 @@ export function resolveNavCredentials(company: Company | null): NavRealCredentia
   const mode: NavEnvironment = company?.navEnvironment ?? "demo";
 
   if (mode === "demo") {
-    throw new NavCredentialsMissingError("Demó módban nincs szükség valódi NAV hitelesítő adatokra.");
+    throw new NavCredentialsMissingError("Demo mode needs no real NAV credentials.");
   }
 
   if (mode === "production") {
     if (!isNavProductionEnabled()) {
-      throw new NavCredentialsMissingError("Az éles NAV környezet jelenleg nincs engedélyezve ezen a szerveren.");
+      throw new NavCredentialsMissingError("The NAV production environment is not enabled on this server.");
     }
     if (!company || !hasOwnNavCredentials(company)) {
       throw new NavCredentialsMissingError(
