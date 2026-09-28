@@ -15,6 +15,13 @@ export type TaxpayerLookupResult = {
 
 type LookupResponse = { company: TaxpayerLookupResult | null };
 
+// The route answers an unknown number with an empty shell ({ name: "",
+// taxNumber, country }) rather than null; for the form that is a miss.
+function hasTaxpayerData(company: TaxpayerLookupResult | null): company is TaxpayerLookupResult {
+  if (!company) return false;
+  return Boolean(company.name || company.address || company.city || company.zipCode);
+}
+
 export function useTaxpayerLookup() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -28,7 +35,7 @@ export function useTaxpayerLookup() {
       const response = await apiFetch<LookupResponse>(
         `/api/company/lookup?taxNumber=${encodeURIComponent(value)}`,
       );
-      return response.company;
+      return hasTaxpayerData(response.company) ? response.company : null;
     } catch (e) {
       setError(e instanceof Error ? e.message : "lookupFailed");
       return null;
