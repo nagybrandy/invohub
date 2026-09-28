@@ -308,3 +308,44 @@ három tétele már nem áll:
   `loop-queue.md:1322` bejegyzés elavult duplikátum.
 - **HTML-előnézet paritás (`preview-html.ts`)** — a fájl nem létezik, a tétel
   tárgytalan.
+
+---
+
+## 8. Állapot a javítási kör végén (2026-09-28)
+
+A 6. szakasz szeletei és a többi megállapítás sorsa, PR-számmal. Minden
+PR-hoz élő ellenőrzés tartozik az E2E fiókon (a PR-leírásban), és a
+teljes egységteszt-suite zöld volt mergeléskor.
+
+| Megállapítás | Sors | PR |
+|---|---|---|
+| 1. Lista havi statisztika csak kiállított | kész | #53 |
+| 2. NAV-állapot listán/kártyán + „Következő lépések" NAV-sor | kész | #54 |
+| 2. NAV-hiba szűrőchip (szerveroldali szűrés) | kész | #67 |
+| 3. Év/hónap szűrő + „több betöltése" | kész | #55 |
+| 4. Onboarding: AAM + adószám-validáció + NAV-lekérdezés | kész | #56 |
+| 5. Teljesítés dátuma a részletezőn | kész | #57 |
+| 6. Tapintási célpontok (DangerZone, Következő lépések, PDF Be/Ki) | kész | #58 |
+| 6. „Beviteli mezők 42 px" | **visszavonva** (a wrapper 44, a belső `<input>`-ot mérte a sweep) | #58 |
+| 7. Üres állapot: demó-hivatkozás csak flag mellett | kész | #59 |
+| 8. Sötét mód: rendszerkövetés + háromállású kapcsoló | kész (a „nincs kapcsoló" rész tévedés volt; a rendszerkövetés hiánya igaz) | #60 |
+| 9. Lista-export CSV a könyvelőnek | kész (XLSX nem: BOM+`;` CSV Excelben ugyanúgy nyílik) | #61 |
+| 10. Partner-űrlap NAV-lekérdezés + „Számlái" | kész | #62 |
+| 11. Táblázatos import flag mögé + ADR | kész | #63 |
+| §7 „finalized invoice deletable" | felület-fele kész (Törlés csak piszkozaton) | #64 |
+| §7 két elavult backlog-tétel | törölve | #65 |
+| 2.6 nyugta-részletező `selectable` konzolhiba | kész | #66 |
+| 2.7 értesítési banner „visszajön" | **visszavonva** (fülönkénti `sessionStorage`; mérési műtermék) | #68 |
+| 2.4 adóhatósági export a hub alján | kész (a profil alá került) | #69 |
+| 2.2 árfolyam-banner „hangos" | enyhítve: csak kiállított bizonylatot számol (11 → 6) | #70 |
+
+**Nyitva maradt, tudatosan:**
+
+- ⚠️ 12–14 (NAV teszt-körbejárás, éles NAV mód, adatexport/fiókzárás
+  felület) — tulajdonosi/jogi jóváhagyást igényel, nem automatizálható.
+- 2.2 „mobilon az első sor a hajtás alatt" — dizájn-döntés (statisztika-
+  kártyák összecsukása 375 px-en), nem hibajavítás; külön tervezést kér.
+- 2.2 „Egyéb (2)" chip és 2.4 hub-kártyasorrend — ALACSONY, nem nyúltam
+  hozzájuk.
+- Tulajdonosi teendők: 4 E2E repo-secret; könyvelői megerősítés az ÁFA
+  „kiállítás-alapú" negyedéves becsléséhez; a #49 (API-hibakódok) merge.
