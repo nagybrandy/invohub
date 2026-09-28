@@ -78,6 +78,12 @@ describe("verifySecretKey — constant-time comparison", () => {
     const hash = hashSecretKey(secret);
 
     expect(verifySecretKey(secret, hash)).toBe(true);
-    expect(verifySecretKey(secret.slice(0, -1) + "0", hash)).toBe(false);
+    // Flip the last hex digit to one it is guaranteed not to be. Appending a
+    // fixed "0" made the "near-miss" identical to the secret whenever the
+    // secret already ended in 0 — a 1-in-16 random failure that passed CI by
+    // luck and failed locally by the same luck.
+    const last = secret.at(-1);
+    const nearMiss = secret.slice(0, -1) + (last === "0" ? "1" : "0");
+    expect(verifySecretKey(nearMiss, hash)).toBe(false);
   });
 });
