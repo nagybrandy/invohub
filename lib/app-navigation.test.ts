@@ -34,23 +34,23 @@ describe("SIDEBAR_PRIMARY_NAV", () => {
 
 describe("SIDEBAR_SECONDARY_NAV / getSidebarSecondaryNav", () => {
   it("carries Importálás below the divider for every role", () => {
-    expect(SIDEBAR_SECONDARY_NAV.map((item) => item.href)).toEqual([routes.import]);
+    expect(SIDEBAR_SECONDARY_NAV.map((item) => item.href)).toEqual([routes.emailEditor, routes.import]);
   });
 
   it("does not include admin for a non-admin role", () => {
     const items = getSidebarSecondaryNav("entrepreneur", { importEnabled: true });
-    expect(items.map((i) => i.href)).toEqual([routes.import]);
+    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.import]);
   });
 
   it("appends the admin panel below the divider for admins", () => {
     const items = getSidebarSecondaryNav("admin", { importEnabled: true });
-    expect(items.map((i) => i.href)).toEqual([routes.import, routes.admin]);
+    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.import, routes.admin]);
   });
 
   it("hides Importálás unless the deploy turned it on — which is the default", () => {
-    expect(getSidebarSecondaryNav("entrepreneur").map((i) => i.href)).toEqual([]);
-    expect(getSidebarSecondaryNav("admin").map((i) => i.href)).toEqual([routes.admin]);
-    expect(getSidebarSecondaryNav("entrepreneur", { importEnabled: false }).map((i) => i.href)).toEqual([]);
+    expect(getSidebarSecondaryNav("entrepreneur").map((i) => i.href)).toEqual([routes.emailEditor]);
+    expect(getSidebarSecondaryNav("admin").map((i) => i.href)).toEqual([routes.emailEditor, routes.admin]);
+    expect(getSidebarSecondaryNav("entrepreneur", { importEnabled: false }).map((i) => i.href)).toEqual([routes.emailEditor]);
   });
 });
 
@@ -83,6 +83,7 @@ describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
     expect(items.map((i) => i.href)).toEqual([
       routes.receipts,
       routes.products,
+      routes.emailEditor,
       routes.import,
       routes.settings,
     ]);
@@ -98,6 +99,7 @@ describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
     expect(getMobileMoreNav("entrepreneur").map((i) => i.href)).toEqual([
       routes.receipts,
       routes.products,
+      routes.emailEditor,
       routes.settings,
     ]);
   });
@@ -185,5 +187,11 @@ describe("ADMIN_NAV", () => {
   it("points at the admin route and is marked adminOnly", () => {
     expect(ADMIN_NAV.href).toBe(routes.admin);
     expect(ADMIN_NAV.adminOnly).toBe(true);
+  });
+});
+
+describe("e-mail editor page title", () => {
+  it("maps /email-editor to its nav label", () => {
+    expect(getPageTitleLabelKey("/email-editor")).toBe("nav.emailEditor");
   });
 });

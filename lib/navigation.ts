@@ -45,6 +45,8 @@ export const routes = {
   settingsReminders: "/settings/reminders" as Href,
   settingsApiKeys: "/settings/api-keys" as Href,
   import: "/import" as Href,
+  /** The visual e-mail template editor — its own menu item. */
+  emailEditor: "/email-editor" as Href,
   receipts: "/receipts" as Href,
   newReceipt: "/receipts/new" as Href,
   receiptDetail: (id: string) => `/receipts/${id}` as Href,

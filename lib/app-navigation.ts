@@ -12,6 +12,7 @@ import {
   Shield,
   Upload,
   Users,
+  MailOpen,
 } from "lucide-react-native";
 import { routes, type AppRoute } from "@/lib/navigation";
 import { isAdmin } from "@/lib/user-roles";
@@ -50,6 +51,7 @@ export const SIDEBAR_PRIMARY_NAV: AppNavItem[] = [
 
 /** Desktop sidebar — secondary items below the divider (Importálás, Admin). */
 export const SIDEBAR_SECONDARY_NAV: AppNavItem[] = [
+  { href: routes.emailEditor, labelKey: "nav.emailEditor", icon: MailOpen },
   { href: routes.import, labelKey: "nav.import", icon: Upload },
 ];
 
@@ -99,6 +101,7 @@ export const MOBILE_TAB_NAV: MobileTabItem[] = [
 export const MOBILE_MORE_NAV: AppNavItem[] = [
   { href: routes.receipts, labelKey: "nav.receipts", icon: Receipt },
   { href: routes.products, labelKey: "nav.products", icon: Package },
+  { href: routes.emailEditor, labelKey: "nav.emailEditor", icon: MailOpen },
   { href: routes.import, labelKey: "nav.import", icon: Upload },
   { href: routes.settings, labelKey: "nav.settings", icon: Settings },
 ];
