@@ -7,6 +7,8 @@ type ITextProps = React.ComponentProps<'span'> &
   VariantProps<typeof textStyle> & {
     /** Right-aligned tabular figures for money/quantity columns (4.6). */
     numeric?: boolean;
+    /** RN's `selectable` — on web it becomes the `select-text` class. */
+    selectable?: boolean;
   };
 
 const Text = React.forwardRef<React.ComponentRef<'span'>, ITextProps>(
@@ -22,6 +24,7 @@ const Text = React.forwardRef<React.ComponentRef<'span'>, ITextProps>(
       italic,
       highlight,
       numeric,
+      selectable,
       ...props
     }: { className?: string } & ITextProps,
     ref
@@ -37,7 +40,9 @@ const Text = React.forwardRef<React.ComponentRef<'span'>, ITextProps>(
           sub: sub as boolean,
           italic: italic as boolean,
           highlight: highlight as boolean,
-          class: numeric ? `tabular-nums text-right ${className ?? ''}` : className,
+          class: [numeric ? 'tabular-nums text-right' : '', selectable ? 'select-text' : '', className ?? '']
+            .filter(Boolean)
+            .join(' '),
         })}
         {...webDomProps(props)}
         ref={ref}
