@@ -37,10 +37,26 @@ jest.mock("@/components/invoices/InvoicePdfPreview", () => ({
 
 jest.mock("@/components/layout/PageHeader", () => {
   const mockUi = require("@/__tests__/mocks/gluestack-ui");
-  return { PageHeader: mockUi.View };
+  // The screen's "···" now lives in the PageHeader's overflow slot — render
+  // it with the real OverflowMenu so the menu tests below can open it.
+  const { OverflowMenu: MockOverflowMenu } = require("@/components/layout/OverflowMenu");
+  return {
+    PageHeader: ({ overflowActions, overflowLabel, children }: any) => (
+      <mockUi.View>
+        {overflowActions ? <MockOverflowMenu items={overflowActions} label={overflowLabel} /> : null}
+        {children ?? null}
+      </mockUi.View>
+    ),
+  };
 });
 jest.mock("@/components/layout/ScreenLayout", () => ({
-  ScreenLayout: ({ children }: { children?: React.ReactNode }) => children ?? null,
+  // Header included: the page's "···" lives in the PageHeader passed here.
+  ScreenLayout: ({ header, children }: { header?: React.ReactNode; children?: React.ReactNode }) => (
+    <>
+      {header ?? null}
+      {children ?? null}
+    </>
+  ),
 }));
 
 const mockUi = require("@/__tests__/mocks/gluestack-ui");
