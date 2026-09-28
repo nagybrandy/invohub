@@ -2,6 +2,7 @@
 // Pure invoice list filter normalization and match helpers (TDD-friendly).
 import { isMissingExchangeRate } from "@/lib/invoices/exchange-rate";
 import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
+import { isIssuedDocument } from "@/lib/invoices/issued";
 
 export const INVOICE_LIST_STATUSES: InvoiceStatus[] = [
   "draft",
@@ -53,7 +54,7 @@ export function invoiceMatchesListFilters(
   invoice: Pick<
     Invoice,
     "status" | "clientName" | "invoiceNumber" | "clientTaxNumber" | "currency" | "exchangeRate" | "issueDate" | "navStatus"
-  >,
+  > & { documentType?: Invoice["documentType"] },
   filters: InvoiceListFilters,
 ): boolean {
   if (filters.status && invoice.status !== filters.status) {
@@ -68,7 +69,13 @@ export function invoiceMatchesListFilters(
     return false;
   }
 
-  if (filters.needsExchangeRate && !isMissingExchangeRate(invoice)) {
+  // Only an issued document can be blocked by a missing rate: a draft gets
+  // its rate when it is finalized (the finalize routes refuse without one),
+  // and a díjbekérő is never submitted. Same rule as buildInvoiceListWhere.
+  if (
+    filters.needsExchangeRate &&
+    !(isIssuedDocument(invoice) && isMissingExchangeRate(invoice))
+  ) {
     return false;
   }
 
