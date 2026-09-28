@@ -758,9 +758,10 @@ export default {
     pdfHint: "Elrendezés, színek és minta számla PDF előnézet.",
     reminders: "Fizetési emlékeztetők",
     remindersHint: "Automatikus lejárt számla emlékeztetők.",
-    darkMode: "Sötét mód",
-    darkModeOn: "Jelenleg bekapcsolva",
-    darkModeOff: "Jelenleg kikapcsolva",
+    darkMode: "Megjelenés",
+    themeSystem: "Rendszer szerint (most: {{current}})",
+    themeLight: "világos",
+    themeDark: "sötét",
     seedFailed: "Demo adatok betöltése sikertelen.",
     seedResult:
       "Betöltve: {{invoices}} számla, {{clients}} ügyfél, {{products}} termék és {{receipts}} nyugta.",

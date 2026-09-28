@@ -70,7 +70,7 @@ const SETTINGS_LINKS = [
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const { isDarkColorScheme, toggleTheme } = useColorScheme();
+  const { isDarkColorScheme, preference, cycleTheme } = useColorScheme();
   const icons = useIconColors();
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
@@ -160,7 +160,7 @@ export default function SettingsScreen() {
           <Text className="font-semibold text-foreground">{t("settings.tools")}</Text>
           <TaxAuditExportCard />
           <HStack space="sm" className="flex-wrap">
-            <Pressable onPress={() => void toggleTheme()} className="flex-1 min-w-[45%]">
+            <Pressable onPress={() => void cycleTheme()} className="flex-1 min-w-[45%]" testID="settings-appearance">
               <Card className="h-full p-4 active:opacity-80">
                 <HStack className="items-start justify-between">
                   <VStack space="xs" className="flex-1">
@@ -171,7 +171,9 @@ export default function SettingsScreen() {
                       </Text>
                     </HStack>
                     <Text size="xs" className="text-muted-foreground">
-                      {isDarkColorScheme ? t("settings.darkModeOn") : t("settings.darkModeOff")}
+                      {preference === "system"
+                        ? t("settings.themeSystem", { current: t(isDarkColorScheme ? "settings.themeDark" : "settings.themeLight") })
+                        : t(preference === "dark" ? "settings.themeDark" : "settings.themeLight")}
                     </Text>
                   </VStack>
                   <ChevronRight size={16} color={icons.muted} />

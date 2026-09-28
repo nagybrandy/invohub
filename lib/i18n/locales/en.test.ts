@@ -6,7 +6,7 @@ describe("i18n en locale", () => {
   it("defines navigation keys", () => {
     expect(en.nav.invoices).toBe("Invoices");
     expect(en.nav.dashboard).toBe("Dashboard");
-    expect(en.settings.darkMode).toBe("Dark mode");
+    expect(en.settings.darkMode).toBe("Appearance");
   });
 });
 
