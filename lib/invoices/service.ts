@@ -1,6 +1,7 @@
 // lib/invoices/service.ts
 // Server-side invoice CRUD against Neon via Drizzle.
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
+import { isIssuedDocument } from "@/lib/invoices/issued";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
@@ -126,16 +127,24 @@ export async function getInvoiceStats(userId: string): Promise<InvoiceStats> {
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const monthEnd = nextMonth.toISOString().slice(0, 10);
 
-  const monthRows = await db
+  // "E hónapban kiállítva": only issued documents count — see isIssuedDocument.
+  // The WHERE mirrors that rule so the scan never loads a month's drafts; the
+  // predicate stays the definition, applied once more below so the two can't
+  // drift apart.
+  const monthScan = await db
     .select()
     .from(invoice)
     .where(
       and(
         eq(invoice.userId, userId),
         gte(invoice.issueDate, monthStart),
-        lt(invoice.issueDate, monthEnd)
+        lt(invoice.issueDate, monthEnd),
+        ne(invoice.status, "draft"),
+        ne(invoice.status, "proforma"),
+        ne(invoice.documentType, "proforma")
       )
     );
+  const monthRows = monthScan.filter(isIssuedDocument);
 
   const itemsByInvoice = await loadLineItemsForInvoices(monthRows.map((row) => row.id));
   let monthlyTotal = 0;
