@@ -87,8 +87,10 @@ export default function DashboardScreen() {
     }
   }
 
-  const revenueTotal = summary.revenue + summary.outstanding;
-  const paidShare = revenueTotal > 0 ? summary.revenue / revenueTotal : 0;
+  // Collected vs outstanding over everything ever invoiced — both all-time.
+  // `revenue` is this month only and must not sit on one side of this bar.
+  const revenueTotal = summary.paidTotal + summary.outstanding;
+  const paidShare = revenueTotal > 0 ? summary.paidTotal / revenueTotal : 0;
   const outstandingShare = revenueTotal > 0 ? summary.outstanding / revenueTotal : 0;
 
   return (
@@ -177,7 +179,7 @@ export default function DashboardScreen() {
               <HStack space="xs" className="items-center">
                 <Box className="h-2.5 w-2.5 rounded-full bg-[#15803d]" />
                 <Text size="xs" className="text-muted-foreground">
-                  {t("dashboard.paid")}: {formatCurrency(summary.revenue, currency)}
+                  {t("dashboard.paid")}: {formatCurrency(summary.paidTotal, currency)}
                 </Text>
               </HStack>
               <HStack space="xs" className="items-center">

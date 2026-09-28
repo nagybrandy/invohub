@@ -62,6 +62,8 @@ function daysBetween(dueDate: string, now: Date): number {
 
 export type DashboardSummary = {
   revenue: number;
+  /** All-time paid gross — what the "Bevétel statisztika" bar sets against `outstanding`, so both sides cover the same span. */
+  paidTotal: number;
   /** How many invoices make up `revenue` — the same month, so the card's count can't contradict its amount. */
   revenuePaidCount: number;
   outstanding: number;
@@ -94,6 +96,7 @@ export function computeDashboardSummary(
   invoices: Invoice[],
   now: Date = new Date(),
 ): DashboardSummary {
+  const paidAllTime = invoices.filter((invoice) => invoice.status === "paid");
   const paidThisMonth = invoices.filter(
     (invoice) => invoice.status === "paid" && isInSameMonth(invoice.paidAt, now)
   );
@@ -117,6 +120,7 @@ export function computeDashboardSummary(
   return {
     revenue: paidThisMonth.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
     revenuePaidCount: paidThisMonth.length,
+    paidTotal: paidAllTime.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
     outstanding: outstandingInvoices.reduce(
       (sum, invoice) => sum + invoiceGross(invoice),
       0,
@@ -137,14 +141,17 @@ export type StatusTotalsRow = { status: InvoiceStatus; net: number; vat: number 
 /** Pure fold of one SQL GROUP BY status row per status into the dashboard buckets. */
 export function aggregateStatusTotals(
   rows: StatusTotalsRow[],
-): Pick<DashboardSummary, "outstanding" | "overdueTotal" | "issuedTotal"> {
+): Pick<DashboardSummary, "paidTotal" | "outstanding" | "overdueTotal" | "issuedTotal"> {
+  let paidTotal = 0;
   let outstanding = 0;
   let overdueTotal = 0;
   let issuedTotal = 0;
 
   for (const row of rows) {
     const gross = row.net + row.vat;
-    if (OUTSTANDING_STATUSES.includes(row.status)) {
+    if (row.status === "paid") {
+      paidTotal += gross;
+    } else if (OUTSTANDING_STATUSES.includes(row.status)) {
       outstanding += gross;
       if (row.status === "overdue") {
         overdueTotal += gross;
@@ -156,7 +163,7 @@ export function aggregateStatusTotals(
 
   // revenue and estimatedVat are period-bounded and therefore cannot come
   // from a GROUP BY status — getDashboardSummaryFromDb queries them separately.
-  return { outstanding, overdueTotal, issuedTotal };
+  return { paidTotal, outstanding, overdueTotal, issuedTotal };
 }
 
 /** First day of `now`'s month and of the next one, as timestamps for a half-open range. */

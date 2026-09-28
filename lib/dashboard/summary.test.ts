@@ -127,6 +127,7 @@ describe("aggregateStatusTotals", () => {
 
   it("returns zeros for an empty result set", () => {
     expect(aggregateStatusTotals([])).toEqual({
+      paidTotal: 0,
       outstanding: 0,
       overdueTotal: 0,
       issuedTotal: 0,
@@ -333,5 +334,27 @@ describe("computeDashboardSummary — the period KPIs must mean what their label
     });
 
     expect(computeDashboardSummary([original, storno], now).estimatedVat).toBe(0);
+  });
+});
+
+describe("computeDashboardSummary — the revenue bar needs an all-time paid figure", () => {
+  const now = new Date("2026-09-12T12:00:00.000Z");
+
+  it("exposes paidTotal as all-time paid gross, separate from the month-bounded revenue", () => {
+    // The "Bevétel statisztika" bar compares collected vs outstanding over
+    // everything ever invoiced. Feeding it the month-bounded `revenue` next
+    // to the all-time `outstanding` compared a month to all time.
+    const summary = computeDashboardSummary(
+      [
+        makeInvoice({ id: "p-now", status: "paid", paidAt: "2026-09-03T00:00:00.000Z", issueDate: "2026-09-03", lineItems: [makeLineItem({ quantity: 1, unitPrice: 100_000, vatRate: 27 })] }),
+        makeInvoice({ id: "p-old", status: "paid", paidAt: "2025-01-10T00:00:00.000Z", issueDate: "2025-01-10", lineItems: [makeLineItem({ quantity: 1, unitPrice: 100_000, vatRate: 27 })] }),
+        makeInvoice({ id: "open", status: "sent", issueDate: "2026-09-04", lineItems: [makeLineItem({ quantity: 1, unitPrice: 50_000, vatRate: 27 })] }),
+      ],
+      now,
+    );
+
+    expect(summary.revenue).toBe(127_000);
+    expect(summary.paidTotal).toBe(254_000);
+    expect(summary.outstanding).toBe(63_500);
   });
 });
