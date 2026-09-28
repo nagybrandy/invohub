@@ -985,6 +985,7 @@ export default {
       companyNamePlaceholder: "Example Ltd.",
       taxNumber: "Tax number",
       taxNumberHint: "8-digit base number-VAT code-county code (e.g., 12345678-1-12)",
+      taxNumberInvalid: "Tax number format: 12345678-1-12 (8 digits, VAT code, county code).",
       address: "Registered address",
       addressPlaceholder: "street, number",
       city: "City",
