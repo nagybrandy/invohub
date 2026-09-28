@@ -178,6 +178,8 @@ jest.mock("@/hooks/useDashboardSummary", () => ({
   useDashboardSummary: () => ({
     summary: {
       revenue: 0,
+      revenuePaidCount: 0,
+      paidTotal: 0,
       outstanding: 0,
       overdueTotal: 0,
       issuedTotal: 0,
