@@ -943,6 +943,8 @@ export default {
   },
   partners: {
     title: "Partnerek",
+    invoicesOf: "Számlái",
+    lookupNotFound: "A NAV nem talált adózót ezzel az adószámmal.",
     add: "Új partner",
     search: "Keresés név vagy adószám alapján",
     invoiceFor: "Számla ennek a partnernek",

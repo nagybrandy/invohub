@@ -57,6 +57,7 @@ export default function ClientsScreen() {
         icon: FileText,
         onPress: () => router.push(routes.newInvoiceForClient(client.id)),
       },
+      { label: t("partners.invoicesOf"), icon: FileText, onPress: () => router.push(routes.invoicesForClient(client.name)) },
       { label: t("partners.edit"), icon: Pencil, onPress: () => router.push(routes.clientEdit(client.id)) },
       {
         label: t("common.delete"),
