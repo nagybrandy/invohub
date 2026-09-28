@@ -671,6 +671,7 @@ export default {
       revenueThisMonth: "E havi bevétel",
       estimatedVat: "Becsült fizetendő ÁFA",
       invoiceCount: "{{count}} számla",
+      revenuePaidHint: "{{count}} számla · kifizetés dátuma szerint",
       overdueHint: "{{count}} számla · legrégebbi {{days}} napja",
       overdueHintToday: "{{count}} számla · legrégebbi ma járt le",
     },

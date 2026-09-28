@@ -15,6 +15,7 @@ type InvoicesTotalResponse = { total: number };
 
 const EMPTY_SUMMARY: DashboardSummary = {
   revenue: 0,
+  revenuePaidCount: 0,
   outstanding: 0,
   overdueTotal: 0,
   issuedTotal: 0,

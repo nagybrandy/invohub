@@ -144,7 +144,9 @@ export default function DashboardScreen() {
           <StatCard
             label={t("dashboard.kpi.revenueThisMonth")}
             value={loading ? "…" : formatCurrency(summary.revenue, currency)}
-            hint={t("dashboard.kpi.invoiceCount", { count: paidCount ?? 0 })}
+            // Count and amount must describe the same month — the all-time
+            // paidCount below would quietly contradict the figure above it.
+            hint={t("dashboard.kpi.revenuePaidHint", { count: summary.revenuePaidCount })}
             onPress={() => goTo("paid")}
             loading={loading}
           />
