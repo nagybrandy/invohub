@@ -672,6 +672,7 @@ export default {
       revenueThisMonth: "Revenue this month",
       estimatedVat: "Estimated VAT due",
       invoiceCount: "{{count}} invoices",
+      revenuePaidHint: "{{count}} invoices · by payment date",
       overdueHint: "{{count}} invoices · oldest {{days}} days",
       overdueHintToday: "{{count}} invoices · oldest fell due today",
     },
