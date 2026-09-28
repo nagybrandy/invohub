@@ -29,6 +29,35 @@ export function EmailBodyEditor({ value, onChange, testID = "email-body-editor" 
   const { t } = useTranslation();
   const icons = useIconColors();
   const surfaceRef = React.useRef<HTMLDivElement | null>(null);
+  // The caret position inside the surface, remembered while the user edits:
+  // pressing a toolbar button or a placeholder chip blurs the surface, and a
+  // bare focus() would put the caret at the very start — so every insert
+  // restores the last known selection first (or falls back to the end).
+  const savedRange = React.useRef<Range | null>(null);
+
+  function rememberSelection() {
+    const node = surfaceRef.current;
+    const selection = typeof window !== "undefined" ? window.getSelection() : null;
+    if (!node || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (node.contains(range.commonAncestorContainer)) savedRange.current = range.cloneRange();
+  }
+
+  function restoreSelection() {
+    const node = surfaceRef.current;
+    const selection = typeof window !== "undefined" ? window.getSelection() : null;
+    if (!node || !selection) return;
+    node.focus();
+    selection.removeAllRanges();
+    if (savedRange.current) {
+      selection.addRange(savedRange.current);
+    } else {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      range.collapse(false);
+      selection.addRange(range);
+    }
+  }
 
   // Push external value changes (template switch) into the surface without
   // resetting the caret on every keystroke: only when the DOM differs.
@@ -43,7 +72,7 @@ export function EmailBodyEditor({ value, onChange, testID = "email-body-editor" 
   }
 
   function run(command: string) {
-    surfaceRef.current?.focus();
+    restoreSelection();
     if (command === "createLink") {
       const url = typeof window !== "undefined" ? window.prompt(t("emailEditor.toolbar.linkPrompt"), "https://") : null;
       if (!url) return;
@@ -55,8 +84,9 @@ export function EmailBodyEditor({ value, onChange, testID = "email-body-editor" 
   }
 
   function insert(text: string) {
-    surfaceRef.current?.focus();
+    restoreSelection();
     document.execCommand("insertText", false, text);
+    rememberSelection();
     emit();
   }
 
@@ -97,8 +127,16 @@ export function EmailBodyEditor({ value, onChange, testID = "email-body-editor" 
         aria-multiline="true"
         aria-label={t("emailEditor.body")}
         data-testid={testID}
-        onInput={emit}
-        onBlur={emit}
+        onInput={() => {
+          rememberSelection();
+          emit();
+        }}
+        onKeyUp={rememberSelection}
+        onMouseUp={rememberSelection}
+        onBlur={() => {
+          rememberSelection();
+          emit();
+        }}
         className="min-h-[260px] rounded-lg border border-subtle bg-surface px-4 py-3 text-[15px] leading-6 text-foreground outline-none focus:border-primary [&_a]:text-primary [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2"
       />
     </VStack>
