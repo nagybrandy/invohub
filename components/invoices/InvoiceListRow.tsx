@@ -10,6 +10,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { InvoiceStatusChip } from "@/components/invoices/InvoiceStatusChip";
+import { NavDot } from "@/components/invoices/NavDot";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { formatCurrency, calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import { formatDateOnly } from "@/lib/dates/format";
@@ -104,13 +105,7 @@ export function InvoiceListRow({
         <InvoiceStatusChip status={overdue ? "overdue" : invoice.status} size="sm" />
       </Box>
       <Box style={{ width: w.nav }} className="items-center">
-        <Box
-          testID="invoice-row-nav-dot"
-          accessibilityLabel={
-            finalized ? t("invoices.list.navSubmittedHint") : t("invoices.list.navNotSubmittedHint")
-          }
-          className={`h-2.5 w-2.5 rounded-full ${finalized ? "bg-primary" : "bg-muted-foreground/30"}`}
-        />
+        <NavDot status={invoice.navStatus ?? (finalized ? "notSubmitted" : "none")} />
       </Box>
       <Box style={{ width: w.gross }}>
         <Text numeric className="text-sm font-semibold text-foreground">

@@ -11,6 +11,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { InvoiceStatusChip } from "@/components/invoices/InvoiceStatusChip";
+import { NavDot } from "@/components/invoices/NavDot";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import {
   calculateInvoiceTotals,
@@ -114,6 +115,7 @@ export function InvoiceCard({
               </Text>
             </VStack>
             <HStack space="xs" className="items-center">
+              <NavDot status={invoice.navStatus ?? "none"} testID="invoice-card-nav-dot" />
               <InvoiceStatusChip status={overdue ? "overdue" : invoice.status} size="sm" />
               <OverflowMenu items={menuItems} label={t("invoices.list.rowMenuLabel")} />
             </HStack>
