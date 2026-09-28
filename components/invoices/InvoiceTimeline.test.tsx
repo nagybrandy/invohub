@@ -1,5 +1,5 @@
 // components/invoices/InvoiceTimeline.test.tsx
-import TestRenderer, { act } from "react-test-renderer";
+import { formatShortDate } from "@/lib/dates/format";import TestRenderer, { act } from "react-test-renderer";
 import { InvoiceTimeline, timelineSteps } from "@/components/invoices/InvoiceTimeline";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
@@ -213,5 +213,31 @@ describe("InvoiceTimeline", () => {
         .props.onLayout({ nativeEvent: { layout: { width: 760, height: 0, x: 0, y: 0 } } });
     });
     expect(() => tree.root.findByProps({ testID: "invoice-timeline-steps" })).not.toThrow();
+  });
+});
+
+describe("timelineSteps — the fulfillment date an auditor looks for", () => {
+  const issuedStep = (inv: Parameters<typeof makeInvoice>[0]) =>
+    timelineSteps(makeInvoice(inv), now).find((s) => s.key === "issued")!;
+
+  it("shows the fulfillment date under 'Kiállítva' when it differs from the issue date", () => {
+    const step = issuedStep({ status: "unpaid", issueDate: "2026-09-23", fulfillmentDate: "2026-09-20" });
+    expect(step.hint?.key).toBe("invoices.timeline.fulfilledOn");
+    expect(step.hint?.options?.date).toBe(formatShortDate("2026-09-20", now));
+  });
+
+  it("still states it explicitly when it equals the issue date — an auditor wants the date, not its absence", () => {
+    const step = issuedStep({ status: "unpaid", issueDate: "2026-09-23", fulfillmentDate: undefined });
+    expect(step.hint?.key).toBe("invoices.timeline.fulfilledOn");
+    expect(step.hint?.options?.date).toBe(formatShortDate("2026-09-23", now));
+  });
+
+  it("keeps the draft hint on a draft: nothing has been fulfilled yet", () => {
+    expect(issuedStep({ status: "draft" }).hint?.key).toBe("invoices.timeline.draftHint");
+  });
+
+  it("keeps the date on a cancelled original too", () => {
+    const step = issuedStep({ status: "cancelled", issueDate: "2026-08-01", fulfillmentDate: "2026-07-30" });
+    expect(step.hint?.options?.date).toBe(formatShortDate("2026-07-30", now));
   });
 });

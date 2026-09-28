@@ -58,7 +58,19 @@ export function timelineSteps(invoice: Invoice, now: Date): TimelineStep[] {
 
   const issued: TimelineStep = isDraft
     ? { key: "issued", label: "invoices.timeline.issued", hint: { key: "invoices.timeline.draftHint" }, state: "current" }
-    : { key: "issued", label: "invoices.timeline.issued", date: formatShortDate(invoice.issueDate, now), state: "done" };
+    : {
+        key: "issued",
+        label: "invoices.timeline.issued",
+        date: formatShortDate(invoice.issueDate, now),
+        // The teljesítés dátuma is what NAV received and what an audit asks
+        // for; the screen never showed it. Stated even when it equals the
+        // issue date — an auditor wants the date, not its absence.
+        hint: {
+          key: "invoices.timeline.fulfilledOn",
+          options: { date: formatShortDate(invoice.fulfillmentDate ?? invoice.issueDate, now) },
+        },
+        state: "done",
+      };
 
   if (isCancelled) {
     return [

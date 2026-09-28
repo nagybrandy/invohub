@@ -281,6 +281,7 @@ export default {
       overdue: "Lejárt",
       cancelled: "Sztornózva",
       draftHint: "Piszkozat",
+      fulfilledOn: "Teljesítés: {{date}}",
       notSentHint: "Még nincs kiküldve",
       dueToday: "Ma esedékes",
       dueInDays_one: "{{count}} nap múlva",

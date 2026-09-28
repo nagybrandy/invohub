@@ -280,6 +280,7 @@ export default {
       overdue: "Overdue",
       cancelled: "Cancelled",
       draftHint: "Draft",
+      fulfilledOn: "Fulfilled: {{date}}",
       notSentHint: "Not sent yet",
       dueToday: "Due today",
       dueInDays_one: "in {{count}} day",
