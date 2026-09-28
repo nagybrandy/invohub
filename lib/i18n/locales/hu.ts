@@ -984,6 +984,7 @@ export default {
       companyNamePlaceholder: "Példa Kft.",
       taxNumber: "Adószám",
       taxNumberHint: "8 jegyű törzsszám-ÁFA kód-megyekód (pl. 12345678-1-12)",
+      taxNumberInvalid: "Az adószám formátuma: 12345678-1-12 (8 jegy, ÁFA-kód, megyekód).",
       address: "Székhely címe",
       addressPlaceholder: "utca, házszám",
       city: "Város",

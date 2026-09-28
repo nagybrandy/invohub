@@ -14,8 +14,14 @@ jest.mock("react-i18next", () => ({
 }));
 
 const mockSave = jest.fn();
+const mockLookup = jest.fn();
 jest.mock("@/hooks/useCompany", () => ({
-  useCompany: () => ({ company: null, loading: false, save: (...args: unknown[]) => mockSave(...args) }),
+  useCompany: () => ({
+    company: null,
+    loading: false,
+    save: (...args: unknown[]) => mockSave(...args),
+    lookup: (...args: unknown[]) => mockLookup(...args),
+  }),
 }));
 
 jest.mock("@/components/settings/NavEnvironmentPicker", () => ({
@@ -117,5 +123,80 @@ describe("OnboardingScreen", () => {
     );
     // Advancing to step 2 swaps the visible heading to the NAV setup card.
     expect(textUnder(tree.root)).toContain("company.onboarding.navSetup");
+  });
+});
+
+describe("OnboardingScreen — what a first invoice needs to be right", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSave.mockResolvedValue({});
+  });
+
+  async function type(tree: TestRenderer.ReactTestRenderer, testID: string, value: string) {
+    const input = tree.root.findAllByProps({ testID })[0];
+    await act(async () => {
+      input.props.onChangeText(value);
+    });
+  }
+
+  async function pressSave(tree: TestRenderer.ReactTestRenderer) {
+    const saveButton = findPressableWithText(tree.root, "company.onboarding.save");
+    await act(async () => {
+      saveButton?.props.onPress?.();
+      await Promise.resolve();
+    });
+  }
+
+  it("refuses a malformed tax number before it can reach an invoice", async () => {
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-company-name", "Acme Kft.");
+    await type(tree, "onboarding-tax-number", "1234");
+    await pressSave(tree);
+
+    expect(mockSave).not.toHaveBeenCalled();
+    expect(textUnder(tree.root)).toContain("company.onboarding.taxNumberInvalid");
+  });
+
+  it("still lets a company through with no tax number at all — the finalize gate owns that rule", async () => {
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-company-name", "Acme Kft.");
+    await pressSave(tree);
+
+    expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ name: "Acme Kft.", taxNumber: undefined }));
+  });
+
+  it("asks about AAM and saves the answer, so the first invoice defaults to the right VAT", async () => {
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-company-name", "Acme Kft.");
+    await type(tree, "onboarding-tax-number", "12345678-1-42");
+    const toggle = tree.root.findAllByProps({ testID: "onboarding-vat-exempt" })[0];
+    await act(async () => {
+      toggle.props.onValueChange(true);
+    });
+    await pressSave(tree);
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({ taxNumber: "12345678-1-42", vatExempt: true })
+    );
+  });
+
+  it("fills the company from the NAV lookup instead of making the user type it", async () => {
+    mockLookup.mockResolvedValue({
+      company: { name: "Lookup Kft.", zipCode: "9021", city: "Győr", address: "Fő tér 1." },
+    });
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-tax-number", "12345678-1-42");
+    const lookupButton = tree.root.findAllByProps({ testID: "onboarding-lookup" })[0];
+    await act(async () => {
+      lookupButton.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockLookup).toHaveBeenCalledWith("12345678-1-42");
+    expect(tree.root.findAllByProps({ testID: "onboarding-company-name" })[0].props.value).toBe("Lookup Kft.");
+    expect(tree.root.findAllByProps({ testID: "onboarding-city" })[0].props.value).toBe("Győr");
+    expect(tree.root.findAllByProps({ testID: "onboarding-zip" })[0].props.value).toBe("9021");
+    expect(tree.root.findAllByProps({ testID: "onboarding-address" })[0].props.value).toBe("Fő tér 1.");
   });
 });
