@@ -27,7 +27,7 @@ import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
 import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/InvoiceTimeline";
 import { NavStatusCard } from "@/components/invoices/NavStatusCard";
 import { DangerZone } from "@/components/layout/DangerZone";
-import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
+import type { OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { apiFetch, ApiError, invoicePdfUrl } from "@/lib/api/client";
@@ -416,6 +416,10 @@ export default function InvoiceDetailScreen() {
         <PageHeader
           title={invoice.invoiceNumber || t("invoices.status.draft")}
           breadcrumb={[{ label: t("invoices.title"), href: routes.invoices }, { label: invoice.invoiceNumber || t("invoices.status.draft") }]}
+          // The "···" lives at the far right of the page header, not inside
+          // the money card's action cluster.
+          overflowActions={overflowItems}
+          overflowLabel={t("invoices.detail.overflowLabel")}
         />
       }
     >
@@ -432,19 +436,16 @@ export default function InvoiceDetailScreen() {
             </Button>
           }
           secondaryAction={
-            <HStack space="xs" className="items-center">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={markPaidDisabled}
-                onPress={() => setShowMarkPaid((v) => !v)}
-                testID="invoice-detail-mark-paid-toggle"
-              >
-                <CheckCircle2 size={14} color={icons.foreground} />
-                <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
-              </Button>
-              <OverflowMenu items={overflowItems} label={t("invoices.detail.overflowLabel")} />
-            </HStack>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={markPaidDisabled}
+              onPress={() => setShowMarkPaid((v) => !v)}
+              testID="invoice-detail-mark-paid-toggle"
+            >
+              <CheckCircle2 size={14} color={icons.foreground} />
+              <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
+            </Button>
           }
         />
 

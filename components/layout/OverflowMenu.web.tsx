@@ -104,16 +104,20 @@ export function OverflowMenu({ items, label = "More actions", align = "right" }:
               {...webDomProps({
                 role: "menu",
                 "data-testid": "overflow-menu-content",
-                style: {
-                  position: "fixed",
-                  top: position.top,
-                  left: Math.max(8, position.left),
-                  zIndex: 1000,
-                  minWidth: 200,
-                },
                 className:
                   "flex flex-col gap-0.5 rounded-lg border border-subtle bg-surface-raised p-1 shadow-sm",
               })}
+              // Set directly, never through webDomProps: that helper strips
+              // `style` (RN style arrays must not reach the DOM), and without
+              // these the portal div renders in normal flow at the end of
+              // <body> — open, full-width, below the fold, "not working".
+              style={{
+                position: "fixed",
+                top: position.top,
+                left: Math.max(8, position.left),
+                zIndex: 1000,
+                minWidth: 200,
+              }}
             >
               {items.map((item, index) => {
                 const Icon = item.icon;

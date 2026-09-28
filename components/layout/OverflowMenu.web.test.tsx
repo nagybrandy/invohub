@@ -112,3 +112,14 @@ describe("OverflowMenu (web)", () => {
     expect(() => tree.root.findByProps({ testID: "overflow-menu-item-0" })).toThrow();
   });
 });
+
+describe("portal placement", () => {
+  it("positions the portalled menu with a fixed top/left on the DOM node itself — webDomProps would strip a style prop", () => {
+    const tree = render({ items: [{ label: "Törlés", onPress: jest.fn() }] });
+    act(() => tree.root.findByProps({ testID: "overflow-menu-trigger" }).props.onPress?.({}));
+    const content = tree.root.findByProps({ "data-testid": "overflow-menu-content" });
+    expect(content.props.style).toMatchObject({ position: "fixed", zIndex: 1000 });
+    expect(typeof content.props.style.top).toBe("number");
+    expect(typeof content.props.style.left).toBe("number");
+  });
+});
