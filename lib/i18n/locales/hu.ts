@@ -207,6 +207,7 @@ export default {
       showingCount: "{{shown}} / {{total}} számla megjelenítve (legújabb elöl).",
       filterAll: "Összes",
       filterOther: "Egyéb",
+      filterNavFailed: "NAV-hiba",
       filterOtherHint: "Nem szűrhető (díjbekérő, részben fizetett, sztornózott)",
       overdueBy: "Lejárt {{days}} napja",
       navDoneHint: "Beküldve a NAV-nak",

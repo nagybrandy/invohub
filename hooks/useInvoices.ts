@@ -24,6 +24,8 @@ export type UseInvoicesOptions = {
   search?: string;
   /** Non-HUF invoices with no usable stored HUF rate (see lib/invoices/exchange-rate.ts). */
   needsExchangeRate?: boolean;
+  /** Only invoices whose latest NAV submission failed — the NAV-hiba chip. */
+  navFailed?: boolean;
   /** YYYY-MM — keep the list on one month's issue dates. Unset = all time. */
   month?: string;
   /** Rows per page; the screen uses the default, tests use a small one. */
@@ -42,6 +44,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
   const status = options.status ?? "all";
   const search = options.search ?? "";
   const needsExchangeRate = options.needsExchangeRate ?? false;
+  const navFailed = options.navFailed ?? false;
   const month = options.month;
   const pageSize = options.pageSize ?? INVOICE_LIST_LIMIT;
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
@@ -64,6 +67,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
         search,
         needsExchangeRate,
         month,
+        navFailed,
       });
       const data = await apiFetch<InvoicesResponse>(`/api/invoices?${query}`);
       // A partial or malformed response must not take every list screen down:
@@ -78,7 +82,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [status, search, needsExchangeRate, month, pageSize]);
+  }, [status, search, needsExchangeRate, month, navFailed, pageSize]);
 
   React.useEffect(() => {
     void refresh();
@@ -99,6 +103,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
         search,
         needsExchangeRate,
         month,
+        navFailed,
       });
       const data = await apiFetch<InvoicesResponse>(`/api/invoices?${query}`);
       setInvoices((current) => {
@@ -111,7 +116,7 @@ export function useInvoices(options: UseInvoicesOptions = {}) {
     } finally {
       setLoadingMore(false);
     }
-  }, [hasMore, loadingMore, invoices.length, pageSize, status, search, needsExchangeRate, month]);
+  }, [hasMore, loadingMore, invoices.length, pageSize, status, search, needsExchangeRate, month, navFailed]);
 
   const addOrUpdate = React.useCallback(
     async (invoice: Invoice) => {

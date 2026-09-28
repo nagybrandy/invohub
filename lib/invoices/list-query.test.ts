@@ -175,3 +175,24 @@ describe("month filter — a list that can stay on one month", () => {
     expect(currentMonth(new Date("2026-09-28T10:00:00Z"))).toBe("2026-09");
   });
 });
+
+describe("navFailed filter — a NAV outcome, not a status", () => {
+  it("normalizes navFailed=1/true and nothing else", () => {
+    expect(normalizeInvoiceListFilters({ navFailed: "1" }).navFailed).toBe(true);
+    expect(normalizeInvoiceListFilters({ navFailed: "true" }).navFailed).toBe(true);
+    expect(normalizeInvoiceListFilters({ navFailed: "0" }).navFailed).toBeUndefined();
+    expect(normalizeInvoiceListFilters({}).navFailed).toBeUndefined();
+  });
+
+  it("emits navFailed=1 in the query string only when set", () => {
+    expect(buildInvoiceListQueryString({ limit: 30, navFailed: true })).toContain("navFailed=1");
+    expect(buildInvoiceListQueryString({ limit: 30 })).not.toContain("navFailed");
+  });
+
+  it("matches only invoices whose attached navStatus is failed", () => {
+    const base = { status: "sent" as const, clientName: "A", invoiceNumber: "INV-1", clientTaxNumber: "", currency: "HUF" as const, exchangeRate: undefined, issueDate: "2026-09-01" };
+    expect(invoiceMatchesListFilters({ ...base, navStatus: "failed" }, { navFailed: true })).toBe(true);
+    expect(invoiceMatchesListFilters({ ...base, navStatus: "done" }, { navFailed: true })).toBe(false);
+    expect(invoiceMatchesListFilters({ ...base }, { navFailed: true })).toBe(false);
+  });
+});

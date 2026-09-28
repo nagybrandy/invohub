@@ -49,7 +49,7 @@ export default function DashboardScreen() {
   const currency = "HUF" as const;
   const vatPeriod = formatVatPeriodLabel(new Date(), i18n.language);
 
-  function goTo(status: InvoiceStatus | "all") {
+  function goTo(status: InvoiceStatus | "all" | "navFailed") {
     router.push(status === "all" ? routes.invoices : routes.invoicesFiltered(status));
   }
 

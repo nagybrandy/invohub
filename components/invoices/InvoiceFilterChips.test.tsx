@@ -97,3 +97,30 @@ describe("InvoiceFilterChips — 'Egyéb' remainder (AC8)", () => {
     }
   });
 });
+
+describe("NAV-hiba chip", () => {
+  const base = { filter: "all" as const, onSelect: jest.fn(), counts: {}, allCount: 0, otherCount: 0, t };
+
+  it("is absent with no failed submissions and not selected", () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<InvoiceFilterChips {...base} navFailedCount={0} />); });
+    expect(tree.root.findAllByProps({ testID: "invoice-filter-navFailed" })).toHaveLength(0);
+  });
+
+  it("appears with a count and hands the press to onSelectNavFailed", () => {
+    const onSelectNavFailed = jest.fn();
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<InvoiceFilterChips {...base} navFailedCount={2} onSelectNavFailed={onSelectNavFailed} />); });
+    const chip = tree.root.findAllByProps({ testID: "invoice-filter-navFailed" })[0];
+    expect(chip).toBeTruthy();
+    expect(JSON.stringify(tree.toJSON())).toContain("invoices.list.filterNavFailed");
+    act(() => chip.props.onPress());
+    expect(onSelectNavFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays visible while selected even if the count dropped to zero", () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<InvoiceFilterChips {...base} navFailedCount={0} navFailedSelected />); });
+    expect(tree.root.findAllByProps({ testID: "invoice-filter-navFailed" }).length).toBeGreaterThan(0);
+  });
+});

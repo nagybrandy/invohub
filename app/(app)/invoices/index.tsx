@@ -27,6 +27,7 @@ import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useInvoiceStatusCounts } from "@/hooks/useInvoiceStatusCounts";
+import { useNavFailedCount } from "@/hooks/useNavFailedCount";
 import { useMissingExchangeRateCount } from "@/hooks/useMissingExchangeRateCount";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useRouteParam } from "@/lib/routing/route-param";
@@ -60,6 +61,10 @@ export default function InvoiceListScreen() {
   const [search, setSearch] = React.useState(searchParam?.trim() ?? "");
   const [sort, setSort] = React.useState<InvoiceListSort>({ key: "issued", direction: "desc" });
   const [needsExchangeRate, setNeedsExchangeRate] = React.useState(false);
+  // "NAV-hiba" is a NAV outcome, not a status: the dashboard's next-actions row
+  // arrives as ?status=navFailed and lands on this chip with the status cleared.
+  const [navFailed, setNavFailed] = React.useState(statusParam === "navFailed");
+  const { count: navFailedCount } = useNavFailedCount();
   const [month, setMonth] = React.useState<string | undefined>(undefined);
   const {
     invoices,
@@ -77,6 +82,7 @@ export default function InvoiceListScreen() {
     search,
     needsExchangeRate,
     month,
+    navFailed,
   });
   const { counts, allCount, other: otherCount } = useInvoiceStatusCounts();
   const { count: missingExchangeRateCount } = useMissingExchangeRateCount();
@@ -119,6 +125,7 @@ export default function InvoiceListScreen() {
         search,
         needsExchangeRate,
         month,
+        navFailed,
       });
       if (all.length === 0) {
         setToastMessage(t("invoices.list.exportCsvEmpty"));
@@ -354,7 +361,16 @@ export default function InvoiceListScreen() {
       </Input>
       <InvoiceFilterChips
         filter={filter}
-        onSelect={setFilter}
+        onSelect={(next) => {
+          setNavFailed(false);
+          setFilter(next);
+        }}
+        navFailedCount={navFailedCount}
+        navFailedSelected={navFailed}
+        onSelectNavFailed={() => {
+          setFilter("all");
+          setNavFailed((current) => !current);
+        }}
         counts={counts}
         allCount={allCount}
         otherCount={otherCount}
