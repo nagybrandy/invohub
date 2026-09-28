@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Download, Mail, Copy, CheckCircle2, Eye, FileEdit, Trash2 } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
-import { Button, ButtonText } from "@/components/ui/button";
+import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
@@ -33,6 +33,10 @@ import { useRouteParam } from "@/lib/routing/route-param";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { confirmAsync } from "@/lib/ui/confirm";
 import { isDevSeedButtonVisible } from "@/lib/dev/seed-visible";
+import { CSV_COLUMNS, csvExportFilename, invoiceListToCsv, type CsvLabels } from "@/lib/invoices/export-csv";
+import { EXPORT_ROW_CAP, fetchAllInvoicesForExport } from "@/lib/invoices/export-fetch";
+import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
+import { saveDownload } from "@/components/settings/save-download";
 
 // Same code→i18n mapping as the detail screen (app/(app)/invoices/[id]/index.tsx)
 // — the convert route's 400 bodies only carry a `code`, not a translated
@@ -43,7 +47,7 @@ const CONVERT_ERROR_I18N_KEY: Record<string, string> = {
 };
 
 export default function InvoiceListScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isDesktop = useIsDesktop();
   const statusParam = useRouteParam("status");
   const [filter, setFilter] = React.useState<InvoiceStatus | "all">(
@@ -99,6 +103,62 @@ export default function InvoiceListScreen() {
   }, [invoices]);
   const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(null);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [exporting, setExporting] = React.useState(false);
+
+  // The whole filtered list (not just the loaded pages), in the table's
+  // current order, as a CSV for the könyvelő. Web only: there is no file
+  // system to save into on native, and saveDownload says so.
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const { invoices: all, truncated } = await fetchAllInvoicesForExport({
+        status: filter,
+        search,
+        needsExchangeRate,
+        month,
+      });
+      if (all.length === 0) {
+        setToastMessage(t("invoices.list.exportCsvEmpty"));
+        return;
+      }
+      const direction = sort.direction === "asc" ? 1 : -1;
+      const sortValue = (inv: Invoice) =>
+        sort.key === "issued"
+          ? inv.issueDate
+          : sort.key === "due"
+            ? inv.dueDate
+            : calculateInvoiceTotals(inv.lineItems).totalAmount;
+      all.sort((a, b) => {
+        const va = sortValue(a);
+        const vb = sortValue(b);
+        const diff = typeof va === "string" ? va.localeCompare(vb as string) : va - (vb as number);
+        return diff * direction;
+      });
+      const labels: CsvLabels = {
+        header: Object.fromEntries(
+          CSV_COLUMNS.map((column) => [column, t(`invoices.list.exportColumns.${column}`)]),
+        ) as CsvLabels["header"],
+        status: (inv) => t(STATUS_I18N_KEY[inv.status]),
+        documentType: (inv) => t(`invoices.documentTypes.${inv.documentType}`),
+        paymentMethod: (method) => t(`invoices.paymentMethods.${method}`),
+        draftNumber: t("invoices.list.exportDraftNumber"),
+      };
+      const csv = invoiceListToCsv(all, labels, i18n.language);
+      const saved = saveDownload(
+        csvExportFilename({ month, status: filter }, new Date()),
+        new Blob([csv], { type: "text/csv;charset=utf-8" }),
+      );
+      if (!saved) {
+        setToastMessage(t("invoices.list.exportCsvWebOnly"));
+      } else if (truncated) {
+        setToastMessage(t("invoices.list.exportCsvTruncated", { cap: EXPORT_ROW_CAP }));
+      }
+    } catch {
+      setToastMessage(t("invoices.list.exportCsvFailed"));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -290,7 +350,19 @@ export default function InvoiceListScreen() {
         otherCount={otherCount}
         t={t}
       />
-      <InvoiceMonthStepper month={month} onChange={setMonth} />
+      <HStack space="sm" className="flex-wrap items-center justify-between">
+        <InvoiceMonthStepper month={month} onChange={setMonth} />
+        <Button
+          size="sm"
+          variant="outline"
+          onPress={() => void handleExportCsv()}
+          disabled={exporting}
+          testID="invoice-list-export"
+        >
+          {exporting ? <ButtonSpinner /> : null}
+          <ButtonText>{t("invoices.list.exportCsv")}</ButtonText>
+        </Button>
+      </HStack>
     </VStack>
   );
 
