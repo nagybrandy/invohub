@@ -164,6 +164,7 @@ export default function DashboardScreen() {
         <NextActionsCard
           overdueCount={summary.overdueCount}
           draftCount={draftCount}
+          navFailedCount={summary.navFailedCount}
           loading={loading}
           onSelect={goTo}
         />

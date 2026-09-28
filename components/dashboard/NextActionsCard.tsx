@@ -23,9 +23,20 @@ export type NextActionRow = {
 function buildRows(
   t: (key: string, opts?: Record<string, unknown>) => string,
   overdueCount: number,
-  draftCount: number
+  draftCount: number,
+  navFailedCount = 0
 ): NextActionRow[] {
   const rows: NextActionRow[] = [];
+  // A failed NAV submission outranks everything: it is a compliance gap, not
+  // a cash-flow nudge. No status chip filters on it yet, so it lands on the
+  // full list (the filter chip is a follow-up).
+  if (navFailedCount > 0) {
+    rows.push({
+      key: "nav",
+      label: t("dashboard.nextActions.navFailed", { count: navFailedCount }),
+      status: "all",
+    });
+  }
   if (overdueCount > 0) {
     rows.push({
       key: "overdue",
@@ -46,11 +57,13 @@ function buildRows(
 export function NextActionsCard({
   overdueCount,
   draftCount,
+  navFailedCount = 0,
   loading = false,
   onSelect,
 }: {
   overdueCount: number;
   draftCount: number;
+  navFailedCount?: number;
   loading?: boolean;
   onSelect: (status: InvoiceStatus | "all") => void;
 }) {
@@ -65,7 +78,7 @@ export function NextActionsCard({
     );
   }
 
-  const rows = buildRows(t, overdueCount, draftCount);
+  const rows = buildRows(t, overdueCount, draftCount, navFailedCount);
 
   return (
     <Section title={t("dashboard.nextActions.title")}>

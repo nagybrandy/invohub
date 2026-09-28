@@ -2,6 +2,8 @@
 // Server-side invoice CRUD against Neon via Drizzle.
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 import { isIssuedDocument } from "@/lib/invoices/issued";
+import { loadLatestNavStatusByInvoice } from "@/lib/nav/latest-submission-store";
+import { navIndicatorFor } from "@/lib/nav/nav-indicator";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
@@ -181,9 +183,13 @@ export async function listInvoices(
   ]);
 
   const itemsByInvoice = await loadLineItemsForInvoices(rows.map((row) => row.id));
-  const invoices = rows.map((row) =>
-    mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? [])
-  );
+  // The list dot follows the latest nav_submission per row (one page-sized
+  // query), not "has a number" — see lib/nav/nav-indicator.ts.
+  const latestNav = await loadLatestNavStatusByInvoice(rows.map((row) => row.id));
+  const invoices = rows.map((row) => ({
+    ...mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? []),
+    navStatus: navIndicatorFor(row, latestNav.get(row.id)),
+  }));
 
   return {
     invoices,

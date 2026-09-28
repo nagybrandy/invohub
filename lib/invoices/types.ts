@@ -1,3 +1,4 @@
+import type { NavListStatus } from "@/lib/nav/nav-indicator";
 // lib/invoices/types.ts
 // Domain types for invoices (served from Neon via lib/invoices/service.ts).
 
@@ -55,6 +56,8 @@ export interface InvoiceLineItem {
 }
 
 export interface Invoice {
+  /** Latest NAV outcome for list/card dots — attached by listInvoices and the dashboard, absent elsewhere. */
+  navStatus?: NavListStatus;
   id: string;
   /** Empty string until finalized (assigned atomically from lib/invoices/numbering.ts). */
   invoiceNumber: string;

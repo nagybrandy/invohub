@@ -234,6 +234,19 @@ describe("getDashboardSummaryFromDb", () => {
       },
     ];
 
+    // latest NAV submission per invoice (loadLatestNavStatusForUser):
+    // inv-recent failed, some other invoice is fine
+    chains.push({
+      from: () => ({
+        leftJoin: () => ({
+          where: () =>
+            Promise.resolve([
+              { invoiceId: "inv-recent", status: "error", createdAt: "2026-09-10T12:00:00.000Z" },
+              { invoiceId: "inv-other", status: "done", createdAt: "2026-09-09T12:00:00.000Z" },
+            ]),
+        }),
+      }),
+    });
     let call = 0;
     mockDb.select.mockImplementation(() => chains[call++]);
 
@@ -248,8 +261,11 @@ describe("getDashboardSummaryFromDb", () => {
     expect(summary.oldestOverdueDays).toBe(11);
     expect(summary.recentInvoices).toHaveLength(1);
     expect(summary.recentInvoices[0].invoiceNumber).toBe("INV-2026-009");
-    // status fold, revenue, VAT, overdue, recent invoices, recent line items.
-    expect(mockDb.select).toHaveBeenCalledTimes(6);
+    // the recent row carries its latest NAV outcome, and the failure is counted
+    expect(summary.recentInvoices[0].navStatus).toBe("failed");
+    expect(summary.navFailedCount).toBe(1);
+    // status fold, revenue, VAT, overdue, recent invoices, recent line items, latest NAV.
+    expect(mockDb.select).toHaveBeenCalledTimes(7);
   });
 });
 

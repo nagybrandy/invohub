@@ -5,6 +5,8 @@
 // numbers are correct at scale instead of only reflecting the first page.
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { isIssuedDocument } from "@/lib/invoices/issued";
+import { loadLatestNavStatusForUser } from "@/lib/nav/latest-submission-store";
+import { navIndicatorFor } from "@/lib/nav/nav-indicator";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
@@ -64,6 +66,8 @@ export type DashboardSummary = {
   revenue: number;
   /** All-time paid gross — what the "Bevétel statisztika" bar sets against `outstanding`, so both sides cover the same span. */
   paidTotal: number;
+  /** Invoices whose latest NAV submission failed or was aborted — the ones that need a human. */
+  navFailedCount: number;
   /** How many invoices make up `revenue` — the same month, so the card's count can't contradict its amount. */
   revenuePaidCount: number;
   outstanding: number;
@@ -120,6 +124,7 @@ export function computeDashboardSummary(
   return {
     revenue: paidThisMonth.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
     revenuePaidCount: paidThisMonth.length,
+    navFailedCount: invoices.filter((invoice) => invoice.navStatus === "failed").length,
     paidTotal: paidAllTime.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
     outstanding: outstandingInvoices.reduce(
       (sum, invoice) => sum + invoiceGross(invoice),
@@ -303,14 +308,23 @@ export async function getDashboardSummaryFromDb(
     list.push(item);
     itemsByInvoice.set(item.invoiceId, list);
   }
-  const recentInvoices = recentRows.map((row) =>
-    mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? []),
-  );
+  // Latest NAV outcome per invoice: the recent-invoices table shows a dot per
+  // row, and the "Következő lépések" card needs how many need a human.
+  const latestNav = await loadLatestNavStatusForUser(userId);
+  const recentInvoices = recentRows.map((row) => ({
+    ...mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? []),
+    navStatus: navIndicatorFor(row, latestNav.get(row.id)),
+  }));
+  let navFailedCount = 0;
+  for (const status of latestNav.values()) {
+    if (navIndicatorFor({ status: "unpaid", documentType: "invoice" }, status) === "failed") navFailedCount += 1;
+  }
 
   return {
     ...totals,
     revenue: Number(revenueRow?.gross ?? 0),
     revenuePaidCount: Number(revenueRow?.count ?? 0),
+    navFailedCount,
     estimatedVat: Number(vatRow?.vat ?? 0),
     overdueTotal,
     overdueCount: overdueRows.length,
