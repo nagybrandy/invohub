@@ -853,6 +853,32 @@ describe("buildInvoiceListWhere", () => {
   });
 });
 
+// Walks a drizzle SQL tree and returns its literal text pieces (StringChunk
+// values) — drizzle objects are circular, so JSON.stringify is not an option.
+function sqlLiteralText(node: unknown, out: string[] = []): string {
+  if (node && typeof node === "object") {
+    const n = node as { queryChunks?: unknown[]; value?: unknown };
+    if (Array.isArray(n.value)) out.push(...n.value.filter((v): v is string => typeof v === "string"));
+    if (Array.isArray(n.queryChunks)) for (const chunk of n.queryChunks) sqlLiteralText(chunk, out);
+  }
+  return out.join("");
+}
+
+describe("buildInvoiceListWhere — navFailed", () => {
+  it("filters on the latest nav_submission being error/aborted, in SQL", () => {
+    const where = buildInvoiceListWhere("user-1", { navFailed: true });
+    const text = sqlLiteralText((where as { getSQL?: () => unknown }).getSQL?.() ?? where);
+    expect(text).toContain("nav_submission");
+    expect(text).toContain("'error', 'aborted'");
+    expect(text).toContain("s2.created_at > s.created_at");
+  });
+
+  it("does not touch nav_submission when navFailed is not set", () => {
+    const where = buildInvoiceListWhere("user-1", {});
+    expect(sqlLiteralText((where as { getSQL?: () => unknown }).getSQL?.() ?? where)).not.toContain("nav_submission");
+  });
+});
+
 // Last in the file: it consumes createId() values, and the mocked id
 // sequence above is shared by the tests before it.
 describe("createModificationDraft — difference lines", () => {

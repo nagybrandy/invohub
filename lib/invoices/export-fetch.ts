@@ -14,6 +14,7 @@ export type ExportFilters = {
   search?: string;
   month?: string;
   needsExchangeRate?: boolean;
+  navFailed?: boolean;
 };
 
 type ListPage = { invoices?: Invoice[]; total?: number };

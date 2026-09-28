@@ -206,6 +206,7 @@ export default {
       showingCount: "Showing {{shown}} of {{total}} invoices (most recent first).",
       filterAll: "All",
       filterOther: "Other",
+      filterNavFailed: "NAV error",
       filterOtherHint: "Not filterable (proforma, partially paid, cancelled)",
       overdueBy: "Overdue by {{days}} days",
       navDoneHint: "Submitted to NAV",

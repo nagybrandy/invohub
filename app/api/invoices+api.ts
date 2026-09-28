@@ -61,6 +61,7 @@ export async function GET(request: Request) {
     search: url.searchParams.get("search"),
     needsExchangeRate: url.searchParams.get("needsExchangeRate"),
     month: url.searchParams.get("month"),
+    navFailed: url.searchParams.get("navFailed"),
   });
 
   const [listResult, stats] = await Promise.all([

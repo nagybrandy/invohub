@@ -18,7 +18,7 @@ import type { InvoiceStatus } from "@/lib/invoices/types";
 export type NextActionRow = {
   key: string;
   label: string;
-  status: InvoiceStatus | "all";
+  status: InvoiceStatus | "all" | "navFailed";
 };
 
 function buildRows(
@@ -35,7 +35,7 @@ function buildRows(
     rows.push({
       key: "nav",
       label: t("dashboard.nextActions.navFailed", { count: navFailedCount }),
-      status: "all",
+      status: "navFailed",
     });
   }
   if (overdueCount > 0) {
@@ -66,7 +66,7 @@ export function NextActionsCard({
   draftCount: number;
   navFailedCount?: number;
   loading?: boolean;
-  onSelect: (status: InvoiceStatus | "all") => void;
+  onSelect: (status: InvoiceStatus | "all" | "navFailed") => void;
 }) {
   const { t } = useTranslation();
   const icons = useIconColors();

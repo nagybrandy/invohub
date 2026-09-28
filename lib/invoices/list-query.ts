@@ -21,6 +21,8 @@ export type InvoiceListFilters = {
   month?: string;
   /** Non-HUF invoices with no usable stored HUF rate (see lib/invoices/exchange-rate.ts). */
   needsExchangeRate?: boolean;
+  /** Invoices whose latest NAV submission failed (error/aborted) — the "NAV-hiba" chip. */
+  navFailed?: boolean;
 };
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -30,6 +32,7 @@ export function normalizeInvoiceListFilters(input: {
   search?: string | null;
   needsExchangeRate?: string | null;
   month?: string | null;
+  navFailed?: string | null;
 }): InvoiceListFilters {
   const rawStatus = input.status?.trim();
   const status =
@@ -42,17 +45,22 @@ export function normalizeInvoiceListFilters(input: {
     input.needsExchangeRate === "1" || input.needsExchangeRate === "true" ? true : undefined;
   const rawMonth = input.month?.trim();
   const month = rawMonth && MONTH_PATTERN.test(rawMonth) ? rawMonth : undefined;
-  return { status, search, needsExchangeRate, month };
+  const navFailed = input.navFailed === "1" || input.navFailed === "true" ? true : undefined;
+  return { status, search, needsExchangeRate, month, navFailed };
 }
 
 export function invoiceMatchesListFilters(
   invoice: Pick<
     Invoice,
-    "status" | "clientName" | "invoiceNumber" | "clientTaxNumber" | "currency" | "exchangeRate" | "issueDate"
+    "status" | "clientName" | "invoiceNumber" | "clientTaxNumber" | "currency" | "exchangeRate" | "issueDate" | "navStatus"
   >,
   filters: InvoiceListFilters,
 ): boolean {
   if (filters.status && invoice.status !== filters.status) {
+    return false;
+  }
+
+  if (filters.navFailed && invoice.navStatus !== "failed") {
     return false;
   }
 
@@ -84,6 +92,7 @@ export function buildInvoiceListQueryString(input: {
   search?: string;
   needsExchangeRate?: boolean;
   month?: string;
+  navFailed?: boolean;
 }): string {
   const params = new URLSearchParams();
   params.set("limit", String(input.limit));
@@ -102,6 +111,9 @@ export function buildInvoiceListQueryString(input: {
   }
   if (input.needsExchangeRate) {
     params.set("needsExchangeRate", "1");
+  }
+  if (input.navFailed) {
+    params.set("navFailed", "1");
   }
   return params.toString();
 }

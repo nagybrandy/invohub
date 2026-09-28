@@ -1,6 +1,6 @@
 // lib/invoices/service.ts
 // Server-side invoice CRUD against Neon via Drizzle.
-import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { isIssuedDocument } from "@/lib/invoices/issued";
 import { monthIssueDateRange } from "@/lib/invoices/list-query";
 import { loadLatestNavStatusByInvoice } from "@/lib/nav/latest-submission-store";
@@ -99,6 +99,15 @@ export function buildInvoiceListWhere(userId: string, options: InvoiceListOption
         ne(invoice.currency, "HUF"),
         or(isNull(invoice.exchangeRate), lte(invoice.exchangeRate, "0"))!,
       )!,
+    );
+  }
+
+  if (options.navFailed) {
+    // The invoice's LATEST NAV submission ended in error/aborted — the same
+    // rule navIndicatorFor applies after the query, expressed in SQL so the
+    // filter and its count come from the database, not from a loaded page.
+    clauses.push(
+      sql`exists (select 1 from nav_submission s where s.invoice_id = ${invoice.id} and lower(s.status) in ('error', 'aborted') and not exists (select 1 from nav_submission s2 where s2.invoice_id = s.invoice_id and s2.created_at > s.created_at))`,
     );
   }
 
