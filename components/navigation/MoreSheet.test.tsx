@@ -11,6 +11,9 @@ jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-u
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
+// These tests render the full product; the flag-off default (no Importálás)
+// is pinned in lib/app-navigation.test.ts.
+jest.mock("@/lib/import/import-flag", () => ({ isInvoiceImportEnabled: () => true }));
 jest.mock("@/lib/theme/icon-colors", () => ({
   useIconColors: () => ({
     primary: "#6495ed",

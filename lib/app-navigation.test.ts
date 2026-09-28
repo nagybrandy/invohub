@@ -38,13 +38,19 @@ describe("SIDEBAR_SECONDARY_NAV / getSidebarSecondaryNav", () => {
   });
 
   it("does not include admin for a non-admin role", () => {
-    const items = getSidebarSecondaryNav("entrepreneur");
+    const items = getSidebarSecondaryNav("entrepreneur", { importEnabled: true });
     expect(items.map((i) => i.href)).toEqual([routes.import]);
   });
 
   it("appends the admin panel below the divider for admins", () => {
-    const items = getSidebarSecondaryNav("admin");
+    const items = getSidebarSecondaryNav("admin", { importEnabled: true });
     expect(items.map((i) => i.href)).toEqual([routes.import, routes.admin]);
+  });
+
+  it("hides Importálás unless the deploy turned it on — which is the default", () => {
+    expect(getSidebarSecondaryNav("entrepreneur").map((i) => i.href)).toEqual([]);
+    expect(getSidebarSecondaryNav("admin").map((i) => i.href)).toEqual([routes.admin]);
+    expect(getSidebarSecondaryNav("entrepreneur", { importEnabled: false }).map((i) => i.href)).toEqual([]);
   });
 });
 
@@ -73,7 +79,7 @@ describe("MOBILE_TAB_NAV", () => {
 
 describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
   it("exposes receipts, products, import, and settings to entrepreneurs", () => {
-    const items = getMobileMoreNav("entrepreneur");
+    const items = getMobileMoreNav("entrepreneur", { importEnabled: true });
     expect(items.map((i) => i.href)).toEqual([
       routes.receipts,
       routes.products,
@@ -83,15 +89,27 @@ describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
   });
 
   it("appends the admin panel for admins", () => {
-    const items = getMobileMoreNav("admin");
+    const items = getMobileMoreNav("admin", { importEnabled: true });
     expect(items.map((i) => i.href)).toContain(routes.admin);
     expect(items).toHaveLength(MOBILE_MORE_NAV.length + 1);
+  });
+
+  it("drops Importálás from the sheet by default", () => {
+    expect(getMobileMoreNav("entrepreneur").map((i) => i.href)).toEqual([
+      routes.receipts,
+      routes.products,
+      routes.settings,
+    ]);
   });
 });
 
 describe("getDashboardFeatures", () => {
+  it("drops the import card by default", () => {
+    expect(getDashboardFeatures("entrepreneur").map((f) => f.href)).toEqual([routes.products, routes.receipts]);
+  });
+
   it("exposes products, receipts, and import to entrepreneurs", () => {
-    const features = getDashboardFeatures("entrepreneur");
+    const features = getDashboardFeatures("entrepreneur", { importEnabled: true });
     expect(features.map((f) => f.href)).toEqual([
       routes.products,
       routes.receipts,

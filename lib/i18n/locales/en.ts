@@ -959,6 +959,9 @@ export default {
   },
   import: {
     title: "Bulk import",
+    disabledTitle: "Import is not enabled on this deployment",
+    disabledDescription:
+      "The spreadsheet import would re-issue old invoices as new drafts, so it is off by default. If you need it, the operator can enable it with EXPO_PUBLIC_ENABLE_INVOICE_IMPORT.",
     description:
       "Upload an Excel or CSV file with columns: client_name, description, quantity, unit_price, vat_rate.",
     nativeHint: "File picker on native: use web for bulk import or add document picker later.",
