@@ -19,6 +19,8 @@ import { InvoiceListTable, type InvoiceListSort, type InvoiceSortKey } from "@/c
 import { InvoicePreviewModal } from "@/components/invoices/InvoicePreviewModal";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { ListFooterStats } from "@/components/layout/ListFooterStats";
+import { summarizeInvoices } from "@/lib/lists/footer-stats";
 import { StateView } from "@/components/layout/StateView";
 import { StatCard } from "@/components/layout/StatCard";
 import type { OverflowMenuItem } from "@/components/layout/OverflowMenu";
@@ -392,6 +394,10 @@ export default function InvoiceListScreen() {
     </VStack>
   );
 
+  // Totals of what is loaded, per currency — with the whole list's count so a
+  // page's sum is never mistaken for the year's.
+  const footerSummary = React.useMemo(() => summarizeInvoices(invoices), [invoices]);
+
   // Below whichever list rendered: how far the page reaches, and a way on.
   const loadMoreFooter =
     !loading && invoices.length > 0 ? (
@@ -423,7 +429,7 @@ export default function InvoiceListScreen() {
   );
 
   return (
-    <ScreenLayout header={header}>
+    <ScreenLayout width="full" header={header}>
       {isDesktop ? (
         <InvoiceListTable
           invoices={sortedInvoices}
@@ -455,6 +461,7 @@ export default function InvoiceListScreen() {
           ))}
         </VStack>
       )}
+      <ListFooterStats summary={footerSummary} total={total} testID="invoice-list-stats" />
       {loadMoreFooter}
       <InvoicePreviewModal
         invoice={previewInvoice}

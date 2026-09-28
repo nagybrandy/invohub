@@ -78,6 +78,12 @@ export default {
     hint: "Switch between Hungarian and English. Your choice is saved on this device.",
   },
   common: {
+    listFooter: {
+      count: "{{count}} items in total",
+      countOf: "Loaded {{shown}} / {{total}} items — sums cover the loaded ones",
+      netGross: "net {{net}} · gross {{gross}}",
+      gross: "gross {{gross}}",
+    },
     save: "Save",
     cancel: "Cancel",
     delete: "Delete",
