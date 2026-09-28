@@ -28,6 +28,7 @@ import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/In
 import { NavStatusCard } from "@/components/invoices/NavStatusCard";
 import { DangerZone } from "@/components/layout/DangerZone";
 import type { OverflowMenuItem } from "@/components/layout/OverflowMenu";
+import { AnchoredPopover } from "@/components/layout/AnchoredPopover";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { apiFetch, ApiError, invoicePdfUrl } from "@/lib/api/client";
@@ -436,16 +437,87 @@ export default function InvoiceDetailScreen() {
             </Button>
           }
           secondaryAction={
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={markPaidDisabled}
-              onPress={() => setShowMarkPaid((v) => !v)}
-              testID="invoice-detail-mark-paid-toggle"
+            // The mark-paid form opens right next to its button, not at the
+            // bottom of the page (AnchoredPopover: portal on web, Modal native).
+            <AnchoredPopover
+              open={showMarkPaid}
+              onClose={() => setShowMarkPaid(false)}
+              testID="invoice-detail-mark-paid-popover"
+              anchor={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={markPaidDisabled}
+                  onPress={() => setShowMarkPaid((v) => !v)}
+                  testID="invoice-detail-mark-paid-toggle"
+                >
+                  <CheckCircle2 size={14} color={icons.foreground} />
+                  <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
+                </Button>
+              }
             >
-              <CheckCircle2 size={14} color={icons.foreground} />
-              <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
-            </Button>
+              <VStack space="md">
+                <Text className="font-semibold">{t("invoices.markPaid.title")}</Text>
+                <FormControl>
+                  <FormControlLabel>
+                    <FormControlLabelText>{t("invoices.fields.paymentMethod")}</FormControlLabelText>
+                  </FormControlLabel>
+                  <ChoicePillGroup accessibilityLabel={t("invoices.fields.paymentMethod")}>
+                    {MARK_PAID_METHODS.map((pm) => (
+                      <ChoicePill
+                        key={pm.value}
+                        selected={paidMethod === pm.value}
+                        onPress={() => setPaidMethod(pm.value)}
+                        accessibilityLabel={t(pm.i18nKey)}
+                      >
+                        <Text size="sm" className="font-light">{t(pm.i18nKey)}</Text>
+                      </ChoicePill>
+                    ))}
+                  </ChoicePillGroup>
+                </FormControl>
+                <HStack space="sm">
+                  <FormControl className="flex-1">
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.markPaid.paidAt")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField value={paidAt} onChangeText={setPaidAt} placeholder="ÉÉÉÉ-HH-NN" />
+                    </Input>
+                  </FormControl>
+                  <FormControl className="flex-1">
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.markPaid.paidAmount")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        keyboardType="decimal-pad"
+                        value={paidAmount}
+                        onChangeText={setPaidAmount}
+                      />
+                    </Input>
+                    {(invoice.paidAmount ?? 0) > 0 ? (
+                      <Text size="xs" className="mt-1 text-muted-foreground">
+                        {t("invoices.markPaid.paidAmountHint", {
+                          amount: formatCurrency(invoice.paidAmount ?? 0, invoice.currency),
+                        })}
+                      </Text>
+                    ) : null}
+                  </FormControl>
+                </HStack>
+                <HStack space="sm">
+                  <Button
+                    disabled={busy === "markPaid"}
+                    onPress={() => void handleMarkPaid()}
+                    testID="invoice-detail-mark-paid-confirm"
+                  >
+                    <ButtonText>{t("invoices.markPaid.confirm")}</ButtonText>
+                  </Button>
+                  <Button variant="outline" onPress={() => setShowMarkPaid(false)}>
+                    <ButtonText>{t("invoices.markPaid.cancel")}</ButtonText>
+                  </Button>
+                </HStack>
+              </VStack>
+            </AnchoredPopover>
           }
         />
 
@@ -576,72 +648,6 @@ export default function InvoiceDetailScreen() {
           openTestID="invoice-preview-download-pdf"
           height={isDesktop ? 900 : 560}
         />
-
-        {showMarkPaid ? (
-          <Card className="p-4">
-            <VStack space="md">
-              <Text className="font-semibold">{t("invoices.markPaid.title")}</Text>
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("invoices.fields.paymentMethod")}</FormControlLabelText>
-                </FormControlLabel>
-                <ChoicePillGroup accessibilityLabel={t("invoices.fields.paymentMethod")}>
-                  {MARK_PAID_METHODS.map((pm) => (
-                    <ChoicePill
-                      key={pm.value}
-                      selected={paidMethod === pm.value}
-                      onPress={() => setPaidMethod(pm.value)}
-                      accessibilityLabel={t(pm.i18nKey)}
-                    >
-                      <Text size="sm" className="font-light">{t(pm.i18nKey)}</Text>
-                    </ChoicePill>
-                  ))}
-                </ChoicePillGroup>
-              </FormControl>
-              <HStack space="sm">
-                <FormControl className="flex-1">
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.markPaid.paidAt")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField value={paidAt} onChangeText={setPaidAt} placeholder="ÉÉÉÉ-HH-NN" />
-                  </Input>
-                </FormControl>
-                <FormControl className="flex-1">
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.markPaid.paidAmount")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      keyboardType="decimal-pad"
-                      value={paidAmount}
-                      onChangeText={setPaidAmount}
-                    />
-                  </Input>
-                  {(invoice.paidAmount ?? 0) > 0 ? (
-                    <Text size="xs" className="mt-1 text-muted-foreground">
-                      {t("invoices.markPaid.paidAmountHint", {
-                        amount: formatCurrency(invoice.paidAmount ?? 0, invoice.currency),
-                      })}
-                    </Text>
-                  ) : null}
-                </FormControl>
-              </HStack>
-              <HStack space="sm">
-                <Button
-                  disabled={busy === "markPaid"}
-                  onPress={() => void handleMarkPaid()}
-                  testID="invoice-detail-mark-paid-confirm"
-                >
-                  <ButtonText>{t("invoices.markPaid.confirm")}</ButtonText>
-                </Button>
-                <Button variant="outline" onPress={() => setShowMarkPaid(false)}>
-                  <ButtonText>{t("invoices.markPaid.cancel")}</ButtonText>
-                </Button>
-              </HStack>
-            </VStack>
-          </Card>
-        ) : null}
 
         {message ? (
           <Card className="border-primary/30 bg-accent p-3">
