@@ -960,6 +960,9 @@ export default {
   },
   import: {
     title: "Tömeges importálás",
+    disabledTitle: "Az importálás ezen a telepítésen nincs bekapcsolva",
+    disabledDescription:
+      "A táblázatos import a régi számlákat új piszkozatként állítaná ki újra, ezért alapból ki van kapcsolva. Ha szükséged van rá, az üzemeltető az EXPO_PUBLIC_ENABLE_INVOICE_IMPORT beállítással tudja engedélyezni.",
     description:
       "Tölts fel egy Excel vagy CSV fájlt a következő oszlopokkal: client_name, description, quantity, unit_price, vat_rate.",
     nativeHint: "Fájlválasztó natív platformon: használd a webes verziót a tömeges importáláshoz, vagy dokumentumválasztó később kerül hozzáadásra.",

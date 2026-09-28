@@ -1,12 +1,17 @@
 // app/api/import/invoices+api.ts
 // Bulk import invoices from Excel/CSV spreadsheet.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { isInvoiceImportEnabled } from "@/lib/import/import-flag";
 import { parseInvoiceSpreadsheet } from "@/lib/import/parse-invoices";
 import { upsertInvoice } from "@/lib/invoices/service";
 
 export async function POST(request: Request) {
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
+  // Same flag as the UI entry points — see lib/import/import-flag.ts.
+  if (!isInvoiceImportEnabled()) {
+    return jsonResponse({ error: "importDisabled", code: "importDisabled" }, 404);
+  }
 
   const contentType = request.headers.get("content-type") ?? "";
   let buffer: ArrayBuffer;

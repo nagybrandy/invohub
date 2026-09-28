@@ -10,9 +10,12 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { apiFetch } from "@/lib/api/client";
+import { StateView } from "@/components/layout/StateView";
+import { isInvoiceImportEnabled } from "@/lib/import/import-flag";
 
 export default function ImportScreen() {
   const { t } = useTranslation();
+  const enabled = isInvoiceImportEnabled();
   const [message, setMessage] = React.useState<string | null>(null);
   const [importing, setImporting] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -35,6 +38,14 @@ export default function ImportScreen() {
     } finally {
       setImporting(false);
     }
+  }
+
+  if (!enabled) {
+    return (
+      <ScreenLayout header={<Heading size="2xl">{t("import.title")}</Heading>}>
+        <StateView kind="empty" title={t("import.disabledTitle")} description={t("import.disabledDescription")} />
+      </ScreenLayout>
+    );
   }
 
   return (
