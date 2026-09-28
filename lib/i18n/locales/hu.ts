@@ -56,6 +56,12 @@ export default {
     hint: "Válts magyar és angol között. A választás ezen az eszközön megmarad.",
   },
   common: {
+    listFooter: {
+      count: "Összesen {{count}} tétel",
+      countOf: "Betöltve {{shown}} / {{total}} tétel — az összegek a betöltöttekre vonatkoznak",
+      netGross: "nettó {{net}} · bruttó {{gross}}",
+      gross: "bruttó {{gross}}",
+    },
     save: "Mentés",
     cancel: "Mégse",
     delete: "Törlés",

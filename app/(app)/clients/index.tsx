@@ -90,6 +90,7 @@ export default function ClientsScreen() {
 
   return (
     <ScreenLayout
+      width="full"
       header={
         <VStack space="md" className="pb-4">
           <PageHeader

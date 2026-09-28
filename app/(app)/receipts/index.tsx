@@ -17,6 +17,8 @@ import { DataTable, type Column } from "@/components/layout/DataTable";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { ListFooterStats } from "@/components/layout/ListFooterStats";
+import { summarizeReceipts } from "@/lib/lists/footer-stats";
 import { StateView } from "@/components/layout/StateView";
 import { useReceipts } from "@/hooks/useReceipts";
 import { formatCurrency } from "@/lib/invoices/calculations";
@@ -38,6 +40,8 @@ export default function ReceiptsScreen() {
       (r) => r.receiptNumber.toLowerCase().includes(q) || (r.clientName ?? "").toLowerCase().includes(q)
     );
   }, [receipts, search]);
+
+  const footerSummary = React.useMemo(() => summarizeReceipts(filtered), [filtered]);
 
   function menuItemsFor(receipt: ReceiptRecord): OverflowMenuItem[] {
     return [
@@ -73,6 +77,7 @@ export default function ReceiptsScreen() {
 
   return (
     <ScreenLayout
+      width="full"
       header={
         <VStack space="md" className="pb-4">
           <PageHeader
@@ -149,6 +154,7 @@ export default function ReceiptsScreen() {
           ))}
         </VStack>
       )}
+      <ListFooterStats summary={footerSummary} showNet={false} testID="receipt-list-stats" />
     </ScreenLayout>
   );
 }
