@@ -141,6 +141,10 @@ export default function SettingsScreen() {
           </HStack>
         </Card>
 
+        {/* The audit export is the one thing an ellenőrzés asks for — it sits
+            right under the profile, not at the bottom under "tools". */}
+        <TaxAuditExportCard />
+
         <VStack space="sm">
           <Text className="font-semibold text-foreground">{t("settings.account")}</Text>
           <HStack space="sm" className="flex-wrap">
@@ -158,7 +162,6 @@ export default function SettingsScreen() {
 
         <VStack space="sm">
           <Text className="font-semibold text-foreground">{t("settings.tools")}</Text>
-          <TaxAuditExportCard />
           <HStack space="sm" className="flex-wrap">
             <Pressable onPress={() => void cycleTheme()} className="flex-1 min-w-[45%]" testID="settings-appearance">
               <Card className="h-full p-4 active:opacity-80">
