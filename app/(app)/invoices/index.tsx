@@ -46,11 +46,13 @@ export default function InvoiceListScreen() {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
   const statusParam = useRouteParam("status");
+  // /invoices?search=… — the partner screens' "Számlái" link lands here pre-searched.
+  const searchParam = useRouteParam("search");
   const [filter, setFilter] = React.useState<InvoiceStatus | "all">(
     isKnownInvoiceFilter(statusParam) ? statusParam : "all"
   );
-  const [searchInput, setSearchInput] = React.useState("");
-  const [search, setSearch] = React.useState("");
+  const [searchInput, setSearchInput] = React.useState(searchParam ?? "");
+  const [search, setSearch] = React.useState(searchParam?.trim() ?? "");
   const [sort, setSort] = React.useState<InvoiceListSort>({ key: "issued", direction: "desc" });
   const [needsExchangeRate, setNeedsExchangeRate] = React.useState(false);
   const [month, setMonth] = React.useState<string | undefined>(undefined);

@@ -16,6 +16,8 @@ import { FormScreen } from "@/components/layout/FormScreen";
 import { routes } from "@/lib/navigation";
 import { useClients } from "@/hooks/useClients";
 import { ClientPartyTypeSwitch } from "@/components/clients/ClientPartyTypeSwitch";
+import { TaxNumberLookupField } from "@/components/clients/TaxNumberLookupField";
+import type { TaxpayerLookupResult } from "@/hooks/useTaxpayerLookup";
 import type { ClientPartyType } from "@/lib/clients/party-type";
 
 export default function NewClientScreen() {
@@ -32,6 +34,14 @@ export default function NewClientScreen() {
   const [partyType, setPartyType] = React.useState<ClientPartyType | undefined>(undefined);
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+
+  // NAV's answer fills whatever it knows; what it doesn't know stays as typed.
+  function applyTaxpayer(taxpayer: TaxpayerLookupResult) {
+    if (taxpayer.name) setName(taxpayer.name);
+    if (taxpayer.address) setAddress(taxpayer.address);
+    if (taxpayer.city) setCity(taxpayer.city);
+    if (taxpayer.zipCode) setZipCode(taxpayer.zipCode);
+  }
 
   async function handleSave() {
     if (!name.trim()) {
@@ -78,14 +88,7 @@ export default function NewClientScreen() {
             <InputField value={email} onChangeText={setEmail} placeholder="billing@acme.hu" />
           </Input>
         </FormControl>
-        <FormControl>
-          <FormControlLabel>
-            <FormControlLabelText>{t("company.taxNumber")}</FormControlLabelText>
-          </FormControlLabel>
-          <Input>
-            <InputField value={taxNumber} onChangeText={setTaxNumber} placeholder="12345678-1-23" />
-          </Input>
-        </FormControl>
+        <TaxNumberLookupField value={taxNumber} onChangeText={setTaxNumber} onFound={applyTaxpayer} />
         <FormControl>
           <FormControlLabel>
             <FormControlLabelText>{t("clients.euVatNumber")}</FormControlLabelText>

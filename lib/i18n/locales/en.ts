@@ -920,6 +920,8 @@ export default {
     deleteConfirmMessage: "Remove {{name}}?",
   },
   partners: {
+    invoicesOf: "Invoices",
+    lookupNotFound: "NAV knows no taxpayer with this number.",
     title: "Partners",
     add: "New partner",
     search: "Search by name or tax number",
