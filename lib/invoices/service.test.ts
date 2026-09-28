@@ -844,6 +844,13 @@ describe("buildInvoiceListWhere", () => {
     expect(names).toEqual(expect.arrayContaining(["currency", "exchange_rate"]));
   });
 
+  it("keeps drafts and díjbekérők out of the missing-rate set — only an issued document can be blocked", () => {
+    const where = buildInvoiceListWhere("user-1", { needsExchangeRate: true });
+    const sql = (where as { getSQL?: () => unknown }).getSQL?.() ?? where;
+    const names = [...collectColumnNames(sql)];
+    expect(names).toEqual(expect.arrayContaining(["status", "document_type"]));
+  });
+
   it("references neither column when needsExchangeRate is not set (AC3.2)", () => {
     const where = buildInvoiceListWhere("user-1", {});
     const sql = (where as { getSQL?: () => unknown }).getSQL?.() ?? where;

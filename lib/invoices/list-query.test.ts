@@ -196,3 +196,17 @@ describe("navFailed filter — a NAV outcome, not a status", () => {
     expect(invoiceMatchesListFilters({ ...base }, { navFailed: true })).toBe(false);
   });
 });
+
+describe("needsExchangeRate — issued documents only", () => {
+  const eur = { status: "sent" as const, clientName: "A", invoiceNumber: "INV-1", clientTaxNumber: "", currency: "EUR" as const, exchangeRate: undefined, issueDate: "2026-09-01" };
+
+  it("matches an issued EUR invoice with no rate", () => {
+    expect(invoiceMatchesListFilters({ ...eur, documentType: "invoice" }, { needsExchangeRate: true })).toBe(true);
+  });
+
+  it("does not match a draft or a díjbekérő — they get their rate at finalize time or never need one", () => {
+    expect(invoiceMatchesListFilters({ ...eur, status: "draft", invoiceNumber: "" }, { needsExchangeRate: true })).toBe(false);
+    expect(invoiceMatchesListFilters({ ...eur, status: "proforma", documentType: "proforma" }, { needsExchangeRate: true })).toBe(false);
+    expect(invoiceMatchesListFilters({ ...eur, documentType: "proforma" }, { needsExchangeRate: true })).toBe(false);
+  });
+});

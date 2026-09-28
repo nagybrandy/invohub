@@ -94,10 +94,16 @@ export function buildInvoiceListWhere(userId: string, options: InvoiceListOption
   }
 
   if (options.needsExchangeRate) {
+    // Issued documents only (same rule as invoiceMatchesListFilters): a draft
+    // gets its rate at finalize time, a díjbekérő is never submitted, so
+    // neither can be "blocked from NAV" by a missing rate.
     clauses.push(
       and(
         ne(invoice.currency, "HUF"),
         or(isNull(invoice.exchangeRate), lte(invoice.exchangeRate, "0"))!,
+        ne(invoice.status, "draft"),
+        ne(invoice.status, "proforma"),
+        ne(invoice.documentType, "proforma"),
       )!,
     );
   }
