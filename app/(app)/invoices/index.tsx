@@ -36,6 +36,7 @@ import { isDevSeedButtonVisible } from "@/lib/dev/seed-visible";
 import { CSV_COLUMNS, csvExportFilename, invoiceListToCsv, type CsvLabels } from "@/lib/invoices/export-csv";
 import { EXPORT_ROW_CAP, fetchAllInvoicesForExport } from "@/lib/invoices/export-fetch";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
+import { canDeleteFromList } from "@/lib/invoices/list-actions";
 import { saveDownload } from "@/components/settings/save-download";
 
 // Same code→i18n mapping as the detail screen (app/(app)/invoices/[id]/index.tsx)
@@ -209,8 +210,11 @@ export default function InvoiceListScreen() {
       cancelLabel: t("common.cancel"),
       destructive: true,
     });
-    if (confirmed) {
+    if (!confirmed) return;
+    try {
       await remove(invoice.id);
+    } catch (e) {
+      setToastMessage(e instanceof Error ? e.message : t("invoices.detail.actionFailed"));
     }
   }
 
@@ -293,12 +297,16 @@ export default function InvoiceListScreen() {
         onPress: () => void handleConvert(invoice),
       });
     }
-    items.push({
-      label: t("invoices.list.deleteAction"),
-      icon: Trash2,
-      destructive: true,
-      onPress: () => void handleDelete(invoice),
-    });
+    // A numbered document is cancelled with a sztornó, never removed — the
+    // server answers 409, so the menu does not offer it (canDeleteFromList).
+    if (canDeleteFromList(invoice)) {
+      items.push({
+        label: t("invoices.list.deleteAction"),
+        icon: Trash2,
+        destructive: true,
+        onPress: () => void handleDelete(invoice),
+      });
+    }
     return items;
   }
 

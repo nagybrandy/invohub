@@ -81,10 +81,17 @@ describe("InvoiceCard", () => {
     expect(directDeleteButtons).toHaveLength(0);
   });
 
-  it("deletes from the last, destructive ⋯ menu item after confirming", async () => {
+  it("offers no delete on a numbered document — a sztornó cancels it, the server would answer 409", () => {
+    const tree = renderCard({ invoice: makeInvoice({ status: "sent" }), onDelete: jest.fn(), onPreview: jest.fn() });
+    openRowMenu(tree);
+    expect(tree.root.findAllByProps({ testID: "overflow-menu-item-1" })).toHaveLength(0);
+    expect(JSON.stringify(tree.toJSON())).not.toContain("invoices.card.deleteAction");
+  });
+
+  it("deletes a draft from the last, destructive ⋯ menu item after confirming", async () => {
     mockConfirmAsync.mockResolvedValue(true);
     const onDelete = jest.fn();
-    const invoice = makeInvoice();
+    const invoice = makeInvoice({ status: "draft" });
     const tree = renderCard({ invoice, onDelete, onPreview: jest.fn() });
 
     openRowMenu(tree);
@@ -110,7 +117,7 @@ describe("InvoiceCard", () => {
   it("does not delete when the confirmation is dismissed", async () => {
     mockConfirmAsync.mockResolvedValue(false);
     const onDelete = jest.fn();
-    const tree = renderCard({ invoice: makeInvoice(), onDelete });
+    const tree = renderCard({ invoice: makeInvoice({ status: "draft" }), onDelete });
 
     openRowMenu(tree);
     const deleteItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
@@ -176,6 +183,7 @@ describe("InvoiceCard", () => {
     const tree = renderCard({
       invoice: makeInvoice({ documentType: "invoice" }),
       onDelete: jest.fn(),
+      onPreview: jest.fn(), // a draft-only delete leaves this menu empty otherwise
       onConvert,
     });
 
@@ -226,6 +234,7 @@ describe("InvoiceCard", () => {
     const tree = renderCard({
       invoice: makeInvoice({ documentType: "proforma", status: "proforma" }),
       onDelete: jest.fn(),
+      onPreview: jest.fn(), // a draft-only delete leaves this menu empty otherwise
     });
 
     openRowMenu(tree);
