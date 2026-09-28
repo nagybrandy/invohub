@@ -43,7 +43,7 @@ const SETTINGS_LINKS = [
     icon: Building2,
   },
   {
-    href: routes.settingsTemplates,
+    href: routes.emailEditor,
     labelKey: "settings.templates",
     descKey: "settings.templatesHint",
     icon: Mail,

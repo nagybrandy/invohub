@@ -313,6 +313,7 @@ const SCREENS: Array<{ label: string; loader: () => { default: React.ComponentTy
   { label: "invoice detail", loader: () => require("@/app/(app)/invoices/[id]/index") },
   { label: "invoice edit", loader: () => require("@/app/(app)/invoices/[id]/edit") },
   { label: "clients list", loader: () => require("@/app/(app)/clients/index") },
+  { label: "email editor", loader: () => require("@/app/(app)/email-editor/index") },
   { label: "new client", loader: () => require("@/app/(app)/clients/new") },
   { label: "client edit", loader: () => require("@/app/(app)/clients/[id]/edit") },
   { label: "products list", loader: () => require("@/app/(app)/products/index") },
