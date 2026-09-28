@@ -2,6 +2,7 @@
 // Server-side invoice CRUD against Neon via Drizzle.
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 import { isIssuedDocument } from "@/lib/invoices/issued";
+import { monthIssueDateRange } from "@/lib/invoices/list-query";
 import { loadLatestNavStatusByInvoice } from "@/lib/nav/latest-submission-store";
 import { navIndicatorFor } from "@/lib/nav/nav-indicator";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -83,6 +84,13 @@ export function buildInvoiceListWhere(userId: string, options: InvoiceListOption
         ilike(invoice.clientTaxNumber, pattern),
       )!,
     );
+  }
+
+  if (options.month) {
+    // one calendar month of issue dates — half-open, so "2026-09" never leaks
+    // into October
+    const { start, end } = monthIssueDateRange(options.month);
+    clauses.push(gte(invoice.issueDate, start), lt(invoice.issueDate, end));
   }
 
   if (options.needsExchangeRate) {
