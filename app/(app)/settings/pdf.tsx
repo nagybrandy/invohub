@@ -40,7 +40,7 @@ function ToggleRow({
   return (
     <HStack className="items-center justify-between">
       <Text size="sm">{label}</Text>
-      <Button
+      <Button className="min-w-11"
         size="sm"
         variant={value ? "default" : "outline"}
         onPress={() => onChange(!value)}
