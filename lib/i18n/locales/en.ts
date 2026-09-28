@@ -759,9 +759,10 @@ export default {
     pdfHint: "Layout, colors, and sample invoice PDF preview.",
     reminders: "Payment reminders",
     remindersHint: "Automatic overdue invoice reminders.",
-    darkMode: "Dark mode",
-    darkModeOn: "Currently on",
-    darkModeOff: "Currently off",
+    darkMode: "Appearance",
+    themeSystem: "Follow the system (now: {{current}})",
+    themeLight: "light",
+    themeDark: "dark",
     seedFailed: "Seed failed.",
     seedResult:
       "Loaded {{invoices}} invoices, {{clients}} clients, {{products}} products, and {{receipts}} receipts.",
