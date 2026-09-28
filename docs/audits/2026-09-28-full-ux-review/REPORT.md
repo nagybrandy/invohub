@@ -180,9 +180,18 @@ ezt a brief „jó"-nak nevezte, és teljesül.
   témaváltó**. A brief sötét módú kontrasztot kért; nem mérhető, mert sötét
   mód soha nem renderelődik. Vagy kövesse a rendszert és legyen kapcsoló, vagy
   a holt bekötést érdemes kivenni.
-- **(KÖZEPES) Az értesítési banner minden képernyőn ott ül** („NAV-beküldés
+- ~~**(KÖZEPES) Az értesítési banner minden képernyőn ott ül** („NAV-beküldés
   folyamatban +8 további értesítés"), 375 px-en 40 px-et visz el a
-  tartalomból, és a bezárása után is visszajön a következő navigációnál.
+  tartalomból, és a bezárása után is visszajön a következő navigációnál.~~
+  **Visszavonva (2026-09-28, élő újraellenőrzés):** a „visszajön” rész nem
+  áll. Bezárás után a banner app-on belüli navigációnál, ugyanabban a fülben
+  végzett `goto`-nál és újratöltésnél is rejtve marad
+  (`invohub.banner.dismissed` a `sessionStorage`-ban); csak **új fülben**
+  jelenik meg újra, mert a `sessionStorage` fülönkénti — ez böngésző-
+  szemantika, és a sweep minden képernyőt új lapon nyitott, így a mérés
+  műterméke. A 40 px-es magasság mobilon tudatos döntés
+  (`components/notifications/NotificationBanner.tsx` fejléc-kommentje);
+  nem hiba.
 - ~~**(ALACSONY, rendszerszintű) Beviteli mezők 42 px magasak mobilon**~~
   **VISSZAVONVA.** A söprés a DOM `<input>` elemet mérte, ami egy 44 px-es
   (`TAP_TARGET_H`), kerettel együtt tapintható burok *belseje* — 44 − 2 px
