@@ -252,7 +252,10 @@ that" items wait. Build in this order (each maps to an unchecked item below):
 
 **Found 2026-09-22 while shipping the PDF redesign + full v1 API — take the
 first one next, ahead of everything below:**
-- [ ] **A finalized invoice can be deleted through the internal API.**
+- [x] **A finalized invoice can be deleted through the internal API.**
+  Done in two halves: the server refuses non-drafts with 409 (`b0f6062`);
+  the list stopped offering "Törlés" on numbered rows and reports a
+  failed delete (PR #64, 2026-09-28).
   `app/api/invoices/[id]+api.ts`'s DELETE calls `deleteInvoiceById`
   (lib/invoices/service.ts), which has no status guard — the UI hides the
   button on finalized documents, but any signed-in session can DELETE a
@@ -274,12 +277,6 @@ first one next, ahead of everything below:**
   in-memory counter per serverless instance, not a global limit per API
   key — acceptable as a baseline, but a shared store is needed before
   the limit is relied on.
-- [ ] The HTML preview (`lib/invoices/preview-html.ts`) does not yet have
-  the PDF's 2026-09-22 content fixes: per-document-type title is already
-  there, but the buyer address, the per-rate ÁFA-összesítő and the
-  payment-details box are PDF-only. Bring the preview to parity (the
-  owner approved the new PDF look).
-
 **New owner feedback (2026-09-16) — take this next, ahead of everything
 below** — owner: "a pdf sokkal rosszabbul néz ki mint a html számla, javítsd,
 és legyen ott a rendes invohubos logó" (the PDF looks much worse than the
@@ -1305,20 +1302,6 @@ Remaining for the launch gate:
       Same item as priority #2 above. Plan:
       `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
       See priority #2's note above for implementation status (2026-09-15).
-- [ ] Invoice PDFs cannot render `ő` and `ű` — `lib/invoices/pdf-document.ts`
-      uses pdfkit's standard Helvetica (WinAnsi/cp1252), which has no glyph
-      for U+0151 / U+0171; pdfkit emits them as raw two-byte codes, so a
-      partner named "Kőfaragó Kft." or a line "Tetőfelújítás" is already
-      garbage in every PDF the app emails today (verified against the repo's
-      own pdfkit, 2026-09-15). The preview/branding slice above only adds an
-      interim `toWinAnsiSafe()` transliteration (ő→ö, ű→ü) so the text is at
-      least legible. The real fix: embed a Latin-Extended-A TTF (regular +
-      bold, licence checked — no embeddable font exists in the repo or in
-      `node_modules` today), load it in `createPdfDocument`, and extend
-      `assets/pdfkit-data` + `scripts/prepare-server-pdf-deps.mjs` +
-      `vercel.json` `includeFiles` + `scripts/verify-pdf-vendor.mjs` so it
-      survives the Vercel bundle; then delete the transliteration and its
-      test. (2026-09-15 planning, feature)
 - [ ] Ranade weight 500 is defined (`global.css`, `@font-face`,
       `public/fonts/ranade-500.woff2`) but never actually requested by any
       heading — every `font-heading` usage is paired with
