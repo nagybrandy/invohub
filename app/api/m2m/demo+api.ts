@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   if (!session) return unauthorizedResponse();
 
   if (isM2mConfigured() && productionRefused()) {
-    return jsonResponse({ error: "A NAV M2M éles környezet ezen a szerveren nem engedélyezett." }, 403);
+    return jsonResponse({ error: "The NAV M2M production environment is not enabled on this server." }, 403);
   }
 
   const url = new URL(request.url);

@@ -71,7 +71,8 @@ async function runCheck(company: Company) {
     return jsonResponse({
       ok: true,
       mode,
-      message: "A demó NAV szimulátor elérhető — nincs szükség NAV-fiókra.",
+      code: "demoAvailable",
+      message: "The demo NAV simulator is available — no NAV account needed.",
     });
   }
 
@@ -82,19 +83,28 @@ async function runCheck(company: Company) {
       ok: true,
       mode,
       source: credentials.source,
+      code:
+        credentials.source === "shared"
+          ? "sharedTestAccountConnected"
+          : mode === "production"
+            ? "productionConnected"
+            : "testConnected",
       message:
         credentials.source === "shared"
-          ? "Sikeres kapcsolat a közös InvoHub NAV teszt fiókkal."
+          ? "Connected to the shared InvoHub NAV test account."
           : mode === "production"
-            ? "Sikeres kapcsolat az éles NAV környezettel."
-            : "Sikeres kapcsolat a NAV teszt környezettel.",
+            ? "Connected to the NAV production environment."
+            : "Connected to the NAV test environment.",
       exchangeTokenPreview: `${result.exchangeToken.slice(0, 6)}…`,
     });
   } catch (error) {
     if (error instanceof NavCredentialsMissingError) {
-      return jsonResponse({ ok: false, mode, error: error.message }, 400);
+      return jsonResponse({ ok: false, mode, code: "credentialsMissing", error: error.message }, 400);
     }
-    return jsonResponse({ ok: false, mode, error: safeErrorMessage(error, "NAV kapcsolat teszt sikertelen.") }, 502);
+    return jsonResponse(
+      { ok: false, mode, code: "checkFailed", error: safeErrorMessage(error, "NAV connection test failed.") },
+      502
+    );
   }
 }
 

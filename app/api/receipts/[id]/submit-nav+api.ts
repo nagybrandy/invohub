@@ -34,7 +34,7 @@ export async function POST(
     if (!receiptRecord) return jsonResponse({ error: "Not found" }, 404);
 
     if (receiptRecord.navSubmitted) {
-      return jsonResponse({ error: "Already submitted to NAV." }, 400);
+      return jsonResponse({ error: "Already submitted to NAV.", code: "receiptAlreadySubmitted" }, 400);
     }
 
     const comp = await getCompanyByUserId(session.user.id);
@@ -55,7 +55,7 @@ export async function POST(
       );
     }
     if (navMode === "production" && !isNavProductionEnabled()) {
-      return jsonResponse({ error: "Az éles NAV környezet jelenleg nincs engedélyezve ezen a szerveren." }, 400);
+      return jsonResponse({ error: "The NAV production environment is not enabled on this server." }, 400);
     }
 
     // Stored secrets are sealed (lib/nav/credentials.ts); open them only now,

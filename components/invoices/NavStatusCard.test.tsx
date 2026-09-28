@@ -2,7 +2,7 @@
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { NavStatusCard } from "@/components/invoices/NavStatusCard";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? key }),
@@ -10,6 +10,9 @@ jest.mock("react-i18next", () => ({
 
 jest.mock("@/lib/api/client", () => ({
   apiFetch: jest.fn(),
+  // Keep the real class so `e instanceof ApiError` in the component still
+  // holds for an error built with THIS module's export.
+  ApiError: jest.requireActual("@/lib/api/client").ApiError,
 }));
 
 jest.mock("@/components/ui/badge", () => require("@/__tests__/mocks/gluestack-ui"));
@@ -207,5 +210,56 @@ describe("NavStatusCard", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe("NavStatusCard — server errors are translated, not echoed", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows the translated message for the error code, not the server's own string", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ submissions: [] })
+      .mockRejectedValueOnce(
+        new ApiError("A draft cannot be submitted to NAV — finalize the invoice first.", 409, "draftNotSubmittable")
+      )
+      .mockResolvedValue({ submissions: [] });
+
+    const tree = await render();
+    const submit = tree.root.findAllByProps({ testID: "nav-status-submit" })[0];
+    await act(async () => {
+      await submit.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    const texts = tree.root
+      .findAll((n) => typeof n.props?.children === "string")
+      .map((n) => n.props.children as string);
+
+    expect(texts).toContain("invoices.nav.draftNotSubmittable");
+    // the raw English server string must never reach the user
+    expect(texts.join(" ")).not.toContain("finalize the invoice first");
+  });
+
+  it("falls back to the generic key when the server sends a code this build doesn't know", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({ submissions: [] })
+      .mockRejectedValueOnce(new ApiError("Something new", 500, "aCodeFromTheFuture"))
+      .mockResolvedValue({ submissions: [] });
+
+    const tree = await render();
+    const submit = tree.root.findAllByProps({ testID: "nav-status-submit" })[0];
+    await act(async () => {
+      await submit.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    const texts = tree.root
+      .findAll((n) => typeof n.props?.children === "string")
+      .map((n) => n.props.children as string);
+
+    expect(texts).toContain("invoices.nav.submitFailed");
+    expect(texts.join(" ")).not.toContain("Something new");
   });
 });

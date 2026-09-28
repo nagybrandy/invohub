@@ -15,8 +15,8 @@ import { serializeNavSubmission } from "@/lib/nav/serialize-submission";
 import { submitOutgoingInvoiceToNav } from "@/lib/nav/submit-outgoing";
 
 const REJECTION_MESSAGES: Record<string, string> = {
-  draftNotSubmittable: "Piszkozat nem küldhető be a NAV-nak — előbb véglegesítsd a számlát.",
-  proformaNotSubmittable: "Díjbekérő nem számla, ezért nem küldhető be a NAV-nak.",
+  draftNotSubmittable: "A draft cannot be submitted to NAV — finalize the invoice first.",
+  proformaNotSubmittable: "A proforma is not an invoice, so it cannot be submitted to NAV.",
   missingExchangeRate: "NAV submission is not possible: the invoice has no HUF exchange rate.",
 };
 

@@ -28,7 +28,7 @@ export async function POST(
       if (result.reason === "proforma") {
         return {
           status: 400,
-          body: { error: "A díjbekérő nem sztornózható.", code: "proformaNotStornoable" },
+          body: { error: "A proforma cannot be cancelled (storno).", code: "proformaNotStornoable" },
         };
       }
       return { status: 400, body: { error: "Invoice is already cancelled." } };

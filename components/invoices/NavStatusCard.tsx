@@ -13,7 +13,8 @@ import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
+import { navResultI18nKey } from "@/lib/nav/nav-error-i18n";
 
 type NavSubmissionRow = {
   id: string;
@@ -120,7 +121,10 @@ export function NavStatusCard({
         body: JSON.stringify({ invoiceId }),
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("invoices.nav.submitFailed"));
+      // The route answers with a machine-readable `code`; its English
+      // `error` string is for logs and the public API, never for this card —
+      // it can't follow the user's language (lib/nav/nav-error-i18n.ts).
+      setError(t(navResultI18nKey(e instanceof ApiError ? e.code : undefined)));
     } finally {
       // A failed submit is recorded server-side (status "error") — reload
       // either way so the card shows it and offers "Újrapróbálás".
