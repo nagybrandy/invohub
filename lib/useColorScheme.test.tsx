@@ -18,6 +18,7 @@ jest.mock("@/lib/theme/system-scheme", () => ({
 }));
 
 import { loadThemePreference, saveThemePreference } from "@/lib/theme-preference";
+import { resetThemePreferenceStoreForTests } from "@/lib/theme/preference-store";
 
 import { useColorScheme } from "@/lib/useColorScheme";
 
@@ -39,6 +40,7 @@ async function renderHook() {
 
 beforeEach(() => {
   (globalThis as { __clearAsyncStorage?: () => void }).__clearAsyncStorage?.();
+  resetThemePreferenceStoreForTests();
   mockNativewind.setColorScheme.mockClear();
   mockNativewind.colorScheme = "light";
   mockPlatform.os = "web";
@@ -86,6 +88,17 @@ describe("useColorScheme on web — the OS decides unless the user chose otherwi
     // back on "system" under a dark OS: dark again, and still never the word "system"
     expect(ref.current!.colorScheme).toBe("dark");
     expect(mockNativewind.setColorScheme).not.toHaveBeenCalledWith("system");
+  });
+});
+
+describe("useColorScheme — one preference for every caller", () => {
+  it("a change made through one hook instance is seen by another (layout vs Settings)", async () => {
+    const layout = await renderHook();
+    const settings = await renderHook();
+    await act(async () => { await settings.ref.current!.cycleTheme(); });
+    expect(settings.ref.current!.preference).toBe("light");
+    expect(layout.ref.current!.preference).toBe("light");
+    expect(layout.ref.current!.colorScheme).toBe("light");
   });
 });
 
