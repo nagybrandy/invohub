@@ -157,6 +157,7 @@ import {
   findLiveConversionsForProformas,
   listInvoicesInDateRange,
   markInvoicePaid,
+  getInvoiceStats,
 } from "@/lib/invoices/service";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
@@ -879,5 +880,41 @@ describe("createModificationDraft — difference lines", () => {
       quantity: String(original.quantity),
       sortOrder: 1,
     });
+  });
+});
+
+describe("getInvoiceStats — 'E hónapban kiállítva' means issued, not everything dated this month", () => {
+  it("leaves drafts and díjbekérők out of the month's count and total", async () => {
+    const month = new Date().toISOString().slice(0, 7);
+    const row = (id: string, status: string, documentType = "invoice") => ({
+      id,
+      userId: "user-1",
+      status,
+      documentType,
+      issueDate: `${month}-05`,
+      invoiceNumber: status === "draft" ? "" : `INV-${id}`,
+      currency: "HUF",
+    });
+    const item = (invoiceId: string, unitPrice: number) => ({
+      id: `li-${invoiceId}`,
+      invoiceId,
+      description: "x",
+      quantity: 1,
+      unitPrice,
+      vatRate: 27,
+      vatCategory: "normal",
+    });
+
+    mockSelectQueue = [
+      [{ value: 3 }], // countInvoices
+      [row("issued", "unpaid"), row("draft", "draft"), row("dijbekero", "proforma", "proforma")], // month scan
+      [item("issued", 100_000), item("draft", 900_000), item("dijbekero", 900_000)], // line items
+    ];
+
+    const stats = await getInvoiceStats("user-1");
+
+    expect(stats.count).toBe(3);
+    expect(stats.thisMonthCount).toBe(1);
+    expect(stats.monthlyTotal).toBe(127_000);
   });
 });

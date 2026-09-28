@@ -4,6 +4,7 @@
 // getDashboardSummaryFromDb aggregates over EVERY invoice via SQL so the
 // numbers are correct at scale instead of only reflecting the first page.
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { isIssuedDocument } from "@/lib/invoices/issued";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
@@ -52,8 +53,7 @@ export function isInSameQuarter(iso: string | undefined | null, now: Date): bool
  * the original would subtract the same amount twice.
  */
 export function countsTowardIssuedVat(invoice: Invoice): boolean {
-  if (invoice.status === "draft" || invoice.status === "proforma") return false;
-  return invoice.documentType !== "proforma";
+  return isIssuedDocument(invoice);
 }
 
 function daysBetween(dueDate: string, now: Date): number {
