@@ -198,6 +198,7 @@ export default {
     },
     list: {
       emptyDescription: "Create your first NAV-ready invoice or load demo data from Settings.",
+      emptyDescriptionNoDemo: "Create your first NAV-ready invoice.",
       total: "Total invoices",
       thisMonth: "Issued this month",
       monthlyTotal: "Issued total this month",
