@@ -32,6 +32,7 @@ import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useRouteParam } from "@/lib/routing/route-param";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { isDevSeedButtonVisible } from "@/lib/dev/seed-visible";
 
 // Same code→i18n mapping as the detail screen (app/(app)/invoices/[id]/index.tsx)
 // — the convert route's 400 bodies only carry a `code`, not a translated
@@ -314,7 +315,7 @@ export default function InvoiceListScreen() {
     <StateView
       kind="empty"
       title={t("invoices.empty")}
-      description={t("invoices.list.emptyDescription")}
+      description={t(isDevSeedButtonVisible() ? "invoices.list.emptyDescription" : "invoices.list.emptyDescriptionNoDemo")}
       action={
         <Button onPress={() => router.push(routes.newInvoice)}>
           <ButtonText>{t("nav.newInvoice")}</ButtonText>

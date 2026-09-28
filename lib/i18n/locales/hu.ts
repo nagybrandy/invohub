@@ -199,6 +199,7 @@ export default {
     list: {
       emptyDescription:
         "Állítsd ki első NAV-kompatibilis számládat, vagy tölts be demo adatokat a Beállításokból.",
+      emptyDescriptionNoDemo: "Állítsd ki első NAV-kompatibilis számládat.",
       total: "Összes számla",
       thisMonth: "E hónapban kiállítva",
       monthlyTotal: "E havi kiállított összeg",

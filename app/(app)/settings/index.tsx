@@ -33,6 +33,7 @@ import { routes } from "@/lib/navigation";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { canAccessAdminPanel } from "@/lib/user-roles";
+import { isDevSeedButtonVisible } from "@/lib/dev/seed-visible";
 
 const SETTINGS_LINKS = [
   {
@@ -76,7 +77,7 @@ export default function SettingsScreen() {
   const isAdmin = canAccessAdminPanel(userRole);
   // The demo-seed route is a dev/demo-only tool (server-gated in lib/dev/seed-guard.ts);
   // only show the button when the deploy explicitly opts in.
-  const seedEnabled = process.env.EXPO_PUBLIC_ALLOW_DEV_SEED === "true";
+  const seedEnabled = isDevSeedButtonVisible();
   const [seeding, setSeeding] = React.useState(false);
   const [seedMessage, setSeedMessage] = React.useState<string | null>(null);
 
