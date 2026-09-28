@@ -228,6 +228,12 @@ export default {
       duplicateAction: "Duplicate",
       deleteAction: "Delete",
       searchPlaceholder: "Search by partner, invoice number, or tax ID",
+      monthAll: "All months",
+      monthCurrent: "This month",
+      monthPrev: "Previous month",
+      monthNext: "Next month",
+      loadMore: "Load more",
+      showingOf: "{{shown}} / {{total}} invoices",
     },
     exchangeRateFix: {
       banner:

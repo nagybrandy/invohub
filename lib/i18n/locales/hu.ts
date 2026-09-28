@@ -229,6 +229,12 @@ export default {
       duplicateAction: "Másolás",
       deleteAction: "Törlés",
       searchPlaceholder: "Keresés partner, számlaszám vagy adószám alapján",
+      monthAll: "Összes hónap",
+      monthCurrent: "Ez a hónap",
+      monthPrev: "Előző hónap",
+      monthNext: "Következő hónap",
+      loadMore: "Több betöltése",
+      showingOf: "{{shown}} / {{total}} számla",
     },
     exchangeRateFix: {
       banner:

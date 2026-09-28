@@ -14,6 +14,7 @@ import { VStack } from "@/components/ui/vstack";
 import { ExchangeRateFixBanner } from "@/components/invoices/ExchangeRateFixBanner";
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { InvoiceFilterChips, isKnownInvoiceFilter } from "@/components/invoices/InvoiceFilterChips";
+import { InvoiceMonthStepper } from "@/components/invoices/InvoiceMonthStepper";
 import { InvoiceListTable, type InvoiceListSort, type InvoiceSortKey } from "@/components/invoices/InvoiceListTable";
 import { InvoicePreviewModal } from "@/components/invoices/InvoicePreviewModal";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -51,6 +52,7 @@ export default function InvoiceListScreen() {
   const [search, setSearch] = React.useState("");
   const [sort, setSort] = React.useState<InvoiceListSort>({ key: "issued", direction: "desc" });
   const [needsExchangeRate, setNeedsExchangeRate] = React.useState(false);
+  const [month, setMonth] = React.useState<string | undefined>(undefined);
   const {
     invoices,
     loading,
@@ -58,11 +60,15 @@ export default function InvoiceListScreen() {
     total,
     refresh,
     remove,
+    hasMore,
+    loadMore,
+    loadingMore,
     convertedProformaIds = {},
   } = useInvoices({
     status: filter,
     search,
     needsExchangeRate,
+    month,
   });
   const { counts, allCount, other: otherCount } = useInvoiceStatusCounts();
   const { count: missingExchangeRateCount } = useMissingExchangeRateCount();
@@ -283,8 +289,24 @@ export default function InvoiceListScreen() {
         otherCount={otherCount}
         t={t}
       />
+      <InvoiceMonthStepper month={month} onChange={setMonth} />
     </VStack>
   );
+
+  // Below whichever list rendered: how far the page reaches, and a way on.
+  const loadMoreFooter =
+    !loading && invoices.length > 0 ? (
+      <HStack space="md" className="items-center justify-center py-3" testID="invoice-list-footer">
+        <Text size="sm" className="text-muted-foreground">
+          {t("invoices.list.showingOf", { shown: invoices.length, total })}
+        </Text>
+        {hasMore ? (
+          <Button size="sm" variant="outline" onPress={() => void loadMore()} disabled={loadingMore} testID="invoice-list-load-more">
+            <ButtonText>{t("invoices.list.loadMore")}</ButtonText>
+          </Button>
+        ) : null}
+      </HStack>
+    ) : null;
 
   const emptyState = needsExchangeRate ? (
     <StateView kind="empty" title={t("invoices.exchangeRateFix.emptyAffected")} />
@@ -334,6 +356,7 @@ export default function InvoiceListScreen() {
           ))}
         </VStack>
       )}
+      {loadMoreFooter}
       <InvoicePreviewModal
         invoice={previewInvoice}
         open={previewInvoice !== null}

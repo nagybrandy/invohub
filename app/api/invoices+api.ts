@@ -60,6 +60,7 @@ export async function GET(request: Request) {
     status: url.searchParams.get("status"),
     search: url.searchParams.get("search"),
     needsExchangeRate: url.searchParams.get("needsExchangeRate"),
+    month: url.searchParams.get("month"),
   });
 
   const [listResult, stats] = await Promise.all([
