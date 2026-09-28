@@ -183,9 +183,11 @@ ezt a brief „jó"-nak nevezte, és teljesül.
 - **(KÖZEPES) Az értesítési banner minden képernyőn ott ül** („NAV-beküldés
   folyamatban +8 további értesítés"), 375 px-en 40 px-et visz el a
   tartalomból, és a bezárása után is visszajön a következő navigációnál.
-- **(ALACSONY, rendszerszintű) Beviteli mezők 42 px magasak mobilon** —
-  minden űrlapon (`Input Field 317×42`), 2 px-szel a 44-es padló alatt. Egy
-  helyen, a `components/ui/input`-ban javítható az összes.
+- ~~**(ALACSONY, rendszerszintű) Beviteli mezők 42 px magasak mobilon**~~
+  **VISSZAVONVA.** A söprés a DOM `<input>` elemet mérte, ami egy 44 px-es
+  (`TAP_TARGET_H`), kerettel együtt tapintható burok *belseje* — 44 − 2 px
+  keret = 42. Az érintőfelület a burok (`components/ui/input/index.tsx:45`),
+  és az már a padlón van. Rossz elemet mértem; nem hiba.
 - (ALACSONY) „Következő lépések" sorai 301×42; a PDF-beállítás „Be" felirat
   39×44.
 - A „Továbbiak" lap: 14 elem, **egyik sem 44 px alatt** ✓.

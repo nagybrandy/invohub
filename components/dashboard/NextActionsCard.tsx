@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Section } from "@/components/layout/Section";
@@ -94,7 +95,7 @@ export function NextActionsCard({
               testID={`next-action-row-${row.key}`}
               onPress={() => onSelect(row.status)}
               accessibilityRole="button"
-              className="flex-row items-center justify-between rounded-lg border border-subtle px-3 py-2.5 data-[hover=true]:bg-muted/40"
+              className={`flex-row items-center justify-between rounded-lg border border-subtle px-3 py-2.5 data-[hover=true]:bg-muted/40 ${TAP_TARGET_MIN_H}`}
             >
               <Text size="sm" className="flex-1 text-foreground">
                 {row.label}
