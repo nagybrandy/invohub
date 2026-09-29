@@ -27,11 +27,16 @@ import { isCompanyProfileComplete } from "@/lib/companies/completeness";
 import type { PublicCompany } from "@/lib/companies/public-company";
 import { routes } from "@/lib/navigation";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/user-roles";
+import { useHydrated } from "@/lib/useHydrated";
 
 export default function Login() {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 900;
+  // Viewport-dependent markup only after hydration: the server renders with
+  // width 0 (the mobile layout), and a desktop client must start from the
+  // same HTML or React discards the pre-rendered page (error #418).
+  const hydrated = useHydrated();
+  const isDesktop = hydrated && width >= 900;
   const [mode, setMode] = React.useState<"signin" | "signup">("signin");
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
