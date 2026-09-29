@@ -1,5 +1,5 @@
 // lib/receipts/service.ts
-import { and, between, desc, eq } from "drizzle-orm";
+import { and, between, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { receipt, receiptLineItem } from "@/db/schema";
 import { getCompanyByUserId } from "@/lib/companies/service";
@@ -129,11 +129,7 @@ export async function listReceipts(userId: string): Promise<ReceiptRecord[]> {
       ? await db
           .select()
           .from(receiptLineItem)
-          .where(
-            receiptIds.length === 1
-              ? eq(receiptLineItem.receiptId, receiptIds[0])
-              : eq(receiptLineItem.receiptId, receiptIds[0])
-          )
+          .where(inArray(receiptLineItem.receiptId, receiptIds))
       : [];
 
   const itemsByReceipt = new Map<string, (typeof receiptLineItem.$inferSelect)[]>();
