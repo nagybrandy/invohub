@@ -7,6 +7,15 @@ jest.mock("@/db", () => ({
   },
 }));
 
+// Condition builders return inspectable descriptors so the mocked `where`
+// can filter rows the way Postgres would (see the listReceipts tests).
+jest.mock("drizzle-orm", () => ({
+  ...jest.requireActual("drizzle-orm"),
+  eq: jest.fn((_col: unknown, value: unknown) => ({ op: "eq", value })),
+  inArray: jest.fn((_col: unknown, values: unknown[]) => ({ op: "inArray", values })),
+  and: jest.fn((...conditions: unknown[]) => ({ op: "and", conditions })),
+}));
+
 jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn(),
 }));
@@ -29,6 +38,7 @@ import {
   getDailyVatAggregation,
   getPublicReceiptByToken,
   getVatAggregationForRange,
+  listReceipts,
   markReceiptsSubmittedForRange,
   validateReceiptInput,
 } from "@/lib/receipts/service";
@@ -341,5 +351,89 @@ describe("markReceiptsSubmittedForRange", () => {
       expect.objectContaining({ navSubmitted: true })
     );
     expect(whereMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("listReceipts", () => {
+  type Condition = { op: string; value?: unknown; values?: unknown[] };
+
+  function matchesReceiptId(receiptId: string, cond: Condition): boolean {
+    if (cond.op === "eq") return cond.value === receiptId;
+    if (cond.op === "inArray") return cond.values!.includes(receiptId);
+    throw new Error(`Unexpected condition ${cond.op}`);
+  }
+
+  function receiptRow(id: string, receiptNumber: string) {
+    return {
+      id,
+      userId: "u1",
+      receiptNumber,
+      clientName: null,
+      totalAmount: "1000",
+      currency: "HUF",
+      paymentMethod: "cash",
+      navSubmitted: false,
+      qrToken: `qr-${id}`,
+      issuedAt: new Date("2026-07-04T10:00:00.000Z"),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  function lineItemRow(id: string, receiptId: string, sortOrder: number) {
+    return {
+      id,
+      receiptId,
+      description: `Item ${id}`,
+      quantity: "1",
+      unitPrice: "1000",
+      vatRate: 27,
+      unit: "db",
+      sortOrder,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("loads and groups line items for every receipt, not just the first", async () => {
+    const receipts = [
+      receiptRow("r1", "NYG-2026-003"),
+      receiptRow("r2", "NYG-2026-002"),
+      receiptRow("r3", "NYG-2026-001"),
+    ];
+    const lineItems = [
+      lineItemRow("li1", "r1", 0),
+      lineItemRow("li2", "r2", 0),
+      lineItemRow("li3", "r2", 1),
+      lineItemRow("li4", "r3", 0),
+      lineItemRow("other", "someone-elses-receipt", 0),
+    ];
+
+    mockDb.select.mockReturnValueOnce(selectChain(receipts)).mockReturnValueOnce({
+      from: jest.fn(() => ({
+        where: jest.fn((cond: Condition) =>
+          Promise.resolve(lineItems.filter((li) => matchesReceiptId(li.receiptId, cond))),
+        ),
+      })),
+    });
+
+    const result = await listReceipts("u1");
+
+    expect(result.map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
+    expect(result[0].lineItems.map((li) => li.id)).toEqual(["li1"]);
+    expect(result[1].lineItems.map((li) => li.id)).toEqual(["li2", "li3"]);
+    expect(result[2].lineItems.map((li) => li.id)).toEqual(["li4"]);
+    expect(mockDb.select).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the line item query when the user has no receipts", async () => {
+    mockDb.select.mockReturnValueOnce(selectChain([]));
+
+    expect(await listReceipts("u1")).toEqual([]);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
 });
