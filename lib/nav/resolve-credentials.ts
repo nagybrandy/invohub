@@ -5,6 +5,7 @@
 // owner) when the company hasn't entered its own. Demo mode never needs
 // real credentials — callers should branch on mode before calling this.
 import type { Company } from "@/lib/companies/service";
+import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import { isNavProductionEnabled, type NavEnvironment } from "@/lib/nav/environment";
 
 export type NavRealCredentials = {
@@ -59,21 +60,44 @@ function sharedTestCredentials(): NavRealCredentials {
   const taxNumber = normalizeTaxNumber(process.env.NAV_TEST_TAX_NUMBER);
   if (!login || !password || !signKey || !exchangeKey || !taxNumber) {
     throw new NavCredentialsMissingError(
-      "A közös InvoHub NAV teszt fiók nincs beállítva a szerveren (NAV_TEST_* környezeti változók)."
+      "The shared InvoHub NAV test account is not configured on this server (NAV_TEST_* environment variables)."
     );
   }
   return { login, password, signKey, exchangeKey, taxNumber, environment: "test", source: "shared" };
 }
 
+/**
+ * Opens the sealed NAV secrets stored on the company. This is the one place
+ * (besides the receipt submit path) where they exist as plaintext, and only
+ * for the lifetime of the NAV request being built. Any decryption failure
+ * (missing/rotated key, tampering) becomes a user-facing
+ * NavCredentialsMissingError whose message never contains the stored value.
+ */
+export function openCompanyNavSecrets(company: Pick<Company, "navTechnicalPassword" | "navXmlSignKey" | "navXmlChangeKey">): {
+  password: string | undefined;
+  signKey: string | undefined;
+  exchangeKey: string | undefined;
+} {
+  try {
+    return {
+      password: decryptNavSecretOrPassthrough(company.navTechnicalPassword),
+      signKey: decryptNavSecretOrPassthrough(company.navXmlSignKey),
+      exchangeKey: decryptNavSecretOrPassthrough(company.navXmlChangeKey),
+    };
+  } catch {
+    throw new NavCredentialsMissingError(
+      "The stored NAV technical user secrets cannot be read (the server encryption key changed or is missing). Re-enter the password, signing key and exchange key under Settings > Company data > NAV."
+    );
+  }
+}
+
 function ownCredentials(company: Company, environment: "test" | "production"): NavRealCredentials {
   const login = company.navTechnicalUser;
-  const password = company.navTechnicalPassword;
-  const signKey = company.navXmlSignKey;
-  const exchangeKey = company.navXmlChangeKey;
+  const { password, signKey, exchangeKey } = openCompanyNavSecrets(company);
   const taxNumber = normalizeTaxNumber(company.taxNumber);
   if (!login || !password || !signKey || !exchangeKey || !taxNumber) {
     throw new NavCredentialsMissingError(
-      "Hiányzó NAV technikai felhasználó adatok. Töltse ki a Beállítások > Cégadatok NAV szekcióban (technikai felhasználó, jelszó, aláíró kulcs, cserekulcs, adószám)."
+      "NAV technical user details are missing. Fill them in under Settings > Company data > NAV (technical user, password, signing key, exchange key, tax number)."
     );
   }
   return { login, password, signKey, exchangeKey, taxNumber, environment, source: "own" };
@@ -89,12 +113,12 @@ export function resolveNavCredentials(company: Company | null): NavRealCredentia
   const mode: NavEnvironment = company?.navEnvironment ?? "demo";
 
   if (mode === "demo") {
-    throw new NavCredentialsMissingError("Demó módban nincs szükség valódi NAV hitelesítő adatokra.");
+    throw new NavCredentialsMissingError("Demo mode needs no real NAV credentials.");
   }
 
   if (mode === "production") {
     if (!isNavProductionEnabled()) {
-      throw new NavCredentialsMissingError("Az éles NAV környezet jelenleg nincs engedélyezve ezen a szerveren.");
+      throw new NavCredentialsMissingError("The NAV production environment is not enabled on this server.");
     }
     if (!company || !hasOwnNavCredentials(company)) {
       throw new NavCredentialsMissingError(

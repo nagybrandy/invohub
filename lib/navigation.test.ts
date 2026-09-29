@@ -54,3 +54,12 @@ describe("routes", () => {
     expect(routes.newReceipt).toBe("/receipts/new");
   });
 });
+
+describe("routes.invoicesForClient", () => {
+  it("opens the invoice list pre-searched for the partner's name", () => {
+    expect(routes.invoicesForClient("Fresh Market Kft.")).toEqual({
+      pathname: "/invoices",
+      params: { search: "Fresh Market Kft." },
+    });
+  });
+});

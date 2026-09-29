@@ -6,6 +6,7 @@ import {
   resolveNavCredentials,
 } from "@/lib/nav/resolve-credentials";
 import type { Company } from "@/lib/companies/service";
+import { encryptNavSecret } from "@/lib/nav/credentials";
 
 const ENV_KEYS = [
   "NAV_TEST_LOGIN",
@@ -14,6 +15,9 @@ const ENV_KEYS = [
   "NAV_TEST_CHANGE_KEY",
   "NAV_TEST_TAX_NUMBER",
   "NAV_PRODUCTION_ENABLED",
+  "NAV_CREDENTIALS_KEY",
+  "NAV_CREDENTIALS_KEY_ID",
+  "NAV_CREDENTIALS_PREVIOUS_KEYS",
 ] as const;
 
 function baseCompany(overrides: Partial<Company> = {}): Company {
@@ -121,5 +125,45 @@ describe("resolveNavCredentials", () => {
 
     const company = baseCompany({ navEnvironment: "production" });
     expect(() => resolveNavCredentials(company)).toThrow(NavCredentialsMissingError);
+  });
+
+  it("decrypts sealed (encrypted) own credentials only at resolve time", () => {
+    process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 5).toString("base64");
+    const company = baseCompany({
+      navTechnicalUser: "own-login",
+      navTechnicalPassword: encryptNavSecret("own-pass"),
+      navXmlSignKey: encryptNavSecret("own-sign"),
+      navXmlChangeKey: encryptNavSecret("1234567890ABCDEF"),
+    });
+
+    const creds = resolveNavCredentials(company);
+    expect(creds).toMatchObject({
+      password: "own-pass",
+      signKey: "own-sign",
+      exchangeKey: "1234567890ABCDEF",
+      source: "own",
+    });
+  });
+
+  it("turns an undecryptable stored secret into a user-facing NavCredentialsMissingError without leaking it", () => {
+    process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 5).toString("base64");
+    const sealed = encryptNavSecret("own-pass");
+    process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 6).toString("base64"); // key changed, old one not kept
+    const company = baseCompany({
+      navTechnicalUser: "own-login",
+      navTechnicalPassword: sealed,
+      navXmlSignKey: sealed,
+      navXmlChangeKey: sealed,
+    });
+
+    let caught: unknown;
+    try {
+      resolveNavCredentials(company);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(NavCredentialsMissingError);
+    expect((caught as Error).message).not.toContain(sealed);
+    expect((caught as Error).message).toMatch(/NAV/);
   });
 });

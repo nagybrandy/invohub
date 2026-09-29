@@ -63,3 +63,11 @@ describe("NextActionsCard", () => {
     expect(() => tree.root.findByProps({ testID: "next-actions-all-clear" })).toThrow();
   });
 });
+
+describe("NextActionsCard — rows are real tap targets", () => {
+  it("meets the 44px floor (rows measured 301×42 on a phone)", () => {
+    const tree = renderCard({ overdueCount: 1, draftCount: 0, onSelect: jest.fn() });
+    const row = tree.root.findAllByProps({ testID: "next-action-row-overdue" })[0];
+    expect(String(row.props.className)).toMatch(/min-h-11/);
+  });
+});

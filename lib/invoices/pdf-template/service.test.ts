@@ -64,8 +64,7 @@ describe("getPdfTemplate", () => {
   });
 
   it("normalizes a malformed/malicious accentColor read back from the DB", async () => {
-    // The render path (preview-html.ts) interpolates accentColor straight
-    // into a <style> block — its safety must not depend on every row in
+    // accentColor reaches the renderer verbatim — its safety must not depend on every row in
     // the DB already being a strict #rrggbb value (a legacy row, or a
     // direct DB edit). getPdfTemplate must sanitize on the way out, not
     // just upsertPdfTemplate on the way in.

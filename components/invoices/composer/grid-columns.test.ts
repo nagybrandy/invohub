@@ -57,9 +57,31 @@ describe("composerFormColumnWidth", () => {
     expect(composerFormColumnWidth({ viewportWidth: 1188, sidebarWidth: 248, summaryWidth: 0 })).toBe(860);
   });
 
-  it("no longer fits below ~1188px — the overflow-x-auto fallback stays for those widths", () => {
+  it("no longer fits below ~1188px — StepLineItems switches to compact cards there (responsive-line-item-grid)", () => {
     const width = composerFormColumnWidth({ viewportWidth: 1024, sidebarWidth: 248, summaryWidth: 0 });
     expect(width).toBe(696);
     expect(width).toBeLessThan(composerGridMinWidth());
+  });
+});
+
+describe("lineItemLayoutForWidth (responsive-line-item-grid)", () => {
+  const { lineItemLayoutForWidth } = require("@/components/invoices/composer/grid-columns");
+
+  it("falls back to compact cards until the container has been measured", () => {
+    expect(lineItemLayoutForWidth(null)).toBe("card");
+    expect(lineItemLayoutForWidth(0)).toBe("card");
+  });
+
+  it("uses cards whenever the measured form column is narrower than the full grid", () => {
+    expect(lineItemLayoutForWidth(320)).toBe("card");
+    expect(lineItemLayoutForWidth(375)).toBe("card");
+    // 1440px laptop, sidebar open + live PDF side preview: ~620px form column.
+    expect(lineItemLayoutForWidth(620)).toBe("card");
+    expect(lineItemLayoutForWidth(composerGridMinWidth() - 1)).toBe("card");
+  });
+
+  it("keeps the single-row grid once the container fits the full grid width", () => {
+    expect(lineItemLayoutForWidth(composerGridMinWidth())).toBe("grid");
+    expect(lineItemLayoutForWidth(1000)).toBe("grid");
   });
 });

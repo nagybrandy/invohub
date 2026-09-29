@@ -2,7 +2,7 @@
 // Focused coverage for the invoice detail screen's new mark-paid/correction/links behavior.
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 import { CheckCircle2 } from "lucide-react-native";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 import { ApiError } from "@/lib/api/client";
@@ -31,16 +31,32 @@ jest.mock("@/lib/api/client", () => {
   };
 });
 
-jest.mock("@/components/invoices/InvoiceDocumentPreview", () => ({
-  InvoiceDocumentPreview: () => null,
+jest.mock("@/components/invoices/InvoicePdfPreview", () => ({
+  InvoicePdfPreview: () => null,
 }));
 
 jest.mock("@/components/layout/PageHeader", () => {
   const mockUi = require("@/__tests__/mocks/gluestack-ui");
-  return { PageHeader: mockUi.View };
+  // The screen's "···" now lives in the PageHeader's overflow slot — render
+  // it with the real OverflowMenu so the menu tests below can open it.
+  const { OverflowMenu: MockOverflowMenu } = require("@/components/layout/OverflowMenu");
+  return {
+    PageHeader: ({ overflowActions, overflowLabel, children }: any) => (
+      <mockUi.View>
+        {overflowActions ? <MockOverflowMenu items={overflowActions} label={overflowLabel} /> : null}
+        {children ?? null}
+      </mockUi.View>
+    ),
+  };
 });
 jest.mock("@/components/layout/ScreenLayout", () => ({
-  ScreenLayout: ({ children }: { children?: React.ReactNode }) => children ?? null,
+  // Header included: the page's "···" lives in the PageHeader passed here.
+  ScreenLayout: ({ header, children }: { header?: React.ReactNode; children?: React.ReactNode }) => (
+    <>
+      {header ?? null}
+      {children ?? null}
+    </>
+  ),
 }));
 
 const mockUi = require("@/__tests__/mocks/gluestack-ui");
@@ -334,7 +350,37 @@ describe("InvoiceDetailScreen", () => {
     alertSpy.mockRestore();
   });
 
-  it("has exactly one solid (non-outline) button, and Sztornó/Törlés live in a danger zone (AC10)", async () => {
+  it("the overflow menu's PDF item opens the PDF endpoint instead of navigating to the same detail page", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+    const openURLSpy = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+
+    const tree = await renderScreen();
+    const overflowTrigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
+    await act(async () => {
+      overflowTrigger.props.onPress?.({});
+    });
+    const pdfButton = findPressableWithText(tree.root, "invoices.list.pdfAction");
+
+    await act(async () => {
+      pdfButton?.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(openURLSpy).toHaveBeenCalledWith(expect.stringContaining("/api/invoices/inv-1/pdf"));
+    // The bug this replaces: it used to just re-navigate to the same page.
+    expect(mockPush).not.toHaveBeenCalledWith("/invoices/inv-1");
+    openURLSpy.mockRestore();
+  });
+
+  it("has exactly one solid (non-outline) button, and a finalized invoice's danger zone offers only Sztornó — never Törlés (AC10, finalized-invoice-lock)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
         return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
@@ -360,7 +406,9 @@ describe("InvoiceDetailScreen", () => {
     const dangerZoneContent = tree.root.findByProps({ testID: "danger-zone-content" });
     const text = textUnder(dangerZoneContent);
     expect(text).toContain("invoices.storno");
-    expect(text).toContain("invoices.detail.deleteAction");
+    // A finalized document keeps its number forever — the API refuses to
+    // delete it (409 invoiceFinalized), so the button must never appear.
+    expect(text).not.toContain("invoices.detail.deleteAction");
   });
 
   it("on a díjbekérő with no conversion, the primary action converts and navigates to the new draft's edit screen", async () => {
@@ -502,7 +550,64 @@ describe("InvoiceDetailScreen", () => {
     expect(textUnder(tree.root)).toContain("invoices.convert.notProforma");
   });
 
-  it("on a díjbekérő, the Helyesbítő entry is disabled and the danger zone shows only Törlés", async () => {
+  it("on a 'noRecipient' failure from /send, shows the translated invoices.errors.noRecipient copy instead of the raw English API error", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/send")) {
+        throw new ApiError("No invoice email recipient configured.", 422, "noRecipient");
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.detail.emailReminder");
+    expect(primaryButton).toBeTruthy();
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const messages = textUnder(tree.root);
+    expect(messages).toContain("invoices.errors.noRecipient");
+    expect(messages).not.toContain("No invoice email recipient configured.");
+  });
+
+  it("on an 'emailSendFailed' failure from /send, never shows the raw SMTP error text", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      if (path.includes("/send")) {
+        throw new ApiError("535 Authentication failed for smtp-user@example.com", 502, "emailSendFailed");
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "sent" }) };
+    });
+
+    const tree = await renderScreen();
+    const primaryButton = findPressableWithText(tree.root, "invoices.detail.emailReminder");
+
+    await act(async () => {
+      primaryButton?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const messages = textUnder(tree.root);
+    expect(messages).toContain("invoices.errors.emailSendFailed");
+    expect(messages).not.toContain("535 Authentication failed");
+  });
+
+  it("on a finalized díjbekérő, the Helyesbítő entry is disabled and there is no danger zone at all (not stornoable, not deletable)", async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path.includes("/links")) {
         return {
@@ -528,6 +633,25 @@ describe("InvoiceDetailScreen", () => {
     });
     const correctionButton = findPressableWithText(tree.root, "invoices.correction.action");
     expect(correctionButton?.props.disabled).toBe(true);
+
+    // Storno explicitly refuses proforma documents, and the API only ever
+    // deletes a draft — a finalized díjbekérő is neither, so no
+    // DangerZone (Sztornó/Törlés) renders at all.
+    expect(tree.root.findAllByProps({ testID: "danger-zone-toggle" })).toHaveLength(0);
+  });
+
+  it("a draft invoice's danger zone offers only Törlés (no number to protect yet)", async () => {
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.includes("/links")) {
+        return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+      }
+      if (path.includes("/api/nav/status")) {
+        return { submissions: [] };
+      }
+      return { invoice: makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" }) };
+    });
+
+    const tree = await renderScreen();
 
     const dangerZoneToggle = tree.root.findByProps({ testID: "danger-zone-toggle" });
     act(() => {
@@ -926,5 +1050,43 @@ describe("InvoiceDetailScreen", () => {
     const text = textUnder(timeline);
     expect(text).toContain("invoices.timeline.issued");
     expect(text).toContain("TX-1");
+  });
+
+  describe("NAV status card", () => {
+    function mockApi(invoice: ReturnType<typeof makeInvoice>, submissions: unknown[] = []) {
+      mockApiFetch.mockImplementation(async (path: string) => {
+        if (path.includes("/links")) {
+          return { originalInvoice: null, modifiesInvoice: null, stornoDocuments: [], correctionDocuments: [] };
+        }
+        if (path.includes("/api/nav/status")) return { submissions };
+        return { invoice };
+      });
+    }
+
+    it("is shown for a finalized invoice, with a 'Beküldés' button when nothing was submitted", async () => {
+      mockApi(makeInvoice({ id: "inv-1", status: "unpaid" }));
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-submit" }).length).toBeGreaterThan(0);
+    });
+
+    it("is shown for a storno document, offering retry after a failed submission", async () => {
+      mockApi(makeInvoice({ id: "inv-1", documentType: "storno", status: "sent", originalInvoiceId: "inv-0" }), [
+        { id: "s1", status: "error", mode: "test", transactionId: null, messages: null, errorMessage: "boom", createdAt: "" },
+      ]);
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-retry" }).length).toBeGreaterThan(0);
+    });
+
+    it("is not shown for a draft", async () => {
+      mockApi(makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" }));
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-submit" })).toHaveLength(0);
+    });
+
+    it("is not shown for a díjbekérő (not an invoice for NAV)", async () => {
+      mockApi(makeInvoice({ id: "inv-1", documentType: "proforma", status: "proforma", invoiceNumber: "DBK-2026-001" }));
+      const tree = await renderScreen();
+      expect(tree.root.findAllByProps({ testID: "nav-status-submit" })).toHaveLength(0);
+    });
   });
 });

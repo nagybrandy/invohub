@@ -95,6 +95,10 @@ function baseComposerProps(
     setCurrency: jest.fn(),
     exchangeRate: "",
     setExchangeRate: jest.fn(),
+    exchangeRateSource: null,
+    exchangeRateLoading: false,
+    exchangeRateFetchError: null,
+    exchangeRateAsOf: null,
     deadlineDays: 8,
     setDeadlineDays: jest.fn(),
     bankAccount: "",
@@ -254,5 +258,53 @@ describe("StepPartner — exchangeRate focusField", () => {
       driveFocusField("exchangeRate");
     });
     expect(mockFocus).toHaveBeenCalledWith("composer-exchange-rate");
+  });
+});
+
+describe("StepPartner — exchange rate caption/loading/error states", () => {
+  function renderExpanded(overrides: Partial<InvoiceComposerState> = {}) {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <StepPartner
+          {...baseComposerProps({ showDatesPayment: true, currency: "EUR", ...overrides })}
+        />
+      );
+    });
+    return tree!;
+  }
+
+  it("shows the loading caption while a fetch is in flight", () => {
+    const tree = renderExpanded({ exchangeRateLoading: true });
+    expect(() => tree.root.findByProps({ testID: "composer-exchange-rate-loading" })).not.toThrow();
+  });
+
+  it("shows the MNB caption with the formatted rate date on a successful fetch", () => {
+    const tree = renderExpanded({ exchangeRateSource: "mnb", exchangeRateAsOf: "2026-09-22" });
+    const caption = tree.root.findByProps({ testID: "composer-exchange-rate-caption" });
+    expect(String(caption.props.children)).toContain("invoices.fields.exchangeRateSourceMnb");
+  });
+
+  it("shows the manual caption when the source is a user override", () => {
+    const tree = renderExpanded({ exchangeRateSource: "manual" });
+    const caption = tree.root.findByProps({ testID: "composer-exchange-rate-caption" });
+    expect(caption.props.children).toBe("invoices.fields.exchangeRateSourceManual");
+  });
+
+  it("shows the fetch error instead of the caption when the fetch failed", () => {
+    const tree = renderExpanded({
+      exchangeRateFetchError: "Nem sikerült lekérni az MNB árfolyamot — add meg kézzel.",
+      exchangeRateSource: "manual",
+    });
+    const error = tree.root.findByProps({ testID: "composer-exchange-rate-fetch-error" });
+    expect(error.props.children).toContain("Nem sikerült lekérni");
+    expect(() => tree.root.findByProps({ testID: "composer-exchange-rate-caption" })).toThrow();
+  });
+
+  it("renders no caption at all before any fetch/manual entry has happened", () => {
+    const tree = renderExpanded();
+    expect(() => tree.root.findByProps({ testID: "composer-exchange-rate-caption" })).toThrow();
+    expect(() => tree.root.findByProps({ testID: "composer-exchange-rate-loading" })).toThrow();
+    expect(() => tree.root.findByProps({ testID: "composer-exchange-rate-fetch-error" })).toThrow();
   });
 });

@@ -5,8 +5,7 @@ export type {
   NavReceiptCredentials,
   NavReceiptEnvironment,
   NavReceiptSubmissionResult,
-  SoftwareRegistrationResult,
-  VatRateAggregation,
+  ReceiptVatCategoryItem,
 } from "./types";
 
 export { authenticate, clearAuthCache } from "./auth";
@@ -15,10 +14,29 @@ export {
   loadNavReceiptCredentials,
   loadNavReceiptCredentialsFromCompany,
 } from "./credentials";
-export { getReceiptBaseUrl, resolveReceiptEnvironment } from "./environment";
-export { queryReceiptReport, registerReceiptSoftware, submitDailyReceiptReport } from "./report";
 export {
-  buildAuthenticateXml,
-  buildReceiptDataReportXml,
-  buildSoftwareRegistrationXml,
-} from "./xml-builder";
+  IN_FLIGHT_THRESHOLD_MS,
+  MAX_SUBMISSIONS_PER_RUN,
+  RECEIPT_REPORT_BACKFILL_DAYS,
+  runDailyReceiptReports,
+} from "./daily-report-run";
+export type {
+  DailyReceiptReportResultEntry,
+  DailyReceiptReportResultStatus,
+  DailyReceiptReportRunResult,
+} from "./daily-report-run";
+export {
+  getReceiptBaseUrl,
+  isNavReceiptEnvironment,
+  NAV_RECEIPT_ENVIRONMENT_LABELS,
+  NAV_RECEIPT_ENVIRONMENTS,
+  parseNavReceiptEnvironment,
+} from "./environment";
+export { parseNavReceiptResponse } from "./response";
+export type { NavReceiptResponse } from "./response";
+export { submitReceiptDataReport } from "./report";
+export { buildReceiptRequestSignature, newAuthRequestId, newServiceRequestId } from "./signature";
+export { toTaxpayerId } from "./taxpayer";
+export { NAV_VAT_CATEGORIES, toNavVatCategory } from "./vat-category";
+export type { NavVatCategory } from "./vat-category";
+export { buildAuthTokenXml, buildCreateReceiptXml } from "./xml-builder";

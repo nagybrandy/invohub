@@ -11,6 +11,11 @@ function dbInvoiceRow(overrides: Record<string, unknown> = {}) {
     documentType: "invoice",
     clientName: "Acme Kft.",
     clientTaxNumber: "12345678-1-23",
+    clientZipCode: "1011",
+    clientCity: "Budapest",
+    clientAddress: "Fő utca 1.",
+    clientCountry: "Magyarország",
+    clientEuVatNumber: null,
     issueDate: "2026-06-01",
     dueDate: "2026-06-15",
     status: "draft",
@@ -53,11 +58,34 @@ let mockSelectQueue: unknown[][] = [];
 /** Queue of `lastNumber` values for the numbering module's insert-on-conflict upsert. */
 let mockSequenceQueue: number[] = [];
 
+/**
+ * Rows returned by `tx.select(...).where(...).for("update")` — the finalize
+ * transaction's lock on the invoice row. Empty (the default) means "not
+ * finalized by anyone else", so the finalize proceeds.
+ */
+let mockLockQueue: unknown[][] = [];
+
+/**
+ * `where()` result: awaitable (shifts mockSelectQueue lazily, on await) and
+ * chainable via `.for("update")` (shifts mockLockQueue instead), so the
+ * transaction's row-lock read never consumes a plain-select queue entry.
+ */
+function mockWhereResult() {
+  let pending: Promise<unknown[]> | undefined;
+  const rows = () => (pending ??= Promise.resolve(mockSelectQueue.shift() ?? []));
+  return {
+    then: (onFulfilled?: (v: unknown[]) => unknown, onRejected?: (e: unknown) => unknown) =>
+      rows().then(onFulfilled, onRejected),
+    catch: (onRejected?: (e: unknown) => unknown) => rows().catch(onRejected),
+    for: jest.fn(() => Promise.resolve(mockLockQueue.shift() ?? [])),
+  };
+}
+
 jest.mock("@/db", () => ({
   db: {
     select: jest.fn(() => ({
       from: jest.fn(() => ({
-        where: jest.fn(() => Promise.resolve(mockSelectQueue.shift() ?? [])),
+        where: jest.fn(() => mockWhereResult()),
       })),
     })),
     insert: jest.fn(() => ({
@@ -87,19 +115,49 @@ jest.mock("@/db", () => ({
   },
 }));
 
+// The finalize transaction (db/transaction.ts) runs against the same mocked
+// db, so every existing assertion on db.insert/update/delete keeps holding;
+// lib/invoices/atomic-numbering.test.ts covers commit/rollback semantics.
+jest.mock("@/db/transaction", () => ({
+  runInTransaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
+    fn(jest.requireMock("@/db").db)
+  ),
+}));
+
+// Every service.ts test in this file numbers a document (or doesn't) via
+// the real db mock above — the company profile itself is mocked separately
+// here so those tests never need to also queue a company select. Defaults
+// to a complete profile so every existing finalize/storno/etc. test below
+// keeps numbering exactly as before; the "company profile incomplete"
+// tests override this per-call with mockResolvedValueOnce.
+jest.mock("@/lib/companies/service", () => ({
+  getCompanyByUserId: jest.fn().mockResolvedValue({
+    name: "Acme Kft.",
+    taxNumber: "12345678-1-23",
+    zipCode: "1011",
+    city: "Budapest",
+    address: "Fő utca 1.",
+  }),
+}));
+
 import { db } from "@/db";
+import { getCompanyByUserId } from "@/lib/companies/service";
 import {
   buildInvoiceListWhere,
   buildStornoLineItems,
+  CompanyProfileIncompleteError,
   convertProformaToInvoice,
   createModificationDraft,
   createStornoInvoice,
+  deleteDraftInvoiceById,
   duplicateInvoice,
+  finalizeInvoice,
   findExistingConversion,
   findInvoicesReferencing,
   findLiveConversionsForProformas,
   listInvoicesInDateRange,
   markInvoicePaid,
+  getInvoiceStats,
 } from "@/lib/invoices/service";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
@@ -110,6 +168,10 @@ const mockDb = db as unknown as {
   delete: jest.Mock;
 };
 
+const mockGetCompanyByUserId = getCompanyByUserId as jest.MockedFunction<
+  typeof getCompanyByUserId
+>;
+
 jest.mock("@/lib/id", () => ({
   createId: jest
     .fn()
@@ -119,12 +181,14 @@ jest.mock("@/lib/id", () => ({
     .mockReturnValueOnce("storno-line-id")
     .mockReturnValueOnce("modify-inv-id")
     .mockReturnValueOnce("modify-line-id")
+    .mockReturnValueOnce("modify-line-copy-id")
     .mockReturnValueOnce("converted-inv-id")
     .mockReturnValueOnce("converted-line-id"),
 }));
 
 beforeEach(() => {
   mockSelectQueue = [];
+  mockLockQueue = [];
   mockSequenceQueue = [];
   mockDb.select.mockClear();
   mockDb.insert.mockClear();
@@ -166,6 +230,14 @@ describe("duplicateInvoice", () => {
     expect(copy.paidAmount).toBeUndefined();
     expect(copy.paidAt).toBeUndefined();
   });
+
+  // AC12: duplicate keeps the source's fulfillmentDate (already spread
+  // ...source; a regression guard, not new logic).
+  it("keeps the source's fulfillmentDate", () => {
+    const source = makeInvoice({ fulfillmentDate: "2026-06-20" });
+    const copy = duplicateInvoice(source);
+    expect(copy.fulfillmentDate).toBe("2026-06-20");
+  });
 });
 
 describe("buildStornoLineItems", () => {
@@ -179,7 +251,11 @@ describe("buildStornoLineItems", () => {
 
 describe("createStornoInvoice", () => {
   it("creates a new finalized storno document and cancels the original", async () => {
-    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const source = makeInvoice({
+      id: "inv-orig",
+      invoiceNumber: "INV-2026-001",
+      fulfillmentDate: "2026-05-28",
+    });
 
     // Storno is finalized immediately, so it allocates a number from the shared invoice sequence.
     mockSequenceQueue = [2];
@@ -194,6 +270,7 @@ describe("createStornoInvoice", () => {
           documentType: "storno",
           status: "sent",
           originalInvoiceId: "inv-orig",
+          fulfillmentDate: "2026-05-28",
         }),
       ],
       [dbLineItemRow({ id: "storno-line-id", invoiceId: "storno-inv-id", quantity: "-2" })],
@@ -206,15 +283,36 @@ describe("createStornoInvoice", () => {
     expect(saved.originalInvoiceId).toBe("inv-orig");
     expect(saved.status).toBe("sent");
     expect(saved.lineItems[0].quantity).toBe(-2);
+    // AC12: the storno document keeps the source's fulfillmentDate.
+    expect(saved.fulfillmentDate).toBe("2026-05-28");
 
     // The original invoice was flipped to cancelled via a direct update.
     expect(mockDb.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to number a storno document when the company profile is incomplete", async () => {
+    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    mockGetCompanyByUserId.mockResolvedValueOnce({ name: "Acme Kft." }); // missing taxNumber/address/city/zipCode
+
+    mockSelectQueue = [
+      [], // getInvoiceById(storno.id) before insert: no existing row
+    ];
+
+    await expect(createStornoInvoice("user-1", source)).rejects.toThrow(
+      CompanyProfileIncompleteError
+    );
+    // Never flipped the original to cancelled — the whole operation aborted first.
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 });
 
 describe("createModificationDraft", () => {
   it("creates a minimal draft pointing at the source with modificationIndex 1", async () => {
-    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const source = makeInvoice({
+      id: "inv-orig",
+      invoiceNumber: "INV-2026-001",
+      fulfillmentDate: "2026-06-10",
+    });
 
     mockSelectQueue = [
       [], // findInvoicesReferencing(modifiesInvoiceId) -> no prior corrections
@@ -227,6 +325,7 @@ describe("createModificationDraft", () => {
           status: "draft",
           modifiesInvoiceId: "inv-orig",
           modificationIndex: 1,
+          fulfillmentDate: "2026-06-10",
         }),
       ],
       [dbLineItemRow({ id: "modify-line-id", invoiceId: "modify-inv-id" })],
@@ -240,7 +339,10 @@ describe("createModificationDraft", () => {
     expect(draft.invoiceNumber).toBe("");
     expect(draft.modifiesInvoiceId).toBe("inv-orig");
     expect(draft.modificationIndex).toBe(1);
+    // AC12: the helyesbítő draft keeps the source's fulfillmentDate.
+    expect(draft.fulfillmentDate).toBe("2026-06-10");
   });
+
 });
 
 describe("convertProformaToInvoice", () => {
@@ -483,6 +585,193 @@ describe("markInvoicePaid", () => {
   });
 });
 
+describe("finalizeInvoice", () => {
+  it("returns not_found for a missing/foreign invoice", async () => {
+    mockSelectQueue = [[]];
+    const result = await finalizeInvoice("user-1", "missing");
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("returns not_draft without allocating a number when the invoice isn't a draft", async () => {
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "inv-1", status: "sent" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({ ok: false, reason: "not_draft" });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns buyer_address_missing without allocating a number when the buyer has no address (Áfa tv. 169. § e)", async () => {
+    mockSelectQueue = [
+      [
+        dbInvoiceRow({
+          id: "inv-1",
+          status: "draft",
+          invoiceNumber: "",
+          clientZipCode: null,
+          clientCity: null,
+          clientAddress: null,
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({ ok: false, reason: "buyer_address_missing" });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("finalizes a draft invoice to status unpaid and allocates the next number", async () => {
+    mockSequenceQueue = [7];
+    mockSelectQueue = [
+      // getInvoiceById(id) in finalizeInvoice
+      [dbInvoiceRow({ id: "inv-1", status: "draft", invoiceNumber: "", documentType: "invoice" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+      // getInvoiceById inside upsertInvoice (existing row found)
+      [dbInvoiceRow({ id: "inv-1", status: "draft", invoiceNumber: "", documentType: "invoice" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+      // getInvoiceById after save
+      [
+        dbInvoiceRow({
+          id: "inv-1",
+          status: "unpaid",
+          invoiceNumber: "INV-2026-00007",
+          documentType: "invoice",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({
+      ok: true,
+      invoice: expect.objectContaining({ status: "unpaid", invoiceNumber: "INV-2026-00007" }),
+    });
+  });
+
+  it("finalizes a proforma draft to status proforma, not unpaid", async () => {
+    mockSequenceQueue = [1];
+    mockSelectQueue = [
+      [
+        dbInvoiceRow({
+          id: "proforma-1",
+          status: "draft",
+          invoiceNumber: "",
+          documentType: "proforma",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [
+        dbInvoiceRow({
+          id: "proforma-1",
+          status: "draft",
+          invoiceNumber: "",
+          documentType: "proforma",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [
+        dbInvoiceRow({
+          id: "proforma-1",
+          status: "proforma",
+          invoiceNumber: "DBK-2026-00001",
+          documentType: "proforma",
+        }),
+      ],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "proforma-1");
+    expect(result).toEqual({
+      ok: true,
+      invoice: expect.objectContaining({ status: "proforma", invoiceNumber: "DBK-2026-00001" }),
+    });
+  });
+
+  it("refuses to finalize (and never allocates a number) when the company profile is incomplete", async () => {
+    mockGetCompanyByUserId.mockResolvedValueOnce({
+      name: "Acme Kft.",
+      taxNumber: "",
+      zipCode: "",
+      city: "",
+      address: "",
+    });
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "inv-1", status: "draft", invoiceNumber: "", documentType: "invoice" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "inv-1");
+    expect(result).toEqual({
+      ok: false,
+      reason: "company_profile_incomplete",
+      missingFields: ["taxNumber", "zipCode", "city", "address"],
+    });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("finalizes a proforma with no buyer address at all — a díjbekérő isn't an accounting document", async () => {
+    mockSequenceQueue = [1];
+    const proformaRowNoAddress = (overrides: Record<string, unknown> = {}) =>
+      dbInvoiceRow({
+        id: "proforma-1",
+        documentType: "proforma",
+        clientZipCode: null,
+        clientCity: null,
+        clientAddress: null,
+        ...overrides,
+      });
+    mockSelectQueue = [
+      [proformaRowNoAddress({ status: "draft", invoiceNumber: "" })],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [proformaRowNoAddress({ status: "draft", invoiceNumber: "" })],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+      [proformaRowNoAddress({ status: "proforma", invoiceNumber: "DBK-2026-00001" })],
+      [dbLineItemRow({ invoiceId: "proforma-1" })],
+    ];
+
+    const result = await finalizeInvoice("user-1", "proforma-1");
+    expect(result).toEqual({
+      ok: true,
+      invoice: expect.objectContaining({ status: "proforma", invoiceNumber: "DBK-2026-00001" }),
+    });
+  });
+});
+
+describe("deleteDraftInvoiceById", () => {
+  it("returns not_found for a missing/foreign invoice, without deleting", async () => {
+    mockSelectQueue = [[]];
+    const result = await deleteDraftInvoiceById("user-1", "missing");
+    expect(result).toBe("not_found");
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns not_draft for a finalized invoice, without deleting", async () => {
+    mockSelectQueue = [
+      [dbInvoiceRow({ id: "inv-1", status: "sent" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await deleteDraftInvoiceById("user-1", "inv-1");
+    expect(result).toBe("not_draft");
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("deletes a draft invoice", async () => {
+    mockSelectQueue = [
+      // draft-status pre-check
+      [dbInvoiceRow({ id: "inv-1", status: "draft" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+      // deleteInvoiceById's own existence re-check
+      [dbInvoiceRow({ id: "inv-1", status: "draft" })],
+      [dbLineItemRow({ invoiceId: "inv-1" })],
+    ];
+    const result = await deleteDraftInvoiceById("user-1", "inv-1");
+    expect(result).toBe("deleted");
+    expect(mockDb.delete).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("listInvoicesInDateRange", () => {
   function invoicePageChain(rows: unknown[]) {
     return {
@@ -555,11 +844,110 @@ describe("buildInvoiceListWhere", () => {
     expect(names).toEqual(expect.arrayContaining(["currency", "exchange_rate"]));
   });
 
+  it("keeps drafts and díjbekérők out of the missing-rate set — only an issued document can be blocked", () => {
+    const where = buildInvoiceListWhere("user-1", { needsExchangeRate: true });
+    const sql = (where as { getSQL?: () => unknown }).getSQL?.() ?? where;
+    const names = [...collectColumnNames(sql)];
+    expect(names).toEqual(expect.arrayContaining(["status", "document_type"]));
+  });
+
   it("references neither column when needsExchangeRate is not set (AC3.2)", () => {
     const where = buildInvoiceListWhere("user-1", {});
     const sql = (where as { getSQL?: () => unknown }).getSQL?.() ?? where;
     const names = collectColumnNames(sql);
     expect(names.has("currency")).toBe(false);
     expect(names.has("exchange_rate")).toBe(false);
+  });
+});
+
+// Walks a drizzle SQL tree and returns its literal text pieces (StringChunk
+// values) — drizzle objects are circular, so JSON.stringify is not an option.
+function sqlLiteralText(node: unknown, out: string[] = []): string {
+  if (node && typeof node === "object") {
+    const n = node as { queryChunks?: unknown[]; value?: unknown };
+    if (Array.isArray(n.value)) out.push(...n.value.filter((v): v is string => typeof v === "string"));
+    if (Array.isArray(n.queryChunks)) for (const chunk of n.queryChunks) sqlLiteralText(chunk, out);
+  }
+  return out.join("");
+}
+
+describe("buildInvoiceListWhere — navFailed", () => {
+  it("filters on the latest nav_submission being error/aborted, in SQL", () => {
+    const where = buildInvoiceListWhere("user-1", { navFailed: true });
+    const text = sqlLiteralText((where as { getSQL?: () => unknown }).getSQL?.() ?? where);
+    expect(text).toContain("nav_submission");
+    expect(text).toContain("'error', 'aborted'");
+    expect(text).toContain("s2.created_at > s.created_at");
+  });
+
+  it("does not touch nav_submission when navFailed is not set", () => {
+    const where = buildInvoiceListWhere("user-1", {});
+    expect(sqlLiteralText((where as { getSQL?: () => unknown }).getSQL?.() ?? where)).not.toContain("nav_submission");
+  });
+});
+
+// Last in the file: it consumes createId() values, and the mocked id
+// sequence above is shared by the tests before it.
+describe("createModificationDraft — difference lines", () => {
+  it("persists a zero-difference start: reversing line + editable copy per original line", async () => {
+    const source = makeInvoice({ id: "inv-orig", invoiceNumber: "INV-2026-001" });
+    const original = source.lineItems[0];
+    mockSelectQueue = [[], [], [], []];
+    mockDb.insert.mockClear();
+
+    await createModificationDraft("user-1", source).catch(() => undefined);
+
+    const insertedRows = mockDb.insert.mock.results
+      .map((r) => (r.value as { values: jest.Mock }).values.mock.calls[0]?.[0])
+      .find((rows): rows is Record<string, unknown>[] => Array.isArray(rows));
+    expect(insertedRows).toHaveLength(2);
+    expect(insertedRows![0]).toMatchObject({
+      description: original.description,
+      quantity: String(-original.quantity),
+      unitPrice: String(original.unitPrice),
+      vatRate: original.vatRate,
+      sortOrder: 0,
+    });
+    expect(insertedRows![1]).toMatchObject({
+      description: original.description,
+      quantity: String(original.quantity),
+      sortOrder: 1,
+    });
+  });
+});
+
+describe("getInvoiceStats — 'E hónapban kiállítva' means issued, not everything dated this month", () => {
+  it("leaves drafts and díjbekérők out of the month's count and total", async () => {
+    const month = new Date().toISOString().slice(0, 7);
+    const row = (id: string, status: string, documentType = "invoice") => ({
+      id,
+      userId: "user-1",
+      status,
+      documentType,
+      issueDate: `${month}-05`,
+      invoiceNumber: status === "draft" ? "" : `INV-${id}`,
+      currency: "HUF",
+    });
+    const item = (invoiceId: string, unitPrice: number) => ({
+      id: `li-${invoiceId}`,
+      invoiceId,
+      description: "x",
+      quantity: 1,
+      unitPrice,
+      vatRate: 27,
+      vatCategory: "normal",
+    });
+
+    mockSelectQueue = [
+      [{ value: 3 }], // countInvoices
+      [row("issued", "unpaid"), row("draft", "draft"), row("dijbekero", "proforma", "proforma")], // month scan
+      [item("issued", 100_000), item("draft", 900_000), item("dijbekero", 900_000)], // line items
+    ];
+
+    const stats = await getInvoiceStats("user-1");
+
+    expect(stats.count).toBe(3);
+    expect(stats.thisMonthCount).toBe(1);
+    expect(stats.monthlyTotal).toBe(127_000);
   });
 });

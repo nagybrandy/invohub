@@ -1,3 +1,4 @@
+import type { NavListStatus } from "@/lib/nav/nav-indicator";
 // lib/invoices/types.ts
 // Domain types for invoices (served from Neon via lib/invoices/service.ts).
 
@@ -47,25 +48,46 @@ export interface InvoiceLineItem {
   /** Human-readable exemption/reverse-charge reason. Auto-filled from vatCategory when omitted. */
   vatExemptionReason?: string;
   /**
-   * Unit of measure (db/óra/nap/…). UI-only field for the composer grid —
-   * optional so it never forces a value NAV submission doesn't expect yet.
-   * Persistence beyond the in-memory invoice is a separate, NAV-gated
-   * queue item (see docs/design/app-ux-spec-2026-09-14.md §2.4).
+   * Unit of measure (db/óra/nap/…) — nullable/additive column on
+   * invoice_line_item, shown next to quantity on the PDF/HTML document.
+   * Optional so it never forces a value NAV submission doesn't expect yet.
    */
   unit?: string;
 }
 
 export interface Invoice {
+  /** Latest NAV outcome for list/card dots — attached by listInvoices and the dashboard, absent elsewhere. */
+  navStatus?: NavListStatus;
   id: string;
   /** Empty string until finalized (assigned atomically from lib/invoices/numbering.ts). */
   invoiceNumber: string;
   documentType: InvoiceDocumentType;
   clientName: string;
   clientTaxNumber?: string;
+  /**
+   * Buyer address SNAPSHOT as of issuance (Áfa tv. 169. § e) — captured at
+   * save time, independent of the linked client (which may move
+   * afterwards). See lib/invoices/build-pdf-context.ts for the fallback to
+   * the linked client on invoices saved before this existed.
+   */
+  clientZipCode?: string;
+  clientCity?: string;
+  clientAddress?: string;
+  clientCountry?: string;
+  clientEuVatNumber?: string;
   /** Linked partner row when the invoice was created from the client picker. */
   clientId?: string;
   issueDate: string;
   dueDate: string;
+  /**
+   * Teljesítés dátuma — ISO `YYYY-MM-DD` performance date (Áfa tv. 169. §;
+   * also the NAV `<invoiceDeliveryDate>`). Optional: when unset, callers
+   * fall back to `issueDate` (see lib/invoices/fulfillment-date.ts's
+   * resolveFulfillmentDate for the DB read-time legacy-notes fallback, and
+   * lib/nav/invoice-xml.ts's buildNavInvoiceXml for the NAV precedence
+   * chain — invoiceDeliveryDate override ?? fulfillmentDate ?? issueDate).
+   */
+  fulfillmentDate?: string;
   status: InvoiceStatus;
   currency: InvoiceCurrency;
   /** Manual HUF exchange rate for non-HUF invoices. */
@@ -95,4 +117,36 @@ export interface InvoiceTotals {
 
 export function hasInvoiceNumber(invoice: Pick<Invoice, "invoiceNumber">): boolean {
   return invoice.invoiceNumber.trim().length > 0;
+}
+
+/**
+ * Áfa tv. 169. § e) requires the buyer's name AND address on the invoice —
+ * checked at finalization time (see lib/invoices/service.ts's
+ * finalizeInvoice and lib/invoices/create-from-payload.ts). A draft may
+ * still be missing these; only finalizing (or creating already-finalized
+ * via the external API) is gated on this.
+ */
+export function hasBuyerAddress(
+  invoice: Pick<Invoice, "clientName" | "clientZipCode" | "clientCity" | "clientAddress">
+): boolean {
+  return Boolean(
+    invoice.clientName?.trim() &&
+      invoice.clientZipCode?.trim() &&
+      invoice.clientCity?.trim() &&
+      invoice.clientAddress?.trim()
+  );
+}
+
+/**
+ * Whether hasBuyerAddress must hold before this invoice may be saved. A
+ * proforma (díjbekérő) is never an accounting document under Áfa tv. 169. §
+ * — it cannot be cancelled/corrected like a real invoice either (see
+ * lib/invoices/service.ts's storno/modify guards) — so only a document
+ * leaving "draft" for a real invoice-type document (invoice/advance/
+ * storno/modify) requires the buyer address.
+ */
+export function requiresCompleteBuyerAddress(
+  invoice: Pick<Invoice, "status" | "documentType">
+): boolean {
+  return invoice.status !== "draft" && invoice.documentType !== "proforma";
 }

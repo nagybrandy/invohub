@@ -3,7 +3,6 @@ import * as React from "react";
 import { ActivityIndicator, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Badge, BadgeText } from "@/components/ui/badge";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +12,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { ReceiptNavCard } from "@/components/receipts/ReceiptNavCard";
 import { apiFetch } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import type { ReceiptRecord } from "@/lib/receipts/service";
@@ -24,6 +24,9 @@ export default function ReceiptDetailScreen() {
   const { t } = useTranslation();
   const id = useRouteParam("id");
   const [receipt, setReceipt] = React.useState<ReceiptRecord | null>(null);
+  const [navMode, setNavMode] = React.useState<"demo" | "test" | "production">("demo");
+  const [navReportId, setNavReportId] = React.useState<string | null>(null);
+  const [navError, setNavError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -36,8 +39,16 @@ export default function ReceiptDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<{ receipt: ReceiptRecord }>(`/api/receipts/${id}`);
+      const data = await apiFetch<{
+        receipt: ReceiptRecord;
+        navMode?: "demo" | "test" | "production";
+        navReportId?: string | null;
+        navError?: string | null;
+      }>(`/api/receipts/${id}`);
       setReceipt(data.receipt);
+      setNavMode(data.navMode ?? "demo");
+      setNavReportId(data.navReportId ?? null);
+      setNavError(data.navError ?? null);
     } catch (e) {
       setReceipt(null);
       setError(e instanceof Error ? e.message : t("receipts.loadFailed"));
@@ -147,20 +158,13 @@ export default function ReceiptDetailScreen() {
           </Card>
         ) : null}
 
-        <Card className="p-4">
-          <HStack className="items-center justify-between">
-            <Text size="sm" className="text-muted-foreground">NAV</Text>
-            {receipt.navSubmitted ? (
-              <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
-                <BadgeText className="text-xs text-green-600">{t("receipts.navSubmitted")}</BadgeText>
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="rounded-full px-2 py-0.5">
-                <BadgeText className="text-xs text-muted-foreground">{t("receipts.navPending")}</BadgeText>
-              </Badge>
-            )}
-          </HStack>
-        </Card>
+        <ReceiptNavCard
+          navSubmitted={receipt.navSubmitted}
+          navMode={navMode}
+          navReportId={navReportId}
+          navError={navError}
+          currency={receipt.currency}
+        />
 
         <Text size="xs" selectable className="font-mono text-muted-foreground">
           {receipt.qrUrl}

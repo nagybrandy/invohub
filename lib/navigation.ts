@@ -16,6 +16,9 @@ export const routes = {
   /** /invoices pre-filtered by status — dashboard KPI cards + next-actions link here (A4). */
   invoicesFiltered: (status: string) =>
     ({ pathname: "/invoices", params: { status } }) as Href,
+  /** /invoices pre-searched for a partner's name — the partner list/edit "Számlái" link. */
+  invoicesForClient: (clientName: string) =>
+    ({ pathname: "/invoices", params: { search: clientName } }) as Href,
   newInvoice: "/invoices/new" as Href,
   /** /invoices/new with a partner preselected — the row-menu's "Számla ennek
    * a partnernek" (C4). Reads back via `?clientId=` when the composer
@@ -42,6 +45,8 @@ export const routes = {
   settingsReminders: "/settings/reminders" as Href,
   settingsApiKeys: "/settings/api-keys" as Href,
   import: "/import" as Href,
+  /** The visual e-mail template editor — its own menu item. */
+  emailEditor: "/email-editor" as Href,
   receipts: "/receipts" as Href,
   newReceipt: "/receipts/new" as Href,
   receiptDetail: (id: string) => `/receipts/${id}` as Href,

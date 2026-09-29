@@ -4,6 +4,7 @@
 // a raised FAB; the last tab has no route — it opens the "Továbbiak" sheet
 // so Nyugták/Termékek/Importálás/Beállítások stay one tap away (N1 mobile fix).
 import { useTranslation } from "react-i18next";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -61,21 +62,26 @@ export function MobileTabBar({ pathname, onNavigate, onOpenMore }: MobileTabBarP
 
           return (
             <Box key={item.labelKey} className="flex-1 items-center">
+              {/* The label used to sit outside the Pressable, leaving a 38x38
+                  icon as the only target — below the 44px floor, and the word
+                  itself did nothing. */}
               <Pressable
                 onPress={() => press(item)}
                 accessibilityRole="tab"
                 accessibilityLabel={label}
                 accessibilityState={{ selected: active }}
-                className={`rounded-lg px-2 py-2 ${active ? "bg-primary/15" : ""}`}
+                className={`w-full items-center justify-center rounded-lg px-2 py-1 ${TAP_TARGET_MIN_H} ${
+                  active ? "bg-primary/15" : ""
+                }`}
               >
                 <Icon size={22} color={active ? iconColors.primary : iconColors.muted} />
+                <Text
+                  size="xs"
+                  className={`mt-0.5 text-center ${active ? "font-medium text-primary" : "text-muted-foreground"}`}
+                >
+                  {label}
+                </Text>
               </Pressable>
-              <Text
-                size="xs"
-                className={`mt-0.5 text-center ${active ? "font-medium text-primary" : "text-muted-foreground"}`}
-              >
-                {label}
-              </Text>
             </Box>
           );
         })}

@@ -15,6 +15,10 @@ import { VStack } from "@/components/ui/vstack";
 import { FormScreen } from "@/components/layout/FormScreen";
 import { routes } from "@/lib/navigation";
 import { useClients } from "@/hooks/useClients";
+import { ClientPartyTypeSwitch } from "@/components/clients/ClientPartyTypeSwitch";
+import { TaxNumberLookupField } from "@/components/clients/TaxNumberLookupField";
+import type { TaxpayerLookupResult } from "@/hooks/useTaxpayerLookup";
+import type { ClientPartyType } from "@/lib/clients/party-type";
 
 export default function NewClientScreen() {
   const { t } = useTranslation();
@@ -22,8 +26,22 @@ export default function NewClientScreen() {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [taxNumber, setTaxNumber] = React.useState("");
+  const [euVatNumber, setEuVatNumber] = React.useState("");
+  const [zipCode, setZipCode] = React.useState("");
+  const [city, setCity] = React.useState("");
+  const [address, setAddress] = React.useState("");
+  const [country, setCountry] = React.useState("");
+  const [partyType, setPartyType] = React.useState<ClientPartyType | undefined>(undefined);
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+
+  // NAV's answer fills whatever it knows; what it doesn't know stays as typed.
+  function applyTaxpayer(taxpayer: TaxpayerLookupResult) {
+    if (taxpayer.name) setName(taxpayer.name);
+    if (taxpayer.address) setAddress(taxpayer.address);
+    if (taxpayer.city) setCity(taxpayer.city);
+    if (taxpayer.zipCode) setZipCode(taxpayer.zipCode);
+  }
 
   async function handleSave() {
     if (!name.trim()) {
@@ -32,7 +50,17 @@ export default function NewClientScreen() {
     }
     setSaving(true);
     try {
-      await create({ name: name.trim(), email: email.trim() || undefined, taxNumber: taxNumber.trim() || undefined });
+      await create({
+        name: name.trim(),
+        email: email.trim() || undefined,
+        taxNumber: taxNumber.trim() || undefined,
+        euVatNumber: euVatNumber.trim() || undefined,
+        zipCode: zipCode.trim() || undefined,
+        city: city.trim() || undefined,
+        address: address.trim() || undefined,
+        country: country.trim() || undefined,
+        partyType,
+      });
       router.replace(routes.clients);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("clients.saveFailed"));
@@ -60,14 +88,48 @@ export default function NewClientScreen() {
             <InputField value={email} onChangeText={setEmail} placeholder="billing@acme.hu" />
           </Input>
         </FormControl>
+        <TaxNumberLookupField value={taxNumber} onChangeText={setTaxNumber} onFound={applyTaxpayer} />
         <FormControl>
           <FormControlLabel>
-            <FormControlLabelText>{t("company.taxNumber")}</FormControlLabelText>
+            <FormControlLabelText>{t("clients.euVatNumber")}</FormControlLabelText>
           </FormControlLabel>
           <Input>
-            <InputField value={taxNumber} onChangeText={setTaxNumber} placeholder="12345678-1-23" />
+            <InputField value={euVatNumber} onChangeText={setEuVatNumber} placeholder="DE123456789" />
           </Input>
         </FormControl>
+        <FormControl>
+          <FormControlLabel>
+            <FormControlLabelText>{t("invoices.fields.zipCode")}</FormControlLabelText>
+          </FormControlLabel>
+          <Input>
+            <InputField value={zipCode} onChangeText={setZipCode} />
+          </Input>
+        </FormControl>
+        <FormControl>
+          <FormControlLabel>
+            <FormControlLabelText>{t("company.city")}</FormControlLabelText>
+          </FormControlLabel>
+          <Input>
+            <InputField value={city} onChangeText={setCity} />
+          </Input>
+        </FormControl>
+        <FormControl>
+          <FormControlLabel>
+            <FormControlLabelText>{t("company.address")}</FormControlLabelText>
+          </FormControlLabel>
+          <Input>
+            <InputField value={address} onChangeText={setAddress} />
+          </Input>
+        </FormControl>
+        <FormControl>
+          <FormControlLabel>
+            <FormControlLabelText>{t("invoices.fields.country")}</FormControlLabelText>
+          </FormControlLabel>
+          <Input>
+            <InputField value={country} onChangeText={setCountry} placeholder="HU" />
+          </Input>
+        </FormControl>
+        <ClientPartyTypeSwitch value={partyType} onChange={setPartyType} />
         {error ? <Text className="text-destructive">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
           <ButtonText>{saving ? t("common.saving") : t("clients.save")}</ButtonText>

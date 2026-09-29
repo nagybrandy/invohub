@@ -72,6 +72,21 @@ export function composerGridMinWidth(): number {
   return widthSum + gapSum;
 }
 
+export type LineItemLayout = "grid" | "card";
+
+/**
+ * Which line-item layout fits a MEASURED form-column width (onLayout on the
+ * step-2 container — not the window width, which ignores the sidebar and
+ * the live PDF side preview). The single-row grid only when the column
+ * fits composerGridMinWidth(); otherwise compact per-line cards, so the
+ * step never scrolls sideways (responsive-line-item-grid). Unmeasured
+ * (null / 0) falls back to cards — the layout that can't overflow.
+ */
+export function lineItemLayoutForWidth(width: number | null): LineItemLayout {
+  if (!width || width <= 0) return "card";
+  return width >= composerGridMinWidth() ? "grid" : "card";
+}
+
 /** Page shell constants (app/(app) desktop layout). */
 export const CONTENT_MAX_WIDTH = 1200;
 /** md:px-10 — 40px on each side of the content column. */

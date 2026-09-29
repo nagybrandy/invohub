@@ -64,7 +64,7 @@ export function NotificationBanner({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        className="flex-1 flex-row items-center gap-2"
+        className="h-full flex-1 flex-row items-center gap-2"
       >
         <Box className="h-2 w-2 rounded-full bg-primary" />
         <Text
@@ -82,7 +82,10 @@ export function NotificationBanner({
         accessibilityRole="button"
         accessibilityLabel={t("notifications.banner.dismiss")}
         hitSlop={8}
-        className="ml-2 rounded-full p-1"
+        // The bar is a deliberate 40px slim alert (see the file header), so
+        // its controls fill that height rather than the usual 44px floor —
+        // still a far cry from the 22x22 box this used to be.
+        className="ml-2 h-10 w-10 items-center justify-center rounded-full"
       >
         <X size={14} color={icons.muted} />
       </Pressable>

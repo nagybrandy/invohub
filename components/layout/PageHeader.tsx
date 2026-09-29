@@ -27,6 +27,8 @@ export type PageHeaderProps = {
   secondaryActions?: ReactNode;
   /** Extra items collapsed into a trailing "···" menu. */
   overflowActions?: OverflowMenuItem[];
+  /** Accessible label for the "···" trigger. Callers pass t("nav.more"). Defaults to "Továbbiak". */
+  overflowLabel?: string;
   /** @deprecated use primaryAction/secondaryActions/overflowActions instead. Still fully supported. */
   actions?: ReactNode;
 };
@@ -39,6 +41,7 @@ export function PageHeader({
   primaryAction,
   secondaryActions,
   overflowActions,
+  overflowLabel,
   actions,
 }: PageHeaderProps) {
   const hasSplitActions = Boolean(
@@ -66,7 +69,7 @@ export function PageHeader({
           <HStack space="sm" className="w-full items-center justify-end gap-2 md:w-auto">
             {secondaryActions}
             {overflowActions && overflowActions.length > 0 ? (
-              <OverflowMenu items={overflowActions} label="Továbbiak" />
+              <OverflowMenu items={overflowActions} label={overflowLabel ?? "Továbbiak"} />
             ) : null}
             {primaryAction ? <Box className="w-full md:w-auto">{primaryAction}</Box> : null}
           </HStack>

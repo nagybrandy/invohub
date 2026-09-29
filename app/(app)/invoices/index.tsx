@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Download, Mail, Copy, CheckCircle2, Eye, FileEdit, Trash2 } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
-import { Button, ButtonText } from "@/components/ui/button";
+import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
@@ -14,10 +14,13 @@ import { VStack } from "@/components/ui/vstack";
 import { ExchangeRateFixBanner } from "@/components/invoices/ExchangeRateFixBanner";
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { InvoiceFilterChips, isKnownInvoiceFilter } from "@/components/invoices/InvoiceFilterChips";
+import { InvoiceMonthStepper } from "@/components/invoices/InvoiceMonthStepper";
 import { InvoiceListTable, type InvoiceListSort, type InvoiceSortKey } from "@/components/invoices/InvoiceListTable";
 import { InvoicePreviewModal } from "@/components/invoices/InvoicePreviewModal";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { ListFooterStats } from "@/components/layout/ListFooterStats";
+import { summarizeInvoices } from "@/lib/lists/footer-stats";
 import { StateView } from "@/components/layout/StateView";
 import { StatCard } from "@/components/layout/StatCard";
 import type { OverflowMenuItem } from "@/components/layout/OverflowMenu";
@@ -26,11 +29,18 @@ import type { Invoice, InvoiceStatus } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useInvoiceStatusCounts } from "@/hooks/useInvoiceStatusCounts";
+import { useNavFailedCount } from "@/hooks/useNavFailedCount";
 import { useMissingExchangeRateCount } from "@/hooks/useMissingExchangeRateCount";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useRouteParam } from "@/lib/routing/route-param";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { isDevSeedButtonVisible } from "@/lib/dev/seed-visible";
+import { CSV_COLUMNS, csvExportFilename, invoiceListToCsv, type CsvLabels } from "@/lib/invoices/export-csv";
+import { EXPORT_ROW_CAP, fetchAllInvoicesForExport } from "@/lib/invoices/export-fetch";
+import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
+import { canDeleteFromList } from "@/lib/invoices/list-actions";
+import { saveDownload } from "@/components/settings/save-download";
 
 // Same code→i18n mapping as the detail screen (app/(app)/invoices/[id]/index.tsx)
 // — the convert route's 400 bodies only carry a `code`, not a translated
@@ -41,16 +51,23 @@ const CONVERT_ERROR_I18N_KEY: Record<string, string> = {
 };
 
 export default function InvoiceListScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isDesktop = useIsDesktop();
   const statusParam = useRouteParam("status");
+  // /invoices?search=… — the partner screens' "Számlái" link lands here pre-searched.
+  const searchParam = useRouteParam("search");
   const [filter, setFilter] = React.useState<InvoiceStatus | "all">(
     isKnownInvoiceFilter(statusParam) ? statusParam : "all"
   );
-  const [searchInput, setSearchInput] = React.useState("");
-  const [search, setSearch] = React.useState("");
+  const [searchInput, setSearchInput] = React.useState(searchParam ?? "");
+  const [search, setSearch] = React.useState(searchParam?.trim() ?? "");
   const [sort, setSort] = React.useState<InvoiceListSort>({ key: "issued", direction: "desc" });
   const [needsExchangeRate, setNeedsExchangeRate] = React.useState(false);
+  // "NAV-hiba" is a NAV outcome, not a status: the dashboard's next-actions row
+  // arrives as ?status=navFailed and lands on this chip with the status cleared.
+  const [navFailed, setNavFailed] = React.useState(statusParam === "navFailed");
+  const { count: navFailedCount } = useNavFailedCount();
+  const [month, setMonth] = React.useState<string | undefined>(undefined);
   const {
     invoices,
     loading,
@@ -58,11 +75,16 @@ export default function InvoiceListScreen() {
     total,
     refresh,
     remove,
+    hasMore,
+    loadMore,
+    loadingMore,
     convertedProformaIds = {},
   } = useInvoices({
     status: filter,
     search,
     needsExchangeRate,
+    month,
+    navFailed,
   });
   const { counts, allCount, other: otherCount } = useInvoiceStatusCounts();
   const { count: missingExchangeRateCount } = useMissingExchangeRateCount();
@@ -92,6 +114,63 @@ export default function InvoiceListScreen() {
   }, [invoices]);
   const [previewInvoice, setPreviewInvoice] = React.useState<Invoice | null>(null);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [exporting, setExporting] = React.useState(false);
+
+  // The whole filtered list (not just the loaded pages), in the table's
+  // current order, as a CSV for the könyvelő. Web only: there is no file
+  // system to save into on native, and saveDownload says so.
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const { invoices: all, truncated } = await fetchAllInvoicesForExport({
+        status: filter,
+        search,
+        needsExchangeRate,
+        month,
+        navFailed,
+      });
+      if (all.length === 0) {
+        setToastMessage(t("invoices.list.exportCsvEmpty"));
+        return;
+      }
+      const direction = sort.direction === "asc" ? 1 : -1;
+      const sortValue = (inv: Invoice) =>
+        sort.key === "issued"
+          ? inv.issueDate
+          : sort.key === "due"
+            ? inv.dueDate
+            : calculateInvoiceTotals(inv.lineItems).totalAmount;
+      all.sort((a, b) => {
+        const va = sortValue(a);
+        const vb = sortValue(b);
+        const diff = typeof va === "string" ? va.localeCompare(vb as string) : va - (vb as number);
+        return diff * direction;
+      });
+      const labels: CsvLabels = {
+        header: Object.fromEntries(
+          CSV_COLUMNS.map((column) => [column, t(`invoices.list.exportColumns.${column}`)]),
+        ) as CsvLabels["header"],
+        status: (inv) => t(STATUS_I18N_KEY[inv.status]),
+        documentType: (inv) => t(`invoices.documentTypes.${inv.documentType}`),
+        paymentMethod: (method) => t(`invoices.paymentMethods.${method}`),
+        draftNumber: t("invoices.list.exportDraftNumber"),
+      };
+      const csv = invoiceListToCsv(all, labels, i18n.language);
+      const saved = saveDownload(
+        csvExportFilename({ month, status: filter }, new Date()),
+        new Blob([csv], { type: "text/csv;charset=utf-8" }),
+      );
+      if (!saved) {
+        setToastMessage(t("invoices.list.exportCsvWebOnly"));
+      } else if (truncated) {
+        setToastMessage(t("invoices.list.exportCsvTruncated", { cap: EXPORT_ROW_CAP }));
+      }
+    } catch {
+      setToastMessage(t("invoices.list.exportCsvFailed"));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -140,8 +219,11 @@ export default function InvoiceListScreen() {
       cancelLabel: t("common.cancel"),
       destructive: true,
     });
-    if (confirmed) {
+    if (!confirmed) return;
+    try {
       await remove(invoice.id);
+    } catch (e) {
+      setToastMessage(e instanceof Error ? e.message : t("invoices.detail.actionFailed"));
     }
   }
 
@@ -224,12 +306,16 @@ export default function InvoiceListScreen() {
         onPress: () => void handleConvert(invoice),
       });
     }
-    items.push({
-      label: t("invoices.list.deleteAction"),
-      icon: Trash2,
-      destructive: true,
-      onPress: () => void handleDelete(invoice),
-    });
+    // A numbered document is cancelled with a sztornó, never removed — the
+    // server answers 409, so the menu does not offer it (canDeleteFromList).
+    if (canDeleteFromList(invoice)) {
+      items.push({
+        label: t("invoices.list.deleteAction"),
+        icon: Trash2,
+        destructive: true,
+        onPress: () => void handleDelete(invoice),
+      });
+    }
     return items;
   }
 
@@ -277,14 +363,55 @@ export default function InvoiceListScreen() {
       </Input>
       <InvoiceFilterChips
         filter={filter}
-        onSelect={setFilter}
+        onSelect={(next) => {
+          setNavFailed(false);
+          setFilter(next);
+        }}
+        navFailedCount={navFailedCount}
+        navFailedSelected={navFailed}
+        onSelectNavFailed={() => {
+          setFilter("all");
+          setNavFailed((current) => !current);
+        }}
         counts={counts}
         allCount={allCount}
         otherCount={otherCount}
         t={t}
       />
+      <HStack space="sm" className="flex-wrap items-center justify-between">
+        <InvoiceMonthStepper month={month} onChange={setMonth} />
+        <Button
+          size="sm"
+          variant="outline"
+          onPress={() => void handleExportCsv()}
+          disabled={exporting}
+          testID="invoice-list-export"
+        >
+          {exporting ? <ButtonSpinner /> : null}
+          <ButtonText>{t("invoices.list.exportCsv")}</ButtonText>
+        </Button>
+      </HStack>
     </VStack>
   );
+
+  // Totals of what is loaded, per currency — with the whole list's count so a
+  // page's sum is never mistaken for the year's.
+  const footerSummary = React.useMemo(() => summarizeInvoices(invoices), [invoices]);
+
+  // Below whichever list rendered: how far the page reaches, and a way on.
+  const loadMoreFooter =
+    !loading && invoices.length > 0 ? (
+      <HStack space="md" className="items-center justify-center py-3" testID="invoice-list-footer">
+        <Text size="sm" className="text-muted-foreground">
+          {t("invoices.list.showingOf", { shown: invoices.length, total })}
+        </Text>
+        {hasMore ? (
+          <Button size="sm" variant="outline" onPress={() => void loadMore()} disabled={loadingMore} testID="invoice-list-load-more">
+            <ButtonText>{t("invoices.list.loadMore")}</ButtonText>
+          </Button>
+        ) : null}
+      </HStack>
+    ) : null;
 
   const emptyState = needsExchangeRate ? (
     <StateView kind="empty" title={t("invoices.exchangeRateFix.emptyAffected")} />
@@ -292,7 +419,7 @@ export default function InvoiceListScreen() {
     <StateView
       kind="empty"
       title={t("invoices.empty")}
-      description={t("invoices.list.emptyDescription")}
+      description={t(isDevSeedButtonVisible() ? "invoices.list.emptyDescription" : "invoices.list.emptyDescriptionNoDemo")}
       action={
         <Button onPress={() => router.push(routes.newInvoice)}>
           <ButtonText>{t("nav.newInvoice")}</ButtonText>
@@ -302,7 +429,7 @@ export default function InvoiceListScreen() {
   );
 
   return (
-    <ScreenLayout header={header}>
+    <ScreenLayout width="full" header={header}>
       {isDesktop ? (
         <InvoiceListTable
           invoices={sortedInvoices}
@@ -334,6 +461,8 @@ export default function InvoiceListScreen() {
           ))}
         </VStack>
       )}
+      <ListFooterStats summary={footerSummary} total={total} testID="invoice-list-stats" />
+      {loadMoreFooter}
       <InvoicePreviewModal
         invoice={previewInvoice}
         open={previewInvoice !== null}

@@ -18,7 +18,9 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { NavEnvironmentPicker } from "@/components/settings/NavEnvironmentPicker";
+import { Switch } from "@/components/ui/switch";
 import { useCompany } from "@/hooks/useCompany";
+import { parseHungarianTaxNumber } from "@/lib/nav/customer";
 import { routes } from "@/lib/navigation";
 import type { NavEnvironment } from "@/lib/nav/environment";
 
@@ -26,7 +28,7 @@ type Step = "company" | "nav";
 
 export default function OnboardingScreen() {
   const { t } = useTranslation();
-  const { company, save } = useCompany();
+  const { company, save, lookup } = useCompany();
   const [step, setStep] = React.useState<Step>("company");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -38,6 +40,11 @@ export default function OnboardingScreen() {
   const [zipCode, setZipCode] = React.useState("");
   const [country, setCountry] = React.useState("HU");
   const [bankAccount, setBankAccount] = React.useState("");
+  // AAM decides the VAT default of every line on the first invoice — asked
+  // here, not left for the user to find in settings after a wrong invoice.
+  const [vatExempt, setVatExempt] = React.useState(false);
+  const [lookingUp, setLookingUp] = React.useState(false);
+  const [taxNumberError, setTaxNumberError] = React.useState<string | null>(null);
 
   const [navTechUser, setNavTechUser] = React.useState("");
   const [navTechPass, setNavTechPass] = React.useState("");
@@ -49,6 +56,7 @@ export default function OnboardingScreen() {
     if (company) {
       setName(company.name ?? "");
       setTaxNumber(company.taxNumber ?? "");
+      setVatExempt(company.vatExempt ?? false);
       setAddress(company.address ?? "");
       setCity(company.city ?? "");
       setZipCode(company.zipCode ?? "");
@@ -63,17 +71,51 @@ export default function OnboardingScreen() {
     }
   }, [company]);
 
+  function taxNumberFormatError(value: string): string | null {
+    // Optional here (the finalize gate owns "required"), but if present it
+    // must be the full 12345678-1-12 form NAV and the invoice need.
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = parseHungarianTaxNumber(trimmed);
+    return parsed?.vatCode ? null : t("company.onboarding.taxNumberInvalid");
+  }
+
+  async function handleLookup() {
+    const value = taxNumber.trim();
+    if (!value) return;
+    setLookingUp(true);
+    setError(null);
+    try {
+      const result = await lookup(value);
+      const data = result.company;
+      if (data) {
+        if (data.name) setName(data.name);
+        if (data.address) setAddress(data.address);
+        if (data.city) setCity(data.city);
+        if (data.zipCode) setZipCode(data.zipCode);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settings.companySettings.lookupFailed"));
+    } finally {
+      setLookingUp(false);
+    }
+  }
+
   async function handleSaveCompany() {
     if (!name.trim()) {
-      setError(t("company.onboarding.companyName") + " required.");
+      setError(t("company.onboarding.companyNameRequired"));
       return;
     }
+    const formatError = taxNumberFormatError(taxNumber);
+    setTaxNumberError(formatError);
+    if (formatError) return;
     setSaving(true);
     setError(null);
     try {
       await save({
         name: name.trim(),
         taxNumber: taxNumber.trim() || undefined,
+        vatExempt,
         address: address.trim() || undefined,
         city: city.trim() || undefined,
         zipCode: zipCode.trim() || undefined,
@@ -149,7 +191,8 @@ export default function OnboardingScreen() {
               </FormControlLabel>
               <Input>
                 <InputField
-                  placeholder="Példa Kft."
+                  testID="onboarding-company-name"
+                  placeholder={t("company.onboarding.companyNamePlaceholder")}
                   value={name}
                   onChangeText={setName}
                   className="font-light"
@@ -163,18 +206,54 @@ export default function OnboardingScreen() {
                   {t("company.onboarding.taxNumber")}
                 </FormControlLabelText>
               </FormControlLabel>
-              <Input>
-                <InputField
-                  placeholder="12345678-1-12"
-                  value={taxNumber}
-                  onChangeText={setTaxNumber}
-                  className="font-light"
-                />
-              </Input>
+              <HStack space="sm" className="items-start">
+                <Input className="flex-1">
+                  <InputField
+                    testID="onboarding-tax-number"
+                    placeholder="12345678-1-12"
+                    value={taxNumber}
+                    onChangeText={(v) => {
+                      setTaxNumber(v);
+                      if (taxNumberError) setTaxNumberError(null);
+                    }}
+                    className="font-light"
+                  />
+                </Input>
+                <Button
+                  variant="outline"
+                  onPress={handleLookup}
+                  disabled={lookingUp || !taxNumber.trim()}
+                  testID="onboarding-lookup"
+                >
+                  <ButtonText>{t("settings.companySettings.lookup")}</ButtonText>
+                </Button>
+              </HStack>
+              {taxNumberError ? (
+                <Text size="xs" className="mt-1 text-destructive" testID="onboarding-tax-number-error">
+                  {taxNumberError}
+                </Text>
+              ) : null}
               <Text size="xs" className="mt-1 font-light text-muted-foreground">
                 {t("company.onboarding.taxNumberHint")}
               </Text>
             </FormControl>
+
+            <HStack className="items-start justify-between gap-3">
+              <VStack className="flex-1">
+                <Text size="sm" className="font-medium text-foreground">
+                  {t("company.vatExempt")}
+                </Text>
+                <Text size="xs" className="font-light text-muted-foreground">
+                  {t("company.vatExemptHint")}
+                </Text>
+              </VStack>
+              <Switch
+                value={vatExempt}
+                onValueChange={setVatExempt}
+                accessibilityLabel={t("company.vatExempt")}
+                testID="onboarding-vat-exempt"
+              />
+            </HStack>
 
             <HStack space="sm" className="flex-wrap">
               <FormControl className="min-w-[100px] flex-1">
@@ -187,7 +266,8 @@ export default function OnboardingScreen() {
                   <InputField
                     placeholder="1234"
                     value={zipCode}
-                    onChangeText={setZipCode}
+                    testID="onboarding-zip"
+                  onChangeText={setZipCode}
                     className="font-light"
                   />
                 </Input>
@@ -203,7 +283,8 @@ export default function OnboardingScreen() {
                   <InputField
                     placeholder="Budapest"
                     value={city}
-                    onChangeText={setCity}
+                    testID="onboarding-city"
+                  onChangeText={setCity}
                     className="font-light"
                   />
                 </Input>
@@ -218,8 +299,9 @@ export default function OnboardingScreen() {
               </FormControlLabel>
               <Input>
                 <InputField
-                  placeholder="utca, házszám"
+                  placeholder={t("company.onboarding.addressPlaceholder")}
                   value={address}
+                  testID="onboarding-address"
                   onChangeText={setAddress}
                   className="font-light"
                 />

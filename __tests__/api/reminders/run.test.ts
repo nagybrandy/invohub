@@ -30,7 +30,7 @@ describe("GET /api/reminders/run (Vercel cron)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV, CRON_SECRET: "test-secret" };
-    mockProcess.mockResolvedValue({ processed: 0, sent: 0, errors: [] });
+    mockProcess.mockResolvedValue({ processed: 0, sent: 0, failed: 0, errors: [] });
   });
 
   afterAll(() => {
@@ -68,7 +68,7 @@ describe("POST /api/reminders/run (manual trigger)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV, CRON_SECRET: "test-secret" };
-    mockProcess.mockResolvedValue({ processed: 0, sent: 0, errors: [] });
+    mockProcess.mockResolvedValue({ processed: 0, sent: 0, failed: 0, errors: [] });
   });
 
   afterAll(() => {
@@ -98,5 +98,43 @@ describe("POST /api/reminders/run (manual trigger)", () => {
     const res = await POST(new Request("http://localhost/api/reminders/run", { method: "POST" }));
     expect(res.status).toBe(401);
     expect(mockProcess).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/reminders/run — when the run itself breaks", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...ORIGINAL_ENV, CRON_SECRET: "test-secret" };
+  });
+
+  afterAll(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
+  it("answers 500 with the reason instead of an unhandled rejection, so cron retries", async () => {
+    mockProcess.mockRejectedValue(new Error("Neon: too many connections"));
+
+    const response = await GET(makeRequest({ authorization: "Bearer test-secret" }));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("too many connections"),
+    });
+  });
+
+  it("reports a run that finished with per-item failures as 200 with the counts", async () => {
+    // A permanently bad recipient must not turn every nightly run into a
+    // failed cron job — the counts carry the signal instead.
+    mockProcess.mockResolvedValue({
+      processed: 3,
+      sent: 2,
+      failed: 1,
+      errors: ["Reminder for invoice INV-1 was refused: 550 mailbox unavailable"],
+    });
+
+    const response = await GET(makeRequest({ authorization: "Bearer test-secret" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ processed: 3, sent: 2, failed: 1 });
   });
 });

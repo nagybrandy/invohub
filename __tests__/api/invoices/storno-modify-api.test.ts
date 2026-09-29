@@ -12,6 +12,11 @@ jest.mock("@/lib/invoices/service", () => ({
   createModificationDraft: jest.fn(),
 }));
 
+const mockAutoSubmit = jest.fn();
+jest.mock("@/lib/nav/auto-submit", () => ({
+  autoSubmitToNavOnFinalize: (...args: unknown[]) => mockAutoSubmit(...args),
+}));
+
 import { requireSession } from "@/lib/api/session";
 import { POST as stornoPOST } from "@/app/api/invoices/[id]/storno+api";
 import { POST as modifyPOST } from "@/app/api/invoices/[id]/modify+api";
@@ -32,7 +37,10 @@ function req(path: string) {
 }
 
 describe("POST /api/invoices/[id]/storno", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAutoSubmit.mockResolvedValue(null);
+  });
 
   it("returns 401 without session", async () => {
     mockSession.mockResolvedValue(null);
@@ -81,7 +89,10 @@ describe("POST /api/invoices/[id]/storno", () => {
 });
 
 describe("POST /api/invoices/[id]/modify", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAutoSubmit.mockResolvedValue(null);
+  });
 
   it("returns 401 without session", async () => {
     mockSession.mockResolvedValue(null);

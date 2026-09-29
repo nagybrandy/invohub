@@ -1,6 +1,7 @@
 // lib/receipts/send-receipt-email.ts
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { sendEmail } from "@/lib/email/send";
+import { resolveSenderIdentity } from "@/lib/email/sender";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import { getReceiptById } from "@/lib/receipts/service";
 
@@ -71,6 +72,7 @@ export async function sendReceiptEmail(
 
   const company = await getCompanyByUserId(userId);
   const companyName = company?.name ?? "InvoHub";
+  const sender = await resolveSenderIdentity(userId, company);
 
   const html = buildReceiptHtml(receipt, companyName);
   const subject = `Nyugta: ${receipt.receiptNumber} — ${companyName}`;
@@ -79,6 +81,8 @@ export async function sendReceiptEmail(
     to: toList,
     subject,
     html,
+    fromName: sender.fromName,
+    replyTo: sender.replyTo,
   });
 
   if (!result.ok) {

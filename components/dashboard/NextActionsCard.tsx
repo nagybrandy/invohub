@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Section } from "@/components/layout/Section";
@@ -17,15 +18,26 @@ import type { InvoiceStatus } from "@/lib/invoices/types";
 export type NextActionRow = {
   key: string;
   label: string;
-  status: InvoiceStatus | "all";
+  status: InvoiceStatus | "all" | "navFailed";
 };
 
 function buildRows(
   t: (key: string, opts?: Record<string, unknown>) => string,
   overdueCount: number,
-  draftCount: number
+  draftCount: number,
+  navFailedCount = 0
 ): NextActionRow[] {
   const rows: NextActionRow[] = [];
+  // A failed NAV submission outranks everything: it is a compliance gap, not
+  // a cash-flow nudge. No status chip filters on it yet, so it lands on the
+  // full list (the filter chip is a follow-up).
+  if (navFailedCount > 0) {
+    rows.push({
+      key: "nav",
+      label: t("dashboard.nextActions.navFailed", { count: navFailedCount }),
+      status: "navFailed",
+    });
+  }
   if (overdueCount > 0) {
     rows.push({
       key: "overdue",
@@ -46,13 +58,15 @@ function buildRows(
 export function NextActionsCard({
   overdueCount,
   draftCount,
+  navFailedCount = 0,
   loading = false,
   onSelect,
 }: {
   overdueCount: number;
   draftCount: number;
+  navFailedCount?: number;
   loading?: boolean;
-  onSelect: (status: InvoiceStatus | "all") => void;
+  onSelect: (status: InvoiceStatus | "all" | "navFailed") => void;
 }) {
   const { t } = useTranslation();
   const icons = useIconColors();
@@ -65,7 +79,7 @@ export function NextActionsCard({
     );
   }
 
-  const rows = buildRows(t, overdueCount, draftCount);
+  const rows = buildRows(t, overdueCount, draftCount, navFailedCount);
 
   return (
     <Section title={t("dashboard.nextActions.title")}>
@@ -81,7 +95,7 @@ export function NextActionsCard({
               testID={`next-action-row-${row.key}`}
               onPress={() => onSelect(row.status)}
               accessibilityRole="button"
-              className="flex-row items-center justify-between rounded-lg border border-subtle px-3 py-2.5 data-[hover=true]:bg-muted/40"
+              className={`flex-row items-center justify-between rounded-lg border border-subtle px-3 py-2.5 data-[hover=true]:bg-muted/40 ${TAP_TARGET_MIN_H}`}
             >
               <Text size="sm" className="flex-1 text-foreground">
                 {row.label}

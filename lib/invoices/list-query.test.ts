@@ -3,6 +3,10 @@ import {
   buildInvoiceListQueryString,
   invoiceMatchesListFilters,
   normalizeInvoiceListFilters,
+  monthIssueDateRange,
+  formatMonthLabel,
+  shiftMonth,
+  currentMonth,
 } from "@/lib/invoices/list-query";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
@@ -130,5 +134,79 @@ describe("buildInvoiceListQueryString", () => {
     ).not.toContain("needsExchangeRate");
 
     expect(buildInvoiceListQueryString({ limit: 25 })).not.toContain("needsExchangeRate");
+  });
+});
+
+describe("month filter — a list that can stay on one month", () => {
+  it("normalizes a valid YYYY-MM and drops anything else", () => {
+    expect(normalizeInvoiceListFilters({ month: "2026-09" }).month).toBe("2026-09");
+    expect(normalizeInvoiceListFilters({ month: "2026-13" }).month).toBeUndefined();
+    expect(normalizeInvoiceListFilters({ month: "2026-9" }).month).toBeUndefined();
+    expect(normalizeInvoiceListFilters({ month: "" }).month).toBeUndefined();
+    expect(normalizeInvoiceListFilters({}).month).toBeUndefined();
+  });
+
+  it("matches an invoice by the month of its issue date", () => {
+    const base = { status: "unpaid", clientName: "A", invoiceNumber: "INV-1", clientTaxNumber: "", currency: "HUF", exchangeRate: undefined } as const;
+    expect(invoiceMatchesListFilters({ ...base, issueDate: "2026-09-15" }, { month: "2026-09" })).toBe(true);
+    expect(invoiceMatchesListFilters({ ...base, issueDate: "2026-08-31" }, { month: "2026-09" })).toBe(false);
+    expect(invoiceMatchesListFilters({ ...base, issueDate: "2026-08-31" }, {})).toBe(true);
+  });
+
+  it("puts month on the query string only when set", () => {
+    expect(buildInvoiceListQueryString({ limit: 30, month: "2026-09" })).toContain("month=2026-09");
+    expect(buildInvoiceListQueryString({ limit: 30 })).not.toContain("month");
+  });
+
+  it("turns a month into the half-open issue-date range the SQL needs", () => {
+    expect(monthIssueDateRange("2026-09")).toEqual({ start: "2026-09-01", end: "2026-10-01" });
+    expect(monthIssueDateRange("2026-12")).toEqual({ start: "2026-12-01", end: "2027-01-01" });
+  });
+
+  it("labels a month in the user's language", () => {
+    expect(formatMonthLabel("2026-09", "hu")).toBe("2026. szeptember");
+    expect(formatMonthLabel("2026-09", "en")).toBe("September 2026");
+  });
+
+  it("steps months and knows the current one", () => {
+    expect(shiftMonth("2026-09", -1)).toBe("2026-08");
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(currentMonth(new Date("2026-09-28T10:00:00Z"))).toBe("2026-09");
+  });
+});
+
+describe("navFailed filter — a NAV outcome, not a status", () => {
+  it("normalizes navFailed=1/true and nothing else", () => {
+    expect(normalizeInvoiceListFilters({ navFailed: "1" }).navFailed).toBe(true);
+    expect(normalizeInvoiceListFilters({ navFailed: "true" }).navFailed).toBe(true);
+    expect(normalizeInvoiceListFilters({ navFailed: "0" }).navFailed).toBeUndefined();
+    expect(normalizeInvoiceListFilters({}).navFailed).toBeUndefined();
+  });
+
+  it("emits navFailed=1 in the query string only when set", () => {
+    expect(buildInvoiceListQueryString({ limit: 30, navFailed: true })).toContain("navFailed=1");
+    expect(buildInvoiceListQueryString({ limit: 30 })).not.toContain("navFailed");
+  });
+
+  it("matches only invoices whose attached navStatus is failed", () => {
+    const base = { status: "sent" as const, clientName: "A", invoiceNumber: "INV-1", clientTaxNumber: "", currency: "HUF" as const, exchangeRate: undefined, issueDate: "2026-09-01" };
+    expect(invoiceMatchesListFilters({ ...base, navStatus: "failed" }, { navFailed: true })).toBe(true);
+    expect(invoiceMatchesListFilters({ ...base, navStatus: "done" }, { navFailed: true })).toBe(false);
+    expect(invoiceMatchesListFilters({ ...base }, { navFailed: true })).toBe(false);
+  });
+});
+
+describe("needsExchangeRate — issued documents only", () => {
+  const eur = { status: "sent" as const, clientName: "A", invoiceNumber: "INV-1", clientTaxNumber: "", currency: "EUR" as const, exchangeRate: undefined, issueDate: "2026-09-01" };
+
+  it("matches an issued EUR invoice with no rate", () => {
+    expect(invoiceMatchesListFilters({ ...eur, documentType: "invoice" }, { needsExchangeRate: true })).toBe(true);
+  });
+
+  it("does not match a draft or a díjbekérő — they get their rate at finalize time or never need one", () => {
+    expect(invoiceMatchesListFilters({ ...eur, status: "draft", invoiceNumber: "" }, { needsExchangeRate: true })).toBe(false);
+    expect(invoiceMatchesListFilters({ ...eur, status: "proforma", documentType: "proforma" }, { needsExchangeRate: true })).toBe(false);
+    expect(invoiceMatchesListFilters({ ...eur, documentType: "proforma" }, { needsExchangeRate: true })).toBe(false);
   });
 });

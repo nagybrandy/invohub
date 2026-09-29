@@ -26,12 +26,26 @@ type Props = {
   filter: InvoiceStatus | "all";
   onSelect: (filter: InvoiceStatus | "all") => void;
   counts: Partial<Record<InvoiceStatus, number>>;
+  /** Failed latest NAV submissions — the chip only appears when there are some (or it is active). */
+  navFailedCount?: number;
+  navFailedSelected?: boolean;
+  onSelectNavFailed?: () => void;
   allCount: number;
   otherCount: number;
   t: (key: string, opts?: Record<string, unknown>) => string;
 };
 
-export function InvoiceFilterChips({ filter, onSelect, counts, allCount, otherCount, t }: Props) {
+export function InvoiceFilterChips({
+  filter,
+  onSelect,
+  counts,
+  allCount,
+  otherCount,
+  navFailedCount = 0,
+  navFailedSelected = false,
+  onSelectNavFailed,
+  t,
+}: Props) {
   const filterLabel = (f: InvoiceStatus | "all") =>
     f === "all" ? t("invoices.list.filterAll") : t(STATUS_I18N_KEY[f]);
   const filterCount = (f: InvoiceStatus | "all") => (f === "all" ? allCount : counts[f] ?? 0);
@@ -54,6 +68,21 @@ export function InvoiceFilterChips({ filter, onSelect, counts, allCount, otherCo
           </ChoicePill>
         );
       })}
+      {navFailedCount > 0 || navFailedSelected ? (
+        // Not a status: a NAV outcome. Selecting it clears the status filter
+        // (the screen does that), so it can never combine into an empty list
+        // by accident.
+        <ChoicePill
+          testID="invoice-filter-navFailed"
+          selected={navFailedSelected}
+          onPress={() => onSelectNavFailed?.()}
+          className="rounded-full"
+        >
+          <Text size="xs" className={navFailedSelected ? "font-medium text-primary" : "text-destructive"}>
+            {t("invoices.list.filterCount", { label: t("invoices.list.filterNavFailed"), count: navFailedCount })}
+          </Text>
+        </ChoicePill>
+      ) : null}
       {otherCount > 0 ? (
         // Deliberately NOT a ChoicePill / Pressable — this is an informational
         // remainder ("other" = proforma / partially_paid / cancelled), not a

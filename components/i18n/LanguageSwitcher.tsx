@@ -64,7 +64,7 @@ export function LanguageSwitcher({
                   ? ["left"]
                   : ["left", "right"]
             )}
-            className={`${TAP_TARGET_MIN_H} min-w-8 items-center justify-center rounded-md px-2.5 py-1.5 ${
+            className={`${TAP_TARGET_MIN_H} min-w-11 items-center justify-center rounded-md px-2.5 py-1.5 ${
               selected
                 ? onDark
                   ? "bg-white"

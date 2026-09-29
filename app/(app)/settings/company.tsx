@@ -17,11 +17,20 @@ import { Badge, BadgeText } from "@/components/ui/badge";
 import { FormScreen } from "@/components/layout/FormScreen";
 import { NavEnvironmentPicker } from "@/components/settings/NavEnvironmentPicker";
 import { useCompany } from "@/hooks/useCompany";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
+import { navResultI18nKey } from "@/lib/nav/nav-error-i18n";
 import { NAV_API_BASE_URL, type NavEnvironment } from "@/lib/nav/environment";
 
 type NavConfig = { sharedTestAvailable: boolean; productionEnabled: boolean; encryptionConfigured: boolean };
-type NavCheckResult = { ok: boolean; message?: string; error?: string; source?: "own" | "shared" };
+type NavCheckResult = {
+  ok: boolean;
+  /** Machine-readable outcome; what the UI translates (lib/nav/nav-error-i18n.ts). */
+  code?: string;
+  /** English, for logs and the public API — never rendered here. */
+  message?: string;
+  error?: string;
+  source?: "own" | "shared";
+};
 
 export default function CompanySettingsScreen() {
   const { t } = useTranslation();
@@ -75,7 +84,7 @@ export default function CompanySettingsScreen() {
       });
       setNavCheckResult(result);
     } catch (e) {
-      setNavCheckResult({ ok: false, error: e instanceof Error ? e.message : t("common.error") });
+      setNavCheckResult({ ok: false, code: e instanceof ApiError ? e.code : undefined });
     } finally {
       setCheckingNav(false);
     }
@@ -428,9 +437,14 @@ export default function CompanySettingsScreen() {
                 </Button>
                 {navCheckResult ? (
                   <Text size="sm" className={navCheckResult.ok ? "text-green-600" : "text-destructive"}>
-                    {navCheckResult.ok
-                      ? navCheckResult.message ?? t("company.navTestSection.checkSuccess")
-                      : navCheckResult.error ?? t("company.navTestSection.checkFailed")}
+                    {t(
+                      navResultI18nKey(
+                        navCheckResult.code,
+                        navCheckResult.ok
+                          ? "company.navTestSection.checkSuccess"
+                          : "company.navTestSection.checkFailed"
+                      )
+                    )}
                   </Text>
                 ) : null}
               </HStack>

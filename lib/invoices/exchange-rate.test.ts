@@ -121,6 +121,14 @@ describe("toHufAmount", () => {
   it("converts an exact amount with no rounding needed", () => {
     expect(toHufAmount(200, 390.5)).toBe(78100);
   });
+
+  it("is symmetric around zero: a reversing line converts to exactly minus its original", () => {
+    for (const [amount, rate] of [[100.005, 390.5], [0.125, 1], [12.3456, 397.12], [-0.005, 1]] as const) {
+      expect(toHufAmount(-amount, rate)).toBe(-toHufAmount(amount, rate));
+    }
+    // Half-cent case where plain Math.round would give -0.12 vs +0.13.
+    expect(toHufAmount(-0.125, 1)).toBe(-0.13);
+  });
 });
 
 describe("formatExchangeRate", () => {

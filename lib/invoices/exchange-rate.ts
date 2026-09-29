@@ -1,7 +1,7 @@
 // lib/invoices/exchange-rate.ts
 // Pure HUF exchange-rate resolution/formatting for non-HUF invoices. No I/O,
 // no i18next — shared by the NAV XML builder (lib/nav/invoice-xml.ts), the
-// document renderers (preview-html.ts / generate-pdf.ts) and the composer
+// document renderer (generate-pdf.ts) and the composer
 // (components/invoices/composer/composer-logic.ts) alike.
 //
 // The rate itself is whatever the user typed on the invoice — this module
@@ -64,7 +64,12 @@ export function isMissingExchangeRate(
 
 /** Converts a document-currency amount to HUF at the given rate, rounded to 2 decimals. */
 export function toHufAmount(amount: number, rate: number): number {
-  return Math.round(amount * rate * 100) / 100;
+  // Round half away from zero, symmetric around 0: a reversing (negative)
+  // line must convert to exactly minus its original's HUF amount — plain
+  // Math.round rounds -x.5 towards +∞ and would leave a 0.01 HUF residue
+  // between a helyesbítő's reversal and its original line.
+  const cents = Math.round(Math.abs(amount * rate) * 100) / 100;
+  return amount * rate < 0 ? -cents : cents;
 }
 
 /**

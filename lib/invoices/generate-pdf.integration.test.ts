@@ -6,12 +6,12 @@
 /** @jest-environment node */
 import { generateInvoicePdf } from "@/lib/invoices/generate-pdf";
 import { buildSamplePreviewInvoice } from "@/lib/invoices/pdf-template/sample-invoice";
-import { documentLabels } from "@/lib/invoices/document-labels";
+import { documentInk } from "@/lib/invoices/document-ink";
+import { documentLabels, documentTitleFor } from "@/lib/invoices/document-labels";
 import {
   footerBandTop,
   PDF_PAGE_MARGINS,
   tableColumns,
-  totalsColumns,
 } from "@/lib/invoices/pdf-layout";
 import { DEFAULT_PDF_TEMPLATE, PDF_FONT_SCALES, pdfFontSizes } from "@/lib/invoices/pdf-template/defaults";
 import { documentFontNames, registerDocumentFonts } from "@/lib/invoices/pdf-fonts";
@@ -112,6 +112,15 @@ type RecordedTextCall = {
   // the header's logo-badge initials, which happens to share the body's
   // left margin as its x but is not part of the single-column content flow.
   optWidth?: number;
+  // Layout facts measured with the call's OWN options (characterSpacing
+  // included) at call time — the header-title regression below needs the
+  // real wrapped height and the real ink width, not the recorder's
+  // spacing-less `height`.
+  fontSize: number;
+  align?: string;
+  wrappedHeight: number;
+  singleLineHeight: number;
+  inkWidth: number;
   startY: number;
   endY: number;
   height: number;
@@ -187,12 +196,19 @@ async function withRecordedDoc(
       const y = typeof rest[1] === "number" ? (rest[1] as number) : doc.y;
       const opts = (rest[2] ?? (typeof rest[0] === "object" ? rest[0] : undefined) ?? {}) as {
         width?: number;
+        align?: string;
+        characterSpacing?: number;
       };
       const width =
         opts.width ??
         doc.page.width - doc.page.margins.right - (x ?? doc.page.margins.left);
       const startPage = doc.page;
       const height = doc.heightOfString(String(value), { width });
+      const spacingOpts = { characterSpacing: opts.characterSpacing ?? 0 };
+      const wrappedHeight = doc.heightOfString(String(value), { width, ...spacingOpts });
+      const singleLineHeight = doc.currentLineHeight(true);
+      const inkWidth = doc.widthOfString(String(value), spacingOpts);
+      const fontSize = (doc as unknown as { _fontSize: number })._fontSize;
       const marginBottom = doc.page.margins.bottom;
 
       const result = originalText(value, ...(rest as Parameters<typeof originalText>));
@@ -203,6 +219,11 @@ async function withRecordedDoc(
         text: String(value),
         startX: x ?? doc.page.margins.left,
         optWidth: opts.width,
+        fontSize,
+        align: opts.align,
+        wrappedHeight,
+        singleLineHeight,
+        inkWidth,
         startY: y,
         endY: doc.y,
         height,
@@ -269,30 +290,28 @@ describe("generateInvoicePdf (real pdfkit integration)", () => {
   });
 });
 
-describe("generateInvoicePdf — totals label width never wraps (AC6)", () => {
-  it.each(PDF_FONT_SCALES)(
-    "'Fizetendő összesen:' fits totalsColumns(...).labelWidth at fontScale=%s",
-    async (fontScale) => {
-      await withPdfKitFonts(async () => {
-        const doc = createPdfDocument({
-          margin: 48,
-          size: "A4",
-        });
-        registerDocumentFonts(doc);
-        const { bold } = documentFontNames(doc);
-        const fonts = pdfFontSizes(fontScale);
-        const cols = tableColumns(doc);
-        const totals = totalsColumns(doc, cols);
-        const labels = documentLabels();
+// The amount-due band is pageWidth * 0.42 wide with 14pt inner padding
+// each side, and its value is drawn at fonts.subtitle + 4 (generate-pdf.ts,
+// "Summary area"). A realistic large total must fit that box on one line at
+// every template font scale — a wrapped grand total is the worst possible
+// place for a layout bug.
+describe("generateInvoicePdf — the amount due fits its band on one line", () => {
+  it.each(PDF_FONT_SCALES)("at fontScale=%s", async (fontScale) => {
+    await withPdfKitFonts(async () => {
+      const doc = createPdfDocument({ margins: PDF_PAGE_MARGINS, size: "A4" });
+      registerDocumentFonts(doc);
+      const { bold } = documentFontNames(doc);
+      const fonts = pdfFontSizes(fontScale);
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const bandInnerWidth = pageWidth * 0.42 - 14 * 2;
 
-        doc.font(bold).fontSize(fonts.subtitle);
-        const width = doc.widthOfString(`${labels.grossTotal}:`);
-
-        expect(width).toBeLessThanOrEqual(totals.labelWidth);
-        doc.end();
-      });
-    }
-  );
+      doc.font(bold).fontSize(fonts.subtitle + 4);
+      for (const amount of ["98 765 432 Ft", "1 234 567,89 €"]) {
+        expect(doc.widthOfString(amount)).toBeLessThanOrEqual(bandInnerWidth);
+      }
+      doc.end();
+    });
+  });
 });
 
 describe("generateInvoicePdf — no content under the footer band (AC8/AC10)", () => {
@@ -362,6 +381,7 @@ describe("generateInvoicePdf — continuation pages (AC11)", () => {
     expect(pageCount).toBeGreaterThanOrEqual(2);
 
     const labels = documentLabels();
+    // The column header draws its labels uppercase (2026-09-22 redesign).
     const headerLabelTexts = [
       labels.description,
       labels.quantity,
@@ -369,16 +389,27 @@ describe("generateInvoicePdf — continuation pages (AC11)", () => {
       labels.net,
       labels.vat,
       labels.gross,
-    ];
-    const headerDrawsPerPage = new Map<unknown, number>();
+    ].map((label) => label.toUpperCase());
+    // A table header is one row (same page, same y) that starts with the
+    // description label; the VAT summary also prints NETTÓ/BRUTTÓ captions,
+    // so count per header row, not per label text.
+    const descriptionLabel = headerLabelTexts[0]!;
+    // page -> y of each header row on that page (pages are objects, so key a Map by them).
+    const headerRowYsByPage = new Map<unknown, number[]>();
     for (const call of calls) {
-      if (headerLabelTexts.includes(call.text)) {
-        headerDrawsPerPage.set(call.startPage, (headerDrawsPerPage.get(call.startPage) ?? 0) + 1);
+      if (call.text === descriptionLabel) {
+        headerRowYsByPage.set(call.startPage, [...(headerRowYsByPage.get(call.startPage) ?? []), call.startY]);
       }
     }
-    // Every page that got a header draw got the full 5-label set exactly once.
-    for (const count of headerDrawsPerPage.values()) {
-      expect(count).toBe(headerLabelTexts.length);
+    expect(headerRowYsByPage.size).toBeGreaterThanOrEqual(2);
+    for (const [page, ys] of headerRowYsByPage) {
+      // Exactly one header row per page that carries line items…
+      expect(ys).toHaveLength(1);
+      // …and that row carries all six column labels.
+      const rowLabels = new Set(
+        calls.filter((c) => c.startPage === page && c.startY === ys[0] && headerLabelTexts.includes(c.text)).map((c) => c.text)
+      );
+      expect(rowLabels.size).toBe(headerLabelTexts.length);
     }
 
     const captionText = `${invoice.invoiceNumber} · ${labels.continued}`;
@@ -388,13 +419,14 @@ describe("generateInvoicePdf — continuation pages (AC11)", () => {
     const captionPages = new Set(captionDraws.map((c) => c.startPage));
     expect(captionPages.size).toBe(captionDraws.length);
 
-    // Every page that carries a caption also got a repeated header.
-    for (const page of captionPages) {
-      expect(headerDrawsPerPage.get(page)).toBe(headerLabelTexts.length);
-    }
-    // The number of header draws equals the number of pages with line items
-    // (page 1's initial header + one per continuation page).
-    expect(headerDrawsPerPage.size).toBe(pageCount);
+    // Every page carrying line items after page 1 is a captioned
+    // continuation page; the only header page without a caption is page 1.
+    // (A continuation page may also carry only the summary block — it still
+    // gets the caption, just no table header.)
+    const headerPagesWithoutCaption = Array.from(headerRowYsByPage.keys()).filter(
+      (page) => !captionPages.has(page)
+    );
+    expect(headerPagesWithoutCaption).toHaveLength(1);
   });
 });
 
@@ -479,14 +511,14 @@ describe("generateInvoicePdf — notes continuation pages", () => {
 
     // AC7: the last fillColor set before pdfkit resumes the wrapper (i.e.
     // the last one recorded before the outer notes text() call itself was
-    // recorded) is #444444 — the same colour the notes body is drawn in on
-    // page 1 — so the heading draw doesn't leak #666666 into the
-    // continued body lines.
+    // recorded) is documentInk.secondary — the same colour the notes body is
+    // drawn in on page 1 — so the heading draw doesn't leak its own colour
+    // into the continued body lines.
     const priorFillColors = fillColorCalls
       .filter((f) => f.order < notesCall!.order)
       .sort((a, b) => a.order - b.order);
     expect(priorFillColors.length).toBeGreaterThan(0);
-    expect(priorFillColors[priorFillColors.length - 1]!.color).toBe("#444444");
+    expect(priorFillColors[priorFillColors.length - 1]!.color).toBe(documentInk.secondary);
   });
 
   it("draws no continuation banner or repeated label when the notes fit on one page (AC4)", async () => {
@@ -555,7 +587,7 @@ describe("generateInvoicePdf — notes continuation pages", () => {
 // totals label column — which is where a fixed, content-independent gap
 // would actually show up as unused whitespace.
 describe("generateInvoicePdf — density guard (AC18)", () => {
-  it("leaves no gap larger than 28pt along the single-column backbone, with a company", async () => {
+  it("leaves no gap larger than 44pt along the content backbone, with a company", async () => {
     const invoice = buildSamplePreviewInvoice();
     const { calls } = await withRecordedDoc(invoice, {
       invoice,
@@ -569,13 +601,15 @@ describe("generateInvoicePdf — density guard (AC18)", () => {
       },
     });
 
-    const measureDoc = createPdfDocument({ margin: 48, size: "A4" });
+    const measureDoc = createPdfDocument({ margins: PDF_PAGE_MARGINS, size: "A4" });
     registerDocumentFonts(measureDoc);
     const cols = tableColumns(measureDoc);
-    const totalsCols = totalsColumns(measureDoc, cols);
+    const pageWidth = cols.right - cols.left;
     measureDoc.end();
 
-    const anchorXs = [cols.left, totalsCols.labelX];
+    // Backbone anchors of the 2026-09-22 layout: the left content edge,
+    // the payment-details box inset (12pt), and the totals column.
+    const anchorXs = [cols.left, cols.left + 12, cols.right - pageWidth * 0.42];
     const isOnBackbone = (x: number) => anchorXs.some((anchor) => Math.abs(x - anchor) < 1);
     // Excludes the header logo badge's initials text — it happens to share
     // the body's left margin as its x (drawn at `left`), but is a narrow,
@@ -584,7 +618,7 @@ describe("generateInvoicePdf — density guard (AC18)", () => {
     // real body draw on the backbone either passes no width (a plain
     // `doc.text(text, x, y)` call) or a width comparable to the content
     // area (well over 100pt).
-    const isBodyWidth = (w: number | undefined) => w === undefined || w >= 100;
+    const isBodyWidth = (w: number | undefined) => w === undefined || w >= 50;
 
     const backboneCalls = calls.filter(
       (c) => c.marginBottom !== 0 && c.text.trim().length > 0 && isOnBackbone(c.startX) && isBodyWidth(c.optWidth)
@@ -603,8 +637,11 @@ describe("generateInvoicePdf — density guard (AC18)", () => {
       let blockEnd = sorted[0]!.startY;
       for (const call of sorted) {
         const gap = call.startY - blockEnd;
+        // Section breaks (header -> meta strip -> parties -> table) are
+        // deliberate ~22–26pt whitespace plus caption line-height in the
+        // 2026-09-22 layout; anything well beyond that is still a hole.
         if (gap > 0) {
-          expect(gap).toBeLessThanOrEqual(28);
+          expect(gap).toBeLessThanOrEqual(44);
         }
         blockEnd = Math.max(blockEnd, call.startY + call.height);
       }
@@ -618,39 +655,105 @@ describe("generateInvoicePdf — density guard (AC18)", () => {
 // docs/plans/2026-09-16-pdf-layout-general-improvement.md's fix-round-2
 // finding. Exercised at fontScale=large specifically, since that's where a
 // set invoice.paymentMethod pushed the row furthest past budget.
-describe("generateInvoicePdf — meta row stays within the content width (AC11 regression)", () => {
-  it("no meta-row text draw exceeds the right content margin at fontScale=large, with a payment method set", async () => {
-    const invoice = makeInvoice({ paymentMethod: "transfer" });
-    const labels = documentLabels();
-    const metaPrefixes = [
-      `${labels.issueDate}:`,
-      `${labels.dueDate}:`,
-      `${labels.paymentMethod}:`,
-      `${labels.currency}:`,
-    ];
+describe("generateInvoicePdf — nothing is drawn past the right content margin", () => {
+  it("keeps every text draw inside the content width at fontScale=large with a 5-cell meta strip (EUR + payment method)", async () => {
+    const invoice = makeInvoice({
+      paymentMethod: "transfer",
+      currency: "EUR",
+      exchangeRate: 395.12,
+      invoiceNumber: "INV-2026-000147",
+    });
 
     const { calls } = await withRecordedDoc(invoice, {
       invoice,
+      company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41", bankAccount: "11773016-01234567-00000000" },
       template: { fontScale: "large" },
     });
+    expect(calls.length).toBeGreaterThan(0);
 
-    const metaCalls = calls.filter((c) => metaPrefixes.some((prefix) => c.text.startsWith(prefix)));
-    expect(metaCalls.length).toBe(4);
-
-    await withPdfKitFonts(async () => {
-      const measureDoc = createPdfDocument({ margins: PDF_PAGE_MARGINS, size: "A4" });
-      registerDocumentFonts(measureDoc);
-      const { regular } = documentFontNames(measureDoc);
-      const fonts = pdfFontSizes("large");
-      measureDoc.font(regular).fontSize(fonts.body);
-
-      const right = measureDoc.page.width - measureDoc.page.margins.right;
-      for (const call of metaCalls) {
-        const width = measureDoc.widthOfString(call.text);
-        expect(call.startX + width).toBeLessThanOrEqual(right + 0.5);
+    const right = 595.28 - PDF_PAGE_MARGINS.right;
+    for (const call of calls) {
+      // A draw with an explicit width box must fit its box inside the
+      // margin; the box is where right-aligned text ends.
+      if (call.optWidth !== undefined) {
+        expect(call.startX + call.optWidth).toBeLessThanOrEqual(right + 0.5);
+      } else {
+        expect(call.startX).toBeLessThanOrEqual(right);
       }
-
-      measureDoc.end();
-    });
+    }
   });
+});
+
+
+// Owner report (2026-09-22): on an előlegszámla the header title wrapped to
+// "ELŐLEGSZÁML / A" and its second line collided with the invoice number.
+// The title column is now sized from the measured title (characterSpacing
+// included) and the font steps down until it fits on one line — for every
+// document type, with a long issuer name and a long document number.
+describe("generateInvoicePdf — header title never wraps or overlaps", () => {
+  const longCompany = {
+    name: "Kovács Anna Katalin egyéni vállalkozó és szoftverfejlesztő szolgáltató",
+    taxNumber: "56781234-1-42",
+    city: "Hódmezővásárhely",
+    address: "Bartók Béla út 42. 3/12.",
+    zipCode: "6800",
+    bankAccount: "11773016-01234567-00000000",
+  };
+  const cases: Array<[Invoice["documentType"], string]> = [
+    ["invoice", "INV-2026-000147"],
+    ["proforma", "DBK-2026-000012"],
+    ["advance", "ELO-2026-000012"],
+    ["storno", "INV-2026-000147-S"],
+    ["modify", "INV-2026-000147-M1"],
+  ];
+  const scales = PDF_FONT_SCALES;
+
+  for (const fontScale of scales) {
+    it.each(cases)(`%s (%s) at fontScale=${fontScale}`, async (documentType, invoiceNumber) => {
+      const invoice = makeInvoice({
+        documentType,
+        invoiceNumber,
+        status: documentType === "invoice" ? "paid" : "sent",
+        clientName: "Duna Digitális Ügynökség és Marketing Szolgáltató Korlátolt Felelősségű Társaság",
+        currency: "EUR",
+        exchangeRate: 395.1234,
+        paymentMethod: "transfer",
+      });
+      const { calls } = await withRecordedDoc(invoice, {
+        invoice,
+        company: longCompany,
+        template: { fontScale },
+      });
+
+      const expectedTitle =
+        documentType === "invoice" ? DEFAULT_PDF_TEMPLATE.titleText : documentTitleFor(documentType).toUpperCase();
+      const title = calls.find((c) => c.text === expectedTitle && c.align === "right");
+      expect(title).toBeDefined();
+      // One line: measured with its own characterSpacing, the title's
+      // wrapped height equals a single line.
+      expect(title!.wrappedHeight).toBeLessThanOrEqual(title!.singleLineHeight + 0.5);
+      // The ink fits the box and stays inside the right margin.
+      expect(title!.inkWidth).toBeLessThanOrEqual(title!.optWidth! + 0.5);
+      const right = 595.28 - PDF_PAGE_MARGINS.right;
+      expect(title!.startX + title!.optWidth!).toBeLessThanOrEqual(right + 0.5);
+
+      const titleBottom = title!.startY + title!.singleLineHeight;
+      const number = calls.find((c) => c.text === invoiceNumber && c.align === "right");
+      expect(number).toBeDefined();
+      expect(number!.wrappedHeight).toBeLessThanOrEqual(number!.singleLineHeight + 0.5);
+      expect(number!.startY).toBeGreaterThanOrEqual(titleBottom - 0.5);
+
+      // The issuer block (name + sub line) ends left of where the title
+      // column starts, so the two can never overlap however long either is.
+      const titleInkLeft = title!.startX + title!.optWidth! - title!.inkWidth;
+      const numberInkLeft = number!.startX + number!.optWidth! - number!.inkWidth;
+      const identity = calls.filter(
+        (c) => c.order < title!.order && (c.text === longCompany.name || c.text.includes(longCompany.taxNumber))
+      );
+      expect(identity.length).toBe(2);
+      for (const block of identity) {
+        expect(block.startX + block.optWidth!).toBeLessThanOrEqual(Math.min(titleInkLeft, numberInkLeft) - 8);
+      }
+    });
+  }
 });

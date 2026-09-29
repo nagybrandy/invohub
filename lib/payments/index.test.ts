@@ -1,5 +1,5 @@
 // lib/payments/index.test.ts
-import { createPaymentLink } from "@/lib/payments/index";
+import { createPaymentLink, PaymentProviderUnavailableError } from "@/lib/payments/index";
 
 describe("createPaymentLink", () => {
   const request = {
@@ -9,17 +9,16 @@ describe("createPaymentLink", () => {
     description: "Invoice INV-001",
   };
 
-  it("creates Revolut stub link", async () => {
-    const link = await createPaymentLink("revolut", request);
-    expect(link.provider).toBe("revolut");
-    expect(link.url).toContain("revolut");
-    expect(link.externalId).toContain("inv-1");
+  it("rejects revolut — the adapter is a stub, not a real integration", async () => {
+    await expect(createPaymentLink("revolut", request)).rejects.toThrow(
+      PaymentProviderUnavailableError
+    );
   });
 
-  it("creates Barion stub link", async () => {
-    const link = await createPaymentLink("barion", request);
-    expect(link.provider).toBe("barion");
-    expect(link.url).toContain("barion");
+  it("rejects barion — the adapter is a stub, not a real integration", async () => {
+    await expect(createPaymentLink("barion", request)).rejects.toThrow(
+      PaymentProviderUnavailableError
+    );
   });
 
   it("returns empty URL for manual provider", async () => {

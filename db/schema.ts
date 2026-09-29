@@ -25,6 +25,21 @@ export const user = pgTable("user", {
   // server-side (lib/auth-signup-role.ts) before it ever reaches `role`.
   // Informational only — never itself an authorization check.
   signupRole: text("signup_role").notNull().default("entrepreneur"),
+  /**
+   * Account closure (lib/account/closure.ts). The user row is NEVER hard
+   * deleted while issued invoices must be retained (Áfa tv. 179. §, Art.
+   * 78. § / 202. §, Számv. tv. 169. § (2) — see
+   * docs/decisions/2026-09-22-invoice-retention-on-account-deletion.md).
+   * Closure revokes login and anonymizes personal data; `closedAt` marks it.
+   * Nullable/additive: null = active account.
+   */
+  closedAt: timestamp("closed_at"),
+  /**
+   * End of the retention window for this closed account's retained
+   * documents (31 Dec of the 8th year after the latest issued document /
+   * closure year). Informational until a purge job exists (TODO in the ADR).
+   */
+  retentionUntil: timestamp("retention_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -88,10 +103,12 @@ export const company = pgTable(
     invoiceEmailTo: text("invoice_email_to"),
     invoiceEmailCc: text("invoice_email_cc"),
     navTechnicalUser: text("nav_technical_user"),
-    // navTechnicalPassword, navXmlSignKey, navXmlChangeKey are stored
-    // AES-256-GCM encrypted (see lib/nav/credentials.ts) when
-    // NAV_CREDENTIALS_KEY is configured; legacy plaintext rows are still
-    // read transparently.
+    // navTechnicalPassword, navXmlSignKey, navXmlChangeKey are always
+    // written AES-256-GCM encrypted (gcm2:<keyId>:iv:tag:ct, see
+    // lib/nav/credentials.ts); saving is refused without NAV_CREDENTIALS_KEY.
+    // Legacy plaintext / gcm1 rows are still readable and are rewritten by
+    // scripts/reencrypt-nav-secrets.mjs. They are only decrypted right before
+    // a NAV request is signed — never in the Company read model.
     navTechnicalPassword: text("nav_technical_password"),
     navXmlSignKey: text("nav_xml_sign_key"),
     navXmlChangeKey: text("nav_xml_change_key"),
@@ -120,6 +137,11 @@ export const client = pgTable(
     city: text("city"),
     zipCode: text("zip_code"),
     country: text("country"),
+    // "company" | "private_person" — drives NAV customerVatStatus (a natural
+    // person who is not a VAT subject is PRIVATE_PERSON, whose name/address
+    // must NOT be reported). Nullable: legacy rows fall back to inference
+    // from the tax data (see lib/nav/customer.ts).
+    partyType: text("party_type"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -173,8 +195,29 @@ export const invoice = pgTable(
     documentType: text("document_type").notNull().default("invoice"),
     clientName: text("client_name").notNull(),
     clientTaxNumber: text("client_tax_number"),
+    /**
+     * Buyer address SNAPSHOT as of issuance (Áfa tv. 169. § e) requires the
+     * buyer's name AND address on the document itself) — captured from the
+     * composer/v1 payload at save time, never re-derived from the linked
+     * client, which may move afterwards. Nullable/additive: older invoices
+     * saved before this column existed have none, so PDF/preview generation
+     * falls back to the linked client row for those (see
+     * lib/invoices/build-pdf-context.ts).
+     */
+    clientZipCode: text("client_zip_code"),
+    clientCity: text("client_city"),
+    clientAddress: text("client_address"),
+    clientCountry: text("client_country"),
+    clientEuVatNumber: text("client_eu_vat_number"),
     issueDate: text("issue_date").notNull(),
     dueDate: text("due_date").notNull(),
+    /**
+     * Teljesítés dátuma (ISO YYYY-MM-DD) — Áfa tv. 169. § performance date and
+     * NAV <invoiceDeliveryDate>. Nullable: legacy rows kept it inside notes as a
+     * "Teljesítés: …" line (see lib/invoices/fulfillment-date.ts), and rows with
+     * neither fall back to issueDate at read time.
+     */
+    fulfillmentDate: text("fulfillment_date"),
     status: text("status").notNull().default("draft"),
     currency: text("currency").notNull().default("HUF"),
     /** Manual HUF exchange rate for non-HUF invoices (MNB rate fetch is a follow-up). */
@@ -243,6 +286,8 @@ export const invoiceLineItem = pgTable(
     unitPrice: numeric("unit_price", { precision: 12, scale: 2 })
       .notNull()
       .default("0"),
+    /** Unit of measure (db/óra/nap/…) — nullable/additive, shown next to quantity on PDF/HTML. */
+    unit: text("unit"),
     vatRate: integer("vat_rate").notNull().default(27),
     /** normal | AAM | TAM | KBAET | AHK | FAD | ATK — NAV VAT exemption/reverse-charge case. */
     vatCategory: text("vat_category").notNull().default("normal"),
@@ -462,6 +507,12 @@ export const navReceiptSubmission = pgTable(
     }),
     reportDate: text("report_date").notNull(),
     status: text("status").notNull().default("pending"),
+    // Number of submission attempts made for this row (retry-in-place
+    // increments it instead of inserting a new row for the same
+    // companyId/reportDate — see lib/nav-receipt/daily-report-run.ts).
+    // Existing rows default to 0, which reads correctly as "never
+    // retried by the new code path".
+    attemptCount: integer("attempt_count").notNull().default(0),
     transactionId: text("transaction_id"),
     receiptCount: integer("receipt_count").notNull().default(0),
     cancelledCount: integer("cancelled_count").notNull().default(0),
@@ -477,6 +528,13 @@ export const navReceiptSubmission = pgTable(
     index("nav_receipt_sub_user_id_idx").on(table.userId),
     index("nav_receipt_sub_date_idx").on(table.reportDate),
     index("nav_receipt_sub_status_idx").on(table.status),
+    // Not a UNIQUE constraint — the manual submit route and (on the
+    // unmerged slice/e-nyugta-nav-receipt-api) blocked non-HUF
+    // currency-group rows legitimately write more than one row per
+    // (company, date). The idempotency guarantee is enforced in
+    // lib/nav-receipt/daily-report-run.ts and proven by its tests; this
+    // index just keeps that lookup cheap.
+    index("nav_receipt_sub_company_date_idx").on(table.companyId, table.reportDate),
   ]
 );
 
@@ -524,6 +582,63 @@ export const apiKey = pgTable(
   ]
 );
 
+/**
+ * Idempotency-Key replay store for the state-creating v1 endpoints (create,
+ * finalize, storno, modify, convert, send — see lib/api/idempotency.ts). A
+ * row is scoped to (userId, key); the same pair with a matching
+ * requestHash replays responseStatus/responseBody, a mismatching hash is a
+ * 422, and a row older than 24h is treated as expired (lib/api/idempotency.ts
+ * deletes it before recording a fresh attempt).
+ */
+export const idempotencyKey = pgTable(
+  "idempotency_key",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    // Both null while the first request holding this key is still running
+    // (claimed, not yet completed) — see lib/api/idempotency.ts.
+    responseStatus: integer("response_status"),
+    responseBody: text("response_body"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("idempotency_key_user_key_unique_idx").on(table.userId, table.key),
+    index("idempotency_key_created_at_idx").on(table.createdAt),
+  ]
+);
+
+/**
+ * Cached MNB (Magyar Nemzeti Bank) official HUF exchange rates — see
+ * lib/exchange-rates/mnb.ts (SOAP fetch/parse) and lib/exchange-rates/
+ * service.ts (cache-first lookup with the "latest published on or before
+ * date" rule). Not user-scoped: the same official rate applies to every
+ * user, so there's exactly one row per (currency, rate_date). A past date's
+ * rate never changes once published, so a row is cached forever; a missing
+ * row is never a cached "not found" — it just means we haven't fetched (or
+ * MNB hasn't published) that day yet, so the next lookup tries again.
+ */
+export const exchangeRate = pgTable(
+  "exchange_rate",
+  {
+    id: text("id").primaryKey(),
+    /** ISO 4217 code, e.g. "EUR" — HUF itself is never stored (always rate 1). */
+    currency: text("currency").notNull(),
+    /** The MNB-published day this rate is for (YYYY-MM-DD), not necessarily the requested date. */
+    rateDate: text("rate_date").notNull(),
+    /** HUF per 1 unit of `currency` — already normalized by the MNB `unit` attribute (e.g. JPY/100). */
+    rate: numeric("rate", { precision: 14, scale: 6 }).notNull(),
+    source: text("source").notNull().default("MNB"),
+    fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("exchange_rate_currency_date_unique_idx").on(table.currency, table.rateDate),
+  ]
+);
+
 export const schema = {
   user,
   session,
@@ -545,4 +660,6 @@ export const schema = {
   navReceiptSubmission,
   notification,
   apiKey,
+  idempotencyKey,
+  exchangeRate,
 };

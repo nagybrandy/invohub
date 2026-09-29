@@ -6,7 +6,7 @@ describe("i18n en locale", () => {
   it("defines navigation keys", () => {
     expect(en.nav.invoices).toBe("Invoices");
     expect(en.nav.dashboard).toBe("Dashboard");
-    expect(en.settings.darkMode).toBe("Dark mode");
+    expect(en.settings.darkMode).toBe("Appearance");
   });
 });
 
@@ -36,11 +36,24 @@ describe("hu/en locale parity", () => {
     }
   });
 
-  it("defines the invoices.document / invoices.preview / invoices.detail.previewTitle keys in both locales", () => {
+  it("defines the invoices.document / invoices.preview keys (single PDF preview) in both locales", () => {
     for (const locale of [en, hu]) {
       expect(locale.invoices.document.buyer).toBeTruthy();
-      expect(locale.invoices.preview.title).toBeTruthy();
-      expect(locale.invoices.detail.previewTitle).toBeTruthy();
+      for (const key of [
+        "title",
+        "frameTitle",
+        "openPdf",
+        "refreshing",
+        "loadFailed",
+        "refreshFailed",
+        "retry",
+        "nativeHint",
+        "draftNote",
+        "hide",
+        "show",
+      ] as const) {
+        expect(locale.invoices.preview[key]).toBeTruthy();
+      }
     }
   });
 
@@ -51,6 +64,15 @@ describe("hu/en locale parity", () => {
     for (const locale of [en, hu]) {
       expect(locale.invoices.document.continued).toBeTruthy();
       expect(locale.invoices.document.pageIndicator).toBeTruthy();
+    }
+  });
+
+  // AC5.1: receipts.navMissingExchangeRate must exist in both locales and
+  // interpolate the blocked receipt's currency.
+  it("defines receipts.navMissingExchangeRate with a {{currency}} placeholder in both locales", () => {
+    for (const locale of [en, hu]) {
+      expect(locale.receipts.navMissingExchangeRate).toBeTruthy();
+      expect(locale.receipts.navMissingExchangeRate).toContain("{{currency}}");
     }
   });
 
@@ -84,6 +106,15 @@ describe("hu/en locale parity", () => {
       expect(locale.notifications.content.welcomeBody).toBeTruthy();
       expect(locale.notifications.content.reminderScheduledTitle).toBeTruthy();
       expect(locale.notifications.content.reminderScheduledBody).toBeTruthy();
+    }
+  });
+
+  // AC4 (incoming-invoices-dashboard-button): the mislabelled desktop
+  // "Bejövő számlák" button was removed, not relabelled — its only consumer
+  // is gone, so the key must not silently come back in either locale.
+  it("does not define dashboard.incomingInvoices in either locale", () => {
+    for (const locale of [en, hu]) {
+      expect((locale.dashboard as Record<string, unknown>).incomingInvoices).toBeUndefined();
     }
   });
 });

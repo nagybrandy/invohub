@@ -1,7 +1,8 @@
 // components/invoices/InvoicePreviewModal.tsx
-// Quick preview drawer from invoice list — HTML/PDF tabs.
+// Quick preview drawer from the invoice list — the real PDF (the single
+// preview everywhere; see InvoicePdfPreview).
 import * as React from "react";
-import { Linking, Platform } from "react-native";
+import { useTranslation } from "react-i18next";
 import {
   Drawer,
   DrawerBackdrop,
@@ -9,14 +10,12 @@ import {
   DrawerContent,
   DrawerHeader,
 } from "@/components/ui/drawer";
-import { Button, ButtonText } from "@/components/ui/button";
 import { Heading } from "@/components/ui/heading";
-import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
+import { InvoicePdfPreview } from "@/components/invoices/InvoicePdfPreview";
+import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import type { Invoice } from "@/lib/invoices/types";
-import { invoicePdfUrl } from "@/lib/api/client";
 
 export function InvoicePreviewModal({
   invoice,
@@ -27,41 +26,31 @@ export function InvoicePreviewModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   if (!invoice) return null;
-
-  const pdfUrl = invoicePdfUrl(invoice.id);
-
-  async function handleDownloadPdf() {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      window.open(pdfUrl, "_blank");
-      return;
-    }
-    await Linking.openURL(pdfUrl);
-  }
 
   return (
     <Drawer isOpen={open} onClose={onClose} size="lg" anchor="bottom">
       <DrawerBackdrop />
       <DrawerContent className="max-h-[92%]">
         <DrawerHeader>
-          <VStack space="sm">
-            <Heading size="md">{invoice.invoiceNumber}</Heading>
+          <VStack space="xs">
+            <Heading size="md">{invoice.invoiceNumber || t("invoices.status.draft")}</Heading>
             <Text size="sm" className="text-muted-foreground">
-              {invoice.status} · {invoice.clientName}
+              {t(STATUS_I18N_KEY[invoice.status])} · {invoice.clientName}
             </Text>
-            <HStack space="sm">
-              <Button size="sm" variant="outline" onPress={() => void handleDownloadPdf()}>
-                <ButtonText>Download PDF</ButtonText>
-              </Button>
-            </HStack>
           </VStack>
         </DrawerHeader>
         <DrawerBody className="flex-1">
-          <InvoiceDocumentPreview
-            invoice={invoice}
-            invoiceId={invoice.id}
-            minHeight={440}
-          />
+          {open ? (
+            <InvoicePdfPreview
+              source={{ kind: "saved", invoiceId: invoice.id, version: invoice.updatedAt }}
+              filename={`${invoice.invoiceNumber || "invoice"}.pdf`}
+              openLabel={t("invoices.list.pdfAction")}
+              height={620}
+              showTitle={false}
+            />
+          ) : null}
         </DrawerBody>
       </DrawerContent>
     </Drawer>

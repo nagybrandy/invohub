@@ -32,6 +32,7 @@ export function ComposerStepper({
         const isInvalid = invalidSteps[stepId];
         return (
           <Pressable
+            testID={`composer-stepper-${stepId}`}
             key={stepId}
             onPress={() => onSelect(stepId)}
             accessibilityRole="tab"
@@ -57,18 +58,22 @@ export function ComposerStepper({
                   {index + 1}
                 </Text>
               </VStack>
-              <Text
-                size="sm"
-                className={
-                  isCurrent
-                    ? "font-semibold text-foreground"
-                    : isInvalid
-                      ? "font-medium text-destructive"
-                      : "font-light text-muted-foreground"
-                }
-              >
-                {t(STEP_LABEL_KEYS[stepId])}
-              </Text>
+              {/* Only the current step spells itself out: all three labels
+                  wrapped the stepper onto a second row at 375px, and the
+                  numbered circles carry the rest. An invalid step keeps its
+                  label so the error stays findable. */}
+              {isCurrent || isInvalid ? (
+                <Text
+                  size="sm"
+                  className={
+                    isCurrent
+                      ? "font-semibold text-foreground"
+                      : "font-medium text-destructive"
+                  }
+                >
+                  {t(STEP_LABEL_KEYS[stepId])}
+                </Text>
+              ) : null}
               {isInvalid ? <VStack className="h-1.5 w-1.5 rounded-full bg-destructive" /> : null}
             </HStack>
             {index < COMPOSER_STEP_ORDER.length - 1 ? (

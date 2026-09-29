@@ -1,5 +1,5 @@
 {
-  "id": "814cef62-64b9-4102-8175-66277ecc15f0",
+  "id": "bc65ce68-9ae2-4378-be04-4dfdfad36ce3",
   "prevId": "d91af3eb-e943-4975-8e12-a0d02f7c75f6",
   "version": "7",
   "dialect": "postgresql",
@@ -1522,6 +1522,13 @@
           "notNull": true,
           "default": "'pending'"
         },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "transaction_id": {
           "name": "transaction_id",
           "type": "text",
@@ -1623,6 +1630,27 @@
           "columns": [
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "nav_receipt_sub_company_date_idx": {
+          "name": "nav_receipt_sub_company_date_idx",
+          "columns": [
+            {
+              "expression": "company_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "report_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1741,24 +1769,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "reported_currency": {
-          "name": "reported_currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reported_exchange_rate": {
-          "name": "reported_exchange_rate",
-          "type": "numeric(12, 6)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reported_vat_huf": {
-          "name": "reported_vat_huf",
-          "type": "numeric(14, 2)",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {

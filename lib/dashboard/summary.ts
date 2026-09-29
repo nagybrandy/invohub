@@ -4,6 +4,9 @@
 // getDashboardSummaryFromDb aggregates over EVERY invoice via SQL so the
 // numbers are correct at scale instead of only reflecting the first page.
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { isIssuedDocument } from "@/lib/invoices/issued";
+import { loadLatestNavStatusForUser } from "@/lib/nav/latest-submission-store";
+import { navIndicatorFor } from "@/lib/nav/nav-indicator";
 import { db } from "@/db";
 import { invoice, invoiceLineItem } from "@/db/schema";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
@@ -19,12 +22,54 @@ function invoiceVat(invoice: Invoice): number {
   return calculateInvoiceTotals(invoice.lineItems).vatTotal;
 }
 
+/**
+ * The two period KPIs used to aggregate every invoice ever, while their
+ * labels promised a period: "E havi bevétel" showed all-time paid gross, and
+ * "Becsült fizetendő ÁFA" showed VAT on all-time *paid* invoices under a hint
+ * that names a quarter and says "a kiállított számlák alapján"
+ * (docs/design/app-ux-spec-2026-09-14.md §A3 shipped that sentence and
+ * deliberately left the number for later — this is later). An EV reads these
+ * to judge the AAM threshold and what to set aside, so they now mean what
+ * they say.
+ */
+export function isInSameMonth(iso: string | undefined | null, now: Date): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
+export function isInSameQuarter(iso: string | undefined | null, now: Date): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  if (d.getFullYear() !== now.getFullYear()) return false;
+  return Math.floor(d.getMonth() / 3) === Math.floor(now.getMonth() / 3);
+}
+
+/**
+ * Whether a document carries VAT liability for the period it was issued in.
+ * A draft isn't issued at all and a díjbekérő is not a tax document, so
+ * neither counts. Everything else does — including a `cancelled` original,
+ * because its storno document carries the offsetting negative lines; dropping
+ * the original would subtract the same amount twice.
+ */
+export function countsTowardIssuedVat(invoice: Invoice): boolean {
+  return isIssuedDocument(invoice);
+}
+
 function daysBetween(dueDate: string, now: Date): number {
   return Math.floor((now.getTime() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export type DashboardSummary = {
   revenue: number;
+  /** All-time paid gross — what the "Bevétel statisztika" bar sets against `outstanding`, so both sides cover the same span. */
+  paidTotal: number;
+  /** Invoices whose latest NAV submission failed or was aborted — the ones that need a human. */
+  navFailedCount: number;
+  /** How many invoices make up `revenue` — the same month, so the card's count can't contradict its amount. */
+  revenuePaidCount: number;
   outstanding: number;
   overdueTotal: number;
   issuedTotal: number;
@@ -55,7 +100,13 @@ export function computeDashboardSummary(
   invoices: Invoice[],
   now: Date = new Date(),
 ): DashboardSummary {
-  const paid = invoices.filter((invoice) => invoice.status === "paid");
+  const paidAllTime = invoices.filter((invoice) => invoice.status === "paid");
+  const paidThisMonth = invoices.filter(
+    (invoice) => invoice.status === "paid" && isInSameMonth(invoice.paidAt, now)
+  );
+  const vatThisQuarter = invoices.filter(
+    (invoice) => countsTowardIssuedVat(invoice) && isInSameQuarter(invoice.issueDate, now)
+  );
   const overdue = invoices.filter((invoice) => isDashboardOverdue(invoice, now));
   const outstandingInvoices = invoices.filter((invoice) =>
     OUTSTANDING_STATUSES.includes(invoice.status),
@@ -71,14 +122,17 @@ export function computeDashboardSummary(
   }
 
   return {
-    revenue: paid.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
+    revenue: paidThisMonth.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
+    revenuePaidCount: paidThisMonth.length,
+    navFailedCount: invoices.filter((invoice) => invoice.navStatus === "failed").length,
+    paidTotal: paidAllTime.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
     outstanding: outstandingInvoices.reduce(
       (sum, invoice) => sum + invoiceGross(invoice),
       0,
     ),
     overdueTotal: overdue.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
     issuedTotal: issued.reduce((sum, invoice) => sum + invoiceGross(invoice), 0),
-    estimatedVat: paid.reduce((sum, invoice) => sum + invoiceVat(invoice), 0),
+    estimatedVat: vatThisQuarter.reduce((sum, invoice) => sum + invoiceVat(invoice), 0),
     overdueCount: overdue.length,
     oldestOverdueDays,
     recentInvoices: [...invoices]
@@ -92,18 +146,16 @@ export type StatusTotalsRow = { status: InvoiceStatus; net: number; vat: number 
 /** Pure fold of one SQL GROUP BY status row per status into the dashboard buckets. */
 export function aggregateStatusTotals(
   rows: StatusTotalsRow[],
-): Pick<DashboardSummary, "revenue" | "outstanding" | "overdueTotal" | "issuedTotal" | "estimatedVat"> {
-  let revenue = 0;
+): Pick<DashboardSummary, "paidTotal" | "outstanding" | "overdueTotal" | "issuedTotal"> {
+  let paidTotal = 0;
   let outstanding = 0;
   let overdueTotal = 0;
   let issuedTotal = 0;
-  let estimatedVat = 0;
 
   for (const row of rows) {
     const gross = row.net + row.vat;
     if (row.status === "paid") {
-      revenue += gross;
-      estimatedVat += row.vat;
+      paidTotal += gross;
     } else if (OUTSTANDING_STATUSES.includes(row.status)) {
       outstanding += gross;
       if (row.status === "overdue") {
@@ -114,7 +166,24 @@ export function aggregateStatusTotals(
     }
   }
 
-  return { revenue, outstanding, overdueTotal, issuedTotal, estimatedVat };
+  // revenue and estimatedVat are period-bounded and therefore cannot come
+  // from a GROUP BY status — getDashboardSummaryFromDb queries them separately.
+  return { paidTotal, outstanding, overdueTotal, issuedTotal };
+}
+
+/** First day of `now`'s month and of the next one, as timestamps for a half-open range. */
+export function monthRange(now: Date): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return { start, end };
+}
+
+/** First and last day of `now`'s quarter as YYYY-MM-DD, for the text issue_date column. */
+export function quarterRangeIso(now: Date): { start: string; end: string } {
+  const firstMonth = Math.floor(now.getUTCMonth() / 3) * 3;
+  const start = new Date(Date.UTC(now.getUTCFullYear(), firstMonth, 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), firstMonth + 3, 0));
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
 /**
@@ -144,6 +213,44 @@ export async function getDashboardSummaryFromDb(
       vat: Number(row.vat),
     })),
   );
+
+  // The two period KPIs need their own filters: a GROUP BY status can see
+  // neither the payment date nor the issue date. "E havi bevétel" is what was
+  // actually paid this calendar month; the VAT estimate follows issuance (the
+  // basis the dashboard hint states), so an issued-but-unpaid invoice counts
+  // and a draft or díjbekérő never does.
+  const { start: monthStart, end: monthEnd } = monthRange(now);
+  const [revenueRow] = await db
+    .select({
+      gross: sql<string>`COALESCE(SUM(${invoiceLineItem.quantity} * ${invoiceLineItem.unitPrice} * (1 + CASE WHEN ${invoiceLineItem.vatCategory} = 'normal' THEN ${invoiceLineItem.vatRate} / 100.0 ELSE 0 END)), 0)`,
+      count: sql<string>`COUNT(DISTINCT ${invoice.id})`,
+    })
+    .from(invoice)
+    .leftJoin(invoiceLineItem, eq(invoiceLineItem.invoiceId, invoice.id))
+    .where(
+      and(
+        eq(invoice.userId, userId),
+        eq(invoice.status, "paid"),
+        sql`${invoice.paidAt} >= ${monthStart} AND ${invoice.paidAt} < ${monthEnd}`
+      )
+    );
+
+  const { start: quarterStart, end: quarterEnd } = quarterRangeIso(now);
+  const [vatRow] = await db
+    .select({
+      vat: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceLineItem.vatCategory} = 'normal' THEN ${invoiceLineItem.quantity} * ${invoiceLineItem.unitPrice} * ${invoiceLineItem.vatRate} / 100.0 ELSE 0 END), 0)`,
+    })
+    .from(invoice)
+    .leftJoin(invoiceLineItem, eq(invoiceLineItem.invoiceId, invoice.id))
+    .where(
+      and(
+        eq(invoice.userId, userId),
+        sql`${invoice.status} NOT IN ('draft', 'proforma')`,
+        sql`${invoice.documentType} <> 'proforma'`,
+        sql`substr(${invoice.issueDate}, 1, 10) >= ${quarterStart}`,
+        sql`substr(${invoice.issueDate}, 1, 10) <= ${quarterEnd}`
+      )
+    );
 
   // Same rule as isDashboardOverdue(): status "overdue" always counts;
   // "partially_paid" counts too once its due date has passed, since the
@@ -201,12 +308,24 @@ export async function getDashboardSummaryFromDb(
     list.push(item);
     itemsByInvoice.set(item.invoiceId, list);
   }
-  const recentInvoices = recentRows.map((row) =>
-    mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? []),
-  );
+  // Latest NAV outcome per invoice: the recent-invoices table shows a dot per
+  // row, and the "Következő lépések" card needs how many need a human.
+  const latestNav = await loadLatestNavStatusForUser(userId);
+  const recentInvoices = recentRows.map((row) => ({
+    ...mapInvoiceFromDb(row, itemsByInvoice.get(row.id) ?? []),
+    navStatus: navIndicatorFor(row, latestNav.get(row.id)),
+  }));
+  let navFailedCount = 0;
+  for (const status of latestNav.values()) {
+    if (navIndicatorFor({ status: "unpaid", documentType: "invoice" }, status) === "failed") navFailedCount += 1;
+  }
 
   return {
     ...totals,
+    revenue: Number(revenueRow?.gross ?? 0),
+    revenuePaidCount: Number(revenueRow?.count ?? 0),
+    navFailedCount,
+    estimatedVat: Number(vatRow?.vat ?? 0),
     overdueTotal,
     overdueCount: overdueRows.length,
     oldestOverdueDays,

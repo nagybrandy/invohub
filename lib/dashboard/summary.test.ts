@@ -21,6 +21,8 @@ describe("computeDashboardSummary", () => {
       makeInvoice({
         id: "paid",
         status: "paid",
+        paidAt: "2026-09-01T00:00:00.000Z",
+        issueDate: "2026-09-01",
         createdAt: "2026-09-01T00:00:00.000Z",
         lineItems: [makeLineItem({ quantity: 1, unitPrice: 100_000, vatRate: 27 })],
       }),
@@ -83,11 +85,13 @@ describe("computeDashboardSummary", () => {
     expect(summary.outstanding).toBe(50_800);
   });
 
-  it("sums VAT from paid invoice line items instead of a flat 27% guess", () => {
+  it("sums VAT from the line items instead of a flat 27% guess", () => {
     const invoices = [
       makeInvoice({
         id: "mixed-vat",
         status: "paid",
+        paidAt: "2026-09-05T00:00:00.000Z",
+        issueDate: "2026-09-05",
         lineItems: [
           makeLineItem({ quantity: 1, unitPrice: 100_000, vatRate: 27 }),
           makeLineItem({ quantity: 1, unitPrice: 10_000, vatRate: 0 }),
@@ -112,20 +116,21 @@ describe("aggregateStatusTotals", () => {
       { status: "cancelled", net: 999, vat: 0 },
     ]);
 
-    expect(totals.revenue).toBe(127_000);
     expect(totals.outstanding).toBe(88_900);
     expect(totals.overdueTotal).toBe(25_400);
     expect(totals.issuedTotal).toBe(12_700);
-    expect(totals.estimatedVat).toBe(27_000);
+    // revenue and estimatedVat are period-bounded, so a GROUP BY status
+    // cannot produce them — getDashboardSummaryFromDb queries them separately.
+    expect(totals).not.toHaveProperty("revenue");
+    expect(totals).not.toHaveProperty("estimatedVat");
   });
 
   it("returns zeros for an empty result set", () => {
     expect(aggregateStatusTotals([])).toEqual({
-      revenue: 0,
+      paidTotal: 0,
       outstanding: 0,
       overdueTotal: 0,
       issuedTotal: 0,
-      estimatedVat: 0,
     });
   });
 });
@@ -153,6 +158,22 @@ describe("getDashboardSummaryFromDb", () => {
                   { status: "overdue", net: "20000", vat: "5400" },
                 ]),
             }),
+          }),
+        }),
+      },
+      // revenue: gross of what was PAID this calendar month
+      {
+        from: () => ({
+          leftJoin: () => ({
+            where: () => Promise.resolve([{ gross: "127000", count: "1" }]),
+          }),
+        }),
+      },
+      // estimated VAT: VAT of documents ISSUED this quarter
+      {
+        from: () => ({
+          leftJoin: () => ({
+            where: () => Promise.resolve([{ vat: "81000" }]),
           }),
         }),
       },
@@ -213,18 +234,143 @@ describe("getDashboardSummaryFromDb", () => {
       },
     ];
 
+    // latest NAV submission per invoice (loadLatestNavStatusForUser):
+    // inv-recent failed, some other invoice is fine
+    chains.push({
+      from: () => ({
+        leftJoin: () => ({
+          where: () =>
+            Promise.resolve([
+              { invoiceId: "inv-recent", status: "error", createdAt: "2026-09-10T12:00:00.000Z" },
+              { invoiceId: "inv-other", status: "done", createdAt: "2026-09-09T12:00:00.000Z" },
+            ]),
+        }),
+      }),
+    });
     let call = 0;
     mockDb.select.mockImplementation(() => chains[call++]);
 
     const summary = await getDashboardSummaryFromDb("user-1", now);
 
     expect(summary.revenue).toBe(127_000);
+    expect(summary.revenuePaidCount).toBe(1);
+    // the period KPIs come from their own filtered queries, not the status fold
+    expect(summary.estimatedVat).toBe(81_000);
     expect(summary.overdueTotal).toBe(25_400);
     expect(summary.overdueCount).toBe(1);
     expect(summary.oldestOverdueDays).toBe(11);
     expect(summary.recentInvoices).toHaveLength(1);
     expect(summary.recentInvoices[0].invoiceNumber).toBe("INV-2026-009");
-    // 3 select calls that don't need a per-invoice line-item join, + 1 for recent line items = 4.
-    expect(mockDb.select).toHaveBeenCalledTimes(4);
+    // the recent row carries its latest NAV outcome, and the failure is counted
+    expect(summary.recentInvoices[0].navStatus).toBe("failed");
+    expect(summary.navFailedCount).toBe(1);
+    // status fold, revenue, VAT, overdue, recent invoices, recent line items, latest NAV.
+    expect(mockDb.select).toHaveBeenCalledTimes(7);
+  });
+});
+
+describe("computeDashboardSummary — the period KPIs must mean what their labels say", () => {
+  const now = new Date("2026-09-12T12:00:00.000Z"); // Q3
+
+  const paidOn = (id: string, paidAt: string, unitPrice: number) =>
+    makeInvoice({
+      id,
+      status: "paid",
+      paidAt,
+      issueDate: paidAt.slice(0, 10),
+      createdAt: paidAt,
+      lineItems: [makeLineItem({ quantity: 1, unitPrice, vatRate: 27 })],
+    });
+
+  it('counts only this month in "E havi bevétel", not every invoice ever paid', () => {
+    const summary = computeDashboardSummary(
+      [
+        paidOn("this-month", "2026-09-03T00:00:00.000Z", 100_000),
+        paidOn("last-month", "2026-08-28T00:00:00.000Z", 500_000),
+        paidOn("last-year", "2025-09-03T00:00:00.000Z", 900_000),
+      ],
+      now,
+    );
+
+    expect(summary.revenue).toBe(127_000);
+  });
+
+  it("leaves a paid invoice with no payment date out of the month rather than inflating it", () => {
+    const noDate = makeInvoice({
+      id: "legacy",
+      status: "paid",
+      paidAt: undefined,
+      lineItems: [makeLineItem({ quantity: 1, unitPrice: 400_000, vatRate: 27 })],
+    });
+
+    expect(computeDashboardSummary([noDate], now).revenue).toBe(0);
+  });
+
+  it("estimates VAT from documents issued in the current quarter, the basis the hint claims", () => {
+    const issued = (id: string, issueDate: string, unitPrice: number, extra = {}) =>
+      makeInvoice({
+        id,
+        status: "unpaid",
+        issueDate,
+        createdAt: `${issueDate}T00:00:00.000Z`,
+        lineItems: [makeLineItem({ quantity: 1, unitPrice, vatRate: 27 })],
+        ...extra,
+      });
+
+    const summary = computeDashboardSummary(
+      [
+        issued("q3-unpaid", "2026-07-05", 100_000),
+        issued("q3-paid", "2026-08-11", 200_000, { status: "paid", paidAt: "2026-08-12T00:00:00.000Z" }),
+        issued("q2", "2026-06-30", 800_000),
+        issued("q3-draft", "2026-09-01", 400_000, { status: "draft" }),
+        issued("q3-proforma", "2026-09-02", 400_000, { status: "proforma", documentType: "proforma" }),
+      ],
+      now,
+    );
+
+    // 27% of 300 000 — the unpaid one counts (liability follows issuance),
+    // the draft and the díjbekérő never do.
+    expect(summary.estimatedVat).toBe(81_000);
+  });
+
+  it("nets a storno against the invoice it cancels, instead of double-counting either", () => {
+    const original = makeInvoice({
+      id: "orig",
+      status: "cancelled",
+      issueDate: "2026-08-01",
+      lineItems: [makeLineItem({ quantity: 1, unitPrice: 100_000, vatRate: 27 })],
+    });
+    const storno = makeInvoice({
+      id: "storno",
+      status: "sent",
+      documentType: "storno",
+      issueDate: "2026-08-02",
+      originalInvoiceId: "orig",
+      lineItems: [makeLineItem({ quantity: -1, unitPrice: 100_000, vatRate: 27 })],
+    });
+
+    expect(computeDashboardSummary([original, storno], now).estimatedVat).toBe(0);
+  });
+});
+
+describe("computeDashboardSummary — the revenue bar needs an all-time paid figure", () => {
+  const now = new Date("2026-09-12T12:00:00.000Z");
+
+  it("exposes paidTotal as all-time paid gross, separate from the month-bounded revenue", () => {
+    // The "Bevétel statisztika" bar compares collected vs outstanding over
+    // everything ever invoiced. Feeding it the month-bounded `revenue` next
+    // to the all-time `outstanding` compared a month to all time.
+    const summary = computeDashboardSummary(
+      [
+        makeInvoice({ id: "p-now", status: "paid", paidAt: "2026-09-03T00:00:00.000Z", issueDate: "2026-09-03", lineItems: [makeLineItem({ quantity: 1, unitPrice: 100_000, vatRate: 27 })] }),
+        makeInvoice({ id: "p-old", status: "paid", paidAt: "2025-01-10T00:00:00.000Z", issueDate: "2025-01-10", lineItems: [makeLineItem({ quantity: 1, unitPrice: 100_000, vatRate: 27 })] }),
+        makeInvoice({ id: "open", status: "sent", issueDate: "2026-09-04", lineItems: [makeLineItem({ quantity: 1, unitPrice: 50_000, vatRate: 27 })] }),
+      ],
+      now,
+    );
+
+    expect(summary.revenue).toBe(127_000);
+    expect(summary.paidTotal).toBe(254_000);
+    expect(summary.outstanding).toBe(63_500);
   });
 });

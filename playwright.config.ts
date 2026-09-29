@@ -36,7 +36,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never" }],
+    // Says out loud when the authenticated specs sat out for want of
+    // credentials — a green suite that skipped every signed-in flow looks
+    // exactly like one that covered them (e2e/reporters/auth-coverage.ts).
+    ["./e2e/reporters/auth-coverage.ts"],
+  ],
   use: {
     baseURL,
     trace: "on-first-retry",
