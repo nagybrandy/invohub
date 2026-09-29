@@ -3,6 +3,7 @@
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { sendInvoiceNotificationEmail } from "@/lib/invoices/send-invoice-email";
+import { statusForSendFailure } from "@/lib/invoices/send-error-status";
 
 type Params = { id: string };
 
@@ -27,7 +28,13 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return jsonResponse({ error: result.error, to: result.to }, result.error?.includes("not found") ? 404 : 500);
+    // `error` stays in English for server-side logs / API consumers —
+    // `code` is what the UI must translate and show (see
+    // lib/invoices/send-error-i18n.ts); never render `error` directly.
+    return jsonResponse(
+      { error: result.error, code: result.code, missingFields: result.missingFields, to: result.to },
+      statusForSendFailure(result)
+    );
   }
 
   return jsonResponse({

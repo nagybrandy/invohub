@@ -14,6 +14,7 @@ import { useRouteParam } from "@/lib/routing/route-param";
 
 export default function EditInvoiceScreen() {
   const id = useRouteParam("id");
+  const focus = useRouteParam("focus");
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -32,5 +33,5 @@ export default function EditInvoiceScreen() {
     );
   }
 
-  return <InvoiceComposer mode="edit" invoice={invoice} />;
+  return <InvoiceComposer mode="edit" invoice={invoice} initialFocusField={focus ?? undefined} />;
 }

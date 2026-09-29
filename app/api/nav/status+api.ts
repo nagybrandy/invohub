@@ -1,7 +1,7 @@
 // app/api/nav/status+api.ts
 // Poll/refresh NAV transaction status for an invoice's latest submission —
 // backs the "Státusz frissítése" action on the invoice detail screen.
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { navSubmission } from "@/db/schema";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
@@ -9,6 +9,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { getNavClient } from "@/lib/nav/client";
 import { isNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
+import { listNavSubmissionsForInvoice } from "@/lib/nav/list-submissions";
 import { resolveNavCredentials } from "@/lib/nav/resolve-credentials";
 
 export async function GET(request: Request) {
@@ -22,11 +23,7 @@ export async function GET(request: Request) {
   const invoice = await getInvoiceById(session.user.id, invoiceId);
   if (!invoice) return jsonResponse({ error: "Invoice not found." }, 404);
 
-  const submissions = await db
-    .select()
-    .from(navSubmission)
-    .where(eq(navSubmission.invoiceId, invoice.id))
-    .orderBy(desc(navSubmission.createdAt));
+  const submissions = await listNavSubmissionsForInvoice(invoice.id);
 
   return jsonResponse({ submissions });
 }
@@ -41,15 +38,12 @@ export async function POST(request: Request) {
   const invoice = await getInvoiceById(session.user.id, body.invoiceId);
   if (!invoice) return jsonResponse({ error: "Invoice not found." }, 404);
 
-  const [submission] = await db
-    .select()
-    .from(navSubmission)
-    .where(eq(navSubmission.invoiceId, invoice.id))
-    .orderBy(desc(navSubmission.createdAt))
-    .limit(1);
+  // Latest submission NAV actually received (has a transactionId) — a newer
+  // failed attempt (status "error", no transaction) must not hide it.
+  const submission = (await listNavSubmissionsForInvoice(invoice.id)).find((row) => !!row.transactionId);
 
   if (!submission || !submission.transactionId) {
-    return jsonResponse({ error: "Ehhez a számlához nincs NAV beküldés." }, 404);
+    return jsonResponse({ error: "This invoice has no NAV submission.", code: "noSubmission" }, 404);
   }
 
   const company = await getCompanyByUserId(session.user.id);
@@ -77,7 +71,7 @@ export async function POST(request: Request) {
       messages: result.messages,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "NAV státusz lekérdezés sikertelen.";
-    return jsonResponse({ error: message }, 502);
+    const message = error instanceof Error ? error.message : "NAV status query failed.";
+    return jsonResponse({ error: message, code: "statusQueryFailed" }, 502);
   }
 }

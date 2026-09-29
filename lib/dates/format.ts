@@ -24,6 +24,21 @@ export function formatDateOnly(value: string): string {
   });
 }
 
+/**
+ * Compact date for tight layouts (e.g. the invoice timeline on a phone):
+ * "szept. 30." within `now`'s year, "2025. szept. 30." otherwise.
+ */
+export function formatShortDate(value: string, now: Date = new Date()): string {
+  const parsed = parseDatePart(value);
+  if (!parsed) return value;
+  const sameYear = parsed.getFullYear() === now.getFullYear();
+  return parsed.toLocaleDateString(DOCUMENT_LOCALE, {
+    ...(sameYear ? {} : { year: "numeric" }),
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function formatDateWithTime(dateValue: string, timeSource?: string): string {
   const dateFormatted = formatDateOnly(dateValue);
   const timeFrom = parseTimeSource(timeSource ?? dateValue);

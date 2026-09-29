@@ -166,4 +166,23 @@ describe("NotificationBanner", () => {
     expect(JSON.stringify(nextTree!.toJSON())).toContain("Lejárt: INV-002");
     act(() => nextTree!.unmount());
   });
+
+  it("renders a legacy pre-fix English title translated to Hungarian; the +N suffix still appends (AC9)", () => {
+    const legacyNotification = {
+      ...notification,
+      id: "n-legacy",
+      title: "Overdue: 2026/007",
+      referenceKey: "overdue:inv-1",
+    };
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <NotificationBanner notification={legacyNotification} unreadCount={3} onPress={jest.fn()} />
+      );
+    });
+    const json = JSON.stringify(tree!.toJSON());
+    expect(json).toContain("Lejárt: 2026/007");
+    expect(json).not.toContain("Overdue: 2026/007");
+    expect(json).toContain(hu.notifications.banner.more.replace("{{count}}", "2"));
+  });
 });

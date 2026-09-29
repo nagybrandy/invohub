@@ -120,6 +120,14 @@ describe("buildInvoiceFromProforma", () => {
     expect(result.modificationIndex).toBeUndefined();
   });
 
+  // AC12: the díjbekérő→számla conversion keeps the source's fulfillmentDate
+  // (already spread ...proforma; a regression guard, not new logic).
+  it("keeps the source's fulfillmentDate (AC12)", () => {
+    const proforma = makeProforma({ fulfillmentDate: "2026-08-30" });
+    const result = buildInvoiceFromProforma(proforma, "2026-09-15");
+    expect(result.fulfillmentDate).toBe("2026-08-30");
+  });
+
   it("copies every line item field-for-field with a fresh id (AC6)", () => {
     const proforma = makeProforma();
     const result = buildInvoiceFromProforma(proforma, "2026-09-15");

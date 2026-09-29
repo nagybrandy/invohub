@@ -12,9 +12,11 @@ import {
   Shield,
   Upload,
   Users,
+  MailOpen,
 } from "lucide-react-native";
 import { routes, type AppRoute } from "@/lib/navigation";
 import { isAdmin } from "@/lib/user-roles";
+import { isInvoiceImportEnabled } from "@/lib/import/import-flag";
 
 export type AppNavItem = {
   href: AppRoute;
@@ -49,11 +51,29 @@ export const SIDEBAR_PRIMARY_NAV: AppNavItem[] = [
 
 /** Desktop sidebar — secondary items below the divider (Importálás, Admin). */
 export const SIDEBAR_SECONDARY_NAV: AppNavItem[] = [
+  { href: routes.emailEditor, labelKey: "nav.emailEditor", icon: MailOpen },
   { href: routes.import, labelKey: "nav.import", icon: Upload },
 ];
 
-export function getSidebarSecondaryNav(role: string | undefined): AppNavItem[] {
-  return isAdmin(role) ? [...SIDEBAR_SECONDARY_NAV, ADMIN_NAV] : SIDEBAR_SECONDARY_NAV;
+/** Which flagged features this deploy shows; defaults read the env flags. */
+export type NavFeatures = { importEnabled?: boolean };
+
+function defaultFeatures(): NavFeatures {
+  return { importEnabled: isInvoiceImportEnabled() };
+}
+
+// The spreadsheet import stays in the constants (they describe the full
+// product) but leaves every rendered list unless the deploy turned it on.
+function withFeatures(items: AppNavItem[], features: NavFeatures): AppNavItem[] {
+  return features.importEnabled ? items : items.filter((item) => item.href !== routes.import);
+}
+
+export function getSidebarSecondaryNav(
+  role: string | undefined,
+  features: NavFeatures = defaultFeatures(),
+): AppNavItem[] {
+  const base = withFeatures(SIDEBAR_SECONDARY_NAV, features);
+  return isAdmin(role) ? [...base, ADMIN_NAV] : base;
 }
 
 /**
@@ -81,12 +101,17 @@ export const MOBILE_TAB_NAV: MobileTabItem[] = [
 export const MOBILE_MORE_NAV: AppNavItem[] = [
   { href: routes.receipts, labelKey: "nav.receipts", icon: Receipt },
   { href: routes.products, labelKey: "nav.products", icon: Package },
+  { href: routes.emailEditor, labelKey: "nav.emailEditor", icon: MailOpen },
   { href: routes.import, labelKey: "nav.import", icon: Upload },
   { href: routes.settings, labelKey: "nav.settings", icon: Settings },
 ];
 
-export function getMobileMoreNav(role: string | undefined): AppNavItem[] {
-  return isAdmin(role) ? [...MOBILE_MORE_NAV, ADMIN_NAV] : MOBILE_MORE_NAV;
+export function getMobileMoreNav(
+  role: string | undefined,
+  features: NavFeatures = defaultFeatures(),
+): AppNavItem[] {
+  const base = withFeatures(MOBILE_MORE_NAV, features);
+  return isAdmin(role) ? [...base, ADMIN_NAV] : base;
 }
 
 /** Secondary features for the dashboard's "gyors ugrás" quick-jump cards. */
@@ -111,9 +136,12 @@ export const DASHBOARD_FEATURE_NAV: AppNavItem[] = [
   },
 ];
 
-export function getDashboardFeatures(role: string | undefined): AppNavItem[] {
-  const showAdmin = isAdmin(role);
-  return showAdmin ? [...DASHBOARD_FEATURE_NAV, ADMIN_NAV] : [...DASHBOARD_FEATURE_NAV];
+export function getDashboardFeatures(
+  role: string | undefined,
+  features: NavFeatures = defaultFeatures(),
+): AppNavItem[] {
+  const base = withFeatures(DASHBOARD_FEATURE_NAV, features);
+  return isAdmin(role) ? [...base, ADMIN_NAV] : base;
 }
 
 /**

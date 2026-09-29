@@ -116,3 +116,24 @@ describe("generateNextInvoiceNumber", () => {
     );
   });
 });
+
+describe("executor (finalize transaction) support", () => {
+  it("runs the document_sequence upsert through the given executor, not the HTTP db client", async () => {
+    const returning = jest.fn(async () => [{ lastNumber: 42 }]);
+    const tx = {
+      insert: jest.fn(() => ({
+        values: jest.fn(() => ({ onConflictDoUpdate: jest.fn(() => ({ returning })) })),
+      })),
+    };
+    const { db } = require("@/db") as { db: { insert: jest.Mock } };
+    db.insert.mockClear();
+
+    expect(
+      await generateNextInvoiceNumber("user-1", "storno", 2026, tx as never)
+    ).toBe("INV-2026-00042");
+    expect(tx.insert).toHaveBeenCalledTimes(1);
+    expect(db.insert).not.toHaveBeenCalled();
+    // The shared store was never touched — the increment belongs to the tx.
+    expect(mockStore.size).toBe(0);
+  });
+});

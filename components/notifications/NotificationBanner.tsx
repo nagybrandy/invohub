@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { translateNotificationText } from "@/lib/notifications/i18n";
 import type { AppNotification } from "@/lib/notifications/types";
 import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -63,7 +64,7 @@ export function NotificationBanner({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        className="flex-1 flex-row items-center gap-2"
+        className="h-full flex-1 flex-row items-center gap-2"
       >
         <Box className="h-2 w-2 rounded-full bg-primary" />
         <Text
@@ -72,7 +73,7 @@ export function NotificationBanner({
           isTruncated
           {...(isWeb() ? {} : { numberOfLines: 1 })}
         >
-          {notification.title}
+          {translateNotificationText(t, notification.title, notification.referenceKey)}
           {unreadCount > 1 ? ` ${t("notifications.banner.more", { count: unreadCount - 1 })}` : ""}
         </Text>
       </Pressable>
@@ -81,7 +82,10 @@ export function NotificationBanner({
         accessibilityRole="button"
         accessibilityLabel={t("notifications.banner.dismiss")}
         hitSlop={8}
-        className="ml-2 rounded-full p-1"
+        // The bar is a deliberate 40px slim alert (see the file header), so
+        // its controls fill that height rather than the usual 44px floor —
+        // still a far cry from the 22x22 box this used to be.
+        className="ml-2 h-10 w-10 items-center justify-center rounded-full"
       >
         <X size={14} color={icons.muted} />
       </Pressable>

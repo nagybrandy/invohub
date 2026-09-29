@@ -43,6 +43,9 @@ const RN_DOM_BLOCKLIST = new Set([
   "allowFontScaling",
   "adjustsFontSizeToFit",
   "minimumFontScale",
+  // RN <Text selectable> — a real prop on native, a "non-boolean attribute"
+  // warning on the DOM. The web Text turns it into the `select-text` class.
+  "selectable",
 ]);
 
 export function webDomProps<T extends RecordProps>(props: T): RecordProps {

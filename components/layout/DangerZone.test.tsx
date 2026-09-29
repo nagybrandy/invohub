@@ -67,3 +67,11 @@ describe("DangerZone", () => {
     expect(root.props.className).toContain("border-destructive");
   });
 });
+
+describe("DangerZone — the toggle is a real tap target", () => {
+  it("meets the 44px floor (it measured 309×36 on a phone)", () => {
+    const tree = render();
+    const toggle = tree.root.findByProps({ testID: "danger-zone-toggle" });
+    expect(String(toggle.props.className)).toMatch(/min-h-11/);
+  });
+});

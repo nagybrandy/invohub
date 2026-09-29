@@ -14,6 +14,8 @@ import {
   canEnableEmailOnSend,
   resolveStatusForAction,
   shouldSendOnAction,
+  validateBuyerAddressStep,
+  validateComposerStep,
   validateDueDate,
   validateExchangeRateInput,
   validateLineItemsStep,
@@ -23,11 +25,13 @@ import { useClients } from "@/hooks/useClients";
 import { useCompany } from "@/hooks/useCompany";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useProducts } from "@/hooks/useProducts";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
 import type { Client } from "@/lib/clients/service";
+import { isCompanyProfileComplete } from "@/lib/companies/completeness";
 import { calculateInvoiceTotals, createEmptyLineItem, createId } from "@/lib/invoices/calculations";
 import { applyClientToFormFields } from "@/lib/invoices/client-form-fields";
 import { parseExchangeRateInput } from "@/lib/invoices/exchange-rate";
+import { SEND_INVOICE_ERROR_I18N_KEY } from "@/lib/invoices/send-error-i18n";
 import type { Product } from "@/lib/products/service";
 import type {
   Invoice,
@@ -72,20 +76,38 @@ export type UseInvoiceComposerOptions = {
   invoice?: Invoice | null;
   /** From /invoices/new?clientId=… — the "Invoice this partner" shortcut (spec §3.4). */
   initialClientId?: string | null;
+  /** From routes.invoiceEdit(id, { focus }) — e.g. the exchange-rate-missing
+   * warning card's deep link (StepPartner reacts to focusField). */
+  initialFocusField?: string | null;
 };
 
 export type ComposerErrors = {
   partner?: string;
   lineItems?: string;
   dueDate?: string;
+  /** Áfa tv. 169. § e) — buyer name + zip/city/address, checked only when finalizing. */
+  buyerAddress?: string;
 };
 
-export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoiceComposerOptions) {
+export function useInvoiceComposer({
+  mode,
+  invoice,
+  initialClientId,
+  initialFocusField,
+}: UseInvoiceComposerOptions) {
   const { t } = useTranslation();
   const { clients } = useClients();
   const { products } = useProducts();
-  const { company } = useCompany();
+  const { company, loading: companyLoading } = useCompany();
   const { addOrUpdate } = useInvoices();
+
+  // Finalizing (assigning a real invoice number) is refused server-side
+  // when the seller's own profile is missing mandatory fields
+  // (lib/invoices/service.ts's CompanyProfileIncompleteError) — the
+  // composer surfaces that BEFORE the user hits save instead of failing
+  // late. `false` while the profile is still loading, so the banner never
+  // flashes on for a returning user with a complete profile.
+  const companyProfileIncomplete = !companyLoading && !isCompanyProfileComplete(company);
 
   const [step, setStep] = React.useState<ComposerStepId>("partner");
   const [documentType, setDocumentType] = React.useState<DocumentType>(
@@ -97,24 +119,49 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
   const [clientName, setClientNameState] = React.useState(invoice?.clientName ?? "");
   const [clientTaxNumber, setClientTaxNumber] = React.useState(invoice?.clientTaxNumber ?? "");
   const [clientEmail, setClientEmail] = React.useState("");
-  const [clientCountry, setClientCountry] = React.useState("Magyarország");
-  const [clientZip, setClientZip] = React.useState("");
-  const [clientCity, setClientCity] = React.useState("");
-  const [clientAddress, setClientAddress] = React.useState("");
+  const [clientCountry, setClientCountry] = React.useState(invoice?.clientCountry ?? "Magyarország");
+  // Seeded from the invoice's own buyer-address snapshot in edit mode (Áfa
+  // tv. 169. § e) — never re-derived from the linked client here, matching
+  // build-pdf-context.ts's snapshot-first rule.
+  const [clientZip, setClientZip] = React.useState(invoice?.clientZipCode ?? "");
+  const [clientCity, setClientCity] = React.useState(invoice?.clientCity ?? "");
+  const [clientAddress, setClientAddress] = React.useState(invoice?.clientAddress ?? "");
+  const [clientEuVatNumber, setClientEuVatNumber] = React.useState(invoice?.clientEuVatNumber ?? "");
   const [showClientDetails, setShowClientDetails] = React.useState(false);
   const appliedInitialClientId = React.useRef(false);
 
   // Dates & payment ---------------------------------------------------------
-  const [fulfillmentDate, setFulfillmentDate] = React.useState(invoice?.issueDate ?? todayIso());
+  const [fulfillmentDate, setFulfillmentDate] = React.useState(
+    invoice?.fulfillmentDate ?? invoice?.issueDate ?? todayIso()
+  );
   const [issueDate, setIssueDate] = React.useState(invoice?.issueDate ?? todayIso());
   const [continuousPerformance, setContinuousPerformance] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>(
     invoice?.paymentMethod ?? "transfer"
   );
   const [currency, setCurrency] = React.useState<InvoiceCurrency>(invoice?.currency ?? "HUF");
-  const [exchangeRate, setExchangeRate] = React.useState(
+  const [exchangeRate, setExchangeRateRaw] = React.useState(
     invoice?.exchangeRate != null ? String(invoice.exchangeRate) : ""
   );
+  // MNB auto-fetch (owner request: "az árfolyamot mindig valami külső
+  // helyről kérje le, mint a számlázz.hu") — see the effect below.
+  // "manual" means the user (or a pre-existing edit) owns the value;
+  // "mnb" means the last successful fetch is what's shown, with
+  // `exchangeRateAsOf` (the MNB-published day, possibly earlier than the
+  // requested date on a weekend/holiday) driving the caption.
+  const [exchangeRateSource, setExchangeRateSource] = React.useState<"mnb" | "manual" | null>(
+    invoice?.exchangeRate != null ? "manual" : null
+  );
+  const [exchangeRateLoading, setExchangeRateLoading] = React.useState(false);
+  const [exchangeRateFetchError, setExchangeRateFetchError] = React.useState<string | null>(null);
+  const [exchangeRateAsOf, setExchangeRateAsOf] = React.useState<string | null>(null);
+  // True once a manual edit has happened since the last currency/date
+  // change — guards a late-arriving fetch response against clobbering it.
+  const exchangeRateManualRef = React.useRef(false);
+  // True after the first [currency, fulfillmentDate] effect run — lets that
+  // first run skip auto-fetching over an already-valid rate (e.g. opening
+  // the edit screen for an invoice that already has one saved).
+  const exchangeRateArmedRef = React.useRef(false);
   const [deadlineDays, setDeadlineDaysState] = React.useState(8);
   const [dueDate, setDueDate] = React.useState(invoice?.dueDate ?? addDaysIso(todayIso(), 8));
   const [bankAccount, setBankAccount] = React.useState("");
@@ -132,11 +179,12 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
   // Review ------------------------------------------------------------------
   const [notes, setNotes] = React.useState(invoice?.notes ?? "");
   const [emailOnSend, setEmailOnSend] = React.useState(false);
-  const [navEnabled, setNavEnabled] = React.useState(false);
 
   // Save/dirty state ---------------------------------------------------------
   const [errors, setErrors] = React.useState<ComposerErrors>({});
-  const [focusField, setFocusField] = React.useState<string | null>(null);
+  const [focusField, setFocusField] = React.useState<string | null>(
+    initialFocusField ?? null
+  );
   const [isDirty, setIsDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<string | null>(null);
@@ -158,10 +206,13 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     setClientZip(fields.clientZip);
     setClientCity(fields.clientCity);
     setClientAddress(fields.clientAddress);
+    setClientEuVatNumber(fields.clientEuVatNumber);
     // INV-2: selecting a saved partner must NEVER silently arm e-mail
     // sending — that decision belongs only to the explicit step-3 toggle.
     setEmailOnSend(false);
-    setErrors((prev) => (prev.partner ? { ...prev, partner: undefined } : prev));
+    setErrors((prev) =>
+      prev.partner || prev.buyerAddress ? { ...prev, partner: undefined, buyerAddress: undefined } : prev
+    );
     markDirty();
   }, []);
 
@@ -195,6 +246,84 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exchangeRate, currency]);
 
+  // Same pattern for the buyer-address error (Áfa tv. 169. § e) — clears as
+  // soon as zip/city/address are all filled in again.
+  React.useEffect(() => {
+    if (!errors.buyerAddress) return;
+    if (validateBuyerAddressStep({ clientZip, clientCity, clientAddress }).valid) {
+      setErrors((prev) => ({ ...prev, buyerAddress: undefined }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientZip, clientCity, clientAddress]);
+
+  // Owner request: auto-fetch the official MNB HUF rate whenever the
+  // currency or the relevant date (teljesítés/fulfillment — Áfa tv. 80. §)
+  // changes, instead of making the user type it in. Skips its very first
+  // run when opening the composer already lands on a valid manual rate
+  // (editing an existing non-HUF invoice) so nothing gets silently
+  // overwritten on mount — every run after that always (re-)fetches, since
+  // a currency/date change invalidates whatever rate was there before.
+  // Áfa tv. 80. §: the teljesítés date's rate; a cleared fulfillment date
+  // falls back to the issue date (same rule as the server-side autofill).
+  const exchangeRateDate = fulfillmentDate.trim() || issueDate;
+  React.useEffect(() => {
+    if (currency === "HUF") {
+      setExchangeRateSource(null);
+      setExchangeRateFetchError(null);
+      setExchangeRateAsOf(null);
+      return;
+    }
+
+    const isFirstRun = !exchangeRateArmedRef.current;
+    exchangeRateArmedRef.current = true;
+    if (isFirstRun && parseExchangeRateInput(exchangeRate) !== null) {
+      setExchangeRateSource("manual");
+      return;
+    }
+
+    exchangeRateManualRef.current = false;
+    setExchangeRateFetchError(null);
+    setExchangeRateLoading(true);
+    let cancelled = false;
+
+    apiFetch<{ rate: number; rateDate: string; source: string }>(
+      `/api/exchange-rates?currency=${currency}&date=${exchangeRateDate}`
+    )
+      .then((data) => {
+        if (cancelled || exchangeRateManualRef.current) return;
+        if (typeof data?.rate !== "number" || !Number.isFinite(data.rate) || !data.rateDate) {
+          setExchangeRateFetchError(t("invoices.errors.exchangeRateFetchFailed"));
+          return;
+        }
+        setExchangeRateRaw(String(data.rate));
+        setExchangeRateSource("mnb");
+        setExchangeRateAsOf(data.rateDate);
+        markDirty();
+      })
+      .catch(() => {
+        if (cancelled || exchangeRateManualRef.current) return;
+        // Failure → keep whatever manual entry is already there (spec item 5).
+        setExchangeRateFetchError(t("invoices.errors.exchangeRateFetchFailed"));
+      })
+      .finally(() => {
+        if (!cancelled) setExchangeRateLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, exchangeRateDate]);
+
+  /** Manual override (spec item 5) — marks the rate as user-owned so the next fetch response can't clobber it mid-flight. */
+  function setExchangeRate(value: string) {
+    exchangeRateManualRef.current = true;
+    setExchangeRateRaw(value);
+    setExchangeRateSource("manual");
+    setExchangeRateFetchError(null);
+    markDirty();
+  }
+
   React.useEffect(() => {
     if (mode !== "create" || appliedInitialClientId.current) return;
     if (!initialClientId || clients.length === 0) return;
@@ -220,6 +349,7 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     setClientZip("");
     setClientCity("");
     setClientAddress("");
+    setClientEuVatNumber("");
     setEmailOnSend(false);
     markDirty();
   }
@@ -339,9 +469,15 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
       documentType: toInvoiceDocumentType(documentType, invoice?.documentType),
       clientName: clientName.trim() || "—",
       clientTaxNumber: clientTaxNumber.trim() || undefined,
+      clientZipCode: clientZip.trim() || undefined,
+      clientCity: clientCity.trim() || undefined,
+      clientAddress: clientAddress.trim() || undefined,
+      clientCountry: clientCountry.trim() || undefined,
+      clientEuVatNumber: clientEuVatNumber.trim() || undefined,
       clientId: clientId ?? undefined,
       issueDate,
       dueDate,
+      fulfillmentDate: fulfillmentDate.trim() || undefined,
       status: invoice?.status ?? "draft",
       currency,
       exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,
@@ -356,9 +492,15 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     documentType,
     clientName,
     clientTaxNumber,
+    clientZip,
+    clientCity,
+    clientAddress,
+    clientCountry,
+    clientEuVatNumber,
     clientId,
     issueDate,
     dueDate,
+    fulfillmentDate,
     currency,
     exchangeRate,
     lineItems,
@@ -367,13 +509,33 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
   ]);
 
   const invalidSteps: Record<ComposerStepId, boolean> = {
-    partner: Boolean(errors.partner || errors.dueDate),
+    partner: Boolean(errors.partner || errors.dueDate || errors.buyerAddress),
     items: Boolean(errors.lineItems),
     review: false,
   };
 
   function clearFocusField() {
     setFocusField(null);
+  }
+
+  /**
+   * The stepper's "Tovább": validates the step being left, so a missing
+   * partner or line item is reported where it can still be fixed instead of
+   * at finalize time. Invalid steps keep the user where they are, with the
+   * offending field focused.
+   */
+  function goToNextStep() {
+    const check = validateComposerStep(step, { clientName, lineItems });
+    if (!check.valid) {
+      setErrors(step === "partner" ? { partner: t(check.errorKey!) } : { lineItems: t(check.errorKey!) });
+      setFocusField(check.focusField ?? null);
+      return;
+    }
+
+    setErrors({});
+    setFocusField(null);
+    const next = COMPOSER_STEP_ORDER[COMPOSER_STEP_ORDER.indexOf(step) + 1];
+    if (next) setStep(next);
   }
 
   async function save(action: SaveAction): Promise<Invoice | undefined> {
@@ -414,10 +576,26 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
       return undefined;
     }
 
+    const status = resolveStatusForAction(action, documentType);
+
+    // Áfa tv. 169. § e) — a document that leaves "draft" (any action other
+    // than "draft" itself) must carry a complete buyer name+address. A
+    // proforma (díjbekérő) is exempt — it's never an accounting document
+    // (see requiresCompleteBuyerAddress in lib/invoices/types.ts).
+    if (status !== "draft" && documentType !== "proforma") {
+      const buyerAddressCheck = validateBuyerAddressStep({ clientZip, clientCity, clientAddress });
+      if (!buyerAddressCheck.valid) {
+        setErrors({ buyerAddress: t(buyerAddressCheck.errorKey!) });
+        setStep("partner");
+        setShowClientDetails(true);
+        setFocusField(buyerAddressCheck.focusField ?? null);
+        return undefined;
+      }
+    }
+
     setErrors({});
 
-    const status = resolveStatusForAction(action, documentType);
-    const willSend = shouldSendOnAction(action) && emailOnSend;
+    const willSend = shouldSendOnAction(action, emailOnSend);
     if (willSend && !clientEmail.trim()) {
       setErrors({ partner: t("invoices.errors.clientEmailRequired") });
       setStep("review");
@@ -433,9 +611,15 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
         documentType: toInvoiceDocumentType(documentType, invoice?.documentType),
         clientName: clientName.trim(),
         clientTaxNumber: clientTaxNumber.trim() || undefined,
+        clientZipCode: clientZip.trim() || undefined,
+        clientCity: clientCity.trim() || undefined,
+        clientAddress: clientAddress.trim() || undefined,
+        clientCountry: clientCountry.trim() || undefined,
+        clientEuVatNumber: clientEuVatNumber.trim() || undefined,
         clientId: clientId ?? undefined,
         issueDate,
         dueDate,
+        fulfillmentDate: fulfillmentDate.trim() || undefined,
         status,
         currency,
         exchangeRate: currency !== "HUF" ? (parseExchangeRateInput(exchangeRate) ?? undefined) : undefined,
@@ -456,25 +640,9 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
         });
       }
 
-      if (status === "sent" && navEnabled) {
-        try {
-          await apiFetch("/api/nav/submit", {
-            method: "POST",
-            body: JSON.stringify({ invoiceId: saved.id }),
-          });
-        } catch (navSubmitError) {
-          const reason =
-            navSubmitError instanceof Error
-              ? navSubmitError.message
-              : t("invoices.errors.navSubmitFailed");
-          setSavedAt(currentTime());
-          setIsDirty(false);
-          router.replace(
-            `${routes.invoiceDetail(saved.id)}?navError=${encodeURIComponent(reason)}` as Href
-          );
-          return saved;
-        }
-      }
+      // NAV Online Számla: finalization (POST/PATCH /api/invoices) submits
+      // server-side automatically when NAV is configured — no client call
+      // and no opt-in toggle. Status/retry live on the detail screen.
 
       setSavedAt(currentTime());
       setIsDirty(false);
@@ -485,7 +653,15 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
       }
       return saved;
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : t("invoices.errors.saveFailed"));
+      // The composer already disables finalize while the profile is known
+      // incomplete (companyProfileIncomplete above) — this only fires on
+      // the rare race where it changed between page load and save, or on
+      // any other server-side failure of the save/send call (see
+      // lib/invoices/send-error-i18n.ts for the full code list). Either
+      // way, the user must only ever see translated text — never the raw
+      // English `error` string the API sends (AGENTS.md workflow rules).
+      const codeKey = e instanceof ApiError && e.code ? SEND_INVOICE_ERROR_I18N_KEY[e.code] : undefined;
+      setSaveError(codeKey ? t(codeKey) : t("invoices.errors.saveFailed"));
       return undefined;
     } finally {
       setSaving(false);
@@ -497,6 +673,7 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     mode,
     step,
     setStep,
+    goToNextStep,
     documentType,
     setDocumentType: (type: DocumentType) => {
       setDocumentType(type);
@@ -514,6 +691,7 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     clientZip,
     clientCity,
     clientAddress,
+    clientEuVatNumber,
     setClientName,
     setClientTaxNumber: (v: string) => {
       setClientTaxNumber(v);
@@ -537,6 +715,10 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
     },
     setClientAddress: (v: string) => {
       setClientAddress(v);
+      markDirty();
+    },
+    setClientEuVatNumber: (v: string) => {
+      setClientEuVatNumber(v);
       markDirty();
     },
     handleSelectClient,
@@ -570,10 +752,11 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
       markDirty();
     },
     exchangeRate,
-    setExchangeRate: (v: string) => {
-      setExchangeRate(v);
-      markDirty();
-    },
+    setExchangeRate,
+    exchangeRateSource,
+    exchangeRateLoading,
+    exchangeRateFetchError,
+    exchangeRateAsOf,
     deadlineDays,
     setDeadlineDays,
     bankAccount,
@@ -610,16 +793,13 @@ export function useInvoiceComposer({ mode, invoice, initialClientId }: UseInvoic
       markDirty();
     },
     canEnableEmailOnSend: canEnableEmailOnSend(clientEmail),
-    navEnabled,
-    setNavEnabled: (v: boolean) => {
-      setNavEnabled(v);
-      markDirty();
-    },
 
     // Preview
     draftInvoice,
     /** The already-loaded company — for the unsaved-draft preview's issuer block (INV, AC20). */
     company,
+    /** True once loaded and missing a required field — gates the finalize buttons (see InvoiceComposer.tsx). */
+    companyProfileIncomplete,
 
     // Validation
     errors,

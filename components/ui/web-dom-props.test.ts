@@ -16,6 +16,11 @@ describe("webDomProps", () => {
     expect(result).toEqual({ className: "truncate", children: "Acme Kft." });
   });
 
+  it("strips RN's selectable before it reaches a DOM node", () => {
+    const result = webDomProps({ selectable: true, className: "font-mono", children: "NAV-123" });
+    expect(result).toEqual({ className: "font-mono", children: "NAV-123" });
+  });
+
   it("keeps ordinary DOM-safe props untouched", () => {
     const result = webDomProps({ id: "x", className: "y", onClick: undefined });
     expect(result).toEqual({ id: "x", className: "y", onClick: undefined });

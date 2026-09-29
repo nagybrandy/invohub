@@ -47,6 +47,20 @@ describe("DocumentTypeTabs", () => {
     expect(onChange).toHaveBeenCalledWith("proforma");
   });
 
+  it("renders each tab at a >=44px tap target (AC11)", () => {
+    let tree: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(<DocumentTypeTabs selected="invoice" onChange={jest.fn()} />);
+    });
+    const tabs = tree!.root.findAll(
+      (node) => node.props?.accessibilityRole === "tab" && typeof node.props?.className === "string"
+    );
+    expect(tabs.length).toBeGreaterThan(0);
+    for (const tab of tabs) {
+      expect(String(tab.props.className)).toContain("min-h-11");
+    }
+  });
+
   it("disables the tabs while editing an existing invoice — onChange never fires (spec §2.7)", () => {
     const onChange = jest.fn();
     let tree: TestRenderer.ReactTestRenderer;

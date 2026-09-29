@@ -4,6 +4,8 @@
 // (which imports the live DB client at module scope) so this stays usable
 // with jest.requireActual in tests without needing a live DATABASE_URL.
 import type { Company } from "@/lib/companies/service";
+import { maskNavSecret } from "@/lib/nav/credentials";
+import { hasOwnNavCredentials } from "@/lib/nav/resolve-credentials";
 
 /**
  * The shape returned to the client (GET/POST /api/companies): the three
@@ -20,6 +22,12 @@ export type PublicCompany = Omit<
   navTechnicalPasswordSet: boolean;
   navXmlSignKeySet: boolean;
   navXmlChangeKeySet: boolean;
+  /** Fixed mask ("••••••••") when a value is on file, else null. Never derived from the secret itself. */
+  navTechnicalPasswordMasked: string | null;
+  navXmlSignKeyMasked: string | null;
+  navXmlChangeKeyMasked: string | null;
+  /** True when the company's own NAV technical user is complete (login, password, both keys, tax number). */
+  navCredentialsConfigured: boolean;
 };
 
 export function toPublicCompany(company: Company): PublicCompany {
@@ -29,5 +37,9 @@ export function toPublicCompany(company: Company): PublicCompany {
     navTechnicalPasswordSet: !!navTechnicalPassword,
     navXmlSignKeySet: !!navXmlSignKey,
     navXmlChangeKeySet: !!navXmlChangeKey,
+    navTechnicalPasswordMasked: maskNavSecret(navTechnicalPassword),
+    navXmlSignKeyMasked: maskNavSecret(navXmlSignKey),
+    navXmlChangeKeyMasked: maskNavSecret(navXmlChangeKey),
+    navCredentialsConfigured: hasOwnNavCredentials(company),
   };
 }

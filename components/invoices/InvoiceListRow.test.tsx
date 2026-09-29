@@ -73,6 +73,20 @@ describe("InvoiceListRow", () => {
     expect(json).toContain("invoices.status.draft");
   });
 
+  it("renders the converted badge under the document number when converted is true (AC15)", () => {
+    const invoice = makeInvoice({ documentType: "proforma", invoiceNumber: "DBK-2026-001" });
+    const tree = renderRow({ invoice, menuItems: [], converted: true });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.convert.convertedBadge");
+  });
+
+  it("does not render the converted badge when converted is false or omitted (AC17)", () => {
+    const invoice = makeInvoice({ documentType: "proforma", invoiceNumber: "DBK-2026-001" });
+    const tree = renderRow({ invoice, menuItems: [] });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.convert.convertedBadge");
+  });
+
   it("passes the row menu items through to the overflow menu", () => {
     const onDelete = jest.fn();
     const invoice = makeInvoice();

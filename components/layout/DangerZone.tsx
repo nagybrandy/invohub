@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -34,6 +35,7 @@ export function DangerZone({ title, description, children }: DangerZoneProps) {
         onPress={() => setExpanded((v) => !v)}
         accessibilityRole="button"
         accessibilityLabel={expanded ? t("common.collapse") : t("common.expand")}
+        className={`justify-center ${TAP_TARGET_MIN_H}`}
       >
         <HStack className="items-center justify-between gap-3">
           <HStack space="sm" className="items-center flex-1">

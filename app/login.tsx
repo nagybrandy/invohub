@@ -21,14 +21,22 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { apiFetch } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
+import { isCompanyProfileComplete } from "@/lib/companies/completeness";
+import type { PublicCompany } from "@/lib/companies/public-company";
 import { routes } from "@/lib/navigation";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/user-roles";
+import { useHydrated } from "@/lib/useHydrated";
 
 export default function Login() {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 900;
+  // Viewport-dependent markup only after hydration: the server renders with
+  // width 0 (the mobile layout), and a desktop client must start from the
+  // same HTML or React discards the pre-rendered page (error #418).
+  const hydrated = useHydrated();
+  const isDesktop = hydrated && width >= 900;
   const [mode, setMode] = React.useState<"signin" | "signup">("signin");
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -54,6 +62,22 @@ export default function Login() {
         setError(result.error.message ?? t("common.error"));
         return;
       }
+
+      // A new (or still-incomplete) company profile blocks finalizing an
+      // invoice server-side (lib/companies/completeness.ts) — send the
+      // user to onboarding to fill it in now instead of letting them
+      // discover that later, mid-composer.
+      try {
+        const { company } = await apiFetch<{ company: PublicCompany | null }>("/api/companies");
+        if (!isCompanyProfileComplete(company)) {
+          router.replace(routes.onboarding);
+          return;
+        }
+      } catch {
+        // The profile check itself failing should never block sign-in —
+        // fall through to the dashboard exactly as before this check existed.
+      }
+
       router.replace(routes.dashboard);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common.error"));

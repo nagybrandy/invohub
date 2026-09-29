@@ -120,6 +120,55 @@ describe("PartnerPicker (INV-18)", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("submits name, email, taxNumber and the address fields together (Áfa tv. 169. § e)", async () => {
+    const { tree, onCreateNew } = render({ clients: makeClients(1), value: "new co" });
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const addTrigger = tree.root
+      .findAll((node) => typeof node.props?.onPress === "function")
+      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartner").length > 0);
+    act(() => {
+      addTrigger?.props.onPress?.();
+    });
+
+    function setField(testID: string, text: string) {
+      const field = findByTestId(tree.root, testID);
+      act(() => {
+        field.props.onChangeText?.(text);
+      });
+    }
+
+    setField("composer-new-partner-zip", "1011");
+    setField("composer-new-partner-city", "Budapest");
+    setField("composer-new-partner-address", "Fő utca 1.");
+
+    const confirm = tree.root
+      .findAll((node) => typeof node.props?.onPress === "function")
+      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartnerConfirm").length > 0);
+
+    // The name field is required to submit — fill it via its placeholder.
+    const nameField = tree.root.findAll((node) => node.props?.placeholder === "invoices.composer.newPartnerName")[0];
+    act(() => {
+      nameField.props.onChangeText?.("New Co Kft.");
+    });
+
+    await act(async () => {
+      await confirm?.props.onPress?.();
+    });
+
+    expect(onCreateNew).toHaveBeenCalledWith({
+      name: "New Co Kft.",
+      email: "",
+      taxNumber: "",
+      zip: "1011",
+      city: "Budapest",
+      address: "Fő utca 1.",
+    });
+  });
+
   it("shows recent partners as chips when the field is empty and focused", () => {
     const clients = makeClients(4);
     const { tree } = render({ clients, recentClients: clients, value: "" });
@@ -129,5 +178,47 @@ describe("PartnerPicker (INV-18)", () => {
     });
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("invoices.composer.recentPartners");
+  });
+});
+
+describe("PartnerPicker — combobox semantics", () => {
+  it("exposes the result list as a listbox of options", () => {
+    const clients = makeClients(3);
+    const { tree } = render({ clients, value: "Partner" });
+
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    expect(input.props.role).toBe("combobox");
+    expect(input.props["aria-expanded"]).toBe(true);
+
+    const listbox = tree.root.findAll((n) => n.props?.role === "listbox");
+    expect(listbox.length).toBeGreaterThan(0);
+
+    const options = tree.root.findAll((n) => n.props?.role === "option");
+    expect(options.length).toBeGreaterThan(0);
+    expect(options[0].props.accessibilityRole).toBe("button");
+  });
+
+  it("gives every result row a 44px tap target", () => {
+    const clients = makeClients(3);
+    const { tree } = render({ clients, value: "Partner" });
+
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const options = tree.root.findAll((n) => n.props?.role === "option");
+    options.forEach((o) => expect(String(o.props.className)).toMatch(/min-h-11/));
+  });
+
+  it("marks the list collapsed when nothing is showing", () => {
+    const { tree } = render({ clients: makeClients(3), value: "" });
+    const input = findByTestId(tree.root, "composer-partner-search");
+
+    expect(input.props["aria-expanded"]).toBe(false);
   });
 });

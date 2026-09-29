@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "invoice_converted_from_live_unique_idx" ON "invoice" USING btree ("user_id","converted_from_invoice_id") WHERE "invoice"."converted_from_invoice_id" IS NOT NULL AND "invoice"."status" <> 'cancelled';

@@ -10,7 +10,9 @@
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import type { Company } from "@/lib/companies/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
+import { safeErrorMessage } from "@/lib/api/safe-error";
 import { getNavClient } from "@/lib/nav/client";
+import { isEncryptedNavSecret, isMaskedNavSecret } from "@/lib/nav/credentials";
 import { isNavEnvironment } from "@/lib/nav/environment";
 import { NavCredentialsMissingError, resolveNavCredentials } from "@/lib/nav/resolve-credentials";
 
@@ -28,6 +30,18 @@ function overrideField(override: unknown, saved: string | undefined): string | u
   return saved;
 }
 
+/**
+ * Like overrideField, for the secret fields. A typed override is plaintext;
+ * the saved value is sealed. An echoed mask ("••••") means "use the saved
+ * one", and a value that looks sealed is ignored so the request body can
+ * never make the server decrypt a ciphertext of the caller's choosing.
+ */
+function overrideSecretField(override: unknown, saved: string | undefined): string | undefined {
+  if (typeof override !== "string") return saved;
+  if (isMaskedNavSecret(override) || isEncryptedNavSecret(override.trim())) return saved;
+  return overrideField(override, saved);
+}
+
 /** Merges any typed-but-unsaved form values over the persisted company for this one check — never written to the DB. */
 function applyOverrides(
   userId: string,
@@ -41,9 +55,9 @@ function applyOverrides(
     ...base,
     navEnvironment: isNavEnvironment(overrides.navEnvironment) ? overrides.navEnvironment : base.navEnvironment,
     navTechnicalUser: overrideField(overrides.navTechnicalUser, base.navTechnicalUser),
-    navTechnicalPassword: overrideField(overrides.navTechnicalPassword, base.navTechnicalPassword),
-    navXmlSignKey: overrideField(overrides.navXmlSignKey, base.navXmlSignKey),
-    navXmlChangeKey: overrideField(overrides.navXmlChangeKey, base.navXmlChangeKey),
+    navTechnicalPassword: overrideSecretField(overrides.navTechnicalPassword, base.navTechnicalPassword),
+    navXmlSignKey: overrideSecretField(overrides.navXmlSignKey, base.navXmlSignKey),
+    navXmlChangeKey: overrideSecretField(overrides.navXmlChangeKey, base.navXmlChangeKey),
     taxNumber: overrideField(overrides.taxNumber, base.taxNumber),
   };
 }
@@ -57,7 +71,8 @@ async function runCheck(company: Company) {
     return jsonResponse({
       ok: true,
       mode,
-      message: "A demó NAV szimulátor elérhető — nincs szükség NAV-fiókra.",
+      code: "demoAvailable",
+      message: "The demo NAV simulator is available — no NAV account needed.",
     });
   }
 
@@ -68,20 +83,28 @@ async function runCheck(company: Company) {
       ok: true,
       mode,
       source: credentials.source,
+      code:
+        credentials.source === "shared"
+          ? "sharedTestAccountConnected"
+          : mode === "production"
+            ? "productionConnected"
+            : "testConnected",
       message:
         credentials.source === "shared"
-          ? "Sikeres kapcsolat a közös InvoHub NAV teszt fiókkal."
+          ? "Connected to the shared InvoHub NAV test account."
           : mode === "production"
-            ? "Sikeres kapcsolat az éles NAV környezettel."
-            : "Sikeres kapcsolat a NAV teszt környezettel.",
+            ? "Connected to the NAV production environment."
+            : "Connected to the NAV test environment.",
       exchangeTokenPreview: `${result.exchangeToken.slice(0, 6)}…`,
     });
   } catch (error) {
     if (error instanceof NavCredentialsMissingError) {
-      return jsonResponse({ ok: false, mode, error: error.message }, 400);
+      return jsonResponse({ ok: false, mode, code: "credentialsMissing", error: error.message }, 400);
     }
-    const message = error instanceof Error ? error.message : "NAV kapcsolat teszt sikertelen.";
-    return jsonResponse({ ok: false, mode, error: message }, 502);
+    return jsonResponse(
+      { ok: false, mode, code: "checkFailed", error: safeErrorMessage(error, "NAV connection test failed.") },
+      502
+    );
   }
 }
 

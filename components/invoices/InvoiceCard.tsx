@@ -11,6 +11,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { InvoiceStatusChip } from "@/components/invoices/InvoiceStatusChip";
+import { NavDot } from "@/components/invoices/NavDot";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
 import {
   calculateInvoiceTotals,
@@ -20,6 +21,7 @@ import { formatInvoiceIssueDateTime, formatDateOnly } from "@/lib/dates/format";
 import { isOverdue, overdueDays } from "@/lib/invoices/status-visuals";
 import type { Invoice } from "@/lib/invoices/types";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { canDeleteFromList } from "@/lib/invoices/list-actions";
 
 function formatDate(invoice: Invoice): string {
   return formatInvoiceIssueDateTime(invoice);
@@ -32,6 +34,8 @@ export function InvoiceCard({
   onPress,
   onPreview,
   onConvert,
+  converted = false,
+  onOpenExisting,
 }: {
   invoice: Invoice;
   now?: Date;
@@ -40,6 +44,10 @@ export function InvoiceCard({
   onPreview?: (invoice: Invoice) => void;
   /** "Számla készítése ebből" — offered in the row menu only for a díjbekérő (AC21, mobile parity with the desktop table). */
   onConvert?: (invoice: Invoice) => void;
+  /** True when this díjbekérő already has a live conversion (AC16) — shows the "Számlázva" badge and swaps the menu's convert entry for "open existing". */
+  converted?: boolean;
+  /** Navigates to the existing conversion instead of converting again (AC14/AC16). */
+  onOpenExisting?: (invoice: Invoice) => void;
 }) {
   const { t } = useTranslation();
   const totals = calculateInvoiceTotals(invoice.lineItems);
@@ -67,19 +75,29 @@ export function InvoiceCard({
       onPress: () => onPreview(invoice),
     });
   }
-  if (invoice.documentType === "proforma" && onConvert) {
+  if (invoice.documentType === "proforma" && converted && onOpenExisting) {
+    menuItems.push({
+      label: t("invoices.convert.openExisting"),
+      icon: FileEdit,
+      onPress: () => onOpenExisting(invoice),
+    });
+  } else if (invoice.documentType === "proforma" && onConvert) {
     menuItems.push({
       label: t("invoices.convert.action"),
       icon: FileEdit,
       onPress: () => onConvert(invoice),
     });
   }
-  menuItems.push({
-    label: t("invoices.card.deleteAction"),
-    icon: Trash2,
-    destructive: true,
-    onPress: () => void confirmDelete(),
-  });
+  // A numbered document is cancelled with a sztornó, never removed — the
+  // server answers 409, so the menu does not offer it (canDeleteFromList).
+  if (canDeleteFromList(invoice)) {
+    menuItems.push({
+      label: t("invoices.card.deleteAction"),
+      icon: Trash2,
+      destructive: true,
+      onPress: () => void confirmDelete(),
+    });
+  }
 
   return (
     <Pressable testID="invoice-card-press" onPress={() => onPress?.(invoice)}>
@@ -87,14 +105,22 @@ export function InvoiceCard({
         <VStack space="sm">
           <HStack className="items-start justify-between">
             <VStack space="xs" className="flex-1 pr-3">
-              <Text className="font-semibold text-foreground">
-                {invoice.invoiceNumber || t("invoices.status.draft")}
-              </Text>
+              <HStack space="xs" className="items-center">
+                <Text className="font-semibold text-foreground">
+                  {invoice.invoiceNumber || t("invoices.status.draft")}
+                </Text>
+                {invoice.documentType === "proforma" && converted ? (
+                  <Text size="xs" className="text-muted-foreground">
+                    {t("invoices.convert.convertedBadge")}
+                  </Text>
+                ) : null}
+              </HStack>
               <Text size="sm" className="text-muted-foreground">
                 {invoice.clientName}
               </Text>
             </VStack>
             <HStack space="xs" className="items-center">
+              <NavDot status={invoice.navStatus ?? "none"} testID="invoice-card-nav-dot" />
               <InvoiceStatusChip status={overdue ? "overdue" : invoice.status} size="sm" />
               <OverflowMenu items={menuItems} label={t("invoices.list.rowMenuLabel")} />
             </HStack>

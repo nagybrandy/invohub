@@ -81,10 +81,17 @@ describe("InvoiceCard", () => {
     expect(directDeleteButtons).toHaveLength(0);
   });
 
-  it("deletes from the last, destructive ⋯ menu item after confirming", async () => {
+  it("offers no delete on a numbered document — a sztornó cancels it, the server would answer 409", () => {
+    const tree = renderCard({ invoice: makeInvoice({ status: "sent" }), onDelete: jest.fn(), onPreview: jest.fn() });
+    openRowMenu(tree);
+    expect(tree.root.findAllByProps({ testID: "overflow-menu-item-1" })).toHaveLength(0);
+    expect(JSON.stringify(tree.toJSON())).not.toContain("invoices.card.deleteAction");
+  });
+
+  it("deletes a draft from the last, destructive ⋯ menu item after confirming", async () => {
     mockConfirmAsync.mockResolvedValue(true);
     const onDelete = jest.fn();
-    const invoice = makeInvoice();
+    const invoice = makeInvoice({ status: "draft" });
     const tree = renderCard({ invoice, onDelete, onPreview: jest.fn() });
 
     openRowMenu(tree);
@@ -110,7 +117,7 @@ describe("InvoiceCard", () => {
   it("does not delete when the confirmation is dismissed", async () => {
     mockConfirmAsync.mockResolvedValue(false);
     const onDelete = jest.fn();
-    const tree = renderCard({ invoice: makeInvoice(), onDelete });
+    const tree = renderCard({ invoice: makeInvoice({ status: "draft" }), onDelete });
 
     openRowMenu(tree);
     const deleteItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
@@ -176,6 +183,7 @@ describe("InvoiceCard", () => {
     const tree = renderCard({
       invoice: makeInvoice({ documentType: "invoice" }),
       onDelete: jest.fn(),
+      onPreview: jest.fn(), // a draft-only delete leaves this menu empty otherwise
       onConvert,
     });
 
@@ -184,10 +192,49 @@ describe("InvoiceCard", () => {
     expect(json).not.toContain("invoices.convert.action");
   });
 
+  it("renders the converted badge next to the number and offers the open-existing menu entry when converted is true (AC16)", () => {
+    const onConvert = jest.fn();
+    const onOpenExisting = jest.fn();
+    const invoice = makeInvoice({ documentType: "proforma", status: "proforma" });
+    const tree = renderCard({
+      invoice,
+      onDelete: jest.fn(),
+      onConvert,
+      converted: true,
+      onOpenExisting,
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("invoices.convert.convertedBadge");
+
+    openRowMenu(tree);
+    const menuJson = JSON.stringify(tree.toJSON());
+    expect(menuJson).toContain("invoices.convert.openExisting");
+    expect(menuJson).not.toContain("invoices.convert.action");
+
+    const openExistingItem = tree.root.findByProps({ testID: "overflow-menu-item-0" });
+    act(() => {
+      openExistingItem.props.onPress?.();
+    });
+    expect(onOpenExisting).toHaveBeenCalledWith(invoice);
+    expect(onConvert).not.toHaveBeenCalled();
+  });
+
+  it("does not render the converted badge for a non-proforma document even when converted is true", () => {
+    const tree = renderCard({
+      invoice: makeInvoice({ documentType: "invoice" }),
+      onDelete: jest.fn(),
+      converted: true,
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("invoices.convert.convertedBadge");
+  });
+
   it("does not offer the convert entry for a díjbekérő when onConvert is not passed", () => {
     const tree = renderCard({
       invoice: makeInvoice({ documentType: "proforma", status: "proforma" }),
       onDelete: jest.fn(),
+      onPreview: jest.fn(), // a draft-only delete leaves this menu empty otherwise
     });
 
     openRowMenu(tree);

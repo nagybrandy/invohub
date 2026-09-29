@@ -16,6 +16,7 @@ import {
   type BrandShape,
 } from "@/components/marketing/brand-mark-geometry";
 import { landingColors } from "@/components/marketing/landing-theme";
+import { documentInk } from "@/lib/invoices/document-ink";
 
 type Doc = InstanceType<typeof PDFDocument>;
 
@@ -135,7 +136,7 @@ export function drawBrandLockup(doc: Doc, opts: DrawBrandLockupOptions): number 
   const lineHeight = doc.currentLineHeight();
   const textY = opts.y + (size - lineHeight) / 2;
 
-  doc.font(opts.font).fontSize(opts.fontSize).fillColor("#8a90a6");
+  doc.font(opts.font).fontSize(opts.fontSize).fillColor(documentInk.muted);
   doc.text(opts.text, markX + size + gutter, textY, { lineBreak: false });
   doc.fillColor("#000000");
 

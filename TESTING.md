@@ -40,8 +40,35 @@ E2E_TEST_EMAIL=e2e-test@invohub.test E2E_TEST_PASSWORD='...' \
 
 Without `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` set, those authenticated specs report a
 clear skip reason instead of running against an unauthenticated page (see
-`e2e/web/fixtures/auth.ts`). CI does not set these by default, so authenticated specs
-skip there too unless a scratch database + secrets are wired up.
+`e2e/web/fixtures/auth.ts`).
+
+## Turning the authenticated specs on in CI
+
+**61 of the web E2E specs are behind that guard** — every signed-in flow, i.e. invoices,
+dashboard, settings, receipts and navigation. Until the secrets below exist, the "Web E2E
+(Playwright)" check is green on the unauthenticated specs alone. Every run says so:
+`e2e/reporters/auth-coverage.ts` prints the count and writes it to the GitHub job summary,
+so the gap is visible rather than implied by a passing badge.
+
+The workflow already passes the credentials through (`.github/workflows/test.yml`), so
+adding the repository secrets is the only step — no code change follows:
+
+| Secret | What it is |
+|---|---|
+| `E2E_TEST_EMAIL` | the test account's address, e.g. `e2e-test@invohub.test` |
+| `E2E_TEST_PASSWORD` | its password |
+| `E2E_DATABASE_URL` | a **scratch/dev** Neon database — never production |
+| `E2E_BETTER_AUTH_SECRET` | any random string; Better Auth needs one to sign sessions |
+
+Then seed the account once against that scratch database:
+
+```bash
+DATABASE_URL=<scratch db> E2E_TEST_EMAIL=e2e-test@invohub.test E2E_TEST_PASSWORD='...' \
+  npm run create-test-user
+```
+
+Point `E2E_DATABASE_URL` at production and a CI run would write invoices into real data,
+so treat that as the one hard rule here.
 
 ```bash
 

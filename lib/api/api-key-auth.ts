@@ -2,6 +2,7 @@
 // Authenticates external API requests via public + secret key pair.
 import { authenticateApiKey, type ApiKeyRecord } from "@/lib/api-keys/service";
 import { parseApiKeyCredentials } from "@/lib/api-keys/credentials";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 
 export { parseApiKeyCredentials };
 
@@ -38,4 +39,33 @@ export async function requireApiKey(request: Request): Promise<ApiKeyAuthResult>
 
 export function jsonApiResponse(data: unknown, status = 200) {
   return Response.json(data, { status });
+}
+
+/** Reasonable default: a single API key can make 120 v1 requests per minute. */
+const V1_RATE_LIMIT = 120;
+const V1_RATE_LIMIT_WINDOW_MS = 60_000;
+
+function rateLimitedResponse(retryAfterSeconds: number) {
+  return Response.json(
+    { error: "Rate limit exceeded. Try again later.", code: "rateLimited" },
+    { status: 429, headers: { "Retry-After": String(Math.max(1, retryAfterSeconds)) } }
+  );
+}
+
+/**
+ * Every v1 route (app/api/v1/**) should authenticate with this instead of
+ * the bare requireApiKey — same auth check, plus a per-API-key rate limit
+ * (see lib/api/rate-limit.ts) so a single leaked/misbehaving key can't
+ * hammer the API unthrottled.
+ */
+export async function requireApiKeyForV1(request: Request): Promise<ApiKeyAuthResult> {
+  const auth = await requireApiKey(request);
+  if (!auth.ok) return auth;
+
+  const result = checkRateLimit(`v1:${auth.apiKey.id}`, V1_RATE_LIMIT, V1_RATE_LIMIT_WINDOW_MS);
+  if (!result.allowed) {
+    return { ok: false, response: rateLimitedResponse(result.retryAfterSeconds) };
+  }
+
+  return auth;
 }

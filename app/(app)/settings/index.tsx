@@ -1,5 +1,6 @@
 // app/(app)/settings/index.tsx
-// Settings hub: profile, templates, reminders, theme, export, demo data, sign out.
+// Settings hub: profile, templates, reminders, theme, adóhatósági ellenőrzési
+// adatszolgáltatás (tax-audit XML export), demo data, sign out.
 import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,6 @@ import {
   Building2,
   ChevronRight,
   Database,
-  FileSpreadsheet,
   FileText,
   Languages,
   LogOut,
@@ -17,6 +17,7 @@ import {
   Shield,
 } from "lucide-react-native";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { TaxAuditExportCard } from "@/components/settings/TaxAuditExportCard";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
@@ -32,6 +33,7 @@ import { routes } from "@/lib/navigation";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { canAccessAdminPanel } from "@/lib/user-roles";
+import { isDevSeedButtonVisible } from "@/lib/dev/seed-visible";
 
 const SETTINGS_LINKS = [
   {
@@ -41,7 +43,7 @@ const SETTINGS_LINKS = [
     icon: Building2,
   },
   {
-    href: routes.settingsTemplates,
+    href: routes.emailEditor,
     labelKey: "settings.templates",
     descKey: "settings.templatesHint",
     icon: Mail,
@@ -68,14 +70,14 @@ const SETTINGS_LINKS = [
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const { isDarkColorScheme, toggleTheme } = useColorScheme();
+  const { isDarkColorScheme, preference, cycleTheme } = useColorScheme();
   const icons = useIconColors();
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const isAdmin = canAccessAdminPanel(userRole);
   // The demo-seed route is a dev/demo-only tool (server-gated in lib/dev/seed-guard.ts);
   // only show the button when the deploy explicitly opts in.
-  const seedEnabled = process.env.EXPO_PUBLIC_ALLOW_DEV_SEED === "true";
+  const seedEnabled = isDevSeedButtonVisible();
   const [seeding, setSeeding] = React.useState(false);
   const [seedMessage, setSeedMessage] = React.useState<string | null>(null);
 
@@ -112,14 +114,6 @@ export default function SettingsScreen() {
     router.replace(routes.login);
   }
 
-  function handleExport() {
-    const from = "2026-01-01";
-    const to = new Date().toISOString().slice(0, 10);
-    if (typeof window !== "undefined") {
-      window.open(`/api/export/tax-audit?from=${from}&to=${to}`, "_blank");
-    }
-  }
-
   return (
     <ScreenLayout
       header={
@@ -147,6 +141,10 @@ export default function SettingsScreen() {
           </HStack>
         </Card>
 
+        {/* The audit export is the one thing an ellenőrzés asks for — it sits
+            right under the profile, not at the bottom under "tools". */}
+        <TaxAuditExportCard />
+
         <VStack space="sm">
           <Text className="font-semibold text-foreground">{t("settings.account")}</Text>
           <HStack space="sm" className="flex-wrap">
@@ -165,13 +163,7 @@ export default function SettingsScreen() {
         <VStack space="sm">
           <Text className="font-semibold text-foreground">{t("settings.tools")}</Text>
           <HStack space="sm" className="flex-wrap">
-            <FeatureLinkCard
-              icon={FileSpreadsheet}
-              title={t("settings.export")}
-              description={t("settings.exportHint")}
-              onPress={handleExport}
-            />
-            <Pressable onPress={() => void toggleTheme()} className="flex-1 min-w-[45%]">
+            <Pressable onPress={() => void cycleTheme()} className="flex-1 min-w-[45%]" testID="settings-appearance">
               <Card className="h-full p-4 active:opacity-80">
                 <HStack className="items-start justify-between">
                   <VStack space="xs" className="flex-1">
@@ -182,7 +174,9 @@ export default function SettingsScreen() {
                       </Text>
                     </HStack>
                     <Text size="xs" className="text-muted-foreground">
-                      {isDarkColorScheme ? t("settings.darkModeOn") : t("settings.darkModeOff")}
+                      {preference === "system"
+                        ? t("settings.themeSystem", { current: t(isDarkColorScheme ? "settings.themeDark" : "settings.themeLight") })
+                        : t(preference === "dark" ? "settings.themeDark" : "settings.themeLight")}
                     </Text>
                   </VStack>
                   <ChevronRight size={16} color={icons.muted} />
