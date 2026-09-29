@@ -16,20 +16,21 @@ jest.mock("@/db/schema", () => ({
 }));
 
 jest.mock("@/lib/id", () => ({ createId: jest.fn(() => "sub-new") }));
-jest.mock("@/lib/nav-receipt/report", () => ({ submitDailyReceiptReport: jest.fn() }));
+jest.mock("@/lib/nav-receipt/report", () => ({ submitReceiptDataReport: jest.fn() }));
 jest.mock("@/lib/nav/credentials", () => ({
   decryptNavSecretOrPassthrough: jest.fn((v: string | null | undefined) => v ?? undefined),
 }));
 jest.mock("@/lib/receipts/service", () => ({
-  getVatAggregationForRange: jest.fn(),
+  getReceiptsByDateRange: jest.fn(),
   markReceiptsSubmittedForRange: jest.fn(),
 }));
 
 import { runDailyReceiptReports } from "@/lib/nav-receipt/daily-report-run";
 import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
-import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
+import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
+import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU } from "@/lib/receipts/daily-report";
 import {
-  getVatAggregationForRange,
+  getReceiptsByDateRange,
   markReceiptsSubmittedForRange,
 } from "@/lib/receipts/service";
 
@@ -39,11 +40,11 @@ const mockDecrypt = decryptNavSecretOrPassthrough as jest.MockedFunction<
   typeof decryptNavSecretOrPassthrough
 >;
 
-const mockSubmit = submitDailyReceiptReport as jest.MockedFunction<
-  typeof submitDailyReceiptReport
+const mockSubmit = submitReceiptDataReport as jest.MockedFunction<
+  typeof submitReceiptDataReport
 >;
-const mockAgg = getVatAggregationForRange as jest.MockedFunction<
-  typeof getVatAggregationForRange
+const mockRange = getReceiptsByDateRange as jest.MockedFunction<
+  typeof getReceiptsByDateRange
 >;
 const mockMark = markReceiptsSubmittedForRange as jest.MockedFunction<
   typeof markReceiptsSubmittedForRange
@@ -74,23 +75,18 @@ function submissionsSelect(rows: unknown[]) {
   return { from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue(rows) }) };
 }
 
-const aggregationWithReceipts = {
-  reportDate: "unused",
-  receiptCount: 2,
-  startReceiptNumber: "NYG-001",
-  endReceiptNumber: "NYG-002",
-  vatBreakdown: [
-    { vatRate: 27, netAmount: 1000, vatAmount: 270, grossAmount: 1270, itemCount: 2 },
-  ],
-};
+// The day's receipts as lib/receipts/service returns them; the real
+// buildDailyReceiptReports groups them per currency.
+function dayReceipt(receiptNumber: string, currency: "HUF" | "EUR" = "HUF") {
+  return {
+    id: `id-${receiptNumber}`,
+    receiptNumber,
+    currency,
+    lineItems: [{ vatRate: 27, quantity: 1, unitPrice: 500 }],
+  } as never;
+}
 
-const emptyAggregation = {
-  reportDate: "unused",
-  receiptCount: 0,
-  startReceiptNumber: null,
-  endReceiptNumber: null,
-  vatBreakdown: [],
-};
+const hufDay = [dayReceipt("NYG-002"), dayReceipt("NYG-001")];
 
 describe("runDailyReceiptReports", () => {
   beforeEach(() => {
@@ -99,9 +95,9 @@ describe("runDailyReceiptReports", () => {
     db.update.mockReturnValue({
       set: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue(undefined) }),
     });
-    mockAgg.mockResolvedValue(aggregationWithReceipts);
+    mockRange.mockResolvedValue(hufDay);
     mockMark.mockResolvedValue(undefined);
-    mockSubmit.mockResolvedValue({ ok: true, transactionId: "TX-1" });
+    mockSubmit.mockResolvedValue({ ok: true, reportId: "TX-1" });
   });
 
   it("processes exactly 3 Europe/Budapest calendar dates, oldest first (AC1)", async () => {
@@ -245,7 +241,7 @@ describe("runDailyReceiptReports", () => {
   it("writes a rejected submission to failed with the error message, and still processes the next company (AC5)", async () => {
     mockSubmit.mockReset();
     mockSubmit.mockRejectedValueOnce(new Error("NAV timeout"));
-    mockSubmit.mockResolvedValueOnce({ ok: true, transactionId: "TX-2" });
+    mockSubmit.mockResolvedValueOnce({ ok: true, reportId: "TX-2" });
 
     db.select
       .mockReturnValueOnce(companiesSelect([makeCompany({ id: "comp-a" }), makeCompany({ id: "comp-b" })]))
@@ -284,7 +280,7 @@ describe("runDailyReceiptReports", () => {
       error: "NAV_CREDENTIALS_KEY nincs beállítva.",
     });
     expect(okEntry).toMatchObject({ status: "submitted" });
-    // The row must never be left "pending", and submitDailyReceiptReport
+    // The row must never be left "pending", and submitReceiptDataReport
     // must never be called for the company whose credentials failed to
     // decrypt.
     expect(mockSubmit).toHaveBeenCalledTimes(1);
@@ -327,7 +323,7 @@ describe("runDailyReceiptReports", () => {
   });
 
   it("skips a date with zero receipts (no insert), and flags demo/missing-credential companies (AC6)", async () => {
-    mockAgg.mockResolvedValueOnce(emptyAggregation);
+    mockRange.mockResolvedValueOnce([]);
 
     db.select
       .mockReturnValueOnce(
@@ -364,9 +360,11 @@ describe("runDailyReceiptReports", () => {
     await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
 
     expect(mockMark).toHaveBeenCalledTimes(1);
-    const [, start, end] = mockMark.mock.calls[0];
+    const [, start, end, currency] = mockMark.mock.calls[0];
     expect(start.toISOString()).toBe("2026-07-06T22:00:00.000Z");
     expect(end.toISOString()).toBe("2026-07-07T21:59:59.999Z");
+    // Only what was reported: the day's non-HUF receipts must not read as submitted.
+    expect(currency).toBe("HUF");
 
     mockMark.mockClear();
     mockSubmit.mockReset();
@@ -379,26 +377,128 @@ describe("runDailyReceiptReports", () => {
     expect(mockMark).not.toHaveBeenCalled();
   });
 
-  it("maps navEnvironment to the NAV environment used for the call (AC11)", async () => {
+  it("only ever calls the NAV test environment; a production company is refused without a call or a row (AC11)", async () => {
     db.select
       .mockReturnValueOnce(companiesSelect([makeCompany({ navEnvironment: "production" })]))
       .mockReturnValueOnce(submissionsSelect([]));
 
-    await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+    const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
 
-    expect(mockSubmit).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      "production"
-    );
+    expect(result.results).toEqual([
+      { companyId: "comp-1", reportDate: "2026-07-07", status: "production_not_supported" },
+    ]);
+    expect(mockSubmit).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
 
-    mockSubmit.mockClear();
     db.select
       .mockReturnValueOnce(companiesSelect([makeCompany({ navEnvironment: "test" })]))
       .mockReturnValueOnce(submissionsSelect([]));
 
     await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
     expect(mockSubmit).toHaveBeenCalledWith(expect.anything(), expect.anything(), "test");
+  });
+
+  it("sends one HUF report built from the day's receipts, with the first and last number on the row", async () => {
+    db.select
+      .mockReturnValueOnce(companiesSelect([makeCompany()]))
+      .mockReturnValueOnce(submissionsSelect([]));
+
+    await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+
+    const report = mockSubmit.mock.calls[0][0];
+    expect(report).toMatchObject({
+      currency: "HUF",
+      applicableDate: "2026-07-07",
+      serialNumber: "NYG-001",
+      numberOfSaleDocument: 2,
+      total: 1270,
+    });
+    const inserted = (db.insert as jest.Mock).mock.results[0].value.values.mock.calls[0][0];
+    expect(inserted).toMatchObject({
+      status: "pending",
+      receiptCount: 2,
+      startReceiptNumber: "NYG-001",
+      endReceiptNumber: "NYG-002",
+    });
+  });
+
+  it("a day with HUF and EUR receipts: the HUF report goes out, the EUR group is recorded as blocked", async () => {
+    mockRange.mockResolvedValueOnce([dayReceipt("NYG-001"), dayReceipt("NYG-002", "EUR")]);
+    db.select
+      .mockReturnValueOnce(companiesSelect([makeCompany()]))
+      .mockReturnValueOnce(submissionsSelect([]));
+
+    const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+
+    expect(result.results.map((r) => r.status)).toEqual(["blocked_missing_exchange_rate", "submitted"]);
+    expect(result.blocked).toBe(1);
+    expect(result.submitted).toBe(1);
+    expect(mockSubmit).toHaveBeenCalledTimes(1);
+    expect(mockSubmit.mock.calls[0][0]).toMatchObject({ currency: "HUF", numberOfSaleDocument: 1 });
+    // db.insert returns one shared { values } mock — its calls are the rows, in order.
+    const inserts = (db.insert as jest.Mock).mock.results[0].value.values.mock.calls.map(
+      (call: unknown[]) => call[0],
+    );
+    expect(inserts[0]).toMatchObject({
+      status: "failed",
+      receiptCount: 1,
+      errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+    });
+    expect(inserts[1]).toMatchObject({ status: "pending", receiptCount: 1 });
+  });
+
+  it("an EUR-only day sends nothing and keeps ONE blocked row across the three nightly visits", async () => {
+    mockRange.mockResolvedValue([dayReceipt("NYG-001", "EUR")]);
+    const blockedRow = {
+      id: "sub-blocked",
+      companyId: "comp-1",
+      reportDate: "2026-07-07",
+      status: "failed",
+      attemptCount: 0,
+      errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+      updatedAt: new Date("2026-07-07T05:00:00.000Z"),
+    };
+    db.select
+      .mockReturnValueOnce(companiesSelect([makeCompany()]))
+      .mockReturnValueOnce(submissionsSelect([blockedRow]));
+
+    const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+
+    expect(result.results).toEqual([
+      {
+        companyId: "comp-1",
+        reportDate: "2026-07-07",
+        status: "blocked_missing_exchange_rate",
+        error: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+      },
+    ]);
+    expect(mockSubmit).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled(); // refreshed in place, not duplicated
+    expect(db.update).toHaveBeenCalledTimes(1);
+    expect(mockMark).not.toHaveBeenCalled();
+  });
+
+  it("a blocked row is never taken for the HUF row: the HUF report gets its own row, not a retry of the refusal", async () => {
+    mockRange.mockResolvedValueOnce([dayReceipt("NYG-001"), dayReceipt("NYG-002", "EUR")]);
+    const blockedRow = {
+      id: "sub-blocked",
+      companyId: "comp-1",
+      reportDate: "2026-07-07",
+      status: "failed",
+      attemptCount: 0,
+      errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+      updatedAt: new Date("2026-07-07T05:00:00.000Z"),
+    };
+    db.select
+      .mockReturnValueOnce(companiesSelect([makeCompany()]))
+      .mockReturnValueOnce(submissionsSelect([blockedRow]));
+
+    const result = await runDailyReceiptReports({ now: NOW, backfillDays: 1 });
+
+    const submittedEntry = result.results.find((r) => r.status === "submitted");
+    expect(submittedEntry).toMatchObject({ attemptCount: 1, transactionId: "TX-1" });
+    const inserted = (db.insert as jest.Mock).mock.results[0].value.values.mock.calls[0][0];
+    expect(inserted).toMatchObject({ id: "sub-new", status: "pending" });
   });
 
   it("stops at maxSubmissions and reports truncated: true, leaving the rest untouched (AC12)", async () => {

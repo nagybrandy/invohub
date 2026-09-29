@@ -1,4 +1,13 @@
 // __tests__/api/receipts/receipt-crud.test.ts
+// ES imports (and the requires Babel compiles them to) are hoisted above
+// every other top-level statement, including a leading `const`, so by the
+// time this factory runs `mockOrderBy` below has not been assigned yet.
+// Reference it lazily (call-time, not factory-setup-time) so the closure
+// reads the real value once the module has fully loaded — the same
+// call-time-indirection pattern __tests__/api/receipts/submit-nav.test.ts
+// uses for mockInsert/mockUpdate.
+const mockOrderBy = jest.fn().mockResolvedValue([]);
+
 jest.mock("@/lib/api/session", () => ({
   requireSession: jest.fn(),
   unauthorizedResponse: () =>
@@ -13,6 +22,31 @@ jest.mock("@/lib/receipts/service", () => ({
   validateReceiptInput: jest.fn(),
 }));
 
+jest.mock("@/lib/companies/service", () => ({
+  getCompanyByUserId: jest.fn(),
+}));
+
+jest.mock("@/db", () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          orderBy: (...args: unknown[]) => mockOrderBy(...args),
+        }),
+      }),
+    }),
+  },
+}));
+
+jest.mock("@/db/schema", () => ({
+  navReceiptSubmission: {
+    id: "navReceiptSubmission.id",
+    userId: "navReceiptSubmission.userId",
+    reportDate: "navReceiptSubmission.reportDate",
+    createdAt: "navReceiptSubmission.createdAt",
+  },
+}));
+
 import { requireSession } from "@/lib/api/session";
 import {
   listReceipts,
@@ -20,6 +54,7 @@ import {
   getReceiptById,
   validateReceiptInput,
 } from "@/lib/receipts/service";
+import { getCompanyByUserId } from "@/lib/companies/service";
 import { GET as listGET, POST } from "@/app/api/receipts+api";
 import { GET as detailGET } from "@/app/api/receipts/[id]+api";
 
@@ -28,6 +63,7 @@ const mockList = listReceipts as jest.MockedFunction<typeof listReceipts>;
 const mockCreate = createReceipt as jest.MockedFunction<typeof createReceipt>;
 const mockGetById = getReceiptById as jest.MockedFunction<typeof getReceiptById>;
 const mockValidate = validateReceiptInput as jest.MockedFunction<typeof validateReceiptInput>;
+const mockGetCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
 
 const fakeReceipt = {
   id: "r1",
@@ -185,9 +221,10 @@ describe("GET /api/receipts/[id]", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns receipt json", async () => {
+  it("returns receipt json with NAV mode info", async () => {
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockGetById.mockResolvedValue(fakeReceipt as never);
+    mockGetCompany.mockResolvedValue({ navEnvironment: "demo" } as never);
 
     const res = await detailGET(
       new Request("http://localhost/api/receipts/r1"),
@@ -197,6 +234,60 @@ describe("GET /api/receipts/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body.receipt.id).toBe("r1");
+    expect(body.navMode).toBe("demo");
     expect(mockGetById).toHaveBeenCalledWith("user-1", "r1");
+  });
+
+  // Regression for a mixed-currency day: a HUF submission run also inserts a
+  // "failed" row for every non-HUF group, blocked with the exact
+  // BLOCKED_EXCHANGE_RATE_MESSAGE_HU text (lib/receipts/daily-report.ts),
+  // sharing the same reportDate and createdAt as the HUF row (submit-nav+api.ts
+  // and cron/nav-receipt-report+api.ts both reuse a single `now`). The
+  // detail screen for the successfully-submitted HUF receipt must surface
+  // its own "submitted" row, not the other currency group's blocked row.
+  const BLOCKED_MESSAGE_HU =
+    "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.";
+
+  it("shows the HUF receipt's own submitted NAV report id, not a same-day blocked non-HUF row's error", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockGetById.mockResolvedValue(fakeReceipt as never); // currency: "HUF"
+    mockGetCompany.mockResolvedValue({ navEnvironment: "test" } as never);
+    // Both rows share the same createdAt, as a real submission run produces;
+    // order here is arbitrary — the blocked (EUR) row lists first, exactly
+    // the "wins on a tie" case the bug hit.
+    mockOrderBy.mockResolvedValue([
+      { status: "failed", errorMessage: BLOCKED_MESSAGE_HU, transactionId: null },
+      { status: "submitted", errorMessage: null, transactionId: "12345678_20260601_1" },
+    ]);
+
+    const res = await detailGET(
+      new Request("http://localhost/api/receipts/r1"),
+      { params: { id: "r1" } }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.navReportId).toBe("12345678_20260601_1");
+    expect(body.navError).toBeNull();
+  });
+
+  it("shows the blocked non-HUF row's error for a non-HUF receipt, not a same-day HUF submitted row", async () => {
+    mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+    mockGetById.mockResolvedValue({ ...fakeReceipt, currency: "EUR" } as never);
+    mockGetCompany.mockResolvedValue({ navEnvironment: "test" } as never);
+    mockOrderBy.mockResolvedValue([
+      { status: "submitted", errorMessage: null, transactionId: "12345678_20260601_1" },
+      { status: "failed", errorMessage: BLOCKED_MESSAGE_HU, transactionId: null },
+    ]);
+
+    const res = await detailGET(
+      new Request("http://localhost/api/receipts/r1"),
+      { params: { id: "r1" } }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.navReportId).toBeNull();
+    expect(body.navError).toBe(BLOCKED_MESSAGE_HU);
   });
 });

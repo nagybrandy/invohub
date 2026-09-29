@@ -751,6 +751,14 @@ screenshots before writing a fix plan:
    the 2026-09-16 plan, which was never built. See the matching detailed
    entry under "Remaining for the launch gate" for what planning verified
    against the published spec/XSD.
+   **2026-09-29: rebased onto `main` (PR #17).** `main` had meanwhile built
+   the nightly runner (`lib/nav-receipt/daily-report-run.ts`) and the NAV
+   credential hardening on the *old* client; both were ported onto the
+   rebuilt one rather than dropped: per-currency reports (HUF only; non-HUF
+   recorded as one blocked row per day), test environment only (a production
+   company is refused — no verified production host), Budapest-day report
+   dates everywhere, and the manual route no longer reports a day twice.
+   Still tax-legal gated: needs the owner's sign-off before merge.
 8. [x] Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
    — **Shipped** (`slice/invoice-flow-tap-targets-44px`). New
    `lib/ui/tap-target.ts` (`MIN_TAP_TARGET_PX`, `TAP_TARGET_MIN_H`,

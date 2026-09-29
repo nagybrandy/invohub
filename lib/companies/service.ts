@@ -26,6 +26,13 @@ export type CompanyInput = {
   navXmlSignKey?: string;
   navXmlChangeKey?: string;
   navEnvironment?: NavEnvironment;
+  /**
+   * The registered NAV eRECEIPT issuing-software *name* sent in
+   * CreateReceiptRequest/issuingSoftware/name (lib/nav-receipt/) — despite
+   * the column name, this holds a display name, not an id. Set manually via
+   * the NAV-registered-software one-time operator step (docs/nav-test-setup.md).
+   */
+  navReceiptSoftwareId?: string;
   /** Alanyi adómentes (VAT-exempt sole trader) — new invoice lines default to AAM/0% VAT. */
   vatExempt?: boolean;
 };
@@ -102,6 +109,7 @@ function mapRow(row: typeof company.$inferSelect): Company {
     navXmlSignKey: row.navXmlSignKey ?? undefined,
     navXmlChangeKey: row.navXmlChangeKey ?? undefined,
     navEnvironment: parseNavEnvironment(row.navEnvironment),
+    navReceiptSoftwareId: row.navReceiptSoftwareId ?? undefined,
     vatExempt: row.vatExempt ?? false,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

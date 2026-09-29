@@ -5,6 +5,20 @@
 // design: a bounded 3-day Budapest-calendar backfill window, per
 // (companyId, reportDate) idempotency with retry-in-place, and a per-run
 // submission cap.
+//
+// 2026-09-29: ported onto the rebuilt eRECEIPT client
+// (docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md). What changed with it:
+//   - a day is no longer one aggregate but one report PER CURRENCY
+//     (lib/receipts/daily-report.ts). Only the HUF group is submitted; every
+//     non-HUF group is refused for lack of an exchange rate and recorded as
+//     ONE "blocked" row per (company, date), kept out of the idempotency
+//     bookkeeping below so it can neither hide nor be overwritten by the HUF
+//     row;
+//   - only "test" is ever called. There is no verified production eRECEIPT
+//     host (lib/nav-receipt/environment.ts refuses to guess one), so a
+//     production company is reported as production_not_supported and
+//     nothing is sent;
+//   - only the HUF receipts of a submitted day are flagged navSubmitted.
 import { eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -12,9 +26,17 @@ import { company, navReceiptSubmission } from "@/db/schema";
 import { addBudapestDays, budapestDateKey, budapestDayRange } from "@/lib/dates/budapest";
 import { createId } from "@/lib/id";
 import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
-import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
-import type { NavReceiptCredentials, NavReceiptEnvironment } from "@/lib/nav-receipt/types";
-import { getVatAggregationForRange, markReceiptsSubmittedForRange } from "@/lib/receipts/service";
+import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
+import type {
+  NavReceiptCredentials,
+  NavReceiptEnvironment,
+  NavReceiptSubmissionResult,
+} from "@/lib/nav-receipt/types";
+import {
+  BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+  buildDailyReceiptReports,
+} from "@/lib/receipts/daily-report";
+import { getReceiptsByDateRange, markReceiptsSubmittedForRange } from "@/lib/receipts/service";
 
 /** Nyugtaadat-szolgáltatás may be delivered until the end of the 3rd calendar
  * day after the day in question — walking this many days back each run is
@@ -30,18 +52,24 @@ export const MAX_SUBMISSIONS_PER_RUN = 50;
  * in-progress attempt rather than one that crashed — see plan §2.2. */
 export const IN_FLIGHT_THRESHOLD_MS = 15 * 60 * 1000;
 
+/** The only currency InvoHub can report: a receipt stores no exchange rate. */
+const REPORTABLE_CURRENCY = "HUF";
+
 export type DailyReceiptReportResultStatus =
   | "submitted"
   | "failed"
   | "already_submitted"
   | "in_flight"
   | "skipped_no_receipts"
-  | "missing_credentials";
+  | "missing_credentials"
+  | "blocked_missing_exchange_rate"
+  | "production_not_supported";
 
 export type DailyReceiptReportResultEntry = {
   companyId: string;
   reportDate: string;
   status: DailyReceiptReportResultStatus;
+  /** NAV's report id for the day (stored in nav_receipt_submission.transaction_id). */
   transactionId?: string;
   error?: string;
   attemptCount?: number;
@@ -55,6 +83,8 @@ export type DailyReceiptReportRunResult = {
   submitted: number;
   failed: number;
   skipped: number;
+  /** (company, date) pairs that held non-HUF receipts which could not be reported. */
+  blocked: number;
   truncated: boolean;
   results: DailyReceiptReportResultEntry[];
 };
@@ -66,12 +96,23 @@ function hasCredentials(comp: CompanyRow): boolean {
   return !!(comp.navTechnicalUser && comp.navTechnicalPassword && comp.navXmlSignKey && comp.taxNumber);
 }
 
+/** A row recording a refused non-HUF group — not a submission attempt.
+ * nav_receipt_submission has no currency column, so the exact message is the
+ * discriminator (the receipt detail route relies on the same one). */
+function isBlockedRow(row: NavReceiptSubmissionRow): boolean {
+  return row.errorMessage === BLOCKED_EXCHANGE_RATE_MESSAGE_HU;
+}
+
 function newestRowFor(rows: NavReceiptSubmissionRow[], reportDate: string): NavReceiptSubmissionRow | undefined {
-  const forDate = rows.filter((r) => r.reportDate === reportDate);
+  const forDate = rows.filter((r) => r.reportDate === reportDate && !isBlockedRow(r));
   if (forDate.length === 0) return undefined;
   return forDate.reduce((newest, row) =>
     new Date(row.updatedAt).getTime() > new Date(newest.updatedAt).getTime() ? row : newest
   );
+}
+
+function blockedRowFor(rows: NavReceiptSubmissionRow[], reportDate: string): NavReceiptSubmissionRow | undefined {
+  return rows.find((r) => r.reportDate === reportDate && isBlockedRow(r));
 }
 
 /** Per plan §2.2: "any row status = 'submitted' -> nothing, no NAV call, no
@@ -110,6 +151,7 @@ export async function runDailyReceiptReports(options?: {
   let submitted = 0;
   let failed = 0;
   let skipped = 0;
+  let blockedCount = 0;
   let submissionsAttempted = 0;
   let truncated = false;
 
@@ -146,18 +188,83 @@ export async function runDailyReceiptReports(options?: {
         continue;
       }
 
-      const { start, end } = budapestDayRange(reportDate);
-      const aggregation = await getVatAggregationForRange(comp.userId, start, end, reportDate);
+      if (comp.navEnvironment === "production") {
+        // No verified production eRECEIPT host exists and this repo must
+        // never call a NAV production endpoint (CLAUDE.md "NAV modes").
+        results.push({ companyId: comp.id, reportDate, status: "production_not_supported" });
+        continue;
+      }
+      const env: NavReceiptEnvironment = "test";
 
-      if (aggregation.receiptCount === 0) {
+      const { start, end } = budapestDayRange(reportDate);
+      const dayReceipts = await getReceiptsByDateRange(comp.userId, start, end);
+
+      if (dayReceipts.length === 0) {
         results.push({ companyId: comp.id, reportDate, status: "skipped_no_receipts" });
         skipped += 1;
         continue;
       }
 
+      const { reports, blocked } = buildDailyReceiptReports(dayReceipts, {
+        taxPayerId: comp.taxNumber!,
+        issuingSoftwareName: comp.navReceiptSoftwareId ?? "InvoHub",
+        applicableDate: reportDate,
+        vatExempt: comp.vatExempt,
+      });
+
+      if (blocked.length > 0) {
+        // One blocked row per (company, date), refreshed in place — the cron
+        // revisits each date on three consecutive nights and must not leave
+        // three copies behind.
+        const blockedReceipts = blocked.reduce((sum, group) => sum + group.receiptCount, 0);
+        const existingBlocked = blockedRowFor(existingRows, reportDate);
+        const blockedAt = new Date();
+        try {
+          if (existingBlocked) {
+            await db
+              .update(navReceiptSubmission)
+              .set({ receiptCount: blockedReceipts, updatedAt: blockedAt })
+              .where(eq(navReceiptSubmission.id, existingBlocked.id));
+          } else {
+            await db.insert(navReceiptSubmission).values({
+              id: createId(),
+              userId: comp.userId,
+              companyId: comp.id,
+              reportDate,
+              status: "failed",
+              receiptCount: blockedReceipts,
+              cancelledCount: 0,
+              errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+              createdAt: blockedAt,
+              updatedAt: blockedAt,
+            });
+          }
+        } catch {
+          // Recording a refusal is bookkeeping; failing to write it must not
+          // stop the day's HUF report from going out.
+        }
+        blockedCount += 1;
+        results.push({
+          companyId: comp.id,
+          reportDate,
+          status: "blocked_missing_exchange_rate",
+          error: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+        });
+      }
+
+      const report = reports.find((r) => r.currency === REPORTABLE_CURRENCY);
+      if (!report) continue;
+
+      const reportedNumbers = dayReceipts
+        .filter((r) => r.currency === REPORTABLE_CURRENCY)
+        .map((r) => r.receiptNumber)
+        .sort((a, b) => a.localeCompare(b));
+      const startReceiptNumber = reportedNumbers[0] ?? "";
+      const endReceiptNumber = reportedNumbers[reportedNumbers.length - 1] ?? "";
+
       const attemptCount = (newest?.attemptCount ?? 0) + 1;
       const submissionId = newest?.id ?? createId();
-      const vatBreakdownJson = JSON.stringify(aggregation.vatBreakdown);
+      const vatBreakdownJson = JSON.stringify(report.vatCategoryItems);
       const startedAt = new Date();
 
       if (newest) {
@@ -166,9 +273,9 @@ export async function runDailyReceiptReports(options?: {
           .set({
             status: "pending",
             attemptCount,
-            receiptCount: aggregation.receiptCount,
-            startReceiptNumber: aggregation.startReceiptNumber ?? "",
-            endReceiptNumber: aggregation.endReceiptNumber ?? "",
+            receiptCount: report.numberOfSaleDocument,
+            startReceiptNumber,
+            endReceiptNumber,
             vatBreakdown: vatBreakdownJson,
             updatedAt: startedAt,
           })
@@ -181,10 +288,10 @@ export async function runDailyReceiptReports(options?: {
           reportDate,
           status: "pending",
           attemptCount,
-          receiptCount: aggregation.receiptCount,
+          receiptCount: report.numberOfSaleDocument,
           cancelledCount: 0,
-          startReceiptNumber: aggregation.startReceiptNumber ?? "",
-          endReceiptNumber: aggregation.endReceiptNumber ?? "",
+          startReceiptNumber,
+          endReceiptNumber,
           vatBreakdown: vatBreakdownJson,
           createdAt: startedAt,
           updatedAt: startedAt,
@@ -221,31 +328,10 @@ export async function runDailyReceiptReports(options?: {
         results.push({ companyId: comp.id, reportDate, status: "failed", error: errorMsg, attemptCount });
         continue;
       }
-      const env: NavReceiptEnvironment = comp.navEnvironment === "production" ? "production" : "test";
 
-      let navResult;
+      let navResult: NavReceiptSubmissionResult;
       try {
-        navResult = await submitDailyReceiptReport(
-          {
-            taxNumber: comp.taxNumber!,
-            softwareId: comp.navReceiptSoftwareId ?? "INVOHUB-DEFAULT",
-            reportDate,
-            startReceiptNumber: aggregation.startReceiptNumber ?? "",
-            endReceiptNumber: aggregation.endReceiptNumber ?? "",
-            receiptCount: aggregation.receiptCount,
-            cancelledCount: 0,
-            vatAggregations: aggregation.vatBreakdown.map((v) => ({
-              vatRateCode: `${v.vatRate}%`,
-              vatRate: v.vatRate,
-              netAmount: v.netAmount,
-              vatAmount: v.vatAmount,
-              grossAmount: v.grossAmount,
-              receiptCount: v.itemCount,
-            })),
-          },
-          credentials,
-          env
-        );
+        navResult = await submitReceiptDataReport(report, credentials, env);
       } catch (e) {
         // Never leave the row stuck "pending" — a thrown error from the NAV
         // call itself (timeout, network failure, …) must still resolve to
@@ -287,7 +373,7 @@ export async function runDailyReceiptReports(options?: {
           .update(navReceiptSubmission)
           .set({
             status: finalStatus,
-            transactionId: navResult.transactionId ?? null,
+            transactionId: navResult.reportId ?? null,
             errorMessage: navResult.error ?? null,
             submittedAt: navResult.ok ? finishedAt : null,
             updatedAt: finishedAt,
@@ -326,8 +412,8 @@ export async function runDailyReceiptReports(options?: {
           companyId: comp.id,
           reportDate,
           status: "submitted",
-          transactionId: navResult.transactionId,
-          error: `NAV accepted (transactionId ${navResult.transactionId ?? "unknown"}) but recording the result failed and the row could not be marked submitted: ${writeErrorMsg}`,
+          transactionId: navResult.reportId,
+          error: `NAV accepted (report id ${navResult.reportId ?? "unknown"}) but recording the result failed and the row could not be marked submitted: ${writeErrorMsg}`,
           attemptCount,
         });
         continue;
@@ -335,7 +421,9 @@ export async function runDailyReceiptReports(options?: {
 
       if (navResult.ok) {
         try {
-          await markReceiptsSubmittedForRange(comp.userId, start, end);
+          // Only what was actually reported: the day's non-HUF receipts were
+          // refused above and must not read as submitted.
+          await markReceiptsSubmittedForRange(comp.userId, start, end, REPORTABLE_CURRENCY);
         } catch (markError) {
           // The submission row is already safely persisted as "submitted"
           // above — failing to flip the receipts' navSubmitted badge is a
@@ -347,7 +435,7 @@ export async function runDailyReceiptReports(options?: {
             companyId: comp.id,
             reportDate,
             status: "submitted",
-            transactionId: navResult.transactionId,
+            transactionId: navResult.reportId,
             error: `Submitted to NAV but failed to flag receipts as submitted: ${markErrorMsg}`,
             attemptCount,
           });
@@ -362,7 +450,7 @@ export async function runDailyReceiptReports(options?: {
         companyId: comp.id,
         reportDate,
         status: finalStatus,
-        transactionId: navResult.transactionId,
+        transactionId: navResult.reportId,
         error: navResult.error,
         attemptCount,
       });
@@ -377,6 +465,7 @@ export async function runDailyReceiptReports(options?: {
     submitted,
     failed,
     skipped,
+    blocked: blockedCount,
     truncated,
     results,
   };

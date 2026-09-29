@@ -381,10 +381,15 @@ export async function getDailyVatAggregation(
 export async function markReceiptsSubmittedForRange(
   userId: string,
   start: Date,
-  end: Date
+  end: Date,
+  /** Only receipts in this currency — a day's report covers one currency
+   * group, and the groups that were refused must not read as submitted. */
+  currency?: string
 ): Promise<void> {
+  const conditions = [eq(receipt.userId, userId), between(receipt.issuedAt, start, end)];
+  if (currency) conditions.push(eq(receipt.currency, currency));
   await db
     .update(receipt)
     .set({ navSubmitted: true, updatedAt: new Date() })
-    .where(and(eq(receipt.userId, userId), between(receipt.issuedAt, start, end)));
+    .where(and(...conditions));
 }

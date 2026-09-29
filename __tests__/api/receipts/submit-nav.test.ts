@@ -1,4 +1,6 @@
 // __tests__/api/receipts/submit-nav.test.ts
+// The manual "report this receipt's day to NAV" route, on the rebuilt
+// eRECEIPT client: main's credential hardening + the per-currency reports.
 jest.mock("@/lib/api/session", () => ({
   requireSession: jest.fn(),
   unauthorizedResponse: () =>
@@ -6,32 +8,39 @@ jest.mock("@/lib/api/session", () => ({
   jsonResponse: (data: unknown, status = 200) => Response.json(data, { status }),
 }));
 
-jest.mock("@/db", () => {
-  const chainable = () => {
-    const chain: any = {
-      values: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockResolvedValue([]),
-      returning: jest.fn().mockResolvedValue([]),
-    };
-    return chain;
-  };
-  return {
-    db: {
-      insert: jest.fn().mockImplementation(chainable),
-      update: jest.fn().mockImplementation(chainable),
-    },
-  };
-});
+const mockValues = jest.fn();
+const mockSet = jest.fn();
+const mockInsert = jest.fn();
+const mockUpdate = jest.fn();
+const mockSelect = jest.fn();
+
+jest.mock("@/db", () => ({
+  db: {
+    insert: (...args: unknown[]) => mockInsert(...args),
+    update: (...args: unknown[]) => mockUpdate(...args),
+    select: (...args: unknown[]) => mockSelect(...args),
+  },
+}));
 
 jest.mock("@/db/schema", () => ({
-  navReceiptSubmission: { id: "navReceiptSubmission.id" },
+  navReceiptSubmission: {
+    id: "navReceiptSubmission.id",
+    companyId: "navReceiptSubmission.companyId",
+    reportDate: "navReceiptSubmission.reportDate",
+  },
   receipt: { id: "receipt.id" },
 }));
 
 jest.mock("@/lib/receipts/service", () => ({
   getReceiptById: jest.fn(),
-  getDailyVatAggregation: jest.fn(),
+  getReceiptsByDateRange: jest.fn(),
+  markReceiptsSubmittedForRange: jest.fn(),
+}));
+
+jest.mock("@/lib/receipts/daily-report", () => ({
+  buildDailyReceiptReports: jest.fn(),
+  BLOCKED_EXCHANGE_RATE_MESSAGE_HU:
+    "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.",
 }));
 
 jest.mock("@/lib/companies/service", () => ({
@@ -43,22 +52,28 @@ jest.mock("@/lib/id", () => ({
 }));
 
 jest.mock("@/lib/nav-receipt/report", () => ({
-  submitDailyReceiptReport: jest.fn(),
+  submitReceiptDataReport: jest.fn(),
 }));
 
 import { requireSession } from "@/lib/api/session";
-import { getReceiptById, getDailyVatAggregation } from "@/lib/receipts/service";
+import {
+  getReceiptById,
+  getReceiptsByDateRange,
+  markReceiptsSubmittedForRange,
+} from "@/lib/receipts/service";
+import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU, buildDailyReceiptReports } from "@/lib/receipts/daily-report";
 import { getCompanyByUserId } from "@/lib/companies/service";
-import { submitDailyReceiptReport } from "@/lib/nav-receipt/report";
+import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
 import { POST } from "@/app/api/receipts/[id]/submit-nav+api";
-import { db } from "@/db";
 import { encryptNavSecret } from "@/lib/nav/credentials";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
 const mockGetReceipt = getReceiptById as jest.MockedFunction<typeof getReceiptById>;
+const mockGetRange = getReceiptsByDateRange as jest.MockedFunction<typeof getReceiptsByDateRange>;
+const mockMark = markReceiptsSubmittedForRange as jest.MockedFunction<typeof markReceiptsSubmittedForRange>;
+const mockBuildReports = buildDailyReceiptReports as jest.MockedFunction<typeof buildDailyReceiptReports>;
 const mockGetCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
-const mockSubmit = submitDailyReceiptReport as jest.MockedFunction<typeof submitDailyReceiptReport>;
-const mockAggregation = getDailyVatAggregation as jest.MockedFunction<typeof getDailyVatAggregation>;
+const mockSubmit = submitReceiptDataReport as jest.MockedFunction<typeof submitReceiptDataReport>;
 
 function makeRequest(id: string) {
   return new Request(`http://localhost/api/receipts/${id}/submit-nav`, {
@@ -74,9 +89,10 @@ const fakeCompany = {
   navTechnicalUser: "tech-user",
   navTechnicalPassword: "tech-pass",
   navXmlSignKey: "sign-key",
-  // Real submitDailyReceiptReport is only called outside demo mode — tests
-  // below that exercise the real-call path opt into "test" explicitly.
+  navXmlChangeKey: "change-key",
+  navReceiptSoftwareId: "InvoHub",
   navEnvironment: "test",
+  vatExempt: false,
 };
 
 const fakeReceipt = {
@@ -88,23 +104,64 @@ const fakeReceipt = {
   issuedAt: "2026-06-15T10:00:00.000Z",
 };
 
-const fakeAggregation = {
-  reportDate: "2026-06-15",
-  receiptCount: 3,
-  startReceiptNumber: "NYG-001",
-  endReceiptNumber: "NYG-003",
-  vatBreakdown: [
-    { vatRate: 27, netAmount: 3937, vatAmount: 1063, grossAmount: 5000, itemCount: 3 },
-  ],
+const hufReport = {
+  taxPayerId: "12345678",
+  issuingSoftwareName: "InvoHub",
+  applicableDate: "2026-06-15",
+  serialNumber: "NYG-001",
+  currency: "HUF",
+  exchangeRate: null,
+  vatCategoryItems: [{ vat: "27%", saleDocument: 5000, modifyingDocument: 0 }],
+  total: 5000,
+  numberOfSaleDocument: 2,
+  numberOfModifyingDocument: 0,
 };
+
+/** Existing nav_receipt_submission rows for the (company, date) the route looks up. */
+function dayRows(rows: unknown[]) {
+  mockSelect.mockReturnValue({
+    from: jest.fn(() => ({ where: jest.fn().mockResolvedValue(rows) })),
+  });
+}
+
+const insertedRows = () => mockValues.mock.calls.map((call) => call[0]);
+const updatedRows = () => mockSet.mock.calls.map((call) => call[0]);
+
+const SAVED_ENV: Record<string, string | undefined> = {};
+const ENV_KEYS = ["NAV_CREDENTIALS_KEY", "NAV_CREDENTIALS_KEY_ID", "NAV_CREDENTIALS_PREVIOUS_KEYS", "NAV_PRODUCTION_ENABLED"];
 
 describe("POST /api/receipts/[id]/submit-nav", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    for (const k of ENV_KEYS) {
+      SAVED_ENV[k] = process.env[k];
+      delete process.env[k];
+    }
+    process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 4).toString("base64");
+
+    mockValues.mockResolvedValue([]);
+    mockInsert.mockReturnValue({ values: mockValues });
+    mockSet.mockReturnValue({ where: jest.fn().mockResolvedValue([]) });
+    mockUpdate.mockReturnValue({ set: mockSet });
+    dayRows([]);
+
     mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
     mockGetReceipt.mockResolvedValue(fakeReceipt as never);
     mockGetCompany.mockResolvedValue(fakeCompany as never);
-    mockAggregation.mockResolvedValue(fakeAggregation as never);
+    mockGetRange.mockResolvedValue([
+      { ...fakeReceipt, receiptNumber: "NYG-002" } as never,
+      fakeReceipt as never,
+    ]);
+    mockBuildReports.mockReturnValue({ reports: [hufReport as never], blocked: [] });
+    mockSubmit.mockResolvedValue({ ok: true, reportId: "12345678_20260615_1" });
+    mockMark.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    for (const k of ENV_KEYS) {
+      if (SAVED_ENV[k] === undefined) delete process.env[k];
+      else process.env[k] = SAVED_ENV[k];
+    }
   });
 
   it("returns 401 without session", async () => {
@@ -127,13 +184,14 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 400 when already submitted", async () => {
+  it("returns 400 with a stable code when the receipt is already submitted", async () => {
     mockGetReceipt.mockResolvedValue({ ...fakeReceipt, navSubmitted: true } as never);
     const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
     const body = await res.json();
 
     expect(res.status).toBe(400);
     expect(body.error).toContain("Already submitted");
+    expect(body.code).toBe("receiptAlreadySubmitted");
   });
 
   it("returns 400 when company profile is missing", async () => {
@@ -145,103 +203,221 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
     expect(body.error).toContain("Company profile");
   });
 
-  it("simulates acceptance in demo mode (the default) without calling the real NAV endpoint", async () => {
-    mockGetCompany.mockResolvedValue({
-      ...fakeCompany,
-      navEnvironment: "demo",
-      navTechnicalUser: null,
-      navTechnicalPassword: null,
-      navXmlSignKey: null,
-    } as never);
+  describe("demo mode (the default)", () => {
+    it("never calls NAV or aggregates the day, and still records an accepted row and flags the receipt", async () => {
+      mockGetCompany.mockResolvedValue({
+        ...fakeCompany,
+        navEnvironment: "demo",
+        navTechnicalUser: null,
+        navTechnicalPassword: null,
+        navXmlSignKey: null,
+        taxNumber: null,
+      } as never);
 
-    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
-    const body = await res.json();
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.transactionId).toMatch(/^RECEIPT-DEMO-/);
-    expect(mockSubmit).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(body).toMatchObject({ ok: true, mode: "demo", reportDate: "2026-06-15" });
+      expect(body.transactionId).toMatch(/^RECEIPT-DEMO-/);
+      expect(mockSubmit).not.toHaveBeenCalled();
+      expect(mockGetRange).not.toHaveBeenCalled();
+      expect(insertedRows()).toHaveLength(1);
+      expect(insertedRows()[0]).toMatchObject({ status: "submitted", receiptCount: 1 });
+      expect(updatedRows()[0]).toMatchObject({ navSubmitted: true });
+    });
   });
 
-  it("returns 400 when NAV credentials missing", async () => {
-    mockGetCompany.mockResolvedValue({
-      ...fakeCompany,
-      navTechnicalUser: null,
-      navTechnicalPassword: null,
-      navXmlSignKey: null,
-    } as never);
+  describe("production mode", () => {
+    it.each([["off", undefined], ["on", "true"]])(
+      "is refused outright with NAV_PRODUCTION_ENABLED %s — there is no verified production eRECEIPT host",
+      async (_label, flag) => {
+        if (flag) process.env.NAV_PRODUCTION_ENABLED = flag;
+        mockGetCompany.mockResolvedValue({ ...fakeCompany, navEnvironment: "production" } as never);
 
-    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
-    const body = await res.json();
+        const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+        const body = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(body.error).toContain("NAV credentials");
+        expect(res.status).toBe(400);
+        expect(body.code).toBe("navReceiptProductionUnsupported");
+        expect(mockSubmit).not.toHaveBeenCalled();
+        expect(mockInsert).not.toHaveBeenCalled();
+      }
+    );
   });
 
-  it("returns success on NAV submission", async () => {
-    mockSubmit.mockResolvedValue({
-      ok: true,
-      transactionId: "NAV-TX-001",
-    } as never);
+  describe("test mode", () => {
+    it("returns 400 when NAV credentials are missing", async () => {
+      mockGetCompany.mockResolvedValue({
+        ...fakeCompany,
+        navTechnicalUser: null,
+        navTechnicalPassword: null,
+        navXmlSignKey: null,
+      } as never);
 
-    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
-    const body = await res.json();
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.transactionId).toBe("NAV-TX-001");
-    expect(body.receiptCount).toBe(3);
-    expect(mockSubmit).toHaveBeenCalledTimes(1);
-  });
+      expect(res.status).toBe(400);
+      expect(body.error).toContain("NAV credentials");
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
 
-  it("returns error when NAV submission fails", async () => {
-    mockSubmit.mockResolvedValue({
-      ok: false,
-      error: "NAV validation error",
-    } as never);
+    it("sends the day's HUF report once, records pending → submitted with NAV's id, and flags every HUF receipt of the day", async () => {
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
 
-    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
-    const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        mode: "test",
+        reportDate: "2026-06-15",
+        receiptCount: 2,
+        transactionId: "12345678_20260615_1",
+      });
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      expect(mockSubmit).toHaveBeenCalledWith(hufReport, expect.anything(), "test");
 
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(false);
-    expect(body.error).toBe("NAV validation error");
-  });
+      expect(insertedRows()).toHaveLength(1);
+      expect(insertedRows()[0]).toMatchObject({
+        status: "pending",
+        receiptCount: 2,
+        startReceiptNumber: "NYG-001",
+        endReceiptNumber: "NYG-002",
+      });
+      expect(updatedRows()[0]).toMatchObject({
+        status: "submitted",
+        transactionId: "12345678_20260615_1",
+      });
 
-  it("returns 500 on unexpected exception", async () => {
-    mockGetReceipt.mockRejectedValue(new Error("DB connection lost"));
+      // The Budapest calendar day of the receipt, HUF only.
+      expect(mockMark).toHaveBeenCalledTimes(1);
+      const [userId, start, end, currency] = mockMark.mock.calls[0];
+      expect(userId).toBe("user-1");
+      expect(start.toISOString()).toBe("2026-06-14T22:00:00.000Z");
+      expect(end.toISOString()).toBe("2026-06-15T21:59:59.999Z");
+      expect(currency).toBe("HUF");
+    });
 
-    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
-    const body = await res.json();
+    it("reports the Budapest day, not the UTC one: a receipt issued at 00:30 local belongs to the new day", async () => {
+      mockGetReceipt.mockResolvedValue({ ...fakeReceipt, issuedAt: "2026-06-15T22:30:00.000Z" } as never);
 
-    expect(res.status).toBe(500);
-    expect(body.error).toBe("DB connection lost");
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(body.reportDate).toBe("2026-06-16");
+      expect(mockBuildReports.mock.calls[0][1]).toMatchObject({ applicableDate: "2026-06-16" });
+    });
+
+    it("stores NAV's error text on a rejection and flags nothing", async () => {
+      mockSubmit.mockResolvedValue({ ok: false, error: "VALIDATION_ERROR Bad data" });
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe("VALIDATION_ERROR Bad data");
+      expect(updatedRows()[0]).toMatchObject({ status: "failed", errorMessage: "VALIDATION_ERROR Bad data" });
+      expect(mockMark).not.toHaveBeenCalled();
+    });
+
+    it("a thrown NAV call still resolves the row to failed — never left pending for the cron to misread", async () => {
+      mockSubmit.mockRejectedValue(new Error("NAV timeout"));
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(false);
+      expect(insertedRows()[0]).toMatchObject({ status: "pending" });
+      expect(updatedRows()[0]).toMatchObject({ status: "failed", errorMessage: "NAV timeout" });
+      expect(mockMark).not.toHaveBeenCalled();
+    });
+
+    it("refuses a non-HUF receipt: blocked row, no NAV call, nothing flagged", async () => {
+      mockGetReceipt.mockResolvedValue({ ...fakeReceipt, currency: "EUR" } as never);
+      mockBuildReports.mockReturnValue({
+        reports: [],
+        blocked: [{ currency: "EUR", reason: "missing_exchange_rate", receiptCount: 1 }],
+      });
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe(BLOCKED_EXCHANGE_RATE_MESSAGE_HU);
+      expect(mockSubmit).not.toHaveBeenCalled();
+      expect(insertedRows()).toHaveLength(1);
+      expect(insertedRows()[0]).toMatchObject({
+        status: "failed",
+        receiptCount: 1,
+        errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+      });
+      expect(mockMark).not.toHaveBeenCalled();
+    });
+
+    it("a mixed day asked through its EUR receipt: the HUF report goes out and HUF receipts are flagged, but this receipt is not reported", async () => {
+      mockGetReceipt.mockResolvedValue({ ...fakeReceipt, currency: "EUR" } as never);
+      mockBuildReports.mockReturnValue({
+        reports: [hufReport as never],
+        blocked: [{ currency: "EUR", reason: "missing_exchange_rate", receiptCount: 1 }],
+      });
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe(BLOCKED_EXCHANGE_RATE_MESSAGE_HU);
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      expect(mockMark).toHaveBeenCalledWith("user-1", expect.any(Date), expect.any(Date), "HUF");
+      // The asked-for receipt itself is never flagged by id.
+      expect(mockUpdate.mock.calls.some(([table]) => (table as { id?: string }).id === "receipt.id")).toBe(false);
+    });
+
+    it("keeps one blocked row per day: an existing refusal is refreshed, not duplicated", async () => {
+      dayRows([
+        { id: "sub-blocked", status: "failed", errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU, reportDate: "2026-06-15" },
+      ]);
+      mockGetReceipt.mockResolvedValue({ ...fakeReceipt, currency: "EUR" } as never);
+      mockBuildReports.mockReturnValue({
+        reports: [],
+        blocked: [{ currency: "EUR", reason: "missing_exchange_rate", receiptCount: 3 }],
+      });
+
+      await POST(makeRequest("r1"), { params: { id: "r1" } });
+
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(updatedRows()[0]).toMatchObject({ receiptCount: 3 });
+    });
+
+    it("does not report a day twice: with a submitted row already there, it flags the HUF receipts and sends nothing", async () => {
+      dayRows([{ id: "sub-done", status: "submitted", transactionId: "12345678_20260615_1", reportDate: "2026-06-15" }]);
+
+      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        alreadyReported: true,
+        submissionId: "sub-done",
+        transactionId: "12345678_20260615_1",
+      });
+      expect(mockSubmit).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockMark).toHaveBeenCalledWith("user-1", expect.any(Date), expect.any(Date), "HUF");
+    });
   });
 
   describe("credential handling", () => {
-    const saved: Record<string, string | undefined> = {};
-    const KEYS = ["NAV_CREDENTIALS_KEY", "NAV_CREDENTIALS_KEY_ID", "NAV_CREDENTIALS_PREVIOUS_KEYS", "NAV_PRODUCTION_ENABLED"];
-    beforeEach(() => {
-      for (const k of KEYS) {
-        saved[k] = process.env[k];
-        delete process.env[k];
-      }
-      process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 4).toString("base64");
-    });
-    afterEach(() => {
-      for (const k of KEYS) {
-        if (saved[k] === undefined) delete process.env[k];
-        else process.env[k] = saved[k];
-      }
-    });
-
     it("decrypts the sealed password/sign key only for the NAV call", async () => {
       mockGetCompany.mockResolvedValue({
         ...fakeCompany,
         navTechnicalPassword: encryptNavSecret("real-pass"),
         navXmlSignKey: encryptNavSecret("real-sign"),
       } as never);
-      mockSubmit.mockResolvedValue({ ok: true, transactionId: "TX" } as never);
 
       const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
       const body = await res.json();
@@ -256,7 +432,7 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
       expect(JSON.stringify(body)).not.toContain("real-sign");
     });
 
-    it("returns 400 (no NAV call, no pending row) when the stored secret can't be decrypted", async () => {
+    it("returns 400 (no NAV call, no row) when the stored secret can't be decrypted", async () => {
       const sealed = encryptNavSecret("real-pass");
       process.env.NAV_CREDENTIALS_KEY = Buffer.alloc(32, 8).toString("base64");
       mockGetCompany.mockResolvedValue({
@@ -271,16 +447,17 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
       expect(res.status).toBe(400);
       expect(JSON.stringify(body)).not.toContain(sealed);
       expect(mockSubmit).not.toHaveBeenCalled();
-      expect((db as unknown as { insert: jest.Mock }).insert).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
     });
+  });
 
-    it("refuses a stored production mode when NAV_PRODUCTION_ENABLED is off", async () => {
-      mockGetCompany.mockResolvedValue({ ...fakeCompany, navEnvironment: "production" } as never);
+  it("returns 500 with a safe message on an unexpected exception", async () => {
+    mockGetReceipt.mockRejectedValue(new Error("DB connection lost"));
 
-      const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+    const res = await POST(makeRequest("r1"), { params: { id: "r1" } });
+    const body = await res.json();
 
-      expect(res.status).toBe(400);
-      expect(mockSubmit).not.toHaveBeenCalled();
-    });
+    expect(res.status).toBe(500);
+    expect(body.error).toBe("DB connection lost");
   });
 });
