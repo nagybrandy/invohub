@@ -39,8 +39,6 @@ jest.mock("@/lib/receipts/service", () => ({
 
 jest.mock("@/lib/receipts/daily-report", () => ({
   buildDailyReceiptReports: jest.fn(),
-  BLOCKED_EXCHANGE_RATE_MESSAGE_HU:
-    "Nem HUF nyugta: hiányzik az árfolyam, ezért nem küldhető be a NAV-nak.",
 }));
 
 jest.mock("@/lib/companies/service", () => ({
@@ -61,7 +59,8 @@ import {
   getReceiptsByDateRange,
   markReceiptsSubmittedForRange,
 } from "@/lib/receipts/service";
-import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU, buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { MISSING_EXCHANGE_RATE } from "@/lib/receipts/nav-error-code";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
 import { POST } from "@/app/api/receipts/[id]/submit-nav+api";
@@ -347,13 +346,13 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
 
       expect(res.status).toBe(200);
       expect(body.ok).toBe(false);
-      expect(body.error).toBe(BLOCKED_EXCHANGE_RATE_MESSAGE_HU);
+      expect(body.error).toBe(MISSING_EXCHANGE_RATE);
       expect(mockSubmit).not.toHaveBeenCalled();
       expect(insertedRows()).toHaveLength(1);
       expect(insertedRows()[0]).toMatchObject({
         status: "failed",
         receiptCount: 1,
-        errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+        errorMessage: MISSING_EXCHANGE_RATE,
       });
       expect(mockMark).not.toHaveBeenCalled();
     });
@@ -369,7 +368,7 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
       const body = await res.json();
 
       expect(body.ok).toBe(false);
-      expect(body.error).toBe(BLOCKED_EXCHANGE_RATE_MESSAGE_HU);
+      expect(body.error).toBe(MISSING_EXCHANGE_RATE);
       expect(mockSubmit).toHaveBeenCalledTimes(1);
       expect(mockMark).toHaveBeenCalledWith("user-1", expect.any(Date), expect.any(Date), "HUF");
       // The asked-for receipt itself is never flagged by id.
@@ -378,7 +377,7 @@ describe("POST /api/receipts/[id]/submit-nav", () => {
 
     it("keeps one blocked row per day: an existing refusal is refreshed, not duplicated", async () => {
       dayRows([
-        { id: "sub-blocked", status: "failed", errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU, reportDate: "2026-06-15" },
+        { id: "sub-blocked", status: "failed", errorMessage: MISSING_EXCHANGE_RATE, reportDate: "2026-06-15" },
       ]);
       mockGetReceipt.mockResolvedValue({ ...fakeReceipt, currency: "EUR" } as never);
       mockBuildReports.mockReturnValue({

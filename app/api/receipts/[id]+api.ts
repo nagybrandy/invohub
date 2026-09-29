@@ -8,7 +8,7 @@ import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/se
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { parseNavReceiptEnvironment } from "@/lib/nav-receipt/environment";
-import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU } from "@/lib/receipts/daily-report";
+import { isNavReceiptBlockedReason } from "@/lib/receipts/nav-error-code";
 import { getReceiptById } from "@/lib/receipts/service";
 import { receiptReportDate } from "@/lib/receipts/report-date";
 
@@ -41,8 +41,9 @@ export async function GET(
     // "most recent row for this date" lookup can hand a HUF receipt's detail
     // screen a different currency group's blocked/failed row (or vice
     // versa). buildDailyReceiptReports only ever reports HUF groups and
-    // blocks every non-HUF group with the exact BLOCKED_EXCHANGE_RATE_MESSAGE_HU
-    // text (lib/receipts/daily-report.ts), so that message is a reliable
+    // blocks every non-HUF group with a stable reason code from
+    // lib/receipts/nav-error-code.ts (never a translatable sentence), so
+    // isNavReceiptBlockedReason(row.errorMessage) is a reliable, copy-proof
     // discriminator between the two kinds of row for the same reportDate.
     // Budapest calendar day — the same key the runner and the submit route write.
     const reportDate = receiptReportDate(receipt.issuedAt);
@@ -59,8 +60,8 @@ export async function GET(
       .orderBy(desc(navReceiptSubmission.createdAt));
     const lastSubmission = submissionsForDate.find((row) =>
       isHufReceipt
-        ? row.errorMessage !== BLOCKED_EXCHANGE_RATE_MESSAGE_HU
-        : row.errorMessage === BLOCKED_EXCHANGE_RATE_MESSAGE_HU
+        ? !isNavReceiptBlockedReason(row.errorMessage)
+        : isNavReceiptBlockedReason(row.errorMessage)
     );
 
     return jsonResponse({

@@ -3,7 +3,6 @@ import * as React from "react";
 import { ActivityIndicator, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Badge, BadgeText } from "@/components/ui/badge";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +12,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { ReceiptNavCard } from "@/components/receipts/ReceiptNavCard";
 import { apiFetch } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import type { ReceiptRecord } from "@/lib/receipts/service";
@@ -158,52 +158,13 @@ export default function ReceiptDetailScreen() {
           </Card>
         ) : null}
 
-        <Card className="p-4">
-          <VStack space="sm">
-            <HStack className="items-center justify-between">
-              <Text size="sm" className="text-muted-foreground">NAV</Text>
-              {receipt.navSubmitted ? (
-                <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
-                  <BadgeText className="text-xs text-green-600">{t("receipts.navSubmitted")}</BadgeText>
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="rounded-full px-2 py-0.5">
-                  <BadgeText className="text-xs text-muted-foreground">{t("receipts.navPending")}</BadgeText>
-                </Badge>
-              )}
-            </HStack>
-            <HStack className="items-center justify-between">
-              <Badge variant="outline" className="rounded-full px-2 py-0.5">
-                <BadgeText className="text-xs text-muted-foreground">
-                  {navMode === "test" ? t("receipts.navModeTest") : t("receipts.navModeDemo")}
-                </BadgeText>
-              </Badge>
-              <Text size="xs" className="flex-1 text-right text-muted-foreground">
-                {navMode === "test" ? t("receipts.navTestHint") : t("receipts.navDemoHint")}
-              </Text>
-            </HStack>
-            {navReportId ? (
-              <HStack className="justify-between">
-                <Text size="sm" className="text-muted-foreground">
-                  {t("receipts.navReportId")}
-                </Text>
-                <Text selectable size="xs" className="flex-1 text-right font-mono">
-                  {navReportId}
-                </Text>
-              </HStack>
-            ) : null}
-            {navError ? (
-              <VStack space="xs">
-                <Text size="xs" className="text-muted-foreground">
-                  {t("receipts.navReportError")}
-                </Text>
-                <Text size="xs" className="text-destructive">
-                  {navError}
-                </Text>
-              </VStack>
-            ) : null}
-          </VStack>
-        </Card>
+        <ReceiptNavCard
+          navSubmitted={receipt.navSubmitted}
+          navMode={navMode}
+          navReportId={navReportId}
+          navError={navError}
+          currency={receipt.currency}
+        />
 
         <Text size="xs" selectable className="font-mono text-muted-foreground">
           {receipt.qrUrl}

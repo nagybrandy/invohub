@@ -17,7 +17,8 @@ import { createId } from "@/lib/id";
 import { NavCredentialsMissingError, openCompanyNavSecrets } from "@/lib/nav/resolve-credentials";
 import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
 import type { NavReceiptCredentials, NavReceiptSubmissionResult } from "@/lib/nav-receipt/types";
-import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU, buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { isNavReceiptBlockedReason, MISSING_EXCHANGE_RATE } from "@/lib/receipts/nav-error-code";
 import { receiptReportDate } from "@/lib/receipts/report-date";
 import {
   getReceiptById,
@@ -132,8 +133,8 @@ export async function POST(
           ok: false,
           mode: navMode,
           reportDate,
-          error: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
-          code: "missing_exchange_rate",
+          error: MISSING_EXCHANGE_RATE,
+          code: MISSING_EXCHANGE_RATE,
         });
       }
       await markReceiptsSubmittedForRange(session.user.id, start, end, REPORTABLE_CURRENCY);
@@ -160,7 +161,7 @@ export async function POST(
     if (blocked.length > 0) {
       // One blocked row per (company, date), refreshed in place.
       const blockedReceipts = blocked.reduce((sum, group) => sum + group.receiptCount, 0);
-      const existingBlocked = dayRows.find((row) => row.errorMessage === BLOCKED_EXCHANGE_RATE_MESSAGE_HU);
+      const existingBlocked = dayRows.find((row) => isNavReceiptBlockedReason(row.errorMessage));
       if (existingBlocked) {
         await db
           .update(navReceiptSubmission)
@@ -175,12 +176,12 @@ export async function POST(
           status: "failed",
           receiptCount: blockedReceipts,
           cancelledCount: 0,
-          errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+          errorMessage: MISSING_EXCHANGE_RATE,
           createdAt: now,
           updatedAt: now,
         });
       }
-      submissions.push({ ok: false, error: BLOCKED_EXCHANGE_RATE_MESSAGE_HU });
+      submissions.push({ ok: false, error: MISSING_EXCHANGE_RATE });
     }
 
     const report = reports.find((r) => r.currency === REPORTABLE_CURRENCY);
@@ -252,7 +253,7 @@ export async function POST(
       error: ok
         ? undefined
         : receiptRecord.currency !== REPORTABLE_CURRENCY
-          ? BLOCKED_EXCHANGE_RATE_MESSAGE_HU
+          ? MISSING_EXCHANGE_RATE
           : navResult?.error,
       submissions,
     });

@@ -67,6 +67,15 @@ describe("hu/en locale parity", () => {
     }
   });
 
+  // AC5.1: receipts.navMissingExchangeRate must exist in both locales and
+  // interpolate the blocked receipt's currency.
+  it("defines receipts.navMissingExchangeRate with a {{currency}} placeholder in both locales", () => {
+    for (const locale of [en, hu]) {
+      expect(locale.receipts.navMissingExchangeRate).toBeTruthy();
+      expect(locale.receipts.navMissingExchangeRate).toContain("{{currency}}");
+    }
+  });
+
   it("defines notifications.panel.* and notifications.when.* in both locales", () => {
     for (const locale of [en, hu]) {
       expect(locale.notifications.panel.title).toBeTruthy();

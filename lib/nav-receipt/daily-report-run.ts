@@ -32,10 +32,8 @@ import type {
   NavReceiptEnvironment,
   NavReceiptSubmissionResult,
 } from "@/lib/nav-receipt/types";
-import {
-  BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
-  buildDailyReceiptReports,
-} from "@/lib/receipts/daily-report";
+import { buildDailyReceiptReports } from "@/lib/receipts/daily-report";
+import { isNavReceiptBlockedReason, MISSING_EXCHANGE_RATE } from "@/lib/receipts/nav-error-code";
 import { getReceiptsByDateRange, markReceiptsSubmittedForRange } from "@/lib/receipts/service";
 
 /** Nyugtaadat-szolgáltatás may be delivered until the end of the 3rd calendar
@@ -97,10 +95,11 @@ function hasCredentials(comp: CompanyRow): boolean {
 }
 
 /** A row recording a refused non-HUF group — not a submission attempt.
- * nav_receipt_submission has no currency column, so the exact message is the
- * discriminator (the receipt detail route relies on the same one). */
+ * nav_receipt_submission has no currency column, so the stable reason code
+ * in errorMessage (lib/receipts/nav-error-code.ts) is the discriminator —
+ * the receipt detail route relies on the same one. */
 function isBlockedRow(row: NavReceiptSubmissionRow): boolean {
-  return row.errorMessage === BLOCKED_EXCHANGE_RATE_MESSAGE_HU;
+  return isNavReceiptBlockedReason(row.errorMessage);
 }
 
 function newestRowFor(rows: NavReceiptSubmissionRow[], reportDate: string): NavReceiptSubmissionRow | undefined {
@@ -234,7 +233,7 @@ export async function runDailyReceiptReports(options?: {
               status: "failed",
               receiptCount: blockedReceipts,
               cancelledCount: 0,
-              errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+              errorMessage: MISSING_EXCHANGE_RATE,
               createdAt: blockedAt,
               updatedAt: blockedAt,
             });
@@ -248,7 +247,7 @@ export async function runDailyReceiptReports(options?: {
           companyId: comp.id,
           reportDate,
           status: "blocked_missing_exchange_rate",
-          error: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+          error: MISSING_EXCHANGE_RATE,
         });
       }
 

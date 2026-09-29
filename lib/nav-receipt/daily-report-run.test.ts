@@ -28,7 +28,7 @@ jest.mock("@/lib/receipts/service", () => ({
 import { runDailyReceiptReports } from "@/lib/nav-receipt/daily-report-run";
 import { decryptNavSecretOrPassthrough } from "@/lib/nav/credentials";
 import { submitReceiptDataReport } from "@/lib/nav-receipt/report";
-import { BLOCKED_EXCHANGE_RATE_MESSAGE_HU } from "@/lib/receipts/daily-report";
+import { MISSING_EXCHANGE_RATE } from "@/lib/receipts/nav-error-code";
 import {
   getReceiptsByDateRange,
   markReceiptsSubmittedForRange,
@@ -442,7 +442,7 @@ describe("runDailyReceiptReports", () => {
     expect(inserts[0]).toMatchObject({
       status: "failed",
       receiptCount: 1,
-      errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+      errorMessage: MISSING_EXCHANGE_RATE,
     });
     expect(inserts[1]).toMatchObject({ status: "pending", receiptCount: 1 });
   });
@@ -455,7 +455,7 @@ describe("runDailyReceiptReports", () => {
       reportDate: "2026-07-07",
       status: "failed",
       attemptCount: 0,
-      errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+      errorMessage: MISSING_EXCHANGE_RATE,
       updatedAt: new Date("2026-07-07T05:00:00.000Z"),
     };
     db.select
@@ -469,7 +469,7 @@ describe("runDailyReceiptReports", () => {
         companyId: "comp-1",
         reportDate: "2026-07-07",
         status: "blocked_missing_exchange_rate",
-        error: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+        error: MISSING_EXCHANGE_RATE,
       },
     ]);
     expect(mockSubmit).not.toHaveBeenCalled();
@@ -486,7 +486,7 @@ describe("runDailyReceiptReports", () => {
       reportDate: "2026-07-07",
       status: "failed",
       attemptCount: 0,
-      errorMessage: BLOCKED_EXCHANGE_RATE_MESSAGE_HU,
+      errorMessage: MISSING_EXCHANGE_RATE,
       updatedAt: new Date("2026-07-07T05:00:00.000Z"),
     };
     db.select

@@ -1,6 +1,8 @@
 // lib/receipts/daily-report.test.ts
+import * as dailyReport from "@/lib/receipts/daily-report";
 import { buildDailyReceiptReports } from "@/lib/receipts/daily-report";
 import type { DailyReportReceiptInput } from "@/lib/receipts/daily-report";
+import type { NavReceiptBlockedReason } from "@/lib/receipts/nav-error-code";
 
 function receipt(
   receiptNumber: string,
@@ -79,6 +81,22 @@ describe("buildDailyReceiptReports", () => {
     const { reports, blocked } = buildDailyReceiptReports(receipts, baseOpts);
     expect(reports).toEqual([]);
     expect(blocked).toEqual([{ currency: "EUR", reason: "missing_exchange_rate", receiptCount: 1 }]);
+  });
+
+  // AC1.4: the Hungarian-sentence constant must not exist anywhere in the
+  // repo any more — the blocked reason is a stable code from
+  // lib/receipts/nav-error-code.ts, not a pre-rendered message.
+  it("no longer exports BLOCKED_EXCHANGE_RATE_MESSAGE_HU", () => {
+    expect((dailyReport as Record<string, unknown>).BLOCKED_EXCHANGE_RATE_MESSAGE_HU).toBeUndefined();
+  });
+
+  it("a blocked group's reason is assignable to NavReceiptBlockedReason and equals the machine code", () => {
+    const receipts: DailyReportReceiptInput[] = [
+      receipt("NYG-1", "EUR", [{ vatRate: 27, quantity: 1, unitPrice: 10 }]),
+    ];
+    const { blocked } = buildDailyReceiptReports(receipts, baseOpts);
+    const reason: NavReceiptBlockedReason = blocked[0].reason;
+    expect(reason).toBe("missing_exchange_rate");
   });
 
   it("never produces a report with both count fields 0", () => {
