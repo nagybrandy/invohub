@@ -32,6 +32,7 @@ const mockMarkSent = jest.fn();
 const mockMarkFailed = jest.fn();
 const mockListRecords = jest.fn();
 const mockGetRecord = jest.fn();
+const mockRecordReported = jest.fn();
 jest.mock("@/lib/nav/submission-store", () => ({
   claimNavSubmission: (...args: unknown[]) => mockClaim(...args),
   releaseNavSubmissionClaim: (...args: unknown[]) => mockRelease(...args),
@@ -39,6 +40,7 @@ jest.mock("@/lib/nav/submission-store", () => ({
   markNavSubmissionFailed: (...args: unknown[]) => mockMarkFailed(...args),
   listNavSubmissionRecords: (...args: unknown[]) => mockListRecords(...args),
   getNavSubmissionRecord: (...args: unknown[]) => mockGetRecord(...args),
+  recordNavReportedAmounts: (...args: unknown[]) => mockRecordReported(...args),
 }));
 
 const mockTokenExchange = jest.fn();
@@ -327,6 +329,111 @@ describe("submitOutgoingInvoiceToNav", () => {
       await submitOutgoingInvoiceToNav("user-1", makeInvoice());
       expect(mockGetInvoiceById).not.toHaveBeenCalled();
       expect(lastXml()).not.toContain("<invoiceReference>");
+    });
+  });
+
+  // AC1: a submission records what it actually reported to NAV.
+  describe("records what it reported (AC1)", () => {
+    // The audit columns are written through the submission store, after the
+    // row is marked sent — (claimId, { reportedCurrency, reportedExchangeRate, reportedVatHuf }).
+    function reported(): Record<string, unknown> {
+      return mockRecordReported.mock.calls[0][1];
+    }
+
+    beforeEach(() => {
+      mockRecordReported.mockReset();
+      mockRecordReported.mockResolvedValue(undefined);
+    });
+
+    it("1.2 — records reportedCurrency + reportedExchangeRate (formatExchangeRate form) for a non-HUF invoice", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({
+        currency: "EUR",
+        exchangeRate: 398.5,
+        lineItems: [{ id: "l1", description: "Consulting", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+      });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      expect(mockRecordReported).toHaveBeenCalledTimes(1);
+      expect(reported().reportedCurrency).toBe("EUR");
+      expect(reported().reportedExchangeRate).toBe("398.5");
+    });
+
+    it("1.3 — records reportedExchangeRate \"1\" for a HUF invoice", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({ currency: "HUF" });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      expect(reported().reportedCurrency).toBe("HUF");
+      expect(reported().reportedExchangeRate).toBe("1");
+    });
+
+    it("1.4 — reportedVatHuf equals the summed per-line HUF VAT (converted per line, then summed)", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({
+        currency: "EUR",
+        exchangeRate: 400,
+        lineItems: [
+          { id: "l1", description: "A", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" },
+          { id: "l2", description: "B", quantity: 1, unitPrice: 50, vatRate: 27, vatCategory: "normal" },
+        ],
+      });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      // per line: 27 EUR VAT * 400 = 10800; 13.5 EUR VAT * 400 = 5400 -> 16200
+      expect(reported().reportedVatHuf).toBe("16200.00");
+    });
+
+    it("1.4b — exempt (AAM) lines report zero HUF VAT", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({
+        currency: "EUR",
+        exchangeRate: 400,
+        lineItems: [{ id: "l1", description: "A", quantity: 1, unitPrice: 100, vatRate: 0, vatCategory: "AAM" }],
+      });
+
+      await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      expect(reported().reportedVatHuf).toBe("0.00");
+    });
+
+    it("1.5 — the audit write happens after the row is marked sent, for the same claim, and changes neither the NAV calls nor the outcome", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      const invoice = makeInvoice({ currency: "EUR", exchangeRate: 398.5 });
+
+      const result = await submitOutgoingInvoiceToNav("user-1", invoice);
+
+      expect(mockTokenExchange).toHaveBeenCalledTimes(1);
+      expect(mockManageInvoice).toHaveBeenCalledTimes(1);
+      expect(result.kind).toBe("submitted");
+      const claimId = mockMarkSent.mock.calls[0][0];
+      expect(mockRecordReported.mock.calls[0][0]).toBe(claimId);
+      expect(mockMarkSent.mock.invocationCallOrder[0]).toBeLessThan(
+        mockRecordReported.mock.invocationCallOrder[0]
+      );
+    });
+
+    it("1.6 — a failed audit write never turns an accepted submission into a failure (no duplicate retry invited)", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      mockRecordReported.mockRejectedValue(new Error("connection terminated"));
+
+      const result = await submitOutgoingInvoiceToNav("user-1", makeInvoice({ currency: "HUF" }));
+
+      expect(result.kind).toBe("submitted");
+      expect(mockMarkFailed).not.toHaveBeenCalled();
+    });
+
+    it("1.7 — nothing is recorded when the submission itself fails", async () => {
+      mockGetCompanyByUserId.mockResolvedValue({ name: "Demo Kft.", taxNumber: "12345678-1-23" });
+      mockManageInvoice.mockRejectedValueOnce(new Error("NAV timeout"));
+
+      const result = await submitOutgoingInvoiceToNav("user-1", makeInvoice({ currency: "HUF" }));
+
+      expect(result.kind).toBe("failed");
+      expect(mockRecordReported).not.toHaveBeenCalled();
     });
   });
 });

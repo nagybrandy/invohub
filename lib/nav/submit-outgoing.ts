@@ -23,6 +23,7 @@ import { getNavClient } from "@/lib/nav/client";
 import { deriveNavCustomer, resolveNavBuyer } from "@/lib/nav/customer";
 import type { NavEnvironment } from "@/lib/nav/environment";
 import { buildNavInvoiceXml, type NavInvoiceExtra, type NavInvoiceReference } from "@/lib/nav/invoice-xml";
+import { computeNavReportedAmounts, type NavReportedAmounts } from "@/lib/nav/reported-amounts";
 import { resolveNavCredentials } from "@/lib/nav/resolve-credentials";
 import { hasSuccessfulNavSubmission } from "@/lib/nav/submission-history";
 import { checkNavSubmittable, pickBlockingSubmission, type NavSubmittableCheck } from "@/lib/nav/submission-guard";
@@ -32,6 +33,7 @@ import {
   listNavSubmissionRecords,
   markNavSubmissionFailed,
   markNavSubmissionSent,
+  recordNavReportedAmounts,
   releaseNavSubmissionClaim,
   type NavSubmissionRecord,
 } from "@/lib/nav/submission-store";
@@ -179,6 +181,20 @@ export async function submitOutgoingInvoiceToNav(userId: string, invoice: Invoic
   // failure (that would invite a duplicate retry). If the DB write itself
   // fails, the row stays `pending` and keeps blocking until it goes stale.
   await markNavSubmissionSent(claimId, transactionId);
+
+  // Record what this submission told NAV (currency, rate, HUF VAT) — the
+  // audit trail lib/nav/reported-rate.ts reads. Bookkeeping only: NAV has
+  // already accepted the request, so a failure to write it must never turn
+  // the submission into a failure (that would invite a duplicate retry).
+  let reported: NavReportedAmounts | null = null;
+  try {
+    reported = computeNavReportedAmounts(invoice);
+    await recordNavReportedAmounts(claimId, reported);
+  } catch {
+    // The row stays "sent" without the audit columns; reported-rate.ts
+    // treats NULL columns as "cannot be proven either way".
+  }
+
   const now = new Date();
   const submission: NavSubmissionRecord = (await getNavSubmissionRecord(invoice.id, claimId)) ?? {
     id: claimId,
@@ -192,6 +208,9 @@ export async function submitOutgoingInvoiceToNav(userId: string, invoice: Invoic
     submittedAt: now,
     createdAt: now,
     updatedAt: now,
+    reportedCurrency: reported?.reportedCurrency ?? null,
+    reportedExchangeRate: reported?.reportedExchangeRate ?? null,
+    reportedVatHuf: reported?.reportedVatHuf ?? null,
   };
   return { kind: "submitted", submission, invoiceXml };
 }

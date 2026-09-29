@@ -8,6 +8,7 @@ import { navSubmission } from "@/db/schema";
 import { createId } from "@/lib/id";
 import type { NavEnvironment } from "@/lib/nav/environment";
 import { listNavSubmissionsForInvoice } from "@/lib/nav/list-submissions";
+import type { NavReportedAmounts } from "@/lib/nav/reported-amounts";
 
 export type NavSubmissionRecord = Awaited<ReturnType<typeof listNavSubmissionsForInvoice>>[number];
 
@@ -31,6 +32,18 @@ export async function markNavSubmissionSent(id: string, transactionId: string): 
   await db
     .update(navSubmission)
     .set({ status: "sent", transactionId, errorMessage: null, submittedAt: now, updatedAt: now })
+    .where(eq(navSubmission.id, id));
+}
+
+/**
+ * Audit trail of what the accepted submission reported (currency, rate, HUF
+ * VAT) — read back by lib/nav/reported-rate.ts. Written AFTER the row is
+ * marked sent; the caller treats a failure here as non-fatal.
+ */
+export async function recordNavReportedAmounts(id: string, amounts: NavReportedAmounts): Promise<void> {
+  await db
+    .update(navSubmission)
+    .set({ ...amounts, updatedAt: new Date() })
     .where(eq(navSubmission.id, id));
 }
 
