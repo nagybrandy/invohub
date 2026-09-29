@@ -1,0 +1,202 @@
+// __tests__/screens/onboarding.test.tsx
+// The "company name is required" error used to be hardcoded English
+// (t("company.onboarding.companyName") + " required.") regardless of the
+// active language — now it's a real translation key.
+import * as React from "react";
+import TestRenderer, { act } from "react-test-renderer";
+
+jest.mock("expo-router", () => ({
+  router: { replace: jest.fn(), push: jest.fn() },
+}));
+
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
+const mockSave = jest.fn();
+const mockLookup = jest.fn();
+jest.mock("@/hooks/useCompany", () => ({
+  useCompany: () => ({
+    company: null,
+    loading: false,
+    save: (...args: unknown[]) => mockSave(...args),
+    lookup: (...args: unknown[]) => mockLookup(...args),
+  }),
+}));
+
+jest.mock("@/components/settings/NavEnvironmentPicker", () => ({
+  NavEnvironmentPicker: () => null,
+}));
+
+const mockUi = require("@/__tests__/mocks/gluestack-ui");
+jest.mock("@/components/ui/box", () => mockUi);
+jest.mock("@/components/ui/vstack", () => mockUi);
+jest.mock("@/components/ui/hstack", () => mockUi);
+jest.mock("@/components/ui/card", () => mockUi);
+jest.mock("@/components/ui/text", () => mockUi);
+jest.mock("@/components/ui/pressable", () => mockUi);
+jest.mock("@/components/ui/heading", () => ({ Heading: mockUi.Text }));
+jest.mock("@/components/ui/button", () => ({
+  Button: mockUi.Pressable,
+  ButtonText: mockUi.Text,
+  ButtonSpinner: mockUi.View,
+}));
+jest.mock("@/components/ui/input", () => {
+  const { TextInput } = require("react-native");
+  return {
+    Input: ({ children }: { children?: React.ReactNode }) => children ?? null,
+    InputField: (props: Record<string, unknown>) => <TextInput {...props} />,
+  };
+});
+jest.mock("@/components/ui/form-control", () => ({
+  FormControl: mockUi.View,
+  FormControlLabel: mockUi.View,
+  FormControlLabelText: mockUi.Text,
+}));
+
+function findPressableWithText(root: TestRenderer.ReactTestInstance, text: string) {
+  return root
+    .findAll((node) => typeof node.props?.onPress === "function")
+    .find((node) => node.findAll((child) => child.props?.children === text).length > 0);
+}
+
+function textUnder(node: TestRenderer.ReactTestInstance): string {
+  return node
+    .findAll((n) => typeof n.props?.children === "string")
+    .map((n) => n.props.children as string)
+    .join(" | ");
+}
+
+async function renderOnboarding() {
+  const OnboardingScreen = require("@/app/(app)/onboarding").default;
+  let tree: TestRenderer.ReactTestRenderer;
+  await act(async () => {
+    tree = TestRenderer.create(<OnboardingScreen />);
+    await Promise.resolve();
+  });
+  return tree!;
+}
+
+describe("OnboardingScreen", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows a translated (i18n-keyed) error, not hardcoded English, when saving with no company name", async () => {
+    const tree = await renderOnboarding();
+    const saveButton = findPressableWithText(tree.root, "company.onboarding.save");
+
+    await act(async () => {
+      saveButton?.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(mockSave).not.toHaveBeenCalled();
+    // The i18n mock echoes the key itself — the OLD bug concatenated raw
+    // English ("... required.") onto a (possibly Hungarian) label, which
+    // this key-echoing mock would show as literal "company.onboarding.companyName required."
+    // instead of a real key. This asserts a real, translatable key is used.
+    expect(textUnder(tree.root)).toContain("company.onboarding.companyNameRequired");
+    expect(textUnder(tree.root)).not.toContain("required.");
+  });
+
+  it("saves the company profile and advances to the NAV step when a name is given", async () => {
+    mockSave.mockResolvedValue({});
+    const tree = await renderOnboarding();
+
+    // By testID, not by placeholder copy: the placeholder is translated now
+    // (company.onboarding.companyNamePlaceholder), and a test that pins the
+    // Hungarian string breaks on every wording change.
+    const nameInput = tree.root.findAllByProps({ testID: "onboarding-company-name" })[0];
+    await act(async () => {
+      nameInput.props.onChangeText("Acme Kft.");
+    });
+
+    const saveButton = findPressableWithText(tree.root, "company.onboarding.save");
+    await act(async () => {
+      saveButton?.props.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Acme Kft." })
+    );
+    // Advancing to step 2 swaps the visible heading to the NAV setup card.
+    expect(textUnder(tree.root)).toContain("company.onboarding.navSetup");
+  });
+});
+
+describe("OnboardingScreen — what a first invoice needs to be right", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSave.mockResolvedValue({});
+  });
+
+  async function type(tree: TestRenderer.ReactTestRenderer, testID: string, value: string) {
+    const input = tree.root.findAllByProps({ testID })[0];
+    await act(async () => {
+      input.props.onChangeText(value);
+    });
+  }
+
+  async function pressSave(tree: TestRenderer.ReactTestRenderer) {
+    const saveButton = findPressableWithText(tree.root, "company.onboarding.save");
+    await act(async () => {
+      saveButton?.props.onPress?.();
+      await Promise.resolve();
+    });
+  }
+
+  it("refuses a malformed tax number before it can reach an invoice", async () => {
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-company-name", "Acme Kft.");
+    await type(tree, "onboarding-tax-number", "1234");
+    await pressSave(tree);
+
+    expect(mockSave).not.toHaveBeenCalled();
+    expect(textUnder(tree.root)).toContain("company.onboarding.taxNumberInvalid");
+  });
+
+  it("still lets a company through with no tax number at all — the finalize gate owns that rule", async () => {
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-company-name", "Acme Kft.");
+    await pressSave(tree);
+
+    expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ name: "Acme Kft.", taxNumber: undefined }));
+  });
+
+  it("asks about AAM and saves the answer, so the first invoice defaults to the right VAT", async () => {
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-company-name", "Acme Kft.");
+    await type(tree, "onboarding-tax-number", "12345678-1-42");
+    const toggle = tree.root.findAllByProps({ testID: "onboarding-vat-exempt" })[0];
+    await act(async () => {
+      toggle.props.onValueChange(true);
+    });
+    await pressSave(tree);
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({ taxNumber: "12345678-1-42", vatExempt: true })
+    );
+  });
+
+  it("fills the company from the NAV lookup instead of making the user type it", async () => {
+    mockLookup.mockResolvedValue({
+      company: { name: "Lookup Kft.", zipCode: "9021", city: "Győr", address: "Fő tér 1." },
+    });
+    const tree = await renderOnboarding();
+    await type(tree, "onboarding-tax-number", "12345678-1-42");
+    const lookupButton = tree.root.findAllByProps({ testID: "onboarding-lookup" })[0];
+    await act(async () => {
+      lookupButton.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockLookup).toHaveBeenCalledWith("12345678-1-42");
+    expect(tree.root.findAllByProps({ testID: "onboarding-company-name" })[0].props.value).toBe("Lookup Kft.");
+    expect(tree.root.findAllByProps({ testID: "onboarding-city" })[0].props.value).toBe("Győr");
+    expect(tree.root.findAllByProps({ testID: "onboarding-zip" })[0].props.value).toBe("9021");
+    expect(tree.root.findAllByProps({ testID: "onboarding-address" })[0].props.value).toBe("Fő tér 1.");
+  });
+});

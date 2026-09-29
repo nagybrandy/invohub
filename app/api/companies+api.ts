@@ -1,5 +1,6 @@
 // app/api/companies+api.ts
 // Company profile GET and upsert.
+import { logSafeError, safeErrorMessage } from "@/lib/api/safe-error";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { getCompanyByUserId, upsertCompany } from "@/lib/companies/service";
 import type { CompanyInput } from "@/lib/companies/service";
@@ -16,9 +17,8 @@ export async function GET(request: Request) {
     // response is what lands in the browser (network tab, DOM, etc).
     return jsonResponse({ company: company ? toPublicCompany(company) : null });
   } catch (error) {
-    console.error("[GET /api/companies]", error);
-    const message = error instanceof Error ? error.message : "Failed to load company profile.";
-    return jsonResponse({ error: message }, 500);
+    logSafeError("[GET /api/companies]", error);
+    return jsonResponse({ error: safeErrorMessage(error, "Failed to load company profile.") }, 500);
   }
 }
 
@@ -38,9 +38,10 @@ export async function POST(request: Request) {
     const company = await upsertCompany(session.user.id, body);
     return jsonResponse({ company: toPublicCompany(company) });
   } catch (error) {
-    console.error("[POST /api/companies]", error);
-    const message = error instanceof Error ? error.message : "Failed to save company profile.";
-    return jsonResponse({ error: message }, 500);
+    // Never the raw error: a failed UPDATE carries the bound params (sealed
+    // secrets) in its message/cause.
+    logSafeError("[POST /api/companies]", error);
+    return jsonResponse({ error: safeErrorMessage(error, "Failed to save company profile.") }, 500);
   }
 }
 

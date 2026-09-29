@@ -8,6 +8,9 @@ export const NAV_RECEIPT_BLOCKED_REASONS = ["missing_exchange_rate"] as const;
 
 export type NavReceiptBlockedReason = (typeof NAV_RECEIPT_BLOCKED_REASONS)[number];
 
+/** Why a non-HUF receipt group is refused: a receipt stores no exchange rate. */
+export const MISSING_EXCHANGE_RATE: NavReceiptBlockedReason = "missing_exchange_rate";
+
 const REASON_I18N_KEYS: Record<NavReceiptBlockedReason, string> = {
   missing_exchange_rate: "receipts.navMissingExchangeRate",
 };

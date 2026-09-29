@@ -128,4 +128,112 @@ describe("companies API", () => {
     });
     expect(body.company.navEnvironment).toBe("production");
   });
+
+  describe("credential exposure & access control", () => {
+    const stored = {
+      id: "c1",
+      userId: "user-1",
+      name: "Demo Kft.",
+      taxNumber: "12345678-1-23",
+      navEnvironment: "test" as const,
+      navTechnicalUser: "nav-user",
+      navTechnicalPassword: "gcm2:k1:SEALEDPW:tag:ct",
+      navXmlSignKey: "gcm2:k1:SEALEDSIGN:tag:ct",
+      navXmlChangeKey: "gcm2:k1:SEALEDCHANGE:tag:ct",
+      createdAt: "",
+      updatedAt: "",
+    };
+
+    it("GET returns masked secrets + configured flag, never the stored (sealed) value", async () => {
+      mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+      mockGetCompany.mockResolvedValue(stored);
+
+      const response = await GET(new Request("http://localhost/api/companies"));
+      const body = await response.json();
+      const raw = JSON.stringify(body);
+
+      expect(raw).not.toContain("SEALED");
+      expect(raw).not.toContain("gcm2:");
+      expect(body.company.navCredentialsConfigured).toBe(true);
+      expect(body.company.navTechnicalPasswordMasked).toBe("••••••••");
+      expect(body.company.navXmlSignKeyMasked).toBe("••••••••");
+      expect(body.company.navXmlChangeKeyMasked).toBe("••••••••");
+    });
+
+    it("GET reports configured:false and null masks when nothing is stored", async () => {
+      mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+      mockGetCompany.mockResolvedValue({ id: "c1", userId: "user-1", name: "X", createdAt: "", updatedAt: "" });
+
+      const body = await (await GET(new Request("http://localhost/api/companies"))).json();
+      expect(body.company.navCredentialsConfigured).toBe(false);
+      expect(body.company.navTechnicalPasswordMasked).toBeNull();
+    });
+
+    it("GET only ever loads the session user's own company (no id/userId from the request is honoured)", async () => {
+      mockSession.mockResolvedValue({ user: { id: "user-2" } } as never);
+      mockGetCompany.mockResolvedValue(null);
+
+      const response = await GET(new Request("http://localhost/api/companies?userId=user-1&id=c1"));
+      const body = await response.json();
+
+      expect(mockGetCompany).toHaveBeenCalledTimes(1);
+      expect(mockGetCompany).toHaveBeenCalledWith("user-2");
+      expect(body.company).toBeNull();
+    });
+
+    it("POST writes to the session user's company even if the body names another user", async () => {
+      mockSession.mockResolvedValue({ user: { id: "user-2" } } as never);
+      mockUpsert.mockResolvedValue({ ...stored, userId: "user-2" });
+
+      const response = await POST(
+        new Request("http://localhost/api/companies", {
+          method: "POST",
+          body: JSON.stringify({ name: "Evil", userId: "user-1", id: "c1", navTechnicalPassword: "x" }),
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(mockUpsert).toHaveBeenCalledWith("user-2", expect.anything());
+      expect(mockUpsert.mock.calls[0][0]).toBe("user-2");
+      expect(JSON.stringify(body)).not.toContain("SEALED");
+    });
+
+    it("POST 401s without a session and never touches storage", async () => {
+      mockSession.mockResolvedValue(null);
+      const response = await POST(
+        new Request("http://localhost/api/companies", {
+          method: "POST",
+          body: JSON.stringify({ name: "X", navTechnicalPassword: "pw" }),
+        })
+      );
+      expect(response.status).toBe(401);
+      expect(mockUpsert).not.toHaveBeenCalled();
+    });
+
+    it("POST never echoes DB errors (which carry bound params) to the client or the log", async () => {
+      mockSession.mockResolvedValue({ user: { id: "user-1" } } as never);
+      const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+      mockUpsert.mockRejectedValue(
+        Object.assign(
+          new Error('Failed query: update "company" set "nav_technical_password" = $1\nparams: gcm2:k1:SEALEDPW:tag:ct,plain-typed-pw'),
+          { cause: { params: ["plain-typed-pw"] } }
+        )
+      );
+
+      const response = await POST(
+        new Request("http://localhost/api/companies", {
+          method: "POST",
+          body: JSON.stringify({ name: "X", navTechnicalPassword: "plain-typed-pw" }),
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(JSON.stringify(body)).not.toContain("plain-typed-pw");
+      expect(JSON.stringify(body)).not.toContain("SEALED");
+      expect(JSON.stringify(spy.mock.calls)).not.toContain("plain-typed-pw");
+      spy.mockRestore();
+    });
+  });
 });

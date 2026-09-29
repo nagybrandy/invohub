@@ -40,7 +40,7 @@ function ToggleRow({
   return (
     <HStack className="items-center justify-between">
       <Text size="sm">{label}</Text>
-      <Button
+      <Button className="min-w-11"
         size="sm"
         variant={value ? "default" : "outline"}
         onPress={() => onChange(!value)}
@@ -218,7 +218,7 @@ export default function PdfSettingsScreen() {
                     <TextareaInput
                       value={draft.footerText}
                       onChangeText={(v) => updateDraft({ footerText: v })}
-                      placeholder="Köszönjük a bizalmat!"
+                      placeholder={t("settings.pdfScreen.footerTextPlaceholder")}
                     />
                   </Textarea>
                 </FormControl>

@@ -6,7 +6,7 @@ import { company } from "@/db/schema";
 import { findClientByName } from "@/lib/clients/service";
 import { normalizeEmailList, type EmailRecipientsInput } from "@/lib/email/recipients";
 import { createId } from "@/lib/id";
-import { decryptNavSecretOrPassthrough, encryptNavSecret } from "@/lib/nav/credentials";
+import { encryptNavSecret, isMaskedNavSecret } from "@/lib/nav/credentials";
 import { isNavEnvironment, parseNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
 
 export type CompanyInput = {
@@ -39,6 +39,15 @@ export type CompanyInput = {
 
 export type CompanyPatchInput = Partial<CompanyInput> & { name?: string };
 
+/**
+ * Server-side read model. SECURITY: `navTechnicalPassword`, `navXmlSignKey`
+ * and `navXmlChangeKey` hold the value exactly as stored — sealed
+ * (AES-256-GCM, see lib/nav/credentials.ts), or legacy plaintext until
+ * scripts/reencrypt-nav-secrets.mjs has run. They are never decrypted here:
+ * only resolveNavCredentials() / the receipt submit path decrypt them, in
+ * memory, right before signing a NAV request. Never serialize a Company into
+ * an API response — use toPublicCompany().
+ */
 export type Company = CompanyInput & {
   id: string;
   userId: string;
@@ -72,7 +81,8 @@ function patchOptionalField(
  * isn't configured, which is the "refuse to save without a key" behavior.
  */
 function patchSecretField(next: string | undefined, previousRaw: string | null | undefined): string | null {
-  if (next === undefined) return previousRaw ?? null;
+  // Omitted, or the client echoed back the mask it was shown → leave unchanged.
+  if (typeof next !== "string" || isMaskedNavSecret(next)) return previousRaw ?? null;
   const trimmed = next.trim();
   if (!trimmed) return null;
   return encryptNavSecret(trimmed);
@@ -94,9 +104,10 @@ function mapRow(row: typeof company.$inferSelect): Company {
     invoiceEmailTo: row.invoiceEmailTo ?? undefined,
     invoiceEmailCc: row.invoiceEmailCc ?? undefined,
     navTechnicalUser: row.navTechnicalUser ?? undefined,
-    navTechnicalPassword: decryptNavSecretOrPassthrough(row.navTechnicalPassword),
-    navXmlSignKey: decryptNavSecretOrPassthrough(row.navXmlSignKey),
-    navXmlChangeKey: decryptNavSecretOrPassthrough(row.navXmlChangeKey),
+    // Sealed as stored — see the Company type. Not decrypted on read.
+    navTechnicalPassword: row.navTechnicalPassword ?? undefined,
+    navXmlSignKey: row.navXmlSignKey ?? undefined,
+    navXmlChangeKey: row.navXmlChangeKey ?? undefined,
     navEnvironment: parseNavEnvironment(row.navEnvironment),
     navReceiptSoftwareId: row.navReceiptSoftwareId ?? undefined,
     vatExempt: row.vatExempt ?? false,

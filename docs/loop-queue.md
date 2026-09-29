@@ -23,41 +23,171 @@ before or alongside Phase 1 items that depend on it.
       reachable in production (`app/api/admin/**`, `lib/admin/service.ts`).
       Plan:
       `docs/plans/2026-09-14-seed-demo-data-admin-endpoint-security-audit.md`
-- [ ] Reminders cron reliability — confirm `app/api/cron`/`app/api/reminders`
+- [x] Reminders cron reliability — confirm `app/api/cron`/`app/api/reminders`
       + `lib/reminders/process.ts` handle retries and partial failures, not
-      just the happy path
-- [ ] Auth E2E test user/fixture so authenticated Playwright specs can run
-      (this unblocks the Phase 1 "create→preview→PDF E2E" item below)
-- [ ] Credential encryption audit across NAV, M2M, and API-key storage —
+      just the happy path. Done (slice/reminders-cron-reliability): the run
+      was all-or-nothing — one user whose data failed to load, or one send
+      that threw instead of returning `{ok:false}`, aborted the whole
+      nightly job and left every later user unprocessed until the next day.
+      Failures are now isolated per user and per invoice, counted in a new
+      `failed` field, and a send whose bookkeeping fails afterwards is
+      reported with the duplicate risk spelled out (the mail is already
+      delivered, so the next run would repeat it). The template is loaded
+      once per user instead of once per invoice. The route answers 500 only
+      when the run could not happen at all — per-item failures stay a 200
+      with counts, so one permanently undeliverable address does not mark
+      every nightly cron job as failed.
+- [~] folyamatban (owner action: repository secrets)
+      Auth E2E test user/fixture so authenticated Playwright specs can run
+      (this unblocks the Phase 1 "create→preview→PDF E2E" item below).
+      The local half is done and was already there: `e2e/web/fixtures/auth.ts`
+      signs in once per worker, `scripts/create-test-user.mjs` seeds the
+      account, TESTING.md documents both. The CI half was NOT:
+      `.github/workflows/test.yml` passed only `CI: true`, so all **61**
+      authenticated specs — every signed-in flow — skipped silently on every
+      PR, and the green "Web E2E" check covered the unauthenticated specs
+      alone (slice/auth-e2e-fixture-verification).
+      Now: the workflow passes `E2E_TEST_EMAIL`, `E2E_TEST_PASSWORD`,
+      `DATABASE_URL` (from `E2E_DATABASE_URL`) and `E2E_BETTER_AUTH_SECRET`
+      through from repository secrets — inert while unset, since an empty
+      string reads the same as "not configured" to the specs' own guard — and
+      `e2e/reporters/auth-coverage.ts` prints the skipped count and writes it
+      to the GitHub job summary, so the gap can no longer hide behind a green
+      badge.
+      **Remaining, and it is the owner's to do:** add those four secrets
+      (pointing at a scratch database, never production) and run
+      `npm run create-test-user` against it once. No code change follows.
+- [x] Credential encryption audit across NAV, M2M, and API-key storage —
       confirm `lib/nav/credentials.ts`, `lib/m2m/credentials.ts`, and
       `lib/api-keys/crypto.ts` actually encrypt at rest (check the
-      primitive, not just the file name) and never log a raw secret
-- [ ] Tax-audit export size/row limit — confirm `lib/export/tax-audit.ts`
+      primitive, not just the file name) and never log a raw secret.
+      Done (slice/credential-encryption-audit). What the primitives
+      actually are:
+      * **NAV** — real AES-256-GCM (`createCipheriv("aes-256-gcm")`), 96-bit
+        random IV per value, full 128-bit auth tag (truncated tags
+        rejected), keys from env only, versioned `gcm2:<kid>:…` format with
+        key rotation and a re-encrypt script. Already covered by 20+ tests
+        including tamper detection and "errors never contain the plaintext
+        or the stored value".
+      * **M2M** — env-only, never persisted, so there is nothing at rest to
+        encrypt. The one real risk was the config error growing to echo the
+        values; pinned by a new test that it names only the *missing*
+        variables.
+      * **API keys** — not encryption but the right primitive for the job:
+        the secret is 32 random bytes and only its SHA-256 digest is
+        stored. New tests assert the stored value is a 64-hex digest that
+        contains no part of the secret, and that generation is unique.
+      Logging: the only `console.*` in these paths is
+      `lib/nav/auto-submit.ts:76`, which logs the error object, and NAV
+      client errors are built from `errorCode`/`message` extracted from
+      NAV's *response* — no request echo, so no `passwordHash` or
+      `requestSignature` reaches a log or the `nav_submission.error_message`
+      column. API responses go through `toPublicCompany()`, which replaces
+      the three secret columns with booleans.
+      Residual gap, tracked as its own item below: `verifySecretKey` still
+      compares with `===` instead of `crypto.timingSafeEqual`.
+- [x] Tax-audit export size/row limit — confirm `lib/export/tax-audit.ts`
       and its API route are scoped per-user and bounded, not an unbounded
-      dump
-- [ ] i18n gap sweep — use `.claude/skills/i18n-sync/SKILL.md` to enumerate
+      dump. Superseded (slice/tax-audit-data-export): the CSV export was
+      removed; its replacement `lib/invoices/tax-audit-export/generate.ts`
+      is session-scoped and capped at 5000 invoices per file.
+- [x] i18n gap sweep — use `.claude/skills/i18n-sync/SKILL.md` to enumerate
       every screen still missing translation coverage and file the gaps as
-      sub-items here once the sweep names them (a prior audit flagged ~11
-      screens with gaps but they need re-confirming against current code
-      before being listed individually). Update 2026-09-14: a
-      continuous-audit pass named 9 specific screens (InvoiceCard,
-      invoices list/detail, clients/[id]/edit, app/receipts/view,
-      settings/api-keys, settings/pdf, products/index,
-      products/[id]/edit, import/index, settings/templates) and all were
-      fixed in the platform-overhaul branch — re-run the sweep fresh
-      rather than assuming full coverage elsewhere.
-- [ ] API key secret verification (`lib/api-keys/crypto.ts`'s
+      sub-items here once the sweep names them. Done
+      (slice/i18n-gap-sweep), 2026-09-23. Two halves:
+      * **Key parity: clean, and now CI-enforced.** hu.ts and en.ts had no
+        missing key in either direction. `lib/i18n/locales/parity.test.ts`
+        now fails the build on a one-sided key, a shape mismatch (object vs
+        string), drifting `{{placeholders}}`, or an empty string — so the
+        "both files in the same change" rule stops depending on reviewer
+        memory.
+      * **Hardcoded strings: 24 candidates, 3 real screen gaps, fixed
+        here.** The sweep grepped `app/` and `components/` for Hungarian
+        prose literals outside `t()`. The screen-level gaps were all
+        placeholders: `onboarding.tsx` company name + address, and
+        `settings/pdf.tsx` footer text — now `company.onboarding.*` /
+        `settings.pdfScreen.footerTextPlaceholder` in both locales.
+      Not gaps: the marketing/SEO copy (`app/index.tsx`, `app/blog/index.tsx`
+      meta descriptions, `ProductShowcase` demo company names) is a
+      deliberately Hungarian-only surface, and one hit was a false positive
+      (a JSX comment in `LineItemRow.tsx`, which the line-comment filter
+      doesn't catch — worth knowing if the sweep is re-run).
+- [x] API routes answer with Hungarian prose instead of an error code, so
+      the message can never follow the user's language — filed by the
+      2026-09-23 i18n sweep, done the same day
+      (slice/api-error-codes-i18n). Every one of the 16 messages across 9
+      routes now answers with a stable `code` plus an English string for
+      logs and for the public `app/api/v1/*` consumers, and the two screens
+      that render them — `NavStatusCard` and the company settings NAV
+      connection test — translate the code through
+      `lib/nav/nav-error-i18n.ts` (the same split
+      `lib/invoices/send-error-i18n.ts` already used for e-mail failures).
+      An unknown code falls back to a generic translated key, so a newer
+      server can never leave a raw string on screen.
+      Two notes for whoever touches these next:
+      * `app/api/v1/invoices/[id]/modify` answers with
+        `code: "proformaNotStornoable"` even though the operation is
+        helyesbítő, not storno. It reads like a copy-paste slip, but
+        `docs/external-api.md` documents that exact code for the endpoint,
+        so changing it would break a published contract — left alone
+        deliberately.
+      * The v1 routes keep English messages by design: they are the public
+        API, and their consumers are not all Hungarian.
+      * The sweep that filed this item only covered `app/` and
+        `components/`, so it missed that five of these messages actually
+        originate in `lib/nav/resolve-credentials.ts` — converted here too,
+        since they flow straight into the same API responses. The rest of
+        `lib/` has not been swept for Hungarian strings that reach a
+        response; worth a look if this class of bug shows up again.
+- [x] API key secret verification (`lib/api-keys/crypto.ts`'s
       `verifySecretKey`) compares hashes with plain `===` instead of
       `crypto.timingSafeEqual` — low practical risk since both sides are
       hashes compared over an HTTP round trip, but a real departure from
       constant-time comparison discipline in the `app/api/v1/*` auth path
-      (2026-09-14 audit, security)
-- [ ] Dashboard "Customer service" button (`app/(app)/dashboard/index.tsx`)
+      (2026-09-14 audit, security). Done
+      (slice/api-key-timing-safe-compare): both digests are decoded to
+      buffers and compared with `timingSafeEqual`. A stored hash of the
+      wrong length — a truncated or corrupted row, or a non-hex value,
+      which "hex" decoding turns into a short buffer — is rejected before
+      the comparison, since `timingSafeEqual` throws on a length mismatch
+      and a hash's length is not a secret.
+- [x] Dashboard "Customer service" button (`app/(app)/dashboard/index.tsx`)
       has no `onPress` handler, unlike the neighboring incoming-invoices
       button — wire it to a support contact flow (mailto, chat widget,
       help page) or remove it until one exists (2026-09-14 audit,
-      ux-desktop)
-- [ ] NAV receipt-report cron has no retry and no backfill —
+      ux-desktop). Done: wired to a mailto flow
+      (`lib/support/contact.ts`) gated on `EXPO_PUBLIC_SUPPORT_EMAIL`
+      (`.env.example`) — hidden entirely, trigger included, while unset;
+      reachable on mobile too (previously desktop-only); local toast on
+      `Linking.openURL` failure. `PageHeader` gained an optional
+      `overflowLabel` prop (defaults to "Továbbiak") so the trigger's
+      a11y label is now `t("nav.more")` instead of a hardcoded Hungarian
+      string. Plan:
+      `docs/plans/2026-09-21-dashboard-customer-service-button-handler.md`
+- [x] Dashboard "Bejövő számlák" button (`app/(app)/dashboard/index.tsx`)
+      is mislabelled: it navigates to `routes.invoicesFiltered("unpaid")`,
+      which is the *outgoing* unpaid list, while an incoming-invoice store
+      already exists (`incomingInvoice` in `db/schema.ts`,
+      `GET /api/nav/incoming`). Either build the real
+      incoming-invoices screen and point the button at it, or relabel the
+      button to what it actually opens (found 2026-09-21 while planning
+      slice/dashboard-customer-service-button-handler). Done: removed the
+      button — the "Kintlévőség" KPI card was already the same, correctly
+      labelled, better-informed destination, so a relabel would have left
+      a third control on one screen pointing at one list. Its only
+      possible real data source, `fetchIncomingInvoices`
+      (`lib/nav/client.ts`), is a hardcoded demo stub that contacts no NAV
+      environment, so a screen on top of it would have shown fabricated
+      supplier invoices as if real; `GET /api/nav/incoming?sync=true` is
+      now gated behind `isDevSeedAllowed()` (404 when disallowed,
+      `requireSession` still runs first) the same way
+      `app/api/dev/seed+api.ts` already gates the demo seed, so it can no
+      longer write invented rows into a production user's books. Nothing
+      under `lib/nav/` was touched. See
+      `docs/decisions/2026-09-21-no-incoming-invoice-screen-yet.md` and the
+      new follow-up item below (Phase 3). Plan:
+      `docs/plans/2026-09-21-incoming-invoices-dashboard-button.md`
+- [x] NAV receipt-report cron has no retry and no backfill —
       `app/api/cron/nav-receipt-report+api.ts` only ever builds yesterday's
       `reportDate`, and a row left in `nav_receipt_submission` with a failed
       status is never re-sent, so one bad night silently loses that day's
@@ -65,6 +195,38 @@ before or alongside Phase 1 items that depend on it.
       of the 3rd calendar day, so walk a bounded backfill window (missing or
       failed dates in the last 3 days) and make submission idempotent per
       (companyId, reportDate). Distinct from the reminders-cron item above.
+      Done: the route is now auth + delegation only, calling
+      `runDailyReceiptReports()` (`lib/nav-receipt/daily-report-run.ts`),
+      which walks the last 3 Europe/Budapest calendar days oldest-first,
+      retries a `failed` or stale (>= 15 min) `pending` row in place
+      (`db.update`, `attemptCount` incremented, never a second row for the
+      same `(companyId, reportDate)`), treats a fresh `pending` row as
+      `in_flight`, always resolves a thrown NAV error to `failed` with the
+      message (never leaves a row stuck `pending`), and bulk-flips
+      `receipt.navSubmitted` for the day on a successful submission
+      (`markReceiptsSubmittedForRange`, new in `lib/receipts/service.ts`).
+      Day boundaries use the new pure `lib/dates/budapest.ts` helpers
+      (Europe/Budapest calendar day, DST-correct) instead of the server's
+      UTC day. Schema: additive `attempt_count` column + additive
+      `(company_id, report_date)` index on `nav_receipt_submission`
+      (`drizzle/0004_nav-receipt-report-cron-retry-backfill.sql`); no
+      unique constraint (see plan). No change to NAV environment selection,
+      demo exclusion, or `vercel.json`'s schedule. Plan:
+      `docs/plans/2026-09-21-nav-receipt-report-cron-retry-backfill.md`
+- [ ] Manual receipt NAV submit uses the server's UTC day and marks only
+      one receipt, while the nightly cron now uses the Europe/Budapest
+      calendar day and marks the whole day — `app/api/receipts/[id]/submit-nav+api.ts`
+      still calls `getDailyVatAggregation` (server-local day) and only sets
+      `navSubmitted` on the single receipt being submitted, so a receipt
+      issued right after local midnight can land under a different
+      `reportDate` than the cron would use for it, and a manual submission
+      does not flip the badge for the rest of that day's receipts the way
+      the cron does. Align the manual route to `getVatAggregationForRange`
+      + `budapestDayRange` and `markReceiptsSubmittedForRange`
+      (`lib/receipts/service.ts`, `lib/dates/budapest.ts` — both already
+      exist). Found while shipping
+      `slice/nav-receipt-report-cron-retry-backfill` (2026-09-21); out of
+      scope there per that slice's plan §10.2.
 - [ ] No error tracking or cron-failure alerting exists —
       `@opentelemetry/api` is a dependency but is imported nowhere, and
       `app/api/health+api.ts` is a bare liveness probe. Both Vercel crons in
@@ -82,6 +244,18 @@ before or alongside Phase 1 items that depend on it.
       (needs tax/legal sign-off — the document retention period and what may
       be deleted vs. anonymized must come from the lawyer review, not from a
       guessed number)
+- [ ] Ship-loop review worktrees have no way to take authenticated
+      Playwright/browser screenshots — the owner's production Neon
+      `DATABASE_URL` (`.env`) exists only in the main checkout, and
+      copying it into a review worktree to get a signed-in session would
+      run review/test traffic against production credentials, which
+      CLAUDE.md's DB rule argues against. Found while shipping
+      `slice/incoming-invoices-dashboard-button` (2026-09-21): the ship
+      report for that item relied on `tsc`/`test:unit` plus a source-level
+      trace of `components/layout/PageHeader.tsx` instead of a live
+      screenshot. Give review worktrees a non-production/test DB (seeded,
+      throwaway) so `ux-reviewer`/`continuous-audit` can capture real
+      screenshots without touching prod credentials.
 
 ## Phase 1 — Core invoicing, NAV-compliant
 
@@ -90,6 +264,33 @@ before or alongside Phase 1 items that depend on it.
 The app's own functions and UX come first; audits, tooling and "confirm
 that" items wait. Build in this order (each maps to an unchecked item below):
 
+**Found 2026-09-22 while shipping the PDF redesign + full v1 API — take the
+first one next, ahead of everything below:**
+- [x] **A finalized invoice can be deleted through the internal API.**
+  Done in two halves: the server refuses non-drafts with 409 (`b0f6062`);
+  the list stopped offering "Törlés" on numbered rows and reports a
+  failed delete (PR #64, 2026-09-28).
+  `app/api/invoices/[id]+api.ts`'s DELETE calls `deleteInvoiceById`
+  (lib/invoices/service.ts), which has no status guard — the UI hides the
+  button on finalized documents, but any signed-in session can DELETE a
+  numbered számla directly, breaking continuous numbering (a finalized
+  document must be cancelled with a sztornó, never removed). Route it
+  through `deleteDraftInvoiceById` (added for the v1 API — returns
+  not_found / not_draft / deleted) and return 409 for a non-draft; add a
+  route test. Same check for any bulk-delete path if one exists.
+- [x] **Decide the v1 `POST /api/v1/invoices` `sendEmail` default** (owner
+  decision — 2026-09-22: default is now `false`; explicit `true` still
+  finalizes + sends. Shipped on slice/nav-submission-and-xml-fixes). It defaults to `true`, and `sendInvoiceNotificationEmail`
+  finalizes a draft before emailing it — so a plain "create draft" call
+  silently assigns a number, flips it to sent and emails the customer.
+  That breaks the documented create → finalize → send flow unless the
+  caller remembers `sendEmail: false`. There are no external API users
+  yet, so flipping the default to `false` is free now and a breaking
+  change later. Currently documented in docs/external-api.md §5.2.
+- [ ] v1 rate limiting (`requireApiKeyForV1`, lib/api/rate-limit.ts) is an
+  in-memory counter per serverless instance, not a global limit per API
+  key — acceptable as a baseline, but a shared store is needed before
+  the limit is relied on.
 **New owner feedback (2026-09-16) — take this next, ahead of everything
 below** — owner: "a pdf sokkal rosszabbul néz ki mint a html számla, javítsd,
 és legyen ott a rendes invohubos logó" (the PDF looks much worse than the
@@ -282,7 +483,7 @@ bugs:
   asserting `drawBrandLockup` is called with `align:"center"` and no
   left/right footer text when `template.footerText === ""`, or reword the
   comment to say the branch is unmodified from `main`.
-- [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
+- [x] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
   2026-09-16)** — the notes-only continuation page (e.g. page 2 of a
   16-item + ~2000-char-notes invoice) has no invoice-number/context
   heading: page 1 shows the table/totals/"Megjegyzés:" label plus the
@@ -294,6 +495,23 @@ bugs:
   not an AC violation — optional follow-up: draw the same
   "`<invoiceNumber>` · folytatás" banner (or a lighter "Megjegyzés
   (folytatás)" variant) at the top of a notes-only continuation page.
+  **Fixed** (`slice/pdf-notes-continuation-page-caption`, 2026-09-21) — the
+  notes body's `doc.text(invoice.notes, …)` call in `generate-pdf.ts` now
+  attaches a `pageAdded` listener scoped to just that draw (detached in a
+  `finally`, guarded against re-entrancy). pdfkit fires `pageAdded` for its
+  own internal auto-pagination *before* the line wrapper resumes emitting
+  text on the new page, so the listener draws the same
+  "`<invoiceNumber>` · folytatás" banner the line-item continuation pages
+  already get, plus a repeated "`<notesLabel>` (folytatás):" section label
+  (new i18n key `invoices.document.sectionContinued`, hu + en), then hands
+  the wrapper back the exact font/size/fill (`#444444`) it had. Verified: a
+  notes-only continuation page now reads
+  "INV-2026-LONGNOTES · folytatás" / "Megjegyzés (folytatás):" at its top
+  margin, with the body resuming below in the same colour/size as page 1;
+  the empty-notes and single-page cases draw nothing new; no
+  `pageAdded` listener survives `generateInvoicePdf()` returning.
+  `npx tsc --noEmit` and `npm run test:unit` are green (213 suites, 1350
+  tests).
 - [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
   2026-09-16)** — no note needed for app-level action: this slice only
   touched `lib/invoices/{generate-pdf.ts,pdf-layout.ts,*.test.ts}` and
@@ -492,44 +710,236 @@ screenshots before writing a fix plan:
    `main` together with priority #3's exchange-rate work on 2026-09-15;
    `<invoiceDetail>` now emits `currencyCode`, `exchangeRate`,
    `paymentMethod`, `paymentDate` in that verified schema order.
-5. Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
+5. [~] folyamatban (slice/dijbekero-proforma-to-invoice-flow)
+   Díjbekérő (proforma) → real flow: DBK number, "Számla készítése ebből"
    action that converts to a final invoice (`lib/invoices/numbering.ts`, detail screen)
+   **Round 2.** The literal checkbox already shipped in PR #15
+   (`slice/dijbekero-convert-to-invoice-impl`, merged 2026-09-15) —
+   numbering, the pure build, the route and both entry points exist, and
+   storno/helyesbítő are already refused on a díjbekérő at both the API and
+   the detail screen. Planning verified that on `main` today. This round
+   closes the four open ship-review findings filed against that merge (the
+   double-convert race, the missing AC20 links-card test, the redundant
+   nested `runAction("convert", …)`, and a cancelled prior conversion
+   rendering identically to a live one) and adds the piece of real EV value
+   the first round left out: a díjbekérő that has already been invoiced is
+   indistinguishable from an open one in the list, so "which díjbekérők
+   still need a számla?" cannot be answered without opening each one. The
+   race fix is a **partial unique index** rather than a transaction —
+   `db/index.ts` uses the Neon **HTTP** driver, which has no interactive
+   transaction, so the DB itself has to arbitrate and the route maps the
+   23505 violation onto the 409 path it already returns.
+   Plan: `docs/plans/2026-09-18-dijbekero-proforma-to-invoice-flow.md`
+   (risk: **schema** — one additive partial unique index; not tax/legal, so
+   Ship may auto-merge when green, but see the plan §5 caveat: creating a
+   unique index fails if the race has already produced a duplicate in
+   production, and that is a human decision, not a force-push).
+   The díjbekérő disclaimer ("nem számla, áfa levonására nem jogosít")
+   stays out of scope and sign-off-gated, as in the 2026-09-15 plan.
 6. [x] Partially-paid invoice past due date surfaces as overdue (status
    derivation) — **Shipped 2026-09-15** on
    `slice/dashboard-overdue-partially-paid`. See the matching detailed
    entry below (under "Remaining for the launch gate") for what was
    actually wrong and fixed.
-7. [~] needs sign-off (PR) — e-nyugta: real NAV eRECEIPT API
-   (nav-gov-hu/eRECEIPT spec v1.3 / XSD 1.1.1, test base
-   https://bv-receipt-if.enyugta.nav.gov.hu/v1/) behind demo/test modes —
-   **slice 1 of 3 built** on `slice/e-nyugta-nav-receipt-api`
-   (`docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md`), all 20 acceptance
-   criteria green, **PR opened 2026-09-18 — not merged, tax-legal gated,
-   needs human sign-off** (VAT-category names, OQ-1 through OQ-6 in the
-   plan §8). See the matching detailed entry below for what shipped.
-8. Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
-   — **partially shipped**: the composer's own line-item icon buttons are
-   now 44px (`components/invoices/composer/LineItemRow.tsx`), but the
-   notification bell (`components/navigation/MobileAppHeader.tsx`, ~42px)
-   and several choice pills (VAT category picker, partner-type pills,
-   invoice-list filter chips) are still under 44px — see the new findings
-   below; item stays open.
+7. [~] needs sign-off (PR) (slice/e-nyugta-nav-receipt-api)
+   e-nyugta: real NAV eRECEIPT API (nav-gov-hu/eRECEIPT spec v1.3 / XSD
+   1.1.1, test base https://bv-receipt-if.enyugta.nav.gov.hu/v1) behind
+   demo/test modes — slice 1 of 3 (auth token + `/receipt/create` + the
+   XSD-shaped payload rebuild). **PR opened 2026-09-18.**
+   Plan (slice 1 of 3): `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md`
+   (risk: **tax-legal** — PR for human sign-off, no auto-ship). Supersedes
+   the 2026-09-16 plan, which was never built. See the matching detailed
+   entry under "Remaining for the launch gate" for what planning verified
+   against the published spec/XSD.
+   **2026-09-29: rebased onto `main` (PR #17).** `main` had meanwhile built
+   the nightly runner (`lib/nav-receipt/daily-report-run.ts`) and the NAV
+   credential hardening on the *old* client; both were ported onto the
+   rebuilt one rather than dropped: per-currency reports (HUF only; non-HUF
+   recorded as one blocked row per day), test environment only (a production
+   company is refused — no verified production host), Budapest-day report
+   dates everywhere, and the manual route no longer reports a day twice.
+   Still tax-legal gated: needs the owner's sign-off before merge.
+8. [x] Invoice-flow tap targets: inline pill buttons and the notification bell ≥44px
+   — **Shipped** (`slice/invoice-flow-tap-targets-44px`). New
+   `lib/ui/tap-target.ts` (`MIN_TAP_TARGET_PX`, `TAP_TARGET_MIN_H`,
+   `TAP_TARGET_ICON_BOX`) is the single source of truth; a new
+   `components/ui/choice-pill/` primitive (`ChoicePill`/`ChoicePillGroup`,
+   deliberately composed with a plain template literal instead of
+   `tva()`/twMerge so a caller's conflicting className can't strip the 44px
+   floor) now backs `VatCategoryPicker`'s common/advanced/rate pills, the
+   notification-bell 44×44 tap box + `hitSlop={8}` in `MobileAppHeader.tsx`
+   (badge re-offset inside the box), `StepPartner`'s deadline/payment-method/
+   currency pills, `DocumentTypeTabs`/`ScreenModeTabs`/`ComposerStepper`, and
+   the new `components/invoices/InvoiceFilterChips.tsx` (extracted from
+   `app/(app)/invoices/index.tsx`'s inline `FILTERS.map`, which also fixes
+   the dead "Egyéb (n)" chip — it had no `onPress` and looked identical to a
+   working filter; it's now a non-interactive, visually distinct element).
+   Plan: `docs/plans/2026-09-18-invoice-flow-tap-targets-44px.md` (risk:
+   **none** — no `lib/tax/`, NAV/M2M, tax figure, marketing copy, or schema
+   change). Follow-up filed: `components/invoices/LineItemEditor.tsx` (dead
+   code superseded by `composer/VatCategoryPicker.tsx` — the loop-queue's
+   original file reference below was stale) still needs deleting; out of
+   scope for this slice.
+   Ship-review follow-ups (low severity, from the 2026-09-18 ship review of
+   `slice/invoice-flow-tap-targets-44px`):
+   - [ ] `components/ui/choice-pill/index.tsx`'s code comment claims the
+     caller-className-after-base ordering "always wins" the 44px floor, but
+     the test (`index.test.tsx`, "always renders min-h-11 and items-center,
+     even when the caller passes a conflicting className") only asserts
+     `className.trim().endsWith(TAP_TARGET_MIN_H)` — string order, not
+     actual rendered/computed CSS cascade behavior (NativeWind on web
+     resolves same-specificity utility conflicts via stylesheet rule order,
+     not attribute string order). Soften the comment to describe what's
+     actually guaranteed (string order + test coverage), and track a real
+     computed-style/visual check (e.g. in the Playwright UX sweep) as the
+     follow-up that verifies the assumption.
+   - [x] `components/navigation/MobileAppHeader.tsx`'s new `hitSlop={8}` on
+     the notification bell (required by this slice's AC9) now meets
+     `LanguageSwitcher`'s pre-existing `hitSlop={8}` across their shared
+     `HStack space="sm"` (8px) gap, creating a roughly 4px contested
+     touch band at the boundary where RN's hit-test (not visual proximity)
+     decides which control a tap there hits. Fix with an asymmetric
+     hitSlop on the bell (exclude the side facing the switcher) or widen
+     the gap between the two controls.
+     **Shipped** (`slice/fix-notification-bell-language-switcher-hitslop-overlap`,
+     plan `docs/plans/2026-09-21-fix-notification-bell-language-switcher-hitslop-overlap.md`,
+     risk: none). New `hitSlopExcept()`/`touchOverlapPx()` in
+     `lib/ui/tap-target.ts` trim slop only on sides facing a neighbour;
+     the bell now excludes its right side. Planning found a worse,
+     previously unreported defect from the same root cause one level
+     down: inside `LanguageSwitcher`, the HU and EN pills sit on a 4px
+     `gap-1` with `hitSlop={8}` each, so EN's touch rect covered the
+     right 4px of the visibly-selected HU chip and won the reverse-order
+     hit test — tapping the edge of "HU" silently switched the app to
+     English. Fixed the same way, per-pill (first excludes right, last
+     excludes left). No visual change, 44px floor preserved.
+     - [ ] Ship-review follow-up (low, from the ship review of
+       `slice/fix-notification-bell-language-switcher-hitslop-overlap`):
+       this fix's branch is a single squashed commit (`git log
+       main..slice/fix-notification-bell-language-switcher-hitslop-overlap`
+       → one commit, `b82c8c6` "fix(header): trim hitSlop on sides
+       facing a neighbour control") containing the new tests,
+       implementation, and the loop-queue update together, so TDD
+       red→green ordering can't be independently verified from git
+       history. Re-verified: this reproduces, without a new self-note,
+       the exact same caveat already recorded just below for the prior
+       slice (`slice/invoice-flow-tap-targets-44px`) that this one is a
+       follow-up to. Not a functional defect: `tsc --noEmit` is clean
+       and `npm run test:unit` passes all 213 suites / 1344 tests,
+       including the new `lib/ui/tap-target.test.ts`, the
+       `LanguageSwitcher.test.tsx` touch-geometry describe block, and
+       the `MobileAppHeader.test.tsx` AC9 hitSlop assertions, all of
+       which independently verify the shipped behavior regardless of
+       commit history. No action required to ship; if strict TDD
+       provenance matters, future slices could preserve a red-commit
+       checkpoint before squashing, or note test-first intent
+       explicitly in the commit body (already partially done here via
+       the descriptive commit message).
+   - [ ] This slice's branch is a single squashed commit
+     (`git log main..slice/invoice-flow-tap-targets-44px`), so TDD
+     red→green test-first ordering (AGENTS.md §9) can't be independently
+     confirmed from git history — only inferred from test specificity
+     (e.g. the hostile-className cascade test, the `StepPartner`
+     `exchangeRate` focusField describe block). Not blocking, but if
+     test-first provenance needs to stay auditable, keep WIP/red-green
+     commits on future slices or note the ordering explicitly in the PR
+     description.
 9. [x] Invoices empty-state CTA: replace "Load demo data" with "Első számla
    kiállítása" (demo seed stays behind the dev flag). **Shipped** — the
    `/invoices` empty state now actions straight to `routes.newInvoice`
    (`t("nav.newInvoice")`) instead of routing to Settings' demo-seed
    control.
-10. Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
+10. [~] folyamatban — PR open (slice/backfill-non-huf-invoices-missing-exchange-rate)
+    Backfill/surface non-HUF invoices with no `exchangeRate` — filed by item 3
     (`slice/non-huf-invoice-exchange-rate-nav-xml`): before that slice,
     `POST /api/invoices` silently dropped `body.exchangeRate` on create, so
     any EUR/non-HUF invoice created before the fix was saved with no rate.
     Such a row now can't be NAV-submitted (`buildNavInvoiceXml` correctly
     refuses instead of reporting a false HUF base) until it's edited to add
-    one. Needs a listing (which existing invoices are affected) or an
-    in-app prompt on the invoice detail/edit screen — not a guessed rate.
-    Also out of scope for that slice, needs its own item: retro-correcting
-    any non-HUF invoice already reported to NAV with the old hardcoded
+    one. **Built, not merged.** Not tax/legal/NAV-production gated, but this
+    ship round wasn't green end-to-end, so Ship opened a PR for human review
+    instead of auto-merging rather than force it through. Implemented: a
+    pure `isMissingExchangeRate` predicate
+    (`lib/invoices/exchange-rate.ts`) built on the existing
+    `resolveExchangeRate`, so it can never drift from what the NAV XML
+    builder refuses; a `needsExchangeRate` filter threaded through
+    `lib/invoices/list-query.ts`, the exported `buildInvoiceListWhere`
+    (`lib/invoices/service.ts`, SQL-pushed, not JS-filtered), `GET
+    /api/invoices`, and `useInvoices`/`useMissingExchangeRateCount`; a
+    dismissable-by-toggle `ExchangeRateFixBanner` on `/invoices` that
+    switches the list to an affected-only view; a warning card on the
+    invoice detail screen that deep-links (`routes.invoiceEdit(id, {
+    focus: "exchangeRate" })`) straight to the composer's exchange-rate
+    field (reusing the already-shipped `StepPartner` focus behaviour); and
+    `POST /api/nav/submit` now refuses with 409 `code: "missingExchangeRate"`
+    before ever calling NAV, instead of a raw 500. No rate is guessed,
+    fetched or defaulted anywhere — the user always types it. All 8 plan
+    acceptance criteria pass; `npx tsc --noEmit` and `npm run test:unit` are
+    green. Nothing under `lib/nav/`, `lib/tax/`, `lib/m2m/` or `marketing/`
+    touched; `db/schema.ts` unchanged (risk: **none** — see plan §8).
+    Plan: `docs/plans/2026-09-18-backfill-non-huf-invoices-missing-exchange-rate.md`
+    Still out of scope, filed as item 11 below: retro-correcting any
+    non-HUF invoice already reported to NAV with the old hardcoded
     `exchangeRate=1` (a NAV MODIFY submission question, tax/legal-gated).
+    Ship-review follow-up (low severity, from the 2026-09-18 fix-round
+    review of `slice/backfill-non-huf-invoices-missing-exchange-rate`):
+    - [ ] `invoices.errors.navMissingExchangeRate` is defined in both
+      `lib/i18n/locales/hu.ts` and `en.ts` but referenced nowhere in the
+      app — `components/invoices/NavStatusCard.tsx` (unmounted by any
+      screen, per plan §9 item 5) never reads `ApiError.code`, so a 409
+      from `POST /api/nav/submit` still surfaces the server's raw English
+      developer sentence, not the Hungarian/English translation, if that
+      component is ever wired up. Wiring `NavStatusCard.tsx` was
+      explicitly out of scope for this slice; when it is mounted, add
+      `missingExchangeRate` to a code-to-i18n-key map there (mirroring
+      `ERROR_CODE_I18N_KEY` in `app/(app)/invoices/[id]/index.tsx`) so the
+      key stops being dead. Same pattern already filed above for
+      `receipts.navMissingExchangeRate`.
+    - [x] The invoice-detail warning card's "add rate" `Button`
+      (`app/(app)/invoices/[id]/index.tsx`, the `isMissingExchangeRate`
+      card) has no `size` prop and no `min-h-11`/`TAP_TARGET_MIN_H` class,
+      so it falls under the 44px tap-target floor established by
+      `slice/invoice-flow-tap-targets-44px` — on a control that routes the
+      user to fix a NAV-blocking problem. Not a regression (other buttons on
+      the same screen are similarly unstyled), but new code from this slice
+      that had the chance to apply the shared floor and didn't. Add
+      `TAP_TARGET_MIN_H` (or `min-h-11`) to this button's className,
+      alongside `ExchangeRateFixBanner`'s button, for consistency.
+      **Shipped** (`slice/exchange-rate-warning-button-tap-target`,
+      2026-09-21): rather than decorate this one button, the 44px floor
+      moved into `components/ui/button`'s `buttonStyle` itself (exported,
+      backed by `lib/ui/tap-target.ts`'s `TAP_TARGET_MIN_H`/
+      `TAP_TARGET_ICON_BOX`) so every `Button` in the app clears it by
+      construction — `default`/`sm`/`lg` now carry `min-h-11`, `icon` is a
+      44×44 box, and `sm`/`lg` keep their `px-3`/`text-xs`/`px-8` scale.
+      The warning-card button also keeps an explicit `TAP_TARGET_MIN_H` in
+      its className (redundant by design, matching
+      `ExchangeRateFixBanner`). While in the same file: the mark-paid
+      method picker now renders through `ChoicePill`/`ChoicePillGroup`
+      instead of a hand-rolled `Pressable` copy; the linked-document rows
+      (storno/helyesbítő/díjbekérő links) are now 44px rows with
+      `accessibilityRole="link"` instead of a ~20px text sliver; and
+      `OverflowMenu`'s trigger (where Storno/Törlés live) and its items are
+      44px. No `lib/tax/`/`lib/nav/`/`lib/m2m/` or marketing changes, no new
+      i18n keys, no schema change. New test:
+      `components/ui/button/tap-target.test.ts`; extended
+      `__tests__/screens/invoice-detail.test.tsx`,
+      `components/layout/OverflowMenu.test.tsx`,
+      `components/layout/OverflowMenu.web.test.tsx`. `npx tsc --noEmit` and
+      `npm run test:unit` (214 suites / 1355 tests) green.
+      Plan: `docs/plans/2026-09-21-exchange-rate-warning-button-tap-target.md`.
+11. [ ] Retro-correct non-HUF invoices already reported to NAV with the old
+    hardcoded `exchangeRate=1` — filed by item 10
+    (`slice/backfill-non-huf-invoices-missing-exchange-rate`). Before the
+    item-3 fix, every non-HUF invoice's NAV submission reported a HUF VAT
+    base computed at an implicit rate of 1, which is wrong for any invoice
+    not actually in HUF. A previously reported invoice's NAV record now
+    disagrees with reality. Fixing this means emitting a NAV **MODIFY**
+    submission with the corrected HUF amounts — a real tax consequence, not
+    a UI fix. **Tax/legal-gated: needs its own plan and explicit human
+    sign-off before any code that emits a MODIFY report ships** (per
+    CLAUDE.md's phase-1 launch gate and `lib/nav/` production-behaviour
+    sign-off rule). Do not auto-ship.
 
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
@@ -631,16 +1041,27 @@ Remaining for the launch gate:
       item's original "accordion" design decision (the shipped shape is a
       stepper, not an accordion) — see
       `docs/design/app-ux-spec-2026-09-14.md` §2 for the as-built spec.
-- [ ] Notification bell tap target (`components/navigation/
+- [x] Notification bell tap target (`components/navigation/
       MobileAppHeader.tsx`) is ~42px, just under the 44px minimum — bump
       padding to p-3 or add hitSlop (2026-09-14 audit, ux-mobile)
-- [ ] Multiple inline-choice pill buttons across the invoice flow are
+      **Shipped** by item 8 above (`slice/invoice-flow-tap-targets-44px`):
+      the bell now renders `TAP_TARGET_ICON_BOX` (`h-11 w-11 items-center
+      justify-center`) plus `hitSlop={8}`.
+- [x] Multiple inline-choice pill buttons across the invoice flow are
       under the 44px tap-target minimum: VAT category/rate pills
       (`components/invoices/LineItemEditor.tsx`), payment-method/currency/
       deadline pills (`app/(app)/invoices/new.tsx`), and filter pills
       (`app/(app)/invoices/index.tsx`) — establish a shared "choice pill"
       component with a minimum 44px height instead of ad hoc
       Pressable+className (2026-09-14 audit, ux-mobile)
+      **Shipped** by item 8 above. The file references here were stale by
+      the time this shipped: the composer rewrite had already replaced
+      `LineItemEditor.tsx` (dead code, still not deleted — see item 8's
+      follow-up note) with `composer/VatCategoryPicker.tsx`, and
+      `app/(app)/invoices/new.tsx` with the `composer/StepPartner.tsx`
+      pills — both now render through the new `ChoicePill` primitive
+      (`components/ui/choice-pill/`), as does the extracted
+      `InvoiceFilterChips.tsx`.
 - [x] "Load demo data" empty-state CTA (`app/(app)/invoices/index.tsx`)
       routes unconditionally to Settings, but the demo-seed control there
       is hidden unless `EXPO_PUBLIC_ALLOW_DEV_SEED` is set (default off) —
@@ -692,50 +1113,65 @@ Remaining for the launch gate:
       and that `outstanding` is unaffected either way. `npm run
       typecheck` and `npm run test:unit` green (197 suites / 1113 tests).
 - [~] needs sign-off (PR) (slice/e-nyugta-nav-receipt-api)
-      e-nyugta (nyugtaadat-szolgáltatás) — **slice 1 of 3 built**, PR pending
-      human sign-off (needs tax/legal sign-off; must not auto-merge/auto-deploy).
-      Plan: `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md` (supersedes
-      the 2026-09-16 plan, which was never built despite the branch existing
-      at `main`). Rebuilt `lib/nav-receipt/` against the published
-      `receipt-if-schema-v1.1.1.xsd` — the old client posted JSON to an
-      invented `/authenticate` endpoint with a made-up namespace and fields
-      (`netAmount`/`vatAmount`/`grossAmount`/`vatRateCode`/
-      `startReceiptNumber`/`endReceiptNumber`/`cancelledCount`) that don't
-      exist in the schema. New: `AuthTokenRequest`/`CreateReceiptRequest` XML
-      in namespace `http://schemas.nav.gov.hu/NTCA/1.0/receipt`, real
-      SHA3-512 request signature (delegates to `lib/nav/crypto.ts`), two
-      requestId shapes (legacy `[+A-Za-z0-9_]{1,30}` for auth, UUID for
-      business requests — mixing them up is invalid per the XSD),
-      gross-amount `vatCategory` rows (not net/VAT/gross), Bearer-token auth
-      for `/receipt/create` from a real `/auth/token` exchange with
-      `validTo`-based cache expiry. Non-HUF receipt days are refused, not
-      guessed (`receipt` has no stored exchange rate) — they land in a
-      `blocked` group with reason `missing_exchange_rate`, write a `failed`
-      submission row with a Hungarian message, and surface on the receipt
-      detail screen instead of silently mis-reporting. New files:
-      `lib/nav-receipt/{signature,taxpayer,vat-category,response}.ts`,
-      `lib/receipts/daily-report.ts`. `getReceiptBaseUrl("production")` now
-      throws — no verified production eRECEIPT host exists. All 20 plan
-      acceptance criteria covered by tests; `npm run typecheck` and
-      `npm run test:unit` green (207 suites / 1252 tests).
-      **Open, unresolved for human sign-off** (plan §8): OQ-1 — the
-      `NAV_VAT_CATEGORIES` name strings are a single sourced constant but
-      **unverified** against NAV's live `/vat-category/list` or spec §5.9
-      (neither was readable during planning) — do not trust the wording
-      without checking it first. OQ-2 through OQ-6 (0%-line category for
-      non-AAM companies, sale-document counting semantics, serialNumber
-      choice, always-zero `numberOfModifyingDocument` until storno exists,
-      and refusing rather than reporting non-HUF days) are also unresolved.
-      Out of scope for this slice (deferred, see plan §9): `/receipt/list`,
-      `/receipt/detail`, `/receipt/modify`, `/receipt/invalidate` (slices 2
-      and 3), `/issuing-software/create` (one-time manual operator step,
-      documented in `docs/nav-test-setup.md` §7), and the additive
-      `receipt.exchangeRate` column that would unblock non-HUF reporting —
-      no `db/schema.ts` change in this slice at all.
+      e-nyugta (nyugtaadat-szolgáltatás) client targets an endpoint and
+      schema that do not exist — `lib/nav-receipt/environment.ts` posts to
+      `https://api-test.onlineszamla.nav.gov.hu/receipt-if/v1` with
+      `schemas.nav.gov.hu/receipt/1.0/*` namespaces invented in
+      `xml-builder.ts`. NAV published the real machine interface on
+      2026-08-27 (`nav-gov-hu/eRECEIPT`: spec
+      `docs/specification/NAV_Nyugta_adatszolgaltatas_IF_specifikacio_v1.2.pdf`,
+      schema `xsd/1.1/receipt_datareport/receipt-if-schema-v1.1.xsd`, test
+      base `https://bv-receipt-if.enyugta.nav.gov.hu/v1/`). Rebuild token
+      exchange, request signature and the report XML against that XSD, test
+      environment only. Electronic receipt data reporting has been mandatory
+      since 2026-09-01 and NAV only waives penalties through the end of
+      2026, so this is a real launch blocker for any EV issuing nyugta.
+      (needs tax/legal sign-off)
+      Plan (slice 1 of 3): `docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md`
+      (supersedes `docs/plans/2026-09-16-e-nyugta-nav-receipt-api.md`, which
+      was planned but never built — the slice branch is still at `main`.)
+      Planning fetched the real sources on 2026-09-16 and corrected three
+      premises of this entry: (a) the published latest is now spec **v1.3**
+      and XSD **1.1.1** (1.1.1 only widens `ReceiptSerialNumberType`, the
+      request structure is unchanged); (b) the real namespace is
+      `http://schemas.nav.gov.hu/NTCA/1.0/receipt` over
+      `nav-gov-hu/Common` tag `common-2.0.0-rc.2`, and the operations are
+      `POST /auth/token` + `POST /receipt/create` (JWT `Authorization:
+      Bearer`), not a "token exchange" + `createReceiptDataReport`; (c) the
+      `requestSignature` formula is **identical** to the OSA one already
+      implemented in `lib/nav/crypto.ts`
+      (SHA3-512(requestId + yyyyMMddHHmmss UTC + signKey), uppercase) — the
+      spec's own worked example was verified to reproduce byte-for-byte and
+      becomes a test fixture. The biggest correctness gap the entry does not
+      name: NAV wants **gross totals per ÁFA *category name*** (`0%`, `5%`,
+      `18%`, `27%`, `Alanyi adómentes`, `Egyéb` from `/vat-category/list`),
+      not the net/VAT/gross triple the current builder sends — so an **AAM
+      EV** must report under `Alanyi adómentes`, and a day mixing HUF and
+      EUR receipts needs **one report per currency**. Slice 1 covers auth +
+      `/receipt/create` + the payload rebuild; `/receipt/list`+`/detail`
+      (slice 2) and `/receipt/modify`+`/invalidate` for storno nyugta
+      (slice 3) stay open.
+      Re-planning on 2026-09-18 downloaded and read
+      `receipt-if-schema-v1.1.1.xsd` plus the `common-2.0.0-rc.2`
+      `service`/`authservice`/`type`/`customer` schemas, confirmed the
+      `CreateReceiptRequest` child sequence and the gross-per-category
+      payload, and found three further traps: (a) `AuthTokenRequest` uses
+      `LegacyContextType`, whose `requestId` is `[+a-zA-Z0-9_]{1,30}` — a
+      `randomUUID()` is **invalid** there, while business requests do
+      require a UUID; (b) `taxPayerId` is the **8-digit törzsszám**
+      (`[0-9]{8}`), not the full `12345678-1-42` tax number; (c)
+      `exchangeRate` is required-but-nillable and bounded `1..1000`, and
+      `receipt` has no rate column at all — so slice 1 reports HUF days with
+      `xsi:nil` and **refuses** non-HUF days rather than inventing a rate.
+      The VAT **category names** are not in the XSD (only a pattern), so they
+      stay an unverified constant with a sourced TODO until the tax/legal
+      sign-off checks them against spec §5.9 / `/vat-category/list`.
+      Follow-up item this slice files: additive `receipt.exchangeRate`
+      (numeric, nullable) — it is what unblocks non-HUF nyugta reporting.
       **PR opened 2026-09-18** (`slice/e-nyugta-nav-receipt-api`, commit
       `484cc85`, includes a fix-round pass correcting a currency-group
       mixup on the receipt detail screen) — not merged, pending tax/legal
-      sign-off per the OQ list above; `npx tsc --noEmit` and `npm run
+      sign-off per §8's OQ-1…OQ-6; `npx tsc --noEmit` and `npm run
       test:unit` (207 suites / 1254 tests) are green on the branch. 2
       low-severity follow-ups filed below (acceptance/ux dimensions), none
       blocking.
@@ -785,6 +1221,19 @@ Remaining for the launch gate:
       needs sign-off on both this stacked PR and its parent slice's OQ list.
       2 low-severity ship-review follow-ups filed below (acceptance/ux
       dimensions), none blocking.
+      Plan:
+      `docs/plans/2026-09-18-receipt-blocked-message-i18n-fallback.md`
+      **Base branch is `slice/e-nyugta-nav-receipt-api`, not `main`** — none
+      of the named symbols exist on `main` (that slice is still unmerged,
+      pending tax/legal sign-off). This becomes a stacked PR onto that
+      slice and must not be auto-merged to `main`. Planning also found that
+      the Hungarian sentence is load-bearing as a *database discriminator*:
+      `app/api/receipts/[id]+api.ts` tells a blocked non-HUF row apart from
+      a HUF row for the same `reportDate` by exact-matching that sentence,
+      so any copy edit would silently attach the wrong currency group's NAV
+      status to a receipt. Moving to the stable `missing_exchange_rate`
+      code removes that latent bug, which is why this "low" item is worth
+      doing properly rather than as a one-line `t()` wrap.
 - [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — the new NAV-report-id row in
       `app/(app)/receipts/[id]/index.tsx` repeats a pre-existing
@@ -918,6 +1367,19 @@ Remaining for the launch gate:
       codes and fixing mobile convert access) — not merged, pending review
       sign-off; 5 low-severity follow-ups filed above (acceptance/ux
       dimensions), none blocking.
+      **PR merged 2026-09-15.** Fix-round-2
+      (`slice/dijbekero-proforma-to-invoice-flow`, 2026-09-18) closed F1-F4
+      above (double-conversion race, missing links-card test, the
+      redundant `runAction`, and cancelled-vs-live link rendering) and
+      added the one remaining real EV value: a converted díjbekérő now
+      shows "Számlázva" and an "open existing" menu action in both the
+      desktop table and the mobile card list instead of looking identical
+      to an unconverted one. `npx tsc --noEmit` clean, `npm run test:unit`
+      green (1237 tests). Still `[~]`, not `[x]`: the díjbekérő document
+      disclaimer text ("nem számla, áfa levonására nem jogosít") stays
+      deliberately out of scope, sign-off-gated, as recorded above and in
+      the fix-round-2 plan §9 — that is the one piece left before this
+      whole item can close.
 
 - [~] folyamatban (slice/hungarianize-brand-invoice-preview-pdf)
       Invoice document preview/PDF remains English and unbranded
@@ -933,20 +1395,6 @@ Remaining for the launch gate:
       Same item as priority #2 above. Plan:
       `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
       See priority #2's note above for implementation status (2026-09-15).
-- [ ] Invoice PDFs cannot render `ő` and `ű` — `lib/invoices/pdf-document.ts`
-      uses pdfkit's standard Helvetica (WinAnsi/cp1252), which has no glyph
-      for U+0151 / U+0171; pdfkit emits them as raw two-byte codes, so a
-      partner named "Kőfaragó Kft." or a line "Tetőfelújítás" is already
-      garbage in every PDF the app emails today (verified against the repo's
-      own pdfkit, 2026-09-15). The preview/branding slice above only adds an
-      interim `toWinAnsiSafe()` transliteration (ő→ö, ű→ü) so the text is at
-      least legible. The real fix: embed a Latin-Extended-A TTF (regular +
-      bold, licence checked — no embeddable font exists in the repo or in
-      `node_modules` today), load it in `createPdfDocument`, and extend
-      `assets/pdfkit-data` + `scripts/prepare-server-pdf-deps.mjs` +
-      `vercel.json` `includeFiles` + `scripts/verify-pdf-vendor.mjs` so it
-      survives the Vercel bundle; then delete the transliteration and its
-      test. (2026-09-15 planning, feature)
 - [ ] Ranade weight 500 is defined (`global.css`, `@font-face`,
       `public/fonts/ranade-500.woff2`) but never actually requested by any
       heading — every `font-heading` usage is paired with
@@ -962,26 +1410,126 @@ Remaining for the launch gate:
       gap, not a regression. Either rewrite AC4 to check weight 700, or
       apply `font-medium` somewhere in the heading scale and add the
       missing e2e check. (2026-09-15 audit, acceptance)
-- [ ] Composer line-item row still needs horizontal scrolling within
+- [x] Composer line-item row still needs horizontal scrolling within
       itself at 1440px to show every column beside the fixed 400px
       summary panel (~680px available vs. ~1068px needed for the spec's
       full 8-column layout, including the description field's 240px
-      minimum). Fixing this fully needs a larger redesign — e.g. reworking
-      the summary panel width, or restructuring the row itself (merging
-      Nettó/Bruttó into one figure) — beyond a narrow round-2 fix.
-      (2026-09-15 audit, ux-desktop)
-- [ ] `components/notifications/NotificationPanel.tsx` has substantial
+      minimum). (2026-09-15 audit, ux-desktop) Fixed on
+      `slice/composer-line-item-horizontal-scroll-1440` per
+      `docs/plans/2026-09-18-composer-line-item-horizontal-scroll-1440.md`:
+      step 2 now spans the full content column (no 400px summary, no 720px
+      form cap — `composerDesktopLayout()`), the row merges Menny./Egység
+      and Nettó/Bruttó into 6 columns (`grid-columns.ts`,
+      `composerGridMinWidth() === 860`), which fits the 1112px available at
+      1440px (was 680px). Sticky totals bar + `previewSlot` keep INV-9/
+      INV-13 (see `docs/decisions/2026-09-18-composer-items-step-full-width-grid.md`).
+- [x] `components/notifications/NotificationPanel.tsx` has substantial
       pre-existing hardcoded English chrome text ("Notifications", "Mark
       all read", "Refresh", empty-state copy, "Just now"/"Xh ago") — left
       untouched by the 2026-09-15 i18n fix that only covered generated
       notification *content*, not the panel's own chrome. (2026-09-15
-      audit, i18n)
-- [ ] Notification rows created before the 2026-09-15 i18n-key encoding
+      audit, i18n) Fixed on `slice/notification-panel-i18n-chrome-text`
+      per `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`:
+      the panel now reads every chrome string through `useTranslation`
+      (`notifications.panel.*` / `notifications.when.*`, hu+en), a new
+      pure `lib/notifications/relative-time.ts` replaces the buggy
+      `formatWhen` (no more "Just now" mislabeling 55-minute-old items, no
+      more negative-hour clock-skew garbage, absolute dates go through
+      `formatDateOnly` for the HU/EN-aware format), the empty `<DrawerCloseButton />`
+      is replaced with a visible labelled 44×44 lucide `X` button, both
+      action buttons and every row Pressable clear `TAP_TARGET_MIN_H`, and
+      the redundant inner `ScrollView` (double-nested inside `DrawerBody`,
+      itself a `ScrollView`) is removed. Row *content* (titles/bodies)
+      stays English — that's the separate, still-open content-localisation
+      item below; out of scope here per the plan.
+- [~] needs sign-off (PR) (slice/notification-panel-i18n-chrome-text) —
+      AC7 of `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
+      requires the empty-state description to name exactly "lejárt
+      számlák, NAV-beküldés, emlékeztetők" (overdue invoices, NAV
+      submission, reminders). The shipped copy (`lib/i18n/locales/hu.ts` /
+      `en.ts` `notifications.panel.empty.description`,
+      commit `2cf14c2`) instead names overdue invoices, invoices
+      sent/awaiting payment, and NAV submission — because
+      `syncNotificationsFromDomain` (`lib/notifications/service.ts:136-181`)
+      only ever emits `overdue_invoice`, `invoice_sent`, and `nav_pending`;
+      `payment_reminder` is written solely by the demo-only
+      `seedDemoNotifications` (`service.ts:200`), and
+      `processPaymentReminders` (`lib/reminders/process.ts`) sends reminder
+      emails but never calls `createNotification`. So AC7's literal wording
+      does not match what the app actually does today.
+      **Round 2:** the plan file was orphaned (existed only on the
+      unrelated `fixround1-composer-line-item-horizontal-scroll-1440`
+      branch) — it is now committed to `slice/notification-panel-i18n-chrome-text`
+      itself so the AC and this note stay next to each other. The copy was
+      deliberately left unchanged again: round 1 already changed it once
+      without sign-off and review flagged that as a confirmed finding, and
+      round 1's follow-up explicitly declined to re-decide it a second
+      time; changing it a third time without a human in the loop would
+      repeat the same mistake. `tsc --noEmit` and `npm run test:unit` (215
+      suites / 1367 tests) are green either way, so this is a product-copy
+      decision, not a code defect, and per CLAUDE.md's ship rules this
+      slice should go out as a **pull request for explicit human/product
+      sign-off**, not an auto-merge by the dev-loop's Ship phase, until one
+      of the two options below is chosen. Needs one of:
+      (a) formally update AC7 (in `docs/plans/2026-09-21-notification-panel-i18n-chrome-text.md`
+      on this branch) to match the shipped, factually-accurate copy, since
+      reminders don't populate this panel today; or (b) wire an actual
+      `payment_reminder` notification row into `syncNotificationsFromDomain`
+      or `processPaymentReminders` (its own TDD slice — out of scope for a
+      "risk: none, presentational only" plan) and restore "emlékeztetők" to
+      the copy.
+- [ ] `components/notifications/NotificationPanel.tsx:99` — the close
+      button's `className` duplicates centering utilities already provided
+      by `TAP_TARGET_ICON_BOX`: `` `items-center justify-center rounded-full
+      ${TAP_TARGET_ICON_BOX}` `` where `TAP_TARGET_ICON_BOX`
+      (`lib/ui/tap-target.ts`) is already `"h-11 w-11 items-center
+      justify-center"` — `items-center justify-center` is written twice.
+      Harmless (class-merge dedupes it), just noise for the next reader.
+      Fix: drop the explicit `items-center justify-center` and keep
+      `className={`rounded-full ${TAP_TARGET_ICON_BOX}`}`.
+      (ship-review, notification-panel-i18n-chrome-text, ux, low)
+- [ ] The tap-target/overflow review of
+      `components/notifications/NotificationPanel.tsx` reached its
+      "no regression" conclusion by static code tracing only (Button's
+      `size="sm"` is `min-h-8` per `components/ui/button/index.tsx:53`,
+      overridden by the panel's own `TAP_TARGET_MIN_H` className per tva's
+      class-merge; `DrawerBody` is `ScrollView`-backed with base `shrink-0`
+      and the panel keeps `flex-1` with no inner `ScrollView`) — not live
+      rendered screenshots. Capturing an authenticated 375×812/1440×900
+      screenshot was blocked by this session's credential-leakage guard
+      (the repo's `.env` holds the production Neon `DATABASE_URL` per
+      CLAUDE.md) and was not attempted, so this remains an
+      unverified-by-screenshot gap, not evidence of an actual bug. Fix: a
+      reviewer with a disposable local Postgres + non-production E2E test
+      user should capture the mobile/desktop screenshots before treating
+      this as a fully verified UX pass; alternatively build a mocked-auth/
+      Storybook harness so `NotificationPanel` can be screenshotted without
+      live credentials. (ship-review, notification-panel-i18n-chrome-text,
+      ux, low)
+- [x] Notification rows created before the 2026-09-15 i18n-key encoding
       fix (in the same DB, from earlier test runs) still render as literal
       English text — by design, only newly-synced/newly-seeded
       notifications get the fix. Needs a data migration to backfill, not
       just a code change, if old rows must display correctly too.
-      (2026-09-15 audit, i18n)
+      (2026-09-15 audit, i18n) — Shipped in
+      `slice/notification-backfill-i18n-legacy-rows`, per
+      `docs/plans/2026-09-21-notification-backfill-i18n-legacy-rows.md`.
+      Two halves, no raw SQL/`drizzle-kit` data migration: (1)
+      `syncNotificationsFromDomain`/`seedDemoNotifications` now store
+      `notifications.content.*` encoded keys (via
+      `lib/notifications/i18n.ts`'s `encodeNotificationText`) instead of
+      literal English prose, with `referenceKey`s unchanged so
+      `upsertByReference` updates existing rows in place; (2) a pure,
+      anchored `normalizeLegacyNotificationText` maps the 11 exact pre-fix
+      strings back to their key+params, feeding `translateNotificationText`
+      — used by `NotificationPanel`/`NotificationBanner` at render time
+      (old rows show Hungarian immediately, no DB write) and by the new
+      `backfillLegacyNotificationText(userId)`, which
+      `syncNotificationsFromDomain` now calls first to converge stored
+      rows (idempotent — a changed-rows-only `UPDATE` of
+      `title`/`body`/`updatedAt`, scoped by `userId`). 10 new
+      `notifications.content.*` hu/en keys. `npm run typecheck` and
+      `npm run test:unit` green (217 suites, 1422 tests).
 - [ ] AC3 of the hungarianize-brand-invoice-preview-pdf plan
       (`docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md:109`)
       literally reads `formatDocumentAmount(1234.5, "EUR") === "1 234,56 €"`,
@@ -1067,7 +1615,7 @@ Remaining for the launch gate:
       one-shot — verified the test actually catches the bug by confirming
       it fails against the pre-fix code. `npm run typecheck` and `npm run
       test:unit` green (198 suites / 1116 tests).
-- [ ] The new exchange-rate `Input` and currency pills in
+- [x] The new exchange-rate `Input` and currency pills in
       `StepPartner.tsx` are ~34px tall on mobile, below the 44px
       tap-target guideline — matches the sizing every other composer
       `Input` already uses, and the currency-selector tap-target work is
@@ -1075,6 +1623,32 @@ Remaining for the launch gate:
       the exchange-rate field isn't missed when that item is picked up.
       (2026-09-15 ship review of slice/non-huf-invoice-exchange-rate-nav-xml,
       ux)
+      **Shipped** (`slice/exchange-rate-input-tap-target-mobile`,
+      2026-09-21). The currency pills were already at 44px from
+      `slice/invoice-flow-tap-targets-44px` — this slice adds a
+      regression guard for them (pre-existing `StepPartner.test.tsx`
+      coverage now double-checked green) and fixes the real finding: the
+      exchange-rate field is one of **156** `<Input` call sites across the
+      app, and `inputStyle`'s base was `h-9` (fixed 36px), not a
+      per-call-site class. Added `TAP_TARGET_H` ("h-11") to
+      `lib/ui/tap-target.ts`, derived `TAP_TARGET_ICON_BOX` from it, and
+      used it in `components/ui/input/index.tsx`'s `inputStyle` base
+      (now exported, with a `tva()`-zero-args wrapper matching
+      `buttonStyle`'s). Every `Input` in the app — composer fields,
+      settings forms, search boxes — is now ≥44px by construction. Also
+      fixed the two 36px date controls in the same collapsed section as
+      the exchange-rate field (`DateInput.tsx`'s web branch,
+      `date-field/index.web.tsx`) and `LineItemRow.tsx`'s unit pill
+      (line ~119, kept in step with the quantity input beside it); the
+      delete control (`h-9 w-9` + `hitSlop={8}`) was left as-is by design.
+      No `lib/tax/`/`lib/nav/`/`lib/m2m/` or marketing changes, no new
+      i18n keys, no schema change. New/extended tests:
+      `lib/ui/tap-target.test.ts`, `components/ui/input/tap-target.test.ts`
+      (new), `components/invoices/composer/DateInput.test.tsx` (new — the
+      file had no test before), `components/ui/date-field/DateField.test.tsx`,
+      `components/invoices/composer/LineItemRow.test.tsx`. `npx tsc
+      --noEmit` and `npm run test:unit` (219 suites / 1431 tests) green.
+      Plan: `docs/plans/2026-09-21-exchange-rate-input-tap-target-mobile.md`.
 - [x] The new `invoices.document.exchangeRate` /
       `exchangeRateValue` / `vatInHuf` i18n keys
       (`lib/i18n/locales/en.ts`, `hu.ts`) were unused by
@@ -1094,7 +1668,7 @@ Remaining for the launch gate:
       merge would otherwise have introduced in `hu.ts`/`en.ts` (the
       branding slice and this slice each added their own `invoices.
       document` block at a different point in the file).
-- [ ] Check-then-act race lets the same díjbekérő be converted twice
+- [x] Check-then-act race lets the same díjbekérő be converted twice
       despite the 409 guard — `convert+api.ts` calls
       `findExistingConversion(...)` then, only if null,
       `convertProformaToInvoice(...)`: two sequential DB calls with no
@@ -1112,7 +1686,20 @@ Remaining for the launch gate:
       the same latent gap in storno.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       acceptance)
-- [ ] AC20 (the "Kapcsolódó bizonylatok" card renders
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      added the partial unique index
+      `invoice_converted_from_live_unique_idx` on
+      `(user_id, converted_from_invoice_id) WHERE converted_from_invoice_id
+      IS NOT NULL AND status <> 'cancelled'` (`drizzle/0003_dijbekero-
+      double-conversion-guard.sql`, additive only — no DROP/ALTER/rename)
+      as the DB-level backstop, a new pure `isUniqueViolation()` classifier
+      (`lib/db/unique-violation.ts`), and a try/catch in `convert+api.ts`
+      that, on the violation, re-runs `findExistingConversion` and returns
+      the identical 409 `{ code: "alreadyConverted", invoice }` — or
+      rethrows if the winner is no longer live. A route test fakes the
+      `23505` race and asserts a 409, never a 500. The identical race in
+      `storno+api.ts` is still open — separate item, not touched here.
+- [x] AC20 (the "Kapcsolódó bizonylatok" card renders
       `convertedTo`/`convertedFrom` and navigates) has no automated test
       covering the rendered links or a click-through, and the plan's
       required manual-verification note (§5.4: "verifying the screens by
@@ -1131,7 +1718,15 @@ Remaining for the launch gate:
       in the PR body as the plan requires.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       acceptance)
-- [ ] Redundant nested `runAction("convert", ...)` on the primary convert
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      `__tests__/screens/invoice-detail.test.tsx` gained a case with a
+      populated `convertedFromInvoice` asserting the rendered
+      `invoices.links.convertedFrom` row and that pressing it navigates via
+      `router.push` to the source díjbekérő's detail route, plus a case
+      with two `convertedToInvoices` (one live, one cancelled) asserting
+      both rows render with their distinct i18n keys and pressing the live
+      row navigates to it.
+- [x] Redundant nested `runAction("convert", ...)` on the primary convert
       button in `app/(app)/invoices/[id]/index.tsx`: `primaryOnPress`
       wraps `handleConvert` in `runAction("convert", ...)`, but
       `handleConvert` itself already calls `runAction("convert", ...)`
@@ -1145,7 +1740,12 @@ Remaining for the launch gate:
       handleConvert()` directly instead of re-wrapping it.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
       acceptance)
-- [ ] "Kapcsolódó bizonylatok" renders a cancelled prior conversion
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      `primaryOnPress` now calls `() => void handleConvert()` directly;
+      `runAction("convert", ...)` appears exactly once in the file, inside
+      `handleConvert` itself — matching every other self-wrapping handler
+      on the screen.
+- [x] "Kapcsolódó bizonylatok" renders a cancelled prior conversion
       identically to a live one —
       `app/api/invoices/[id]/links+api.ts`'s
       `findInvoicesReferencing(userId, "convertedFromInvoiceId", id)`
@@ -1158,6 +1758,59 @@ Remaining for the launch gate:
       cancelled entries out of the rendered list, or attach a status
       indicator per row.
       (2026-09-15 ship review of slice/dijbekero-convert-to-invoice-impl,
+      ux)
+      **Resolved 2026-09-18** (`slice/dijbekero-proforma-to-invoice-flow`):
+      kept every row (no filtering, so the history stays visible) but
+      distinguished them textually — a `status === "cancelled"` row now
+      renders `invoices.links.convertedToCancelled` ("...(sztornózva):
+      {{number}}" / "...(cancelled): {{number}}") instead of the plain
+      `invoices.links.convertedTo`, per the plan's UX note to use copy, not
+      a new colour, in this plain-list card.
+- [ ] `docs/loop-queue.md`'s fix-round-2 note (above, "folyamatban
+      (slice/dijbekero-convert-to-invoice)") says "**PR merged 2026-09-15.**
+      Fix-round-2 (`slice/dijbekero-proforma-to-invoice-flow`, 2026-09-18)
+      closed F1-F4 ..." — claiming the PR merged on 2026-09-15, three days
+      *before* the 2026-09-18 fix-round-2 work it goes on to describe, and
+      this branch is in fact still unmerged/under review as of 2026-09-18.
+      Fix: reword to something like "**PR opened 2026-09-18, pending
+      review.** Fix-round-2 ... closed F1-F4 ..." and let the Ship phase
+      add the actual merge note once it merges, consistent with CLAUDE.md's
+      rule that Ship (not the implementer) records merges.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
+      acceptance)
+- [ ] AC14's screen-level wiring (`menuItemsFor`/`handleOpenExisting` swap
+      in `app/(app)/invoices/index.tsx`) has no dedicated test with a
+      non-empty `convertedProformaIds` map — the only test touching that
+      screen (`__tests__/screens/app-pages.smoke.test.tsx`) adds
+      `convertedProformaIds: {}` to the `useInvoices` mock and only asserts
+      the screen renders. The label swap
+      (`invoice.documentType === "proforma" && convertedProformaIds[invoice.id]`
+      → `invoices.convert.openExisting`) and `handleOpenExisting`'s id
+      lookup → `router.push(routes.invoiceDetail(existingId))` are manually
+      verified correct by reading the code, but are exercised only through
+      `InvoiceCard.test.tsx`/`InvoiceListTable.test.tsx` with hand-supplied
+      props, never through this screen's own id-mapping logic with a
+      populated map. Fix: add a case to `app-pages.smoke.test.tsx` (or a new
+      screen test) mocking `useInvoices` with a non-empty
+      `convertedProformaIds` map, asserting the swapped label and correct
+      navigation target.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
+      ux)
+- [ ] `InvoiceListRow`'s converted badge (`components/invoices/InvoiceListRow.tsx`
+      ~56-65) is not gated on `documentType`, unlike `InvoiceCard.tsx`
+      (~106: `invoice.documentType === "proforma" && converted`) — it
+      renders whenever the `converted` prop is true, with no proforma
+      check. Currently safe only because the sole caller
+      (`invoices/index.tsx`'s `convertedProformaIds`, built exclusively from
+      proforma rows per AC11/AC12) guarantees `converted` is never true for
+      a non-proforma row — an implicit, untested invariant at this
+      component's own boundary; `InvoiceListRow.test.tsx`'s AC17 negative
+      case uses `documentType: "proforma"` with `converted` omitted, not a
+      non-proforma row with `converted=true`. Fix: either add the same
+      `documentType` guard inside `InvoiceListRow` for defense-in-depth, or
+      add a test asserting a non-proforma invoice with `converted=true`
+      does not render the badge.
+      (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
       ux)
 - [ ] The branch this shipped from was 2 commits stale behind `main`
       (missing the desktop sidebar collapse redesign,
@@ -1182,7 +1835,7 @@ Remaining for the launch gate:
       `git fetch`/rebase or merge normally rather than trusting a raw
       `main..slice` diff at face value.
       (2026-09-16 ship review of slice/pdf-invohub-brand-mark, acceptance)
-- [ ] Footer attribution text stays at pre-existing low contrast (~3.17:1)
+- [x] Footer attribution text stays at pre-existing low contrast (~3.17:1)
       after gaining the mark — `lib/invoices/preview-html.ts`'s `.footer`
       rule keeps `color: #8a90a6; font-size: 0.78rem` unchanged by this
       slice (only `display:flex`/alignment/gap and a `.footer svg{flex-
@@ -1196,6 +1849,116 @@ Remaining for the launch gate:
       text is dim. Optional polish, not a blocker: on a future touch of this
       file, darken `.footer` text color (e.g. toward `#6b7280`/`#5b6178`).
       (2026-09-16 ship review of slice/pdf-invohub-brand-mark, ux)
+      Fixed: `docs/plans/2026-09-21-pdf-footer-attribution-contrast.md` —
+      new `lib/theme/contrast.ts` (WCAG 2.x `relativeLuminance`/
+      `contrastRatio`) + `lib/invoices/document-ink.ts` (`documentInk`/
+      `documentSurfaces` token module) route the footer attribution, the
+      mobile stacked-table `td::before` labels, and the PDF footer strip
+      (`generate-pdf.ts`'s `footerText`/`pageIndicatorText`, plus
+      `pdf-brand-mark.ts`'s `drawBrandLockup`) through one shared
+      `documentInk.muted` (`#5b6178`, 6.13:1 on paper) instead of the old
+      `#8a90a6` (3.17:1) / `#666666`. Colour-only; no i18n keys, no
+      `db/schema.ts` change, no rendered string change.
+      (2026-09-21 slice/pdf-footer-attribution-contrast)
+- [ ] AC6 unit test cannot actually exercise a real listener leak — the two
+      "notes continuation listener cleanup (AC6)" tests in
+      `lib/invoices/generate-pdf.test.ts` (lines 740-756) assert
+      `mockDocs[0].listenerCount('pageAdded')` is 0 after
+      `generateInvoicePdf()`, but the jest.mock factory's `addPage()`
+      (~lines 146-149) is a no-op and `text()` (~lines 199-205) never calls
+      `addPage()` or emits `'pageAdded'`, so the mock never fires the event
+      this feature is built around. In `lib/invoices/generate-pdf.ts`
+      (lines 747-756), `doc.on('pageAdded', onNotesPageAdded)` is paired
+      with `doc.off('pageAdded', onNotesPageAdded)` inside a `finally` block
+      that runs unconditionally regardless of whether `pageAdded` ever
+      fired — so this test would pass identically whether the on/off
+      pairing were implemented correctly or removed/broken entirely. The
+      real pdfkit-backed `generate-pdf.integration.test.ts` exercises real
+      pagination for AC1/2/3/7/8, but no test (mock or integration) asserts
+      zero leaked listeners against a document where `'pageAdded'` actually
+      fired. Optional hardening: add a real-pdfkit assertion in
+      `generate-pdf.integration.test.ts`, e.g.
+      `doc.listenerCount('pageAdded') === 0` on the real document returned
+      via the recorded-doc helper, for an invoice whose notes actually
+      paginate, so AC6 is verified against real pagination rather than only
+      a mock that never emits the event.
+      (2026-09-21 ship review of slice/pdf-broken-pagination-blank-page,
+      acceptance)
+
+- [~] folyamatban — PR for human sign-off (slice/tax-audit-data-export)
+      **Adóhatósági ellenőrzési adatszolgáltatás** (23/2014. (VI. 30.) NGM
+      rendelet 8. § (1) c), 11/A. §): built-in export of issued invoices by
+      date range or invoice-number range, in the decree's 3. melléklet XML
+      schema (NAV `23_2014_szamlasema.xsd`, saved under
+      `lib/invoices/tax-audit-export/schema/`). Replaces the old CSV
+      "Adóellenőrzési export", which was not in the prescribed format and
+      also exported drafts/proformas. TAX/LEGAL-GATED: the field mapping
+      (teljdatum = issue date, single-line address in kozterulet_neve,
+      HUF-only adoertek on foreign-currency invoices, exempt rows at
+      adokulcs 0, no EV nyilvántartási szám) needs owner / tax-professional
+      sign-off before merge.
+### Research refill 2026-09-21 (market/NAV research, product strategist)
+
+- [~] needs sign-off (PR) — **Teljesítés dátuma is not a real field — NAV
+      gets the issue date instead** (needs tax/legal sign-off). The composer collects it
+      (`components/invoices/composer/useInvoiceComposer.ts`,
+      `StepPartner.tsx`) but `composeInvoiceNotes` in
+      `lib/invoices/client-form-fields.ts` only appends it to `notes` as the
+      text line `Teljesítés: …`; there is no column on `invoice`
+      (`db/schema.ts`), no field on `Invoice` (`lib/invoices/types.ts`), and
+      `lib/nav/invoice-xml.ts` therefore falls back to
+      `invoice.invoiceDeliveryDate ?? invoice.issueDate`, so every submitted
+      `<invoiceDeliveryDate>` is really the issue date. Teljesítés is a
+      mandatory Áfa tv. 169. § field, it is the date the AAM értékhatár is
+      measured against, and NAV's 2026-01-01 validation set adds warnings
+      when a correction moves the performance date. Add an additive nullable
+      column + domain field, thread it through create/PATCH/`lib/invoices/
+      create-from-payload.ts`, the PDF/preview, and the NAV XML; keep the
+      `issueDate` fallback only for legacy rows.
+      **Built, PR open for human sign-off** (`slice/invoice-fulfillment-date-persist-nav`,
+      2026-09-21): additive `fulfillment_date` column
+      (`drizzle/0005_invoice-fulfillment-date-persist-nav.sql`,
+      ADD COLUMN only) + `Invoice.fulfillmentDate`, read-time legacy-notes
+      fallback (`lib/invoices/fulfillment-date.ts`), NAV XML precedence
+      `invoiceDeliveryDate ?? fulfillmentDate ?? issueDate`
+      (`lib/nav/invoice-xml.ts`), PDF/HTML "Teljesítés kelte" meta segment,
+      composer persistence + reload, external-API validation/normalization,
+      and duplicate/storno/modify/díjbekérő-conversion carry-over —
+      `npx tsc --noEmit` and `npm run test:unit` both green
+      (1562 tests). This backlog entry did not yet exist on `main` when
+      this slice branched (it lives only in an unmerged sibling branch's
+      history, commit `33669d1`); inserted here, already checked off,
+      so `main` reflects the shipped state once this PR (tax/legal-gated,
+      per plan `docs/plans/2026-09-21-invoice-fulfillment-date-persist-nav.md`
+      §8) is merged. Follow-ups noted in the plan's own "Out of scope" —
+      line-item unit persistence, the 2026-01-01 NAV validation set, the
+      AAM/KATA bevételi keret meter, and notes backfill — are separate,
+      not started here.
+- [ ] Fulfillment-date hint wraps unevenly on desktop; plan's conditional
+      fallback not implemented — `components/invoices/composer/
+      StepPartner.tsx` lines 229-231 render the `fulfillmentDateHint` Text
+      unconditionally inside the first `VStack` (`min-w-[160px] flex-1`),
+      sibling to the plain issueDate/paymentDeadline `VStack`s in one
+      `HStack space="sm" className="flex-wrap"` (line 225).
+      `composer-logic.ts:36` caps the Partner step's form column at 720px
+      (`composerDesktopLayout`), and with the card's `p-4` padding and
+      `HStack` gap, the three `flex-1` columns land at roughly 220-240px
+      each; `hu.ts:300-301`'s `fulfillmentDateHint` (~93 chars, `size="xs"`)
+      wraps to multiple lines at that width while its siblings do not grow,
+      producing a visibly uneven three-column row. The plan
+      (`docs/plans/2026-09-21-invoice-fulfillment-date-persist-nav.md`,
+      §7 "UX notes") anticipated this and specified a conditional fallback
+      — render the hint below the `HStack` instead of inside the first
+      `VStack` if the wrap pushes the deadline quick-pick pills out of
+      view — which the shipped code does not implement. Downgraded from the
+      fixer's initial "medium": the date/payment section sits inside a
+      `ScrollView` (`InvoiceComposer.tsx` lines 174, 207), so the extra row
+      height only adds scroll length — the pills stay fully reachable, and
+      none of the plan's 14 acceptance criteria mention this hint's desktop
+      layout. Cosmetic only: optionally move the hint below the closing
+      `</HStack>` per the plan's own fallback guidance.
+      (2026-09-21 ship review of slice/invoice-fulfillment-date-persist-nav,
+      ux)
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
@@ -1224,6 +1987,19 @@ fixtures. Never hardcode a tax figure nobody has sourced and verified.
 - [ ] Tax-professional validation of the rule files and regression
       fixtures — human sign-off, tracked here as its own checkbox, not
       assumed once the code exists
+- [ ] Real incoming (költség)számla feature — the `incoming_invoice` table
+      and `GET /api/nav/incoming` exist but the only writer is a hardcoded
+      stub (`lib/nav/client.ts` `fetchIncomingInvoices`), now dev-gated
+      (see `docs/decisions/2026-09-21-no-incoming-invoice-screen-yet.md`).
+      Doing this properly needs OSA `queryInvoiceDigest` with
+      `invoiceDirection: INBOUND` + `queryInvoiceData` against the **test**
+      environment, XML→row mapping, pagination, and/or a manual
+      cost-invoice entry form, then a screen and a nav entry. Filed under
+      Phase 3 rather than Phase 1 because its primary consumer is
+      költségelszámolás (input-VAT / cost accounting for the EV tax
+      calculator) — a real outgoing-invoicing screen for something the
+      user issues doesn't apply here; this is exclusively cost-side data
+      that only becomes useful once there's a tax calculation to feed.
 
 ## Phase 4 — NAV M2M tax-return submission
 

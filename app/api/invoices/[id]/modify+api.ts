@@ -1,8 +1,10 @@
 // app/api/invoices/[id]/modify+api.ts
-// Starts a helyesbítő (correction) draft prefilled with the original's lines.
+// Starts a helyesbítő (correction) draft prefilled with the original's
+// lines — guard + orchestration shared with the external v1 route via
+// lib/invoices/modify-handler.ts.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { resolveIdParam } from "@/lib/api/resolve-id-param";
-import { createModificationDraft, getInvoiceById } from "@/lib/invoices/service";
+import { performModify } from "@/lib/invoices/modify-handler";
 
 type Params = { id: string };
 
@@ -14,14 +16,14 @@ export async function POST(
   if (!session) return unauthorizedResponse();
 
   const id = await resolveIdParam(request, params);
-  const existing = await getInvoiceById(session.user.id, id);
-  if (!existing) {
-    return jsonResponse({ error: "Not found" }, 404);
-  }
-  if (existing.documentType === "proforma") {
+  const result = await performModify(session.user.id, id);
+
+  if (!result.ok) {
+    if (result.reason === "not_found") {
+      return jsonResponse({ error: "Not found" }, 404);
+    }
     return jsonResponse({ code: "proformaNotStornoable" }, 400);
   }
 
-  const draft = await createModificationDraft(session.user.id, existing);
-  return jsonResponse({ invoice: draft }, 201);
+  return jsonResponse({ invoice: result.invoice }, 201);
 }

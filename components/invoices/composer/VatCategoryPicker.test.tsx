@@ -81,4 +81,24 @@ describe("VatCategoryPicker (INV-7)", () => {
     const aam = render({ category: "AAM" });
     expect(JSON.stringify(aam.tree.toJSON())).not.toContain('"27"');
   });
+
+  it("renders every choice — common categories, rate pills, advanced toggle, and advanced categories — as a >=44px target (AC5)", () => {
+    const { tree } = render();
+    const toggle = findPressableWithText(tree.root, "invoices.vat.advancedToggle");
+    act(() => {
+      toggle?.props.onPress?.();
+    });
+    // Filter to nodes that actually carry a computed className (the
+    // rendered Pressable and its host descendants) rather than every
+    // onPress-bearing fiber — a ChoicePill wrapper's OWN fiber reflects
+    // exactly what its caller passed, which may have no className prop at
+    // all when the caller relies on ChoicePill's internal default.
+    const pills = tree.root.findAll(
+      (n) => typeof n.props?.onPress === "function" && typeof n.props?.className === "string"
+    );
+    expect(pills.length).toBeGreaterThan(0);
+    for (const pill of pills) {
+      expect(String(pill.props.className)).toContain("min-h-11");
+    }
+  });
 });

@@ -83,15 +83,20 @@ authTest.describe("Dashboard UI (authenticated)", () => {
     await expect(page.getByText("Összes funkció")).toBeVisible();
   });
 
-  authTest("header actions show incoming invoices button", async ({
+  authTest("header no longer shows the mislabelled incoming invoices button", async ({
     page,
   }) => {
+    // The desktop header used to show a "Bejövő számlák" (incoming
+    // invoices) button that actually opened the *outgoing* unpaid list —
+    // removed (not relabelled) by slice/incoming-invoices-dashboard-button;
+    // see docs/decisions/2026-09-21-no-incoming-invoice-screen-yet.md. The
+    // same destination stays reachable via the "Kintlévőség" KPI card.
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
     await expect(
       page.getByRole("button", { name: /Bejövő számlák/ })
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 
   authTest("header actions show customer service button in the ⋯ menu", async ({

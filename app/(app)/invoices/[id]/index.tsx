@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Copy, Download, FileEdit, Mail, Wallet, CheckCircle2 } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
 import {
   FormControl,
   FormControlLabel,
@@ -21,22 +22,29 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { InvoiceDocumentPreview } from "@/components/invoices/InvoiceDocumentPreview";
+import { InvoicePdfPreview } from "@/components/invoices/InvoicePdfPreview";
 import { InvoiceMoneyHeader } from "@/components/invoices/InvoiceMoneyHeader";
 import { InvoiceTimeline, type NavTimelineState } from "@/components/invoices/InvoiceTimeline";
+import { NavStatusCard } from "@/components/invoices/NavStatusCard";
 import { DangerZone } from "@/components/layout/DangerZone";
-import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
+import type { OverflowMenuItem } from "@/components/layout/OverflowMenu";
+import { AnchoredPopover } from "@/components/layout/AnchoredPopover";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { apiFetch, ApiError, invoicePdfUrl } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/invoices/calculations";
+import { isMissingExchangeRate } from "@/lib/invoices/exchange-rate";
+import { SEND_INVOICE_ERROR_I18N_KEY } from "@/lib/invoices/send-error-i18n";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import { isOverdue } from "@/lib/invoices/status-visuals";
 import type { Invoice, PaymentMethod } from "@/lib/invoices/types";
+import { isPaymentProviderAvailable } from "@/lib/payments/availability";
 import { routes } from "@/lib/navigation";
 import { useRouteParam } from "@/lib/routing/route-param";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 
 type InvoiceLinks = {
   originalInvoice: Invoice | null;
@@ -72,6 +80,14 @@ const ERROR_CODE_I18N_KEY: Record<string, string> = {
   notProforma: "invoices.convert.notProforma",
   cancelled: "invoices.convert.cancelledSource",
   proformaNotStornoable: "invoices.errors.proformaNotStornoable",
+  // Defense in depth: the overflow menu already hides Revolut/Barion when
+  // isPaymentProviderAvailable() is false (see lib/payments/availability.ts),
+  // but a stale client could still call /api/payments for one.
+  paymentProviderUnavailable: "invoices.detail.paymentProviderUnavailable",
+  // The send/resend action (handleSend below) can fail with any of these
+  // codes — shared with the composer so the mapping can't drift between
+  // the two entry points to the same server-side send.
+  ...SEND_INVOICE_ERROR_I18N_KEY,
 };
 
 export default function InvoiceDetailScreen() {
@@ -79,6 +95,7 @@ export default function InvoiceDetailScreen() {
   const navError = useRouteParam("navError");
   const { t } = useTranslation();
   const icons = useIconColors();
+  const isDesktop = useIsDesktop();
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
   const [links, setLinks] = React.useState<InvoiceLinks | null>(null);
   const [navSubmission, setNavSubmission] = React.useState<NavSubmissionRow | null>(null);
@@ -333,7 +350,7 @@ export default function InvoiceDetailScreen() {
     primaryOnPress = () => router.push(routes.invoiceDetail(liveConversion.id));
   } else if (isProforma) {
     primaryLabel = t("invoices.convert.action");
-    primaryOnPress = () => void runAction("convert", handleConvert);
+    primaryOnPress = () => void handleConvert();
     primaryBusyKey = "convert";
   } else if (invoice.status === "sent" || invoice.status === "unpaid" || invoice.status === "overdue") {
     primaryLabel = t("invoices.detail.emailReminder");
@@ -360,17 +377,28 @@ export default function InvoiceDetailScreen() {
       disabled: invoice.status === "draft" || invoice.status === "cancelled" || isProforma,
       onPress: () => void handleCorrection(),
     },
-    { label: t("invoices.list.pdfAction"), icon: Download, onPress: () => router.push(routes.invoiceDetail(id!)) },
-    {
-      label: t("invoices.detail.revolut"),
-      icon: Wallet,
-      onPress: () => void handlePaymentLink("revolut"),
-    },
-    {
-      label: t("invoices.detail.barion"),
-      icon: Wallet,
-      onPress: () => void handlePaymentLink("barion"),
-    },
+    { label: t("invoices.list.pdfAction"), icon: Download, onPress: () => void handleDownloadPdf() },
+    // Revolut/Barion are placeholder adapters (no real provider API call —
+    // see lib/payments/availability.ts) until a real integration ships, so
+    // they're hidden rather than handing out a link that goes nowhere.
+    ...(isPaymentProviderAvailable("revolut")
+      ? [
+          {
+            label: t("invoices.detail.revolut"),
+            icon: Wallet,
+            onPress: () => void handlePaymentLink("revolut"),
+          } satisfies OverflowMenuItem,
+        ]
+      : []),
+    ...(isPaymentProviderAvailable("barion")
+      ? [
+          {
+            label: t("invoices.detail.barion"),
+            icon: Wallet,
+            onPress: () => void handlePaymentLink("barion"),
+          } satisfies OverflowMenuItem,
+        ]
+      : []),
   ];
 
   const nav: NavTimelineState | null = navSubmission
@@ -389,6 +417,10 @@ export default function InvoiceDetailScreen() {
         <PageHeader
           title={invoice.invoiceNumber || t("invoices.status.draft")}
           breadcrumb={[{ label: t("invoices.title"), href: routes.invoices }, { label: invoice.invoiceNumber || t("invoices.status.draft") }]}
+          // The "···" lives at the far right of the page header, not inside
+          // the money card's action cluster.
+          overflowActions={overflowItems}
+          overflowLabel={t("invoices.detail.overflowLabel")}
         />
       }
     >
@@ -405,23 +437,120 @@ export default function InvoiceDetailScreen() {
             </Button>
           }
           secondaryAction={
-            <HStack space="xs" className="items-center">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={markPaidDisabled}
-                onPress={() => setShowMarkPaid((v) => !v)}
-                testID="invoice-detail-mark-paid-toggle"
-              >
-                <CheckCircle2 size={14} color={icons.foreground} />
-                <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
-              </Button>
-              <OverflowMenu items={overflowItems} label={t("invoices.detail.overflowLabel")} />
-            </HStack>
+            // The mark-paid form opens right next to its button, not at the
+            // bottom of the page (AnchoredPopover: portal on web, Modal native).
+            <AnchoredPopover
+              open={showMarkPaid}
+              onClose={() => setShowMarkPaid(false)}
+              testID="invoice-detail-mark-paid-popover"
+              anchor={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={markPaidDisabled}
+                  onPress={() => setShowMarkPaid((v) => !v)}
+                  testID="invoice-detail-mark-paid-toggle"
+                >
+                  <CheckCircle2 size={14} color={icons.foreground} />
+                  <ButtonText>{t("invoices.markPaid.action")}</ButtonText>
+                </Button>
+              }
+            >
+              <VStack space="md">
+                <Text className="font-semibold">{t("invoices.markPaid.title")}</Text>
+                <FormControl>
+                  <FormControlLabel>
+                    <FormControlLabelText>{t("invoices.fields.paymentMethod")}</FormControlLabelText>
+                  </FormControlLabel>
+                  <ChoicePillGroup accessibilityLabel={t("invoices.fields.paymentMethod")}>
+                    {MARK_PAID_METHODS.map((pm) => (
+                      <ChoicePill
+                        key={pm.value}
+                        selected={paidMethod === pm.value}
+                        onPress={() => setPaidMethod(pm.value)}
+                        accessibilityLabel={t(pm.i18nKey)}
+                      >
+                        <Text size="sm" className="font-light">{t(pm.i18nKey)}</Text>
+                      </ChoicePill>
+                    ))}
+                  </ChoicePillGroup>
+                </FormControl>
+                <HStack space="sm">
+                  <FormControl className="flex-1">
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.markPaid.paidAt")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField value={paidAt} onChangeText={setPaidAt} placeholder="ÉÉÉÉ-HH-NN" />
+                    </Input>
+                  </FormControl>
+                  <FormControl className="flex-1">
+                    <FormControlLabel>
+                      <FormControlLabelText>{t("invoices.markPaid.paidAmount")}</FormControlLabelText>
+                    </FormControlLabel>
+                    <Input>
+                      <InputField
+                        keyboardType="decimal-pad"
+                        value={paidAmount}
+                        onChangeText={setPaidAmount}
+                      />
+                    </Input>
+                    {(invoice.paidAmount ?? 0) > 0 ? (
+                      <Text size="xs" className="mt-1 text-muted-foreground">
+                        {t("invoices.markPaid.paidAmountHint", {
+                          amount: formatCurrency(invoice.paidAmount ?? 0, invoice.currency),
+                        })}
+                      </Text>
+                    ) : null}
+                  </FormControl>
+                </HStack>
+                <HStack space="sm">
+                  <Button
+                    disabled={busy === "markPaid"}
+                    onPress={() => void handleMarkPaid()}
+                    testID="invoice-detail-mark-paid-confirm"
+                  >
+                    <ButtonText>{t("invoices.markPaid.confirm")}</ButtonText>
+                  </Button>
+                  <Button variant="outline" onPress={() => setShowMarkPaid(false)}>
+                    <ButtonText>{t("invoices.markPaid.cancel")}</ButtonText>
+                  </Button>
+                </HStack>
+              </VStack>
+            </AnchoredPopover>
           }
         />
 
+        {isMissingExchangeRate(invoice) ? (
+          <Card className="border-destructive/40 bg-destructive/10 p-4" testID="exchange-rate-fix-detail-card">
+            <VStack space="sm">
+              <Text className="font-semibold text-destructive">
+                {t("invoices.exchangeRateFix.detailTitle")}
+              </Text>
+              <Text size="sm" className="text-muted-foreground">
+                {t("invoices.exchangeRateFix.detailBody", { currency: invoice.currency })}
+              </Text>
+              <Button
+                variant="outline"
+                className={`self-start border-destructive/40 ${TAP_TARGET_MIN_H}`}
+                onPress={() => router.push(routes.invoiceEdit(invoice.id, { focus: "exchangeRate" }))}
+              >
+                <ButtonText className="text-destructive">
+                  {t("invoices.exchangeRateFix.addRate")}
+                </ButtonText>
+              </Button>
+            </VStack>
+          </Card>
+        ) : null}
+
         <InvoiceTimeline invoice={invoice} nav={nav} />
+
+        {/* NAV Online Számla: status, "Beküldés"/"Újrapróbálás", polling.
+            Every finalized számla-type document (incl. storno/helyesbítő);
+            never a draft or a díjbekérő. */}
+        {finalized && !isProforma ? (
+          <NavStatusCard invoiceId={invoice.id} onChanged={() => void reload()} />
+        ) : null}
 
         {links &&
         (links.originalInvoice ||
@@ -434,44 +563,77 @@ export default function InvoiceDetailScreen() {
             <VStack space="xs">
               <Text className="font-semibold">{t("invoices.links.title")}</Text>
               {links.originalInvoice ? (
-                <Pressable onPress={() => router.push(routes.invoiceDetail(links.originalInvoice!.id))}>
+                <Pressable
+                  onPress={() => router.push(routes.invoiceDetail(links.originalInvoice!.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.stornoOf", { number: links.originalInvoice.invoiceNumber })}
                   </Text>
                 </Pressable>
               ) : null}
               {links.modifiesInvoice ? (
-                <Pressable onPress={() => router.push(routes.invoiceDetail(links.modifiesInvoice!.id))}>
+                <Pressable
+                  onPress={() => router.push(routes.invoiceDetail(links.modifiesInvoice!.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.modifiesOf", { number: links.modifiesInvoice.invoiceNumber })}
                   </Text>
                 </Pressable>
               ) : null}
               {(links.stornoDocuments ?? []).map((doc) => (
-                <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
+                <Pressable
+                  key={doc.id}
+                  onPress={() => router.push(routes.invoiceDetail(doc.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.stornoDocument")}: {doc.invoiceNumber}
                   </Text>
                 </Pressable>
               ))}
               {(links.correctionDocuments ?? []).map((doc) => (
-                <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
+                <Pressable
+                  key={doc.id}
+                  onPress={() => router.push(routes.invoiceDetail(doc.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.modifiedBy")}: {doc.invoiceNumber || t("invoices.status.draft")}
                   </Text>
                 </Pressable>
               ))}
               {links.convertedFromInvoice ? (
-                <Pressable onPress={() => router.push(routes.invoiceDetail(links.convertedFromInvoice!.id))}>
+                <Pressable
+                  onPress={() => router.push(routes.invoiceDetail(links.convertedFromInvoice!.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
                     {t("invoices.links.convertedFrom", { number: links.convertedFromInvoice.invoiceNumber })}
                   </Text>
                 </Pressable>
               ) : null}
               {(links.convertedToInvoices ?? []).map((doc) => (
-                <Pressable key={doc.id} onPress={() => router.push(routes.invoiceDetail(doc.id))}>
+                <Pressable
+                  key={doc.id}
+                  onPress={() => router.push(routes.invoiceDetail(doc.id))}
+                  accessibilityRole="link"
+                  className={`justify-center ${TAP_TARGET_MIN_H}`}
+                >
                   <Text size="sm" className="text-primary">
-                    {t("invoices.links.convertedTo", { number: doc.invoiceNumber || t("invoices.status.draft") })}
+                    {doc.status === "cancelled"
+                      ? t("invoices.links.convertedToCancelled", {
+                          number: doc.invoiceNumber || t("invoices.status.draft"),
+                        })
+                      : t("invoices.links.convertedTo", {
+                          number: doc.invoiceNumber || t("invoices.status.draft"),
+                        })}
                   </Text>
                 </Pressable>
               ))}
@@ -479,76 +641,13 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
-        <InvoiceDocumentPreview invoice={invoice} invoiceId={id} layout="single" />
-
-        {showMarkPaid ? (
-          <Card className="p-4">
-            <VStack space="md">
-              <Text className="font-semibold">{t("invoices.markPaid.title")}</Text>
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("invoices.fields.paymentMethod")}</FormControlLabelText>
-                </FormControlLabel>
-                <HStack space="sm" className="flex-wrap">
-                  {MARK_PAID_METHODS.map((pm) => (
-                    <Pressable
-                      key={pm.value}
-                      onPress={() => setPaidMethod(pm.value)}
-                      className={`rounded-lg border px-4 py-2 ${
-                        paidMethod === pm.value
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-background"
-                      }`}
-                    >
-                      <Text size="sm" className="font-light">{t(pm.i18nKey)}</Text>
-                    </Pressable>
-                  ))}
-                </HStack>
-              </FormControl>
-              <HStack space="sm">
-                <FormControl className="flex-1">
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.markPaid.paidAt")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField value={paidAt} onChangeText={setPaidAt} placeholder="ÉÉÉÉ-HH-NN" />
-                  </Input>
-                </FormControl>
-                <FormControl className="flex-1">
-                  <FormControlLabel>
-                    <FormControlLabelText>{t("invoices.markPaid.paidAmount")}</FormControlLabelText>
-                  </FormControlLabel>
-                  <Input>
-                    <InputField
-                      keyboardType="decimal-pad"
-                      value={paidAmount}
-                      onChangeText={setPaidAmount}
-                    />
-                  </Input>
-                  {(invoice.paidAmount ?? 0) > 0 ? (
-                    <Text size="xs" className="mt-1 text-muted-foreground">
-                      {t("invoices.markPaid.paidAmountHint", {
-                        amount: formatCurrency(invoice.paidAmount ?? 0, invoice.currency),
-                      })}
-                    </Text>
-                  ) : null}
-                </FormControl>
-              </HStack>
-              <HStack space="sm">
-                <Button
-                  disabled={busy === "markPaid"}
-                  onPress={() => void handleMarkPaid()}
-                  testID="invoice-detail-mark-paid-confirm"
-                >
-                  <ButtonText>{t("invoices.markPaid.confirm")}</ButtonText>
-                </Button>
-                <Button variant="outline" onPress={() => setShowMarkPaid(false)}>
-                  <ButtonText>{t("invoices.markPaid.cancel")}</ButtonText>
-                </Button>
-              </HStack>
-            </VStack>
-          </Card>
-        ) : null}
+        <InvoicePdfPreview
+          source={{ kind: "saved", invoiceId: invoice.id, version: invoice.updatedAt }}
+          filename={`${invoice.invoiceNumber || "invoice"}.pdf`}
+          openLabel={t("invoices.list.pdfAction")}
+          openTestID="invoice-preview-download-pdf"
+          height={isDesktop ? 900 : 560}
+        />
 
         {message ? (
           <Card className="border-primary/30 bg-accent p-3">
@@ -556,28 +655,25 @@ export default function InvoiceDetailScreen() {
           </Card>
         ) : null}
 
+        {/* A finalized (non-draft) invoice is a legal document once it has
+            a real number — Áfa tv. 169. § means it can never be deleted
+            again, only sztornózva. A draft has no number yet, so it stays
+            freely deletable. A finalized proforma (díjbekérő) is neither:
+            storno explicitly refuses proforma documents (see
+            lib/invoices/storno-handler.ts), so there is nothing safe to
+            offer here once it's been sent — no DangerZone at all. */}
         {finalized && !isProforma ? (
           <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
-            <HStack space="sm" className="flex-wrap">
-              <Button
-                variant="outline"
-                className="border-destructive/40"
-                disabled={busy === "storno" || invoice.status === "cancelled"}
-                onPress={() => void handleStorno()}
-              >
-                <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
-              </Button>
-              <Button
-                variant="outline"
-                className="border-destructive/40"
-                disabled={busy === "delete"}
-                onPress={() => void handleDelete()}
-              >
-                <ButtonText className="text-destructive">{t("invoices.detail.deleteAction")}</ButtonText>
-              </Button>
-            </HStack>
+            <Button
+              variant="outline"
+              className="border-destructive/40 self-start"
+              disabled={busy === "storno" || invoice.status === "cancelled"}
+              onPress={() => void handleStorno()}
+            >
+              <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
+            </Button>
           </DangerZone>
-        ) : (
+        ) : !finalized ? (
           <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
             <Button
               variant="outline"
@@ -588,7 +684,7 @@ export default function InvoiceDetailScreen() {
               <ButtonText className="text-destructive">{t("invoices.detail.deleteAction")}</ButtonText>
             </Button>
           </DangerZone>
-        )}
+        ) : null}
       </VStack>
     </ScreenLayout>
   );

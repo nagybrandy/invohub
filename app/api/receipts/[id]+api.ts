@@ -10,6 +10,7 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import { parseNavReceiptEnvironment } from "@/lib/nav-receipt/environment";
 import { isNavReceiptBlockedReason } from "@/lib/receipts/nav-error-code";
 import { getReceiptById } from "@/lib/receipts/service";
+import { receiptReportDate } from "@/lib/receipts/report-date";
 
 type Params = { id: string };
 
@@ -34,9 +35,9 @@ export async function GET(
 
     // navReceiptSubmission has no currency column (deferred — see
     // docs/plans/2026-09-18-e-nyugta-nav-receipt-api.md §6/§9), and one
-    // submission run inserts one row per currency group for the same
-    // (userId, reportDate), all with the same createdAt (submit-nav+api.ts,
-    // cron/nav-receipt-report+api.ts both use a single `now`). So a plain
+    // (userId, reportDate) can hold both the HUF report's row and a blocked
+    // non-HUF row (submit-nav+api.ts, lib/nav-receipt/daily-report-run.ts
+    // write one of each at most). So a plain
     // "most recent row for this date" lookup can hand a HUF receipt's detail
     // screen a different currency group's blocked/failed row (or vice
     // versa). buildDailyReceiptReports only ever reports HUF groups and
@@ -44,7 +45,8 @@ export async function GET(
     // lib/receipts/nav-error-code.ts (never a translatable sentence), so
     // isNavReceiptBlockedReason(row.errorMessage) is a reliable, copy-proof
     // discriminator between the two kinds of row for the same reportDate.
-    const reportDate = new Date(receipt.issuedAt).toISOString().slice(0, 10);
+    // Budapest calendar day — the same key the runner and the submit route write.
+    const reportDate = receiptReportDate(receipt.issuedAt);
     const isHufReceipt = receipt.currency === "HUF";
     const submissionsForDate = await db
       .select()

@@ -35,6 +35,7 @@ export function InvoiceListTable({
   onRowPress,
   menuItemsFor,
   empty,
+  convertedIds,
 }: {
   invoices: Invoice[];
   loading?: boolean;
@@ -44,6 +45,8 @@ export function InvoiceListTable({
   onRowPress?: (invoice: Invoice) => void;
   menuItemsFor: (invoice: Invoice) => OverflowMenuItem[];
   empty?: ReactNode;
+  /** proformaId -> its live conversion's invoice id (AC12) — drives InvoiceListRow's "Számlázva" badge (AC15). */
+  convertedIds?: Record<string, string>;
 }) {
   const { t } = useTranslation();
   const icons = useIconColors();
@@ -123,6 +126,7 @@ export function InvoiceListTable({
           now={now}
           onPress={onRowPress}
           menuItems={menuItemsFor(invoice)}
+          converted={!!convertedIds?.[invoice.id]}
         />
       ))}
     </Box>

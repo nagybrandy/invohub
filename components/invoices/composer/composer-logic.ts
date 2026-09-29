@@ -15,6 +15,59 @@ export type ComposerStepId = "partner" | "items" | "review";
 
 export const COMPOSER_STEP_ORDER: ComposerStepId[] = ["partner", "items", "review"];
 
+export type ComposerDesktopLayout = {
+  /** Whether the sticky 400px ComposerSummary column renders on this step. */
+  showSummaryColumn: boolean;
+  /** The form column's max width, or undefined for "no cap" (composer-line-item-horizontal-scroll-1440). */
+  formMaxWidth: number | undefined;
+};
+
+/**
+ * composer-line-item-horizontal-scroll-1440: the items step gets the full
+ * content width — no 400px summary column, no 720px form cap — so the
+ * 860px line-item grid (grid-columns.ts) fits without scrolling inside its
+ * own card at 1440px. Partner and Ellenőrzés keep the summary + cap exactly
+ * as before (see docs/decisions/2026-09-18-composer-items-step-full-width-grid.md).
+ */
+export function composerDesktopLayout(step: ComposerStepId): ComposerDesktopLayout {
+  if (step === "items") {
+    return { showSummaryColumn: false, formMaxWidth: undefined };
+  }
+  return { showSummaryColumn: true, formMaxWidth: 720 };
+}
+
+/** Viewport width from which the composer shows the live PDF beside the form. */
+export const SIDE_PREVIEW_BREAKPOINT = 1024;
+
+export type ComposerPreviewLayout = {
+  /** The viewport is wide enough for the side panel at all. */
+  sideAvailable: boolean;
+  /** The side panel is actually rendered (available and not hidden by the user). */
+  side: boolean;
+  /** Side panel width in px (A4 scaled to fit). */
+  previewWidth: number;
+  /** Height of the embedded PDF frame in px. */
+  previewHeight: number;
+};
+
+/**
+ * Owner feedback 2026-09-22: while creating/editing an invoice the real PDF
+ * is always visible beside the form on wide screens; narrower screens get an
+ * "Előnézet" button (drawer) instead. The user can hide the side panel to
+ * give the step-2 line-item grid the full width back.
+ */
+export function composerPreviewLayout(
+  viewport: { width: number; height: number },
+  hidden: boolean
+): ComposerPreviewLayout {
+  const sideAvailable = viewport.width >= SIDE_PREVIEW_BREAKPOINT;
+  const previewWidth = viewport.width >= 1600 ? 560 : viewport.width >= 1280 ? 460 : 380;
+  // Sticky panel: viewport minus the page's top padding, the panel header
+  // and the draft note — never shorter than a readable half page.
+  const previewHeight = Math.max(480, Math.round(viewport.height - 150));
+  return { sideAvailable, side: sideAvailable && !hidden, previewWidth, previewHeight };
+}
+
 /** INV-6: suggested units of measure for the line-item grid's "Egység" column. */
 export const UNIT_OPTIONS = ["db", "óra", "nap", "hó", "km", "kg", "m²", "alkalom"];
 
@@ -37,9 +90,17 @@ export function resolveStatusForAction(
   return "sent";
 }
 
-/** Only "Véglegesítés és küldés" ever triggers the send-email API call. */
-export function shouldSendOnAction(action: SaveAction): boolean {
-  return action === "finalizeAndSend";
+/**
+ * Does this save also e-mail the document? Either the action says so
+ * ("Véglegesítés és küldés") or the review step's toggle does. It used to
+ * need both, which meant the action named "és küldés" sent nothing unless
+ * the user had also flipped a toggle that defaults to off — and flipping
+ * that toggle before a plain "Véglegesítés" did nothing either. A draft is
+ * never sent: it has no number yet.
+ */
+export function shouldSendOnAction(action: SaveAction, emailOnSend: boolean): boolean {
+  if (action === "draft") return false;
+  return action === "finalizeAndSend" || emailOnSend;
 }
 
 export type StepValidationResult = {
@@ -60,6 +121,28 @@ export function validatePartnerStep(clientName: string): StepValidationResult {
   };
 }
 
+/**
+ * Áfa tv. 169. § e) requires the buyer's name AND address on a finalized
+ * document — checked only when the save action actually finalizes (see
+ * SaveAction below); a draft may stay incomplete. Focuses the zip field,
+ * the first of the three address inputs in the "Ügyfél adatai" panel
+ * (StepPartner.tsx).
+ */
+export function validateBuyerAddressStep(fields: {
+  clientZip: string;
+  clientCity: string;
+  clientAddress: string;
+}): StepValidationResult {
+  if (fields.clientZip.trim() && fields.clientCity.trim() && fields.clientAddress.trim()) {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    errorKey: "invoices.errors.buyerAddressRequired",
+    focusField: "clientZip",
+  };
+}
+
 /** INV-4: at least one line item needs a description before it counts. */
 export function validateLineItemsStep(lineItems: InvoiceLineItem[]): StepValidationResult {
   if (lineItems.some((item) => item.description.trim())) return { valid: true };
@@ -68,6 +151,22 @@ export function validateLineItemsStep(lineItems: InvoiceLineItem[]): StepValidat
     errorKey: "invoices.errors.lineItemRequired",
     focusField: "lineItem-0-description",
   };
+}
+
+/**
+ * The guard the stepper's "Tovább" runs before it leaves a step. Saving
+ * already validates everything (useInvoiceComposer.save), but a wizard that
+ * silently walks past a required field only reports the problem at the very
+ * end — so each step re-uses its own validator on the way out. The review
+ * step is last, so nothing follows it to block.
+ */
+export function validateComposerStep(
+  step: ComposerStepId,
+  fields: { clientName: string; lineItems: InvoiceLineItem[] }
+): StepValidationResult {
+  if (step === "partner") return validatePartnerStep(fields.clientName);
+  if (step === "items") return validateLineItemsStep(fields.lineItems);
+  return { valid: true };
 }
 
 /** INV-8: the due date may never sit before the issue date. */

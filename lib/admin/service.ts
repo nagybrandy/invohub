@@ -12,6 +12,8 @@ export type AdminUserSummary = {
   role: string;
   createdAt: string;
   companyName: string | null;
+  /** Set once the account was closed (lib/account/closure.ts); null = active. */
+  closedAt: string | null;
 };
 
 export type PlatformStats = {
@@ -30,6 +32,7 @@ export async function listAllUsers(): Promise<AdminUserSummary[]> {
       email: user.email,
       role: user.role,
       createdAt: user.createdAt,
+      closedAt: user.closedAt,
       companyName: company.name,
     })
     .from(user)
@@ -42,6 +45,7 @@ export async function listAllUsers(): Promise<AdminUserSummary[]> {
     role: row.role,
     createdAt: row.createdAt.toISOString(),
     companyName: row.companyName ?? null,
+    closedAt: row.closedAt ? row.closedAt.toISOString() : null,
   }));
 }
 
@@ -75,6 +79,7 @@ export async function updateUserRole(
     role: updated.role,
     createdAt: updated.createdAt.toISOString(),
     companyName: companyRow?.name ?? null,
+    closedAt: updated.closedAt ? updated.closedAt.toISOString() : null,
   };
 }
 

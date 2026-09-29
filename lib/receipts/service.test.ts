@@ -7,6 +7,15 @@ jest.mock("@/db", () => ({
   },
 }));
 
+// Condition builders return inspectable descriptors so the mocked `where`
+// can filter rows the way Postgres would (see the listReceipts tests).
+jest.mock("drizzle-orm", () => ({
+  ...jest.requireActual("drizzle-orm"),
+  eq: jest.fn((_col: unknown, value: unknown) => ({ op: "eq", value })),
+  inArray: jest.fn((_col: unknown, values: unknown[]) => ({ op: "inArray", values })),
+  and: jest.fn((...conditions: unknown[]) => ({ op: "and", conditions })),
+}));
+
 jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn(),
 }));
@@ -26,7 +35,11 @@ import { getCompanyByUserId } from "@/lib/companies/service";
 import {
   calculateLineItemTotals,
   createReceipt,
+  getDailyVatAggregation,
   getPublicReceiptByToken,
+  getVatAggregationForRange,
+  listReceipts,
+  markReceiptsSubmittedForRange,
   validateReceiptInput,
 } from "@/lib/receipts/service";
 
@@ -235,5 +248,192 @@ describe("createReceipt", () => {
     });
     expect(record.receiptNumber).toMatch(/^NYG-/);
     expect(mockDb.insert).toHaveBeenCalledTimes(2);
+  });
+});
+
+const rangeReceiptRow = {
+  id: "r1",
+  userId: "u1",
+  receiptNumber: "NYG-2026-001",
+  clientName: "Walk-in",
+  totalAmount: "1270",
+  currency: "HUF",
+  paymentMethod: "cash",
+  qrToken: "qr-token",
+  navSubmitted: false,
+  issuedAt: new Date("2026-07-05T10:00:00.000Z"),
+  createdAt: new Date("2026-07-05T10:00:00.000Z"),
+  updatedAt: new Date("2026-07-05T10:00:00.000Z"),
+};
+
+const rangeLineItemRow = {
+  id: "li-1",
+  receiptId: "r1",
+  description: "Kávé",
+  quantity: "1",
+  unitPrice: "1000",
+  vatRate: 27,
+  unit: "db",
+  sortOrder: 0,
+};
+
+describe("getVatAggregationForRange", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("aggregates receipts within the given instant range under the given reportDate", async () => {
+    mockDb.select
+      .mockReturnValueOnce(selectChain([rangeReceiptRow]))
+      .mockReturnValueOnce(selectChain([rangeLineItemRow]));
+
+    const result = await getVatAggregationForRange(
+      "u1",
+      new Date("2026-07-04T22:00:00.000Z"),
+      new Date("2026-07-05T21:59:59.999Z"),
+      "2026-07-05"
+    );
+
+    expect(result.reportDate).toBe("2026-07-05");
+    expect(result.receiptCount).toBe(1);
+    expect(result.startReceiptNumber).toBe("NYG-2026-001");
+    expect(result.endReceiptNumber).toBe("NYG-2026-001");
+    expect(result.vatBreakdown).toHaveLength(1);
+  });
+});
+
+describe("getDailyVatAggregation", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("still returns the same shape, delegating to getVatAggregationForRange with the local calendar day", async () => {
+    mockDb.select
+      .mockReturnValueOnce(selectChain([rangeReceiptRow]))
+      .mockReturnValueOnce(selectChain([rangeLineItemRow]));
+
+    const inputDate = new Date("2026-07-05T10:00:00.000Z");
+    const result = await getDailyVatAggregation("u1", inputDate);
+
+    // reportDate is derived the same (unchanged, environment-local-day)
+    // way the pre-existing implementation derived it — delegation must
+    // not change this behaviour, so we compute it identically here
+    // rather than hardcoding a date string that would couple this test
+    // to the test runner's own timezone.
+    const localDayStart = new Date(inputDate);
+    localDayStart.setHours(0, 0, 0, 0);
+    expect(result.reportDate).toBe(localDayStart.toISOString().slice(0, 10));
+    expect(result.receiptCount).toBe(1);
+    expect(result.startReceiptNumber).toBe("NYG-2026-001");
+    expect(result.endReceiptNumber).toBe("NYG-2026-001");
+    expect(result.vatBreakdown).toHaveLength(1);
+  });
+});
+
+describe("markReceiptsSubmittedForRange", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("issues a single update scoped to the user and the given range", async () => {
+    const whereMock = jest.fn().mockResolvedValue(undefined);
+    const setMock = jest.fn(() => ({ where: whereMock }));
+    mockDb.update.mockReturnValue({ set: setMock });
+
+    await markReceiptsSubmittedForRange(
+      "u1",
+      new Date("2026-07-04T22:00:00.000Z"),
+      new Date("2026-07-05T21:59:59.999Z")
+    );
+
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ navSubmitted: true })
+    );
+    expect(whereMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("listReceipts", () => {
+  type Condition = { op: string; value?: unknown; values?: unknown[] };
+
+  function matchesReceiptId(receiptId: string, cond: Condition): boolean {
+    if (cond.op === "eq") return cond.value === receiptId;
+    if (cond.op === "inArray") return cond.values!.includes(receiptId);
+    throw new Error(`Unexpected condition ${cond.op}`);
+  }
+
+  function receiptRow(id: string, receiptNumber: string) {
+    return {
+      id,
+      userId: "u1",
+      receiptNumber,
+      clientName: null,
+      totalAmount: "1000",
+      currency: "HUF",
+      paymentMethod: "cash",
+      navSubmitted: false,
+      qrToken: `qr-${id}`,
+      issuedAt: new Date("2026-07-04T10:00:00.000Z"),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  function lineItemRow(id: string, receiptId: string, sortOrder: number) {
+    return {
+      id,
+      receiptId,
+      description: `Item ${id}`,
+      quantity: "1",
+      unitPrice: "1000",
+      vatRate: 27,
+      unit: "db",
+      sortOrder,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("loads and groups line items for every receipt, not just the first", async () => {
+    const receipts = [
+      receiptRow("r1", "NYG-2026-003"),
+      receiptRow("r2", "NYG-2026-002"),
+      receiptRow("r3", "NYG-2026-001"),
+    ];
+    const lineItems = [
+      lineItemRow("li1", "r1", 0),
+      lineItemRow("li2", "r2", 0),
+      lineItemRow("li3", "r2", 1),
+      lineItemRow("li4", "r3", 0),
+      lineItemRow("other", "someone-elses-receipt", 0),
+    ];
+
+    mockDb.select.mockReturnValueOnce(selectChain(receipts)).mockReturnValueOnce({
+      from: jest.fn(() => ({
+        where: jest.fn((cond: Condition) =>
+          Promise.resolve(lineItems.filter((li) => matchesReceiptId(li.receiptId, cond))),
+        ),
+      })),
+    });
+
+    const result = await listReceipts("u1");
+
+    expect(result.map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
+    expect(result[0].lineItems.map((li) => li.id)).toEqual(["li1"]);
+    expect(result[1].lineItems.map((li) => li.id)).toEqual(["li2", "li3"]);
+    expect(result[2].lineItems.map((li) => li.id)).toEqual(["li4"]);
+    expect(mockDb.select).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the line item query when the user has no receipts", async () => {
+    mockDb.select.mockReturnValueOnce(selectChain([]));
+
+    expect(await listReceipts("u1")).toEqual([]);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
 });

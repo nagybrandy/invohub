@@ -63,6 +63,16 @@ export function documentStatusChip(
  * `1,234,567 Ft` to a Hungarian customer). Narrow/no-break space (U+00A0)
  * between thousands groups and before the currency symbol.
  */
+/**
+ * A value that rounds to zero at `fractionDigits` becomes a plain 0, so a
+ * helyesbítő whose reversing and copied lines cancel (or a float residue
+ * like -1e-13) never prints "-0 Ft" / "-0,00 €". Real negatives (storno and
+ * reversing lines) keep their sign.
+ */
+export function withoutNegativeZero(value: number, fractionDigits: number): number {
+  return Math.abs(value) < 0.5 / 10 ** fractionDigits ? 0 : value;
+}
+
 export function formatDocumentAmount(amount: number, currency: InvoiceCurrency): string {
   const symbol = currency === "EUR" ? "€" : "Ft";
   const fractionDigits = currency === "EUR" ? 2 : 0;
@@ -70,8 +80,40 @@ export function formatDocumentAmount(amount: number, currency: InvoiceCurrency):
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
     useGrouping: true,
-  }).format(amount);
+  }).format(withoutNegativeZero(amount, fractionDigits));
   return `${formatted} ${symbol}`;
+}
+
+const DOMESTIC_COUNTRY_NAMES = new Set(["magyarország", "hungary", "hu", "hun"]);
+
+/**
+ * One Hungarian-ordered address line for a party block: "1114 Budapest,
+ * Bartók Béla út 42." — postcode + city first, then the street. The country
+ * is appended only for a non-Hungarian address (a domestic invoice printing
+ * "Magyarország" on every party is noise). Empty string when nothing is set.
+ */
+export function formatPartyAddress(parts: {
+  zipCode?: string;
+  city?: string;
+  address?: string;
+  country?: string;
+}): string {
+  const locality = [parts.zipCode?.trim(), parts.city?.trim()].filter(Boolean).join(" ");
+  const line = [locality, parts.address?.trim()].filter(Boolean).join(", ");
+  const country = parts.country?.trim();
+  if (country && !DOMESTIC_COUNTRY_NAMES.has(country.toLowerCase())) {
+    return line ? `${line}, ${country}` : country;
+  }
+  return line;
+}
+
+/** Quantity with Hungarian decimal comma ("1,5"), plus the unit when the line has one ("24 óra"). */
+export function formatDocumentQuantity(quantity: number, unit?: string): string {
+  const formatted = new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3, useGrouping: true }).format(
+    withoutNegativeZero(quantity, 3)
+  );
+  const trimmedUnit = unit?.trim();
+  return trimmedUnit ? `${formatted} ${trimmedUnit}` : formatted;
 }
 
 // FALLBACK PATH ONLY. lib/invoices/pdf-fonts.ts embeds a real
