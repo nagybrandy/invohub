@@ -1055,6 +1055,8 @@ export default {
       production: "Éles",
       productionDisabledHint:
         "Az éles NAV jelentés jelenleg le van tiltva ezen a szerveren, amíg a rendszergazda kifejezetten nem engedélyezi.",
+      productionEnabledHint:
+        "Éles NAV-adatszolgáltatás a saját technikai felhasználóddal: innentől minden beküldés valódi, és a NAV-nál marad.",
     },
     navTestSection: {
       title: "NAV kapcsolat",

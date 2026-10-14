@@ -77,3 +77,45 @@ describe("NavEnvironmentPicker", () => {
     expect(JSON.stringify(tree!.toJSON())).toContain("productionDisabledHint");
   });
 });
+
+describe("when the server has enabled production (NAV_PRODUCTION_ENABLED=true)", () => {
+  function render(props: Partial<React.ComponentProps<typeof NavEnvironmentPicker>> = {}) {
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(
+        <NavEnvironmentPicker value={props.value ?? "test"} onChange={props.onChange ?? jest.fn()} productionEnabled />
+      );
+    });
+    return tree;
+  }
+  function productionPressable(tree: TestRenderer.ReactTestRenderer) {
+    return tree.root.findAll(
+      (node) =>
+        typeof node.props?.onPress === "function" &&
+        node.findAll((child) => child.props?.children === "company.navMode.production").length > 0
+    )[0];
+  }
+
+  it("makes the live option selectable and reports the choice", () => {
+    const onChange = jest.fn();
+    const tree = render({ onChange });
+    const prod = productionPressable(tree);
+    expect(prod.props.disabled).toBe(false);
+    act(() => prod.props.onPress());
+    expect(onChange).toHaveBeenCalledWith("production");
+  });
+
+  it("says what live means instead of the disabled hint once production is selected", () => {
+    const json = JSON.stringify(render({ value: "production" }).toJSON());
+    expect(json).toContain("productionEnabledHint");
+    expect(json).not.toContain("productionDisabledHint");
+  });
+
+  it("keeps the live option disabled by default — the server has to say yes first", () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(<NavEnvironmentPicker value="test" onChange={jest.fn()} />);
+    });
+    expect(productionPressable(tree).props.disabled).toBe(true);
+  });
+});

@@ -335,7 +335,11 @@ export default function CompanySettingsScreen() {
             <FormControlLabel>
               <FormControlLabelText>{t("company.navEnvironment")}</FormControlLabelText>
             </FormControlLabel>
-            <NavEnvironmentPicker value={navEnvironment} onChange={setNavEnvironment} />
+            <NavEnvironmentPicker
+              value={navEnvironment}
+              onChange={setNavEnvironment}
+              productionEnabled={navConfig?.productionEnabled ?? false}
+            />
             {navEnvironment !== "demo" ? (
               <Text size="xs" className="mt-2 text-muted-foreground">
                 API: {NAV_API_BASE_URL[navEnvironment]}
