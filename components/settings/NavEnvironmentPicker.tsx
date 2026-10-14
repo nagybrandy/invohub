@@ -1,7 +1,9 @@
 // components/settings/NavEnvironmentPicker.tsx
-// Demo / test / production NAV mode selector. Production is always shown
-// disabled — see docs/nav-test-setup.md for why it's a hard server-side gate,
-// not just a UI hint.
+// Demo / test / production NAV mode selector. Production is selectable only
+// when the server says so (GET /api/nav/config → productionEnabled, i.e.
+// NAV_PRODUCTION_ENABLED=true): the kill switch lives on the server
+// (lib/nav/environment.ts), the picker just mirrors it — a stored
+// "production" still falls back to demo there when the switch is off.
 import { useTranslation } from "react-i18next";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -12,9 +14,12 @@ import { NAV_ENVIRONMENTS, type NavEnvironment } from "@/lib/nav/environment";
 export function NavEnvironmentPicker({
   value,
   onChange,
+  productionEnabled = false,
 }: {
   value: NavEnvironment;
   onChange: (value: NavEnvironment) => void;
+  /** The server's answer; until it arrives production stays disabled. */
+  productionEnabled?: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -28,7 +33,7 @@ export function NavEnvironmentPicker({
     <VStack space="xs">
       <HStack className="rounded-lg border border-border bg-muted p-1">
         {NAV_ENVIRONMENTS.map((environment) => {
-          const disabled = environment === "production";
+          const disabled = environment === "production" && !productionEnabled;
           return (
             <Pressable
               key={environment}
@@ -53,8 +58,8 @@ export function NavEnvironmentPicker({
         })}
       </HStack>
       {value === "production" ? (
-        <Text size="xs" className="text-muted-foreground">
-          {t("company.navMode.productionDisabledHint")}
+        <Text size="xs" className="text-muted-foreground" testID="nav-production-hint">
+          {t(productionEnabled ? "company.navMode.productionEnabledHint" : "company.navMode.productionDisabledHint")}
         </Text>
       ) : null}
     </VStack>

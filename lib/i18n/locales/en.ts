@@ -1056,6 +1056,8 @@ export default {
       production: "Live",
       productionDisabledHint:
         "Live NAV reporting is disabled on this server until the owner explicitly enables it.",
+      productionEnabledHint:
+        "Live NAV reporting with your own technical user: from here on every submission is real and stays on record at NAV.",
     },
     navTestSection: {
       title: "NAV connection",
