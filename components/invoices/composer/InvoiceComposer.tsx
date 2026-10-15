@@ -134,7 +134,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
   // `readOnly` above) invoice always saves back as "draft"
   // (composer-logic.ts's resolveStatusForAction("draft", …)), so it never
   // triggers number assignment and never needs this gate.
-  const finalizeBlockedByProfile = mode === "create" && companyProfileIncomplete;
+  const finalizeBlockedByProfile = companyProfileIncomplete;
 
   // A finalized invoice never gets its form back — the ONLY way to change
   // it is sztornó (full reversal) or helyesbítő (correction draft), the
@@ -305,21 +305,13 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             >
               <ButtonText>{t("invoices.actions.saveDraft")}</ButtonText>
             </Button>
-            {mode === "edit" ? (
-              <Button
-                size="sm"
-                onPress={() => void handleSave("draft")}
-                disabled={saving}
-                testID="composer-save-changes"
-              >
-                <ButtonText>{t("invoices.edit.saveChanges")}</ButtonText>
-              </Button>
-            ) : (
-              // Split button: the label finalizes on the first click (the
-              // action all but a few invoices need), the chevron holds the
-              // variant. It used to open a menu even for the plain case,
-              // which cost a click and covered the document-type tabs.
-              <Box className="relative">
+            {/* Split button: the label finalizes on the first click (the
+                action all but a few invoices need), the chevron holds the
+                variant. It used to open a menu even for the plain case,
+                which cost a click and covered the document-type tabs. Also
+                shown when editing a draft: that is how a díjbekérő's
+                converted draft (or any saved draft) gets issued. */}
+            <Box className="relative">
                 <HStack>
                   <Button
                     size="sm"
@@ -354,8 +346,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
                     </Pressable>
                   </VStack>
                 ) : null}
-              </Box>
-            )}
+            </Box>
           </HStack>
         ) : null}
       </Box>
@@ -681,15 +672,13 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
               onPress={() =>
                 stepIndex < COMPOSER_STEP_ORDER.length - 1
                   ? goToNextStep()
-                  : void handleSave(mode === "edit" ? "draft" : "finalize")
+                  : void handleSave("finalize")
               }
             >
               <ButtonText>
                 {stepIndex < COMPOSER_STEP_ORDER.length - 1
                   ? t("invoices.composer.next")
-                  : mode === "edit"
-                    ? t("invoices.edit.saveChanges")
-                    : t("invoices.actions.finalize")}
+                  : t("invoices.actions.finalize")}
               </ButtonText>
             </Button>
           </HStack>

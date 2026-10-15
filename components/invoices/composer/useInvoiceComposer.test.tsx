@@ -400,6 +400,7 @@ describe("useInvoiceComposer", () => {
   it("edit mode seeds state from the loaded invoice and does not apply company defaults", async () => {
     const invoice = makeInvoice({
       id: "inv-42",
+      status: "draft",
       clientName: "Existing Kft.",
       currency: "EUR",
       paymentMethod: "card",
@@ -410,6 +411,14 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.clientName).toBe("Existing Kft.");
     expect(ref.current!.currency).toBe("EUR");
     expect(ref.current!.paymentMethod).toBe("card");
+    expect(ref.current!.documentTabsDisabled).toBe(false);
+  });
+
+  it("locks the document type once the invoice is no longer a draft", async () => {
+    const ref = await renderComposer({
+      mode: "edit",
+      invoice: makeInvoice({ id: "inv-43", status: "unpaid", invoiceNumber: "INV-1" }),
+    });
     expect(ref.current!.documentTabsDisabled).toBe(true);
   });
 

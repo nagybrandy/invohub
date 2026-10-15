@@ -679,7 +679,10 @@ export function useInvoiceComposer({
       setDocumentType(type);
       markDirty();
     },
-    documentTabsDisabled: mode === "edit",
+    // The type is only fixed once a document has left "draft" (spec §2.7).
+    // A draft — e.g. the one "Számla készítése ebből" makes from a díjbekérő —
+    // may still become a számla or an előlegszámla.
+    documentTabsDisabled: mode === "edit" && invoice?.status !== "draft",
 
     // Partner
     clients,
