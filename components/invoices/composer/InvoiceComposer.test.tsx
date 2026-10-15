@@ -366,6 +366,20 @@ describe("InvoiceComposer — finalize is one click, sending is the secondary op
     expect(findByTestID(tree, "composer-finalize-menu-trigger").length).toBeGreaterThan(0);
   });
 
+  // A draft made by "Számla készítése ebből" (díjbekérő → számla) or saved
+  // earlier opens in edit mode — it used to offer only "Változások mentése",
+  // so such a draft could never be issued, nor turned into an előlegszámla.
+  it("offers the finalize button when editing a draft, and lets its type change", async () => {
+    const tree = await renderComposer({
+      mode: "edit",
+      invoice: makeInvoice({ id: "inv-d", status: "draft", invoiceNumber: "", documentType: "invoice" }),
+    });
+    expect(findByTestID(tree, "composer-action-finalize").length).toBeGreaterThan(0);
+    const tabs = tree.root.findAll((n) => n.props.accessibilityRole === "tab");
+    expect(tabs.length).toBeGreaterThan(0);
+    expect(tabs.every((tab) => !tab.props.disabled)).toBe(true);
+  });
+
   it("disables the primary finalize button too when the company profile is incomplete", async () => {
     mockCompany = { id: "c1", userId: "u1", name: "Acme Kft.", createdAt: "", updatedAt: "" };
     const tree = await renderComposer({ mode: "create" });
