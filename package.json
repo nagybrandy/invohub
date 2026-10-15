@@ -73,6 +73,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "design:prototype": "node scripts/design-prototype/build.mjs",
     "test": "npm run test:unit",
     "test:unit": "jest --passWithNoTests",
     "test:unit:watch": "jest --watch",
