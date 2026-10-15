@@ -21,6 +21,8 @@ export default {
     accountSettings: "Account settings",
     collapseSidebar: "Collapse sidebar",
     expandSidebar: "Expand sidebar",
+    switchToDark: "Switch to dark mode",
+    switchToLight: "Switch to light mode",
   },
   emailEditor: {
     title: "E-mail editor",

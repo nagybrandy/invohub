@@ -40,7 +40,9 @@ export const test = base.extend<Record<string, never>, { workerStorageState: str
         return;
       }
 
-      const page = await browser.newPage();
+      // browser.newPage() does not inherit the project's baseURL, so a bare
+      // "/login" is an invalid URL — pass it explicitly.
+      const page = await browser.newPage({ baseURL: workerInfo.project.use.baseURL });
       await page.goto("/login");
       await page.waitForLoadState("networkidle");
       await page.getByText("Nincs fiókod? Regisztrálj").waitFor({ state: "visible" }).catch(() => {});
