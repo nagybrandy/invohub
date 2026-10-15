@@ -60,7 +60,7 @@ describe("buildNavInvoiceXml — customerInfo per customer type", () => {
     expect(firstElement(taxNumber, "vatCode", NS_BASE)!.textContent).toBe("2");
     expect(firstElement(taxNumber, "countyCode", NS_BASE)!.textContent).toBe("42");
 
-    const address = firstElement(info, "simpleAddress")!;
+    const address = firstElement(info, "simpleAddress", NS_BASE)!;
     expect(childNames(address)).toEqual(["countryCode", "postalCode", "city", "additionalAddressDetail"]);
     expectSequence(childNames(address), SIMPLE_ADDRESS_SEQUENCE);
     expect(firstElement(address, "countryCode", NS_BASE)!.textContent).toBe("HU");
@@ -139,7 +139,7 @@ describe("buildNavInvoiceXml — supplierInfo", () => {
 
   it("emits a complete supplier simpleAddress with an ISO country code and the street as additionalAddressDetail", () => {
     const root = parseNavXml(buildNavInvoiceXml(makeInvoice(), company));
-    const address = firstElement(firstElement(root, "supplierInfo")!, "simpleAddress")!;
+    const address = firstElement(firstElement(root, "supplierInfo")!, "simpleAddress", NS_BASE)!;
     expect(childNames(address)).toEqual(["countryCode", "postalCode", "city", "additionalAddressDetail"]);
     expect(firstElement(address, "countryCode", NS_BASE)!.textContent).toBe("HU");
     expect(firstElement(address, "additionalAddressDetail", NS_BASE)!.textContent).toBe("Fő utca 2.");

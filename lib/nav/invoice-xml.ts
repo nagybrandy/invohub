@@ -77,6 +77,7 @@ import {
   type NavTaxNumber,
 } from "@/lib/nav/customer";
 import { navLineUnitOf, toNavUnitOfMeasure } from "@/lib/nav/unit-of-measure";
+import { formatNavBankAccountNumber } from "@/lib/nav/bank-account";
 
 const NS_DATA = "http://schemas.nav.gov.hu/OSA/3.0/data";
 const NS_BASE = "http://schemas.nav.gov.hu/OSA/3.0/base";
@@ -178,12 +179,12 @@ function taxNumberBlockXml(tag: "supplierTaxNumber" | "customerTaxNumber", taxNu
 
 function simpleAddressXml(tag: "supplierAddress" | "customerAddress", address: NavSimpleAddress): string {
   return `<${tag}>
-        <simpleAddress>
+        <base:simpleAddress>
           <base:countryCode>${escapeXml(address.countryCode)}</base:countryCode>
           <base:postalCode>${escapeXml(address.postalCode)}</base:postalCode>
           <base:city>${escapeXml(address.city)}</base:city>
           <base:additionalAddressDetail>${escapeXml(address.additionalAddressDetail)}</base:additionalAddressDetail>
-        </simpleAddress>
+        </base:simpleAddress>
       </${tag}>`;
 }
 
@@ -203,8 +204,11 @@ function buildSupplierXml(company: Company | null): string {
   const name = company?.name?.trim() || "InvoHub felhasználó";
   const address = supplierAddress(company);
   const addressXml = address ? simpleAddressXml("supplierAddress", address) : "";
-  const bankAccountXml = company?.bankAccount
-    ? `<supplierBankAccountNumber>${escapeXml(company.bankAccount)}</supplierBankAccountNumber>`
+  // Schema shape only (8-8-8 / 8-8 / IBAN) — anything else is omitted, the
+  // element is optional and an invalid value rejects the whole invoice.
+  const bankAccount = formatNavBankAccountNumber(company?.bankAccount);
+  const bankAccountXml = bankAccount
+    ? `<supplierBankAccountNumber>${escapeXml(bankAccount)}</supplierBankAccountNumber>`
     : "";
 
   return `<supplierInfo>

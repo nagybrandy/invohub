@@ -56,9 +56,23 @@ describe("isNavAutoSubmitConfigured", () => {
     expect(isNavAutoSubmitConfigured(company({ navEnvironment: "test" }))).toBe(true);
   });
 
-  it("is never on for production — automatic production reporting is not enabled by this slice", () => {
-    mockHasOwn.mockReturnValue(true);
-    expect(isNavAutoSubmitConfigured(company({ navEnvironment: "production" }))).toBe(false);
+  it("is on for production only with the server switch AND the company's own technical user", () => {
+    const saved = process.env.NAV_PRODUCTION_ENABLED;
+    try {
+      delete process.env.NAV_PRODUCTION_ENABLED;
+      expect(isNavAutoSubmitConfigured(company({ navEnvironment: "production" }))).toBe(false);
+
+      process.env.NAV_PRODUCTION_ENABLED = "true";
+      mockHasOwn.mockReturnValue(true);
+      expect(isNavAutoSubmitConfigured(company({ navEnvironment: "production" }))).toBe(true);
+      // the shared test account never reports live
+      mockHasOwn.mockReturnValue(false);
+      mockShared.mockReturnValue(true);
+      expect(isNavAutoSubmitConfigured(company({ navEnvironment: "production" }))).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.NAV_PRODUCTION_ENABLED;
+      else process.env.NAV_PRODUCTION_ENABLED = saved;
+    }
   });
 });
 
