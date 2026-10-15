@@ -731,6 +731,8 @@ export default {
     navModeTest: "NAV test",
     navDemoHint: "Demo mode: this receipt is not sent to NAV.",
     navTestHint: "The daily receipt data report is sent to NAV's test system.",
+    navModeProduction: "Live",
+    navProductionHint: "Live mode: automatic receipt reporting to NAV is not supported yet, so this receipt is not sent to NAV.",
     navMissingExchangeRate:
       "Non-HUF ({{currency}}) receipt: no exchange rate on file, so it was left out of the daily NAV data report.",
     search: "Search",

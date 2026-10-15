@@ -730,6 +730,8 @@ export default {
     navModeTest: "NAV teszt",
     navDemoHint: "Demó mód: a nyugta nem kerül be a NAV rendszerébe.",
     navTestHint: "A napi nyugta-adatszolgáltatás a NAV teszt rendszerébe kerül.",
+    navModeProduction: "Éles",
+    navProductionHint: "Éles mód: a nyugták NAV-nak való automatikus beküldése még nem támogatott, a nyugta nem kerül be a NAV rendszerébe.",
     navMissingExchangeRate:
       "Nem HUF ({{currency}}) nyugta: nincs rögzített árfolyam, ezért kimaradt a napi NAV-adatszolgáltatásból.",
     search: "Keresés",
