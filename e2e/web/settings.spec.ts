@@ -181,3 +181,26 @@ authTest.describe("Company settings (authenticated)", () => {
     ).toBeVisible();
   });
 });
+
+authTest.describe("Theme toggle (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
+
+  authTest("the top-strip sun/moon button flips light and dark", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    const toggle = page.getByTestId("app-topstrip-theme-toggle");
+    await expect(toggle).toBeVisible();
+    const isDark = () => page.evaluate(() => document.documentElement.classList.contains("dark"));
+
+    const before = await isDark();
+    await toggle.click();
+    await expect.poll(isDark).toBe(!before);
+    await toggle.click();
+    await expect.poll(isDark).toBe(before);
+  });
+});
