@@ -185,6 +185,14 @@ export default function Login() {
           </Input>
         </FormControl>
 
+        {!isSignup ? (
+          <Pressable onPress={() => router.push(routes.forgotPassword)} className="self-start py-1" testID="login-forgot-password">
+            <Text size="sm" className="text-primary">
+              {t("auth.forgotPassword")}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {error ? (
           <Text size="sm" className="text-destructive">
             {error}
