@@ -532,3 +532,27 @@ describe("buildNavInvoiceXml — merge regression: non-HUF exchange rate + payme
     expect(extractTag(lineBlock, "lineNetAmountHUF")).toBe("78100.00");
   });
 });
+
+describe("buildNavInvoiceXml — what the first live submission was rejected for (2026-10-14)", () => {
+  it("puts simpleAddress in the base namespace: cvc-complex-type.2.4.a expects {base}simpleAddress under supplierAddress", () => {
+    const xml = buildNavInvoiceXml(makeInvoice(), {
+      name: "Demo Kft.",
+      taxNumber: "12345678-1-23",
+      address: "Fő utca 1.",
+      city: "Budapest",
+      zipCode: "1011",
+    } as never);
+    expect(xml).toContain("<base:simpleAddress>");
+    expect(xml).toContain("</base:simpleAddress>");
+    expect(xml).not.toMatch(/<simpleAddress>/);
+  });
+
+  it("sends the supplier bank account in schema shape, and omits one that cannot be made valid", () => {
+    const company = { name: "Demo Kft.", taxNumber: "12345678-1-23", bankAccount: "117421802146201600000000" };
+    const xml = buildNavInvoiceXml(makeInvoice(), company as never);
+    expect(extractTag(extractBlock(xml, "supplierInfo") ?? xml, "supplierBankAccountNumber")).toBe("11742180-21462016-00000000");
+
+    const broken = buildNavInvoiceXml(makeInvoice(), { ...company, bankAccount: "1234" } as never);
+    expect(broken).not.toContain("supplierBankAccountNumber");
+  });
+});

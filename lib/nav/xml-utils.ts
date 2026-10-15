@@ -37,3 +37,9 @@ export function extractBlock(xml: string, tag: string): string | null {
   const match = xml.match(re);
   return match ? match[0] : null;
 }
+
+/** All `<tag ...>...</tag>` blocks (optionally namespace-prefixed), including the tags, in document order. */
+export function extractAllBlocks(xml: string, tag: string): string[] {
+  const re = new RegExp(`<(?:[a-zA-Z0-9]+:)?${tag}(?:\\s[^>]*)?>[\\s\\S]*?<\\/(?:[a-zA-Z0-9]+:)?${tag}>`, "g");
+  return xml.match(re) ?? [];
+}

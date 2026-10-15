@@ -6,6 +6,7 @@
 // invoice detail screen ("Újrapróbálás").
 import { getCompanyByUserId, type Company } from "@/lib/companies/service";
 import { hasInvoiceNumber, type Invoice } from "@/lib/invoices/types";
+import { isNavProductionEnabled } from "@/lib/nav/environment";
 import { hasOwnNavCredentials, isSharedNavTestAccountConfigured } from "@/lib/nav/resolve-credentials";
 import { isNavReportableDocumentType } from "@/lib/nav/submission-guard";
 import { serializeNavSubmission } from "@/lib/nav/serialize-submission";
@@ -14,16 +15,17 @@ import { submitOutgoingInvoiceToNav, type NavSubmitOutcome } from "@/lib/nav/sub
 /**
  * NAV counts as configured when the user has a company profile and its
  * mode can actually submit: demo (simulator) always; test with the
- * company's own technical user or the shared InvoHub test account.
- * Production is deliberately excluded — automatic production reporting is
- * a separate, owner-signed-off decision (and production itself stays
- * behind NAV_PRODUCTION_ENABLED, lib/nav/environment.ts).
+ * company's own technical user or the shared InvoHub test account;
+ * production (owner decision, 2026-10-15: "ne kelljen rányomni") only
+ * while the server's NAV_PRODUCTION_ENABLED switch is on AND the company
+ * has its own technical user — the shared test account never reports live.
  */
 export function isNavAutoSubmitConfigured(company: Company | null): boolean {
   if (!company) return false;
   const mode = company.navEnvironment ?? "demo";
   if (mode === "demo") return true;
   if (mode === "test") return hasOwnNavCredentials(company) || isSharedNavTestAccountConfigured();
+  if (mode === "production") return isNavProductionEnabled() && hasOwnNavCredentials(company);
   return false;
 }
 

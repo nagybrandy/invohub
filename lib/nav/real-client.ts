@@ -22,6 +22,7 @@ import type {
   NavTransactionStatusValue,
 } from "@/lib/nav/types";
 import { extractAllTags, extractBlock, extractTag } from "@/lib/nav/xml-utils";
+import { parseTransactionStatusMessages } from "@/lib/nav/status-messages";
 
 function requireCredentials(credentials: NavRealCredentials | null): NavRealCredentials {
   if (!credentials) {
@@ -129,15 +130,10 @@ export function createNavRealClient(environment: Exclude<NavEnvironment, "demo">
 
       const processingResult = extractBlock(text, "processingResult") ?? text;
       const invoiceStatus = mapInvoiceStatus(extractTag(processingResult, "invoiceStatus"));
-      const technicalMessages = extractAllTags(text, "message");
-      const businessMessages = extractAllTags(text, "validationResultCode").map(
-        (code) => `Üzleti validáció: ${code}`
-      );
-
       return {
         transactionId,
         status: invoiceStatus,
-        messages: [...technicalMessages, ...businessMessages].filter(Boolean),
+        messages: parseTransactionStatusMessages(text),
       };
     },
 
