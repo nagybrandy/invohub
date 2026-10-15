@@ -21,6 +21,8 @@ export default {
     accountSettings: "Fiókbeállítások",
     collapseSidebar: "Oldalsáv összecsukása",
     expandSidebar: "Oldalsáv kinyitása",
+    switchToDark: "Átváltás sötét módra",
+    switchToLight: "Átváltás világos módra",
   },
   emailEditor: {
     title: "E-mail szerkesztő",

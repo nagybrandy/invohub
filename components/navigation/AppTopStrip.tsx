@@ -14,6 +14,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/layout/Breadcrumb";
+import { ThemeToggle } from "@/components/navigation/ThemeToggle";
 import { UserMenu } from "@/components/navigation/UserMenu";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
@@ -97,6 +98,8 @@ export function AppTopStrip({
               </Box>
             ) : null}
           </Pressable>
+
+          <ThemeToggle tone="onLight" testID="app-topstrip-theme-toggle" />
 
           <LanguageSwitcher tone="onLight" />
 

@@ -2,6 +2,7 @@
 import { Bell } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { ThemeToggle } from "@/components/navigation/ThemeToggle";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -94,6 +95,7 @@ export function MobileAppHeader({
               </Box>
             ) : null}
           </Pressable>
+          <ThemeToggle tone="onDark" testID="mobile-header-theme-toggle" />
           <LanguageSwitcher tone="onDark" />
         </HStack>
       </HStack>
