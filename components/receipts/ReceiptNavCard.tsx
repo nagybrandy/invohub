@@ -22,6 +22,22 @@ export type ReceiptNavCardProps = {
   currency: string;
 };
 
+// "production" used to fall into the demo branch, so a company in live mode
+// was told "Demó mód: a nyugta nem kerül be a NAV rendszerébe" — which is
+// wrong: live receipt reporting is simply not supported yet (submit-nav
+// refuses it), a different message from "demo simulates it".
+const NAV_MODE_LABEL_KEY = {
+  demo: "receipts.navModeDemo",
+  test: "receipts.navModeTest",
+  production: "receipts.navModeProduction",
+} as const;
+
+const NAV_MODE_HINT_KEY = {
+  demo: "receipts.navDemoHint",
+  test: "receipts.navTestHint",
+  production: "receipts.navProductionHint",
+} as const;
+
 export function ReceiptNavCard({
   navSubmitted,
   navMode,
@@ -52,11 +68,11 @@ export function ReceiptNavCard({
         <HStack className="items-center justify-between">
           <Badge variant="outline" className="rounded-full px-2 py-0.5">
             <BadgeText className="text-xs text-muted-foreground">
-              {navMode === "test" ? t("receipts.navModeTest") : t("receipts.navModeDemo")}
+              {t(NAV_MODE_LABEL_KEY[navMode])}
             </BadgeText>
           </Badge>
           <Text size="xs" className="flex-1 text-right text-muted-foreground">
-            {navMode === "test" ? t("receipts.navTestHint") : t("receipts.navDemoHint")}
+            {t(NAV_MODE_HINT_KEY[navMode])}
           </Text>
         </HStack>
         {navReportId ? (

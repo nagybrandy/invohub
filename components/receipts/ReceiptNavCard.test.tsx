@@ -64,4 +64,11 @@ describe("ReceiptNavCard", () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).not.toContain("receipts.navReportError");
   });
+
+  it("labels live mode as production, not demo", () => {
+    const json = JSON.stringify(render({ ...baseProps, navMode: "production" }).toJSON());
+    expect(json).toContain("receipts.navModeProduction");
+    expect(json).toContain("receipts.navProductionHint");
+    expect(json).not.toContain("receipts.navDemoHint");
+  });
 });
