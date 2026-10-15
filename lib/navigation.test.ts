@@ -63,3 +63,10 @@ describe("routes.invoicesForClient", () => {
     });
   });
 });
+
+describe("password reset routes", () => {
+  it("are public top-level screens", () => {
+    expect(routes.forgotPassword).toBe("/forgot-password");
+    expect(routes.resetPassword).toBe("/reset-password");
+  });
+});

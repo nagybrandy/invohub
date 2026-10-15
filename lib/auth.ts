@@ -13,6 +13,8 @@ import {
   makeClosedAccountSessionGuard,
 } from "@/lib/account/auth-guards";
 import { isAccountClosed } from "@/lib/account/closure";
+import { buildPasswordResetEmail, PASSWORD_RESET_TOKEN_TTL_SECONDS } from "@/lib/auth-reset-email";
+import { sendEmail } from "@/lib/email/send";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -24,6 +26,14 @@ export const auth = betterAuth({
   ...(process.env.BETTER_AUTH_URL ? { baseURL: process.env.BETTER_AUTH_URL } : {}),
   emailAndPassword: {
     enabled: true,
+    // "Elfelejtett jelszó?": Better Auth mails a one-hour link; the page it
+    // lands on (app/reset-password.tsx) calls resetPassword with the token.
+    resetPasswordTokenExpiresIn: PASSWORD_RESET_TOKEN_TTL_SECONDS,
+    sendResetPassword: async ({ user, url }) => {
+      const mail = buildPasswordResetEmail({ url, name: user.name });
+      const result = await sendEmail({ to: user.email, ...mail });
+      if (!result.ok) throw new Error(result.error ?? "Password reset e-mail could not be sent.");
+    },
   },
   user: {
     additionalFields: authUserAdditionalFields,

@@ -60,6 +60,8 @@ export default function RootLayout() {
           <Stack.Screen name="blog/index" />
           <Stack.Screen name="blog/[slug]" />
           <Stack.Screen name="login" />
+          <Stack.Screen name="forgot-password" />
+          <Stack.Screen name="reset-password" />
           <Stack.Screen name="receipts/view" />
           <Stack.Screen name="aszf" />
           <Stack.Screen name="adatkezeles" />
