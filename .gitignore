@@ -54,3 +54,6 @@ e2e/web/fixtures/.auth/
 /ios
 /android
 .vercel
+
+# Single-file design prototype (generated)
+dist-design/
