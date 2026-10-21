@@ -987,7 +987,7 @@ export default {
       invalidChoice: "value not allowed",
       invalidVatRate: "27, 18, 5, 0 or AAM/TAM/FAD/ATK/KBAET/AHK",
       invalidDate: "use YYYY-MM-DD",
-      invalidCurrency: "HUF or EUR",
+      invalidCurrency: "three-letter currency code (HUF, EUR, USD, GBP…)",
       dueBeforeIssue: "due date cannot be before the issue date",
       addressRequiredToIssue: "the buyer's postal code, city and address are required to issue",
     },

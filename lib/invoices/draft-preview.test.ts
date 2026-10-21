@@ -42,7 +42,7 @@ describe("parseDraftPreviewInvoice", () => {
       invoice: {
         ...makeInvoice(),
         documentType: "bogus",
-        currency: "XXX",
+        currency: "not-a-currency",
         paymentMethod: "barter",
         exchangeRate: "abc",
         lineItems: [
@@ -103,5 +103,12 @@ describe("parseDraftPreviewInvoice", () => {
       clientCountry: "Magyarország",
       clientEuVatNumber: "HU24681357",
     });
+  });
+
+  it("keeps any ISO currency the MNB could publish (USD, GBP, CHF…)", () => {
+    for (const currency of ["USD", "GBP", "CHF", "EUR", "HUF"]) {
+      const result = parseDraftPreviewInvoice({ invoice: { ...makeInvoice(), currency } });
+      expect(result.ok && result.invoice.currency).toBe(currency);
+    }
   });
 });

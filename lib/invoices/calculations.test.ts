@@ -164,3 +164,20 @@ describe("createEmptyLineItem — company default VAT rate", () => {
     expect(li).toMatchObject({ vatCategory: "AAM", vatRate: 0 });
   });
 });
+
+describe("formatCurrency — any currency", () => {
+  const plain = (v: string) => v.replace(/[\u00a0\u202f]/g, " ");
+  it("keeps the forint after the amount and € $ £ before it", () => {
+    expect(plain(formatCurrency(1234567, "HUF"))).toMatch(/^1.234.567 Ft$/);
+    expect(formatCurrency(1234.5, "EUR")).toMatch(/^€1.234.50$/);
+    expect(formatCurrency(99, "USD")).toBe("$99.00");
+    expect(formatCurrency(99, "GBP")).toBe("£99.00");
+  });
+  it("prints other currencies with their ISO code after the amount, with the right decimals", () => {
+    expect(formatCurrency(12.5, "CHF")).toBe("12.50 CHF");
+    expect(formatCurrency(1200, "JPY")).toMatch(/^1.200 JPY$/);
+  });
+  it("never shows a negative zero", () => {
+    expect(formatCurrency(-0.001, "USD")).toBe("$0.00");
+  });
+});

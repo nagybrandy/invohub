@@ -73,6 +73,12 @@ describe("validateBulkRows", () => {
     expect(blankVat.lineItem.vatRate).toBe(18);
   });
 
+  it("accepts any ISO currency code (USD, GBP, CHF…) and upper-cases it", () => {
+    const usd = validateBulkRows([row({ currency: "usd", exchange_rate: "361,40" })], D).results[0].invoice!;
+    expect(usd).toMatchObject({ currency: "USD", exchangeRate: 361.4 });
+    expect(validateBulkRows([{ type: "receipt", description: "x", unit_price: "1", currency: "GBP" }], D).results[0].receipt!.currency).toBe("GBP");
+  });
+
   it("backs the net out of a gross price, but not for an exempt line", () => {
     const gross = validateBulkRows([row({ unit_price: "25000", price_type: "gross" })], D).results[0].invoice!;
     expect(gross.lineItem.unitPrice).toBeCloseTo(19685.03937, 5);
@@ -87,7 +93,7 @@ describe("validateBulkRows", () => {
 
   it("reports every problem on a row with its column, and numbers rows as in the file (header = 1)", () => {
     const { results } = validateBulkRows(
-      [row(), row({ type: "tax", partner_name: "", description: "", unit_price: "x", vat_rate: "20", issue_date: "2026-13-01", currency: "USD", language: "xx", quantity: "0" })],
+      [row(), row({ type: "tax", partner_name: "", description: "", unit_price: "x", vat_rate: "20", issue_date: "2026-13-01", currency: "EURO", language: "xx", quantity: "0" })],
       D,
     );
     expect(results[0]).toMatchObject({ row: 2, errors: [] });

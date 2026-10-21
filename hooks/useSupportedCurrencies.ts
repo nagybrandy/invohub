@@ -14,13 +14,16 @@ export function useSupportedCurrencies(): string[] {
   React.useEffect(() => {
     if (memo) return;
     let cancelled = false;
-    apiFetch<{ currencies: string[] }>("/api/exchange-rates/currencies")
-      .then((data) => {
-        if (!Array.isArray(data.currencies) || data.currencies.length === 0) return;
+    void (async () => {
+      try {
+        const data = await apiFetch<{ currencies: string[] }>("/api/exchange-rates/currencies");
+        if (!Array.isArray(data?.currencies) || data.currencies.length === 0) return;
         memo = data.currencies;
         if (!cancelled) setCurrencies(data.currencies);
-      })
-      .catch(() => undefined);
+      } catch {
+        /* keep the four primaries */
+      }
+    })();
     return () => {
       cancelled = true;
     };
