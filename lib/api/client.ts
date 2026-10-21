@@ -1,6 +1,8 @@
 // lib/api/client.ts
 // Authenticated fetch wrapper for Expo web + native (cookies / credentials).
 import { getAuthBaseUrl } from "@/lib/auth-url";
+import { ACTIVE_ACCOUNT_HEADER } from "@/lib/workspaces/active-account";
+import { getActiveAccountId } from "@/lib/workspaces/active-client";
 
 export class ApiError extends Error {
   constructor(
@@ -26,6 +28,8 @@ export async function apiFetch<T>(
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      // Which billing account the person is working in (null = their own).
+      ...(getActiveAccountId() ? { [ACTIVE_ACCOUNT_HEADER]: getActiveAccountId() as string } : {}),
       ...init?.headers,
     },
   });

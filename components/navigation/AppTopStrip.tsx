@@ -6,6 +6,7 @@
 // sidebar) so it's reachable and visible regardless of collapsed state, and
 // so this strip isn't left empty on the many top-level screens that don't
 // get a breadcrumb.
+import type * as React from "react";
 import { Bell, PanelLeft } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
@@ -33,6 +34,8 @@ export type AppTopStripProps = {
   onOpenAccount: () => void;
   onOpenCompany: () => void;
   onSignOut: () => void;
+  /** Billing-account switcher, rendered before the language switch. */
+  accountSwitcher?: React.ReactNode;
 };
 
 export function AppTopStrip({
@@ -47,6 +50,7 @@ export function AppTopStrip({
   onOpenAccount,
   onOpenCompany,
   onSignOut,
+  accountSwitcher,
 }: AppTopStripProps) {
   const { t } = useTranslation();
   const icons = useIconColors();
@@ -98,6 +102,8 @@ export function AppTopStrip({
               </Box>
             ) : null}
           </Pressable>
+
+          {accountSwitcher ?? null}
 
           <ThemeToggle tone="onLight" testID="app-topstrip-theme-toggle" />
 

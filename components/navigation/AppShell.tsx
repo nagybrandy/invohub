@@ -13,7 +13,9 @@ import { HStack } from "@/components/ui/hstack";
 import { VStack } from "@/components/ui/vstack";
 import type { BreadcrumbItem } from "@/components/layout/Breadcrumb";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
+import { AccountSwitcher } from "@/components/navigation/AccountSwitcher";
 import { AppTopStrip } from "@/components/navigation/AppTopStrip";
+import { ForeignAccountBanner } from "@/components/navigation/ForeignAccountBanner";
 import { MobileAppHeader } from "@/components/navigation/MobileAppHeader";
 import { MobileTabBar } from "@/components/navigation/MobileTabBar";
 import { MoreSheet } from "@/components/navigation/MoreSheet";
@@ -23,8 +25,10 @@ import { NotificationPanel } from "@/components/notifications/NotificationPanel"
 import { signOut, useSession } from "@/lib/auth-client";
 import { getPageTitleLabelKey, getSettingsBreadcrumbLabelKey } from "@/lib/app-navigation";
 import { routes, type AppRoute } from "@/lib/navigation";
+import { takePendingInvite } from "@/lib/workspaces/pending-invite";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useCompany } from "@/hooks/useCompany";
+import { useWorkspaces } from "@/hooks/useWorkspaces";
 
 // Shell breakpoint — moved from 768 to 1024 (spec §1.2): 768-1023px (tablet)
 // now gets the thumb-friendly mobile bars instead of a half-collapsed
@@ -49,6 +53,15 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
   const [moreOpen, setMoreOpen] = React.useState(false);
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const { company } = useCompany();
+  const workspaces = useWorkspaces();
+
+  // An invitation link was opened while signed out: finish it now that we are in.
+  React.useEffect(() => {
+    if (!session) return;
+    const pending = takePendingInvite();
+    if (pending) router.replace({ pathname: "/invite", params: { token: pending } } as never);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const { collapsed, toggleCollapsed } = useSidebarCollapsed(width);
 
@@ -76,6 +89,15 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
     ? [{ label: t("nav.settings"), href: routes.settings }, { label: t(settingsLabelKey) }]
     : undefined;
   const pageTitleLabelKey = getPageTitleLabelKey(pathname);
+
+  const foreignBanner =
+    workspaces.inForeignAccount && workspaces.active ? (
+      <ForeignAccountBanner
+        accountName={workspaces.active.name}
+        role={workspaces.role}
+        onBack={() => workspaces.switchTo(null)}
+      />
+    ) : null;
 
   const notificationPanel = (
     <NotificationPanel
@@ -119,7 +141,11 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
               onOpenAccount={() => router.push(routes.settings)}
               onOpenCompany={() => router.push(routes.settingsCompany)}
               onSignOut={() => void handleSignOut()}
+              accountSwitcher={
+                <AccountSwitcher workspaces={workspaces} onManage={() => router.push(routes.settingsAccess)} />
+              }
             />
+            {foreignBanner}
             {latestUnread ? (
               <NotificationBanner
                 notification={latestUnread}
@@ -146,6 +172,7 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
         unreadCount={unreadCount}
         onOpenNotifications={() => setPanelOpen(true)}
       />
+      {foreignBanner}
       {latestUnread ? (
         <NotificationBanner
           notification={latestUnread}

@@ -653,6 +653,16 @@
       return ok({ status: true });
     });
 
+    // ---- billing accounts (the prototype has just the person's own)
+    route("GET", "/api/workspaces", function (ctx) {
+      return ok({ accounts: [{ id: ctx.user.id, name: ctx.user.name, kind: "person", role: "owner", isOwn: true }], activeId: ctx.user.id });
+    });
+    route("GET", "/api/workspaces/members", function (ctx) {
+      return ok({ members: [{ accessId: "m1", userId: ctx.user.id, name: ctx.user.name, email: ctx.user.email, role: "owner", isYou: true }] });
+    });
+    route("GET", "/api/workspaces/invites", function () { return ok({ invites: [] }); });
+    route("GET", "/api/exchange-rates/currencies", function () { return ok({ currencies: ["HUF", "EUR", "USD", "GBP", "CHF", "PLN", "CZK"], source: "fallback" }); });
+
     // ---- companies
     route("GET", "/api/companies", function (ctx) { return ok({ company: clone(ctx.data.company) }); });
     route("POST", "/api/companies", function (ctx) {

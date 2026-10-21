@@ -40,6 +40,14 @@ export const user = pgTable("user", {
    * closure year). Informational until a purge job exists (TODO in the ADR).
    */
   retentionUntil: timestamp("retention_until"),
+  /**
+   * "person" = someone who signs in; "workspace" = a billing account created
+   * under a person (own company, numbering, partners, invoices — every table
+   * is keyed by user id, so a workspace is a user row that cannot sign in: it
+   * has no credential `account`). Access to it is granted through
+   * workspace_access. Additive, default "person".
+   */
+  kind: text("kind").notNull().default("person"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -687,3 +695,52 @@ export const schema = {
   idempotencyKey,
   exchangeRate,
 };
+
+/**
+ * Who may work in which billing account (a person's own account or a
+ * workspace). The account's own person needs no row; every other person does.
+ * role: owner | admin | accountant | viewer — see lib/workspaces/permissions.ts.
+ */
+export const workspaceAccess = pgTable(
+  "workspace_access",
+  {
+    id: text("id").primaryKey(),
+    accountUserId: text("account_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    granteeUserId: text("grantee_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    invitedByUserId: text("invited_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("workspace_access_account_grantee_idx").on(table.accountUserId, table.granteeUserId),
+    index("workspace_access_grantee_idx").on(table.granteeUserId),
+  ]
+);
+
+/**
+ * A pending invitation to a billing account, e.g. an accountant invited by
+ * e-mail. Only a SHA-256 of the token is stored; the token itself travels in
+ * the e-mailed link.
+ */
+export const workspaceInvite = pgTable(
+  "workspace_invite",
+  {
+    id: text("id").primaryKey(),
+    accountUserId: text("account_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    invitedByUserId: text("invited_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at").notNull(),
+    acceptedAt: timestamp("accepted_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("workspace_invite_account_idx").on(table.accountUserId)]
+);

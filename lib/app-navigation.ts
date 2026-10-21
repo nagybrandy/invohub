@@ -158,6 +158,7 @@ export function getDashboardFeatures(
 const SETTINGS_SUBPAGES: { path: AppRoute; labelKey: string }[] = [
   { path: routes.settingsCompany, labelKey: "settings.company" },
   { path: routes.settingsBilling, labelKey: "settings.billing" },
+  { path: routes.settingsAccess, labelKey: "settings.access" },
   { path: routes.settingsTemplates, labelKey: "settings.templates" },
   { path: routes.settingsPdf, labelKey: "settings.pdf" },
   { path: routes.settingsReminders, labelKey: "settings.reminders" },
