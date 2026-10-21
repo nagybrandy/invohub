@@ -674,6 +674,16 @@
       if (!hit) return ok({ company: null });
       return ok({ company: { name: hit[0], taxNumber: hit[2], address: hit[3], city: hit[4], zipCode: hit[5], country: "HU" } });
     });
+    route("GET", "/api/company/search", function (ctx) {
+      var q = (ctx.params.get("q") || "").toLowerCase();
+      var digits = q.replace(/\D/g, "");
+      var hits = CLIENT_SEED.filter(function (c) {
+        return (q.length >= 3 && c[0].toLowerCase().indexOf(q) >= 0) || (digits.length >= 8 && c[2].replace(/\D/g, "").indexOf(digits.slice(0, 8)) === 0);
+      }).map(function (c) {
+        return { source: "nav", name: c[0], taxNumber: c[2], address: c[3], city: c[4], zipCode: c[5], country: "HU" };
+      });
+      return ok({ results: hits, provider: "nav-only" });
+    });
     route("GET", "/api/nav/config", function () { return ok({ sharedTestAvailable: true, productionEnabled: false, encryptionConfigured: true }); });
     route("POST", "/api/nav/check", function () { return ok({ ok: true, source: "own", code: "ok", message: "Demó: a kapcsolat rendben." }); });
     route("GET", "/api/nav/status", function (ctx) {

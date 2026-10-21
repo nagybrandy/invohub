@@ -195,6 +195,36 @@ describe("useInvoiceComposer", () => {
     );
   });
 
+  it("remembers a freehand buyer and a new product after issuing — and only then", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    act(() => {
+      ref.current!.setClientName("Teljesen Új Kft.");
+      ref.current!.setClientTaxNumber("77777777-2-41");
+      ref.current!.setClientZip("1011");
+      ref.current!.setClientCity("Budapest");
+      ref.current!.setClientAddress("Fő utca 1.");
+      ref.current!.setLineItems([makeLineItem({ description: "Egyedi szolgáltatás", unitPrice: 5000 })]);
+    });
+
+    await act(async () => {
+      await ref.current!.save("draft");
+    });
+    const writesAfterDraft = mockApiFetch.mock.calls.filter(
+      ([path, init]) => (path === "/api/clients" || path === "/api/products") && (init as RequestInit | undefined)?.method === "POST"
+    );
+    expect(writesAfterDraft).toHaveLength(0);
+
+    await act(async () => {
+      await ref.current!.save("finalize");
+    });
+    const posted = (path: string) =>
+      mockApiFetch.mock.calls
+        .filter(([p, init]) => p === path && (init as RequestInit | undefined)?.method === "POST")
+        .map(([, init]) => JSON.parse((init as RequestInit).body as string));
+    expect(posted("/api/clients")).toEqual([expect.objectContaining({ name: "Teljesen Új Kft.", taxNumber: "77777777-2-41" })]);
+    expect(posted("/api/products")).toEqual([expect.objectContaining({ name: "Egyedi szolgáltatás", unitPrice: 5000 })]);
+  });
+
   it("'finalizeAndSend' saves status sent and calls the send endpoint (INV-15)", async () => {
     const ref = await renderComposer({ mode: "create" });
     act(() => {

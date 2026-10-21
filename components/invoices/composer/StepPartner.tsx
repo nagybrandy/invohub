@@ -2,6 +2,7 @@
 // Step 1: exactly one required field (the partner). Everything else — the
 // selected partner's details and the dates/payment defaults — starts
 // collapsed (spec §2.3, fixing the 14-field wall of INV-1).
+import { useCompanySearch } from "@/hooks/useCompanySearch";
 import * as React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { HStack } from "@/components/ui/hstack";
@@ -128,6 +129,10 @@ export function StepPartner(composer: InvoiceComposerState) {
     setShowClientDetails,
   ]);
 
+  // Search among Hungarian companies while a partner is being typed — but not
+  // once a saved partner has been picked (the field then holds its name).
+  const companySearch = useCompanySearch(clientName, !clientId);
+
   async function handleCreateNewClient(input: {
     name: string;
     email: string;
@@ -193,6 +198,18 @@ export function StepPartner(composer: InvoiceComposerState) {
             {t("invoices.fields.partnerNameOrTax")} <Text className="text-destructive">*</Text>
           </Text>
           <PartnerPicker
+            companyResults={companySearch.results}
+            companyLoading={companySearch.loading}
+            onSelectCompany={(company) =>
+              void handleCreateNewClient({
+                name: company.name,
+                email: "",
+                taxNumber: company.taxNumber ?? "",
+                zip: company.zipCode ?? "",
+                city: company.city ?? "",
+                address: company.address ?? "",
+              })
+            }
             inputRef={nameInputRef}
             clients={clients}
             recentClients={recentClients}
