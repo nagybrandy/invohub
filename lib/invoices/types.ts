@@ -1,3 +1,4 @@
+import type { DocumentLanguage } from "@/lib/companies/billing-settings";
 import type { NavListStatus } from "@/lib/nav/nav-indicator";
 // lib/invoices/types.ts
 // Domain types for invoices (served from Neon via lib/invoices/service.ts).
@@ -53,6 +54,8 @@ export interface InvoiceLineItem {
    * Optional so it never forces a value NAV submission doesn't expect yet.
    */
   unit?: string;
+  /** Per-line remark ("megjegyzés") printed under the description on the PDF. Not sent to NAV. */
+  comment?: string;
 }
 
 export interface Invoice {
@@ -95,6 +98,8 @@ export interface Invoice {
   lineItems: InvoiceLineItem[];
   notes?: string;
   paymentMethod?: PaymentMethod;
+  /** Language the PDF/document is issued in. Unset = Hungarian. */
+  language?: DocumentLanguage;
   paidAt?: string;
   paidAmount?: number;
   /** Present on a storno document; points at the invoice it cancels. */

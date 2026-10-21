@@ -20,5 +20,7 @@ export type PublicReceiptView = {
   currency: ReceiptCurrency;
   issuedAt: string;
   issuerName: string;
+  /** Language the receipt was issued in — the public page renders in it. */
+  language?: "hu" | "en" | "de" | "fr" | "es";
   verified: true;
 };

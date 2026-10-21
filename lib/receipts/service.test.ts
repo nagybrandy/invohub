@@ -240,6 +240,17 @@ describe("createReceipt", () => {
     expect(record.qrUrl).toContain("/receipts/view?token=");
   });
 
+  it("stores a valid document language and ignores anything else", async () => {
+    const values = jest.fn(() => ({ returning: jest.fn().mockResolvedValue([{ id: "receipt-id-1", userId: "u1", receiptNumber: "NYG-2026-001", totalAmount: "5000", currency: "HUF", paymentMethod: "cash", navSubmitted: false, qrToken: "t", language: "en", issuedAt: new Date(), createdAt: new Date(), updatedAt: new Date() }]) }));
+    mockDb.insert.mockReturnValue({ values });
+    const record = await createReceipt("u1", { totalAmount: 5000, language: "en" });
+    expect((values.mock.calls[0] as unknown as [Record<string, unknown>])[0].language).toBe("en");
+    expect(record.language).toBe("en");
+
+    await createReceipt("u1", { totalAmount: 5000, language: "klingon" as never });
+    expect((values.mock.calls[1] as unknown as [Record<string, unknown>])[0].language).toBeNull();
+  });
+
   it("creates receipt with line items and calculates total", async () => {
     const record = await createReceipt("u1", {
       lineItems: [

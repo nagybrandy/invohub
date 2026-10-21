@@ -13,11 +13,11 @@ function parseTimeSource(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function formatDateOnly(value: string): string {
+export function formatDateOnly(value: string, locale: string = DOCUMENT_LOCALE): string {
   const parsed = parseDatePart(value);
   if (!parsed) return value;
 
-  return parsed.toLocaleDateString(DOCUMENT_LOCALE, {
+  return parsed.toLocaleDateString(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -59,6 +59,6 @@ export function formatInvoiceIssueDateTime(invoice: {
   return formatDateWithTime(invoice.issueDate, invoice.createdAt);
 }
 
-export function formatInvoiceDueDate(invoice: { dueDate: string }): string {
-  return formatDateOnly(invoice.dueDate);
+export function formatInvoiceDueDate(invoice: { dueDate: string }, locale: string = DOCUMENT_LOCALE): string {
+  return formatDateOnly(invoice.dueDate, locale);
 }

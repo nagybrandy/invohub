@@ -46,3 +46,27 @@ export function normalizeHexColor(color: string): string {
   if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed;
   return DEFAULT_PDF_TEMPLATE.accentColor;
 }
+
+const ENGLISH_DEFAULTS = {
+  titleText: "INVOICE",
+  footerText: "Thank you for your business!",
+  notesLabel: "Note",
+} as const;
+
+/**
+ * For an English document the three DEFAULT Hungarian template texts become
+ * their English equivalents. A text the user customised (anything that is not
+ * exactly the default) is theirs and is left alone.
+ */
+export function localizePdfTemplate(
+  template: InvoicePdfTemplate,
+  locale: "hu" | "en"
+): InvoicePdfTemplate {
+  if (locale !== "en") return template;
+  return {
+    ...template,
+    titleText: template.titleText === DEFAULT_PDF_TEMPLATE.titleText ? ENGLISH_DEFAULTS.titleText : template.titleText,
+    footerText: template.footerText === DEFAULT_PDF_TEMPLATE.footerText ? ENGLISH_DEFAULTS.footerText : template.footerText,
+    notesLabel: template.notesLabel === DEFAULT_PDF_TEMPLATE.notesLabel ? ENGLISH_DEFAULTS.notesLabel : template.notesLabel,
+  };
+}

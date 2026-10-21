@@ -64,6 +64,8 @@ export function StepPartner(composer: InvoiceComposerState) {
     setContinuousPerformance,
     paymentMethod,
     setPaymentMethod,
+    language,
+    setLanguage,
     currency,
     setCurrency,
     exchangeRate,
@@ -339,6 +341,19 @@ export function StepPartner(composer: InvoiceComposerState) {
                 <ChoicePill key={pm.value} selected={paymentMethod === pm.value} onPress={() => setPaymentMethod(pm.value)}>
                   <Text size="sm" className={paymentMethod === pm.value ? "font-medium text-primary" : "text-foreground"}>
                     {t(pm.i18nKey)}
+                  </Text>
+                </ChoicePill>
+              ))}
+            </ChoicePillGroup>
+          </VStack>
+
+          <VStack space="xs">
+            <Text size="xs" className="text-muted-foreground">{t("invoices.fields.documentLanguage")}</Text>
+            <ChoicePillGroup>
+              {(["hu", "en"] as const).map((value) => (
+                <ChoicePill key={value} selected={language === value} onPress={() => setLanguage(value)}>
+                  <Text size="sm" className={language === value ? "font-medium text-primary" : "text-foreground"}>
+                    {t(`billing.languages.${value}`)}
                   </Text>
                 </ChoicePill>
               ))}

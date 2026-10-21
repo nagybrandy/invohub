@@ -1,6 +1,7 @@
 // lib/invoices/mappers.ts
 // Maps between DB rows and domain Invoice types.
 import type { invoice, invoiceLineItem } from "@/db/schema";
+import { isDocumentLanguage } from "@/lib/companies/billing-settings";
 import { resolveFulfillmentDate } from "@/lib/invoices/fulfillment-date";
 import { resolvePaymentMethod } from "@/lib/invoices/payment-status";
 import type {
@@ -42,6 +43,7 @@ export function mapLineItemFromDb(row: LineItemRow): InvoiceLineItem {
     vatCategory: (row.vatCategory as VatCategory | undefined) ?? "normal",
     vatExemptionReason: row.vatExemptionReason ?? undefined,
     unit: row.unit ?? undefined,
+    comment: row.comment ?? undefined,
   };
 }
 
@@ -72,6 +74,7 @@ export function mapInvoiceFromDb(
       .map(mapLineItemFromDb),
     notes: row.notes ?? undefined,
     paymentMethod: resolvePaymentMethod(row.paymentMethod as PaymentMethod | null, row.notes),
+    language: isDocumentLanguage(row.language) ? row.language : undefined,
     paidAt: toOptionalIsoString(row.paidAt),
     paidAmount: toOptionalNumber(row.paidAmount),
     originalInvoiceId: row.originalInvoiceId ?? undefined,
@@ -98,6 +101,7 @@ export function mapLineItemToDb(
     vatCategory: item.vatCategory,
     vatExemptionReason: item.vatExemptionReason ?? null,
     unit: item.unit ?? null,
+    comment: item.comment?.trim() || null,
     sortOrder,
   };
 }
@@ -129,6 +133,7 @@ export function mapInvoiceToDb(
     exchangeRate: inv.exchangeRate != null ? String(inv.exchangeRate) : null,
     notes: inv.notes ?? null,
     paymentMethod: inv.paymentMethod ?? null,
+    language: inv.language ?? null,
     paidAt: inv.paidAt ? new Date(inv.paidAt) : null,
     paidAmount: inv.paidAmount != null ? String(inv.paidAmount) : null,
     originalInvoiceId: inv.originalInvoiceId ?? null,

@@ -9,6 +9,7 @@ import {
   formatDocumentQuantity,
   formatPartyAddress,
   isWinAnsiSafe,
+  toDocumentLocale,
   toWinAnsiSafe,
 } from "@/lib/invoices/document-labels";
 
@@ -136,5 +137,27 @@ describe("formatDocumentQuantity", () => {
 
   it("never prints -0", () => {
     expect(formatDocumentQuantity(-0, "db")).toBe("0 db");
+  });
+});
+
+describe("document language", () => {
+  it("maps an invoice language to a document locale (Hungarian unless asked otherwise)", () => {
+    expect(toDocumentLocale(undefined)).toBe("hu");
+    expect(toDocumentLocale(null)).toBe("hu");
+    expect(toDocumentLocale("hu")).toBe("hu");
+    expect(toDocumentLocale("en")).toBe("en");
+    // not rendered yet — an English document, never a silently Hungarian one
+    for (const lang of ["de", "fr", "es"]) expect(toDocumentLocale(lang)).toBe("en");
+  });
+
+  // Intl uses no-break / narrow no-break spaces; compare with plain ones.
+  const plain = (v: string) => v.replace(/[\u00a0\u202f]/g, " ");
+  it("formats amounts and quantities for the document's locale", () => {
+    expect(plain(formatDocumentAmount(1234567, "HUF", "hu"))).toBe("1 234 567 Ft");
+    expect(plain(formatDocumentAmount(1234567, "HUF", "en"))).toBe("1,234,567 Ft");
+    expect(plain(formatDocumentAmount(1234.5, "EUR", "en"))).toBe("1,234.50 €");
+    expect(plain(formatDocumentAmount(1234.5, "EUR", "hu"))).toBe("1 234,50 €");
+    expect(plain(formatDocumentQuantity(1.5, "óra", "en"))).toBe("1.5 óra");
+    expect(plain(formatDocumentQuantity(1.5, "óra", "hu"))).toBe("1,5 óra");
   });
 });

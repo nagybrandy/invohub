@@ -1,5 +1,6 @@
 // app/api/invoices+api.ts
 // Invoice list and create API.
+import { isDocumentLanguage } from "@/lib/companies/billing-settings";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
 import { InvoiceAlreadyFinalizedError } from "@/lib/invoices/errors";
@@ -133,6 +134,9 @@ export async function POST(request: Request) {
     lineItems: body.lineItems ?? [],
     notes: body.notes,
     paymentMethod: body.paymentMethod,
+    // Dropped here before — a new invoice issued straight from the composer
+    // lost its document language and fell back to Hungarian.
+    language: isDocumentLanguage(body.language) ? body.language : undefined,
     createdAt: body.createdAt ?? now,
     updatedAt: now,
   };

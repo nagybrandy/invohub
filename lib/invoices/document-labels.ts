@@ -14,6 +14,20 @@ import type { InvoiceCurrency, InvoiceDocumentType, InvoiceStatus } from "@/lib/
 
 export type DocumentLocale = "hu" | "en";
 
+/** BCP-47 tags the document's numbers and dates are formatted with. */
+export const DOCUMENT_INTL_LOCALE: Record<DocumentLocale, string> = { hu: "hu-HU", en: "en-GB" };
+
+/**
+ * The document locale for an invoice's `language`. Hungarian unless the
+ * invoice asks for something else; German/French/Spanish are not rendered
+ * yet and fall back to English (the UI only offers hu/en today) rather than
+ * silently printing Hungarian on a foreign customer's invoice.
+ */
+export function toDocumentLocale(language: string | null | undefined): DocumentLocale {
+  if (!language || language === "hu") return "hu";
+  return "en";
+}
+
 const LOCALES: Record<DocumentLocale, typeof hu> = { hu, en };
 
 export type DocumentLabels = typeof hu.invoices.document & {
@@ -73,10 +87,14 @@ export function withoutNegativeZero(value: number, fractionDigits: number): numb
   return Math.abs(value) < 0.5 / 10 ** fractionDigits ? 0 : value;
 }
 
-export function formatDocumentAmount(amount: number, currency: InvoiceCurrency): string {
+export function formatDocumentAmount(
+  amount: number,
+  currency: InvoiceCurrency,
+  locale: DocumentLocale = "hu"
+): string {
   const symbol = currency === "EUR" ? "€" : "Ft";
   const fractionDigits = currency === "EUR" ? 2 : 0;
-  const formatted = new Intl.NumberFormat("hu-HU", {
+  const formatted = new Intl.NumberFormat(DOCUMENT_INTL_LOCALE[locale], {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
     useGrouping: true,
@@ -108,8 +126,8 @@ export function formatPartyAddress(parts: {
 }
 
 /** Quantity with Hungarian decimal comma ("1,5"), plus the unit when the line has one ("24 óra"). */
-export function formatDocumentQuantity(quantity: number, unit?: string): string {
-  const formatted = new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3, useGrouping: true }).format(
+export function formatDocumentQuantity(quantity: number, unit?: string, locale: DocumentLocale = "hu"): string {
+  const formatted = new Intl.NumberFormat(DOCUMENT_INTL_LOCALE[locale], { maximumFractionDigits: 3, useGrouping: true }).format(
     withoutNegativeZero(quantity, 3)
   );
   const trimmedUnit = unit?.trim();
