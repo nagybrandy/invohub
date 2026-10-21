@@ -34,23 +34,23 @@ describe("SIDEBAR_PRIMARY_NAV", () => {
 
 describe("SIDEBAR_SECONDARY_NAV / getSidebarSecondaryNav", () => {
   it("carries Importálás below the divider for every role", () => {
-    expect(SIDEBAR_SECONDARY_NAV.map((item) => item.href)).toEqual([routes.emailEditor, routes.import]);
+    expect(SIDEBAR_SECONDARY_NAV.map((item) => item.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.import]);
   });
 
   it("does not include admin for a non-admin role", () => {
     const items = getSidebarSecondaryNav("entrepreneur", { importEnabled: true });
-    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.import]);
+    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.import]);
   });
 
   it("appends the admin panel below the divider for admins", () => {
     const items = getSidebarSecondaryNav("admin", { importEnabled: true });
-    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.import, routes.admin]);
+    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.import, routes.admin]);
   });
 
   it("hides Importálás unless the deploy turned it on — which is the default", () => {
-    expect(getSidebarSecondaryNav("entrepreneur").map((i) => i.href)).toEqual([routes.emailEditor]);
-    expect(getSidebarSecondaryNav("admin").map((i) => i.href)).toEqual([routes.emailEditor, routes.admin]);
-    expect(getSidebarSecondaryNav("entrepreneur", { importEnabled: false }).map((i) => i.href)).toEqual([routes.emailEditor]);
+    expect(getSidebarSecondaryNav("entrepreneur").map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload]);
+    expect(getSidebarSecondaryNav("admin").map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.admin]);
+    expect(getSidebarSecondaryNav("entrepreneur", { importEnabled: false }).map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload]);
   });
 });
 
@@ -78,12 +78,14 @@ describe("MOBILE_TAB_NAV", () => {
 });
 
 describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
-  it("exposes receipts, products, import, and settings to entrepreneurs", () => {
+  it("exposes receipts, products, export, import, and settings to entrepreneurs", () => {
     const items = getMobileMoreNav("entrepreneur", { importEnabled: true });
     expect(items.map((i) => i.href)).toEqual([
       routes.receipts,
       routes.products,
       routes.emailEditor,
+      routes.dataExport,
+      routes.bulkUpload,
       routes.import,
       routes.settings,
     ]);
@@ -100,6 +102,8 @@ describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
       routes.receipts,
       routes.products,
       routes.emailEditor,
+      routes.dataExport,
+      routes.bulkUpload,
       routes.settings,
     ]);
   });

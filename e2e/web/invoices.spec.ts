@@ -311,6 +311,24 @@ authTest.describe("Invoice detail (money header + timeline + danger zone)", () =
     // "PDF letöltése" download button instead.
     await expect(page.getByTestId("invoice-preview-download-pdf")).toBeVisible();
   });
+
+  authTest("the data export downloads a filtered CSV", async ({ page }) => {
+    await page.goto("/export");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Adatexport").first()).toBeVisible();
+
+    await page.getByTestId("export-dataset-clients").click();
+    await expect(page.getByText(/\d+ sor lesz a fájlban/)).toBeVisible();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByTestId("export-download").click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^partnerek-osszes-\d{4}-\d{2}-\d{2}\.csv$/);
+
+    await page.getByTestId("export-dataset-invoices").click();
+    await page.getByTestId("export-status-paid").click();
+    await expect(page.getByText(/\d+ sor lesz a fájlban/)).toBeVisible();
+  });
 });
 
 authTest.describe("Billing settings and reminders (authenticated)", () => {
@@ -329,5 +347,20 @@ authTest.describe("Billing settings and reminders (authenticated)", () => {
     await page.waitForLoadState("networkidle");
     await expect(page.getByText("Ütemezés mentése")).toBeVisible();
     await expect(page.getByText(/\breminders\.[a-zA-Z]+/)).toHaveCount(0);
+  });
+
+  authTest("the bulk upload validates a file and previews it without creating anything", async ({ page }) => {
+    await page.goto("/bulk");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Tömeges feltöltés").first()).toBeVisible();
+
+    const header = "type;partner_name;partner_zip;partner_city;partner_address;description;unit_price;vat_rate";
+    const csv = [header, "invoice;Minta Kft.;1051;Budapest;Nádor u. 1.;Havi díj;10000;27", "invoice;;;;;;abc;20"].join("\r\n");
+    await page.getByTestId("bulk-file").setInputFiles({ name: "feltoltes.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") });
+
+    await expect(page.getByText(/2 sor: 1 rendben, 1 hibás/)).toBeVisible();
+    await expect(page.getByText(/partner_name: kötelező mező/)).toBeVisible();
+    await expect(page.getByText(/vat_rate: 27, 18, 5, 0/)).toBeVisible();
+    await expect(page.getByTestId("bulk-create")).toBeEnabled();
   });
 });

@@ -41,6 +41,8 @@ export const routes = {
   products: "/products" as Href,
   productEdit: (id: string) => `/products/${id}/edit` as Href,
   settings: "/settings" as Href,
+  dataExport: "/export" as Href,
+  bulkUpload: "/bulk" as Href,
   settingsCompany: "/settings/company" as Href,
   settingsBilling: "/settings/billing" as Href,
   settingsTemplates: "/settings/templates" as Href,
