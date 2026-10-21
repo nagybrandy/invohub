@@ -14,7 +14,8 @@
 //      carry a name and address but (OpenCorporates) NOT the adószám — the
 //      cégjegyzékszám is a different number — so the user completes that.
 import type { Company } from "@/lib/companies/service";
-import { lookupCompanyByTaxNumber, type CompanyLookupResult } from "@/lib/company/lookup";
+import type { CompanyLookupResult } from "@/lib/company/lookup";
+import { lookupCompanyCached } from "@/lib/company/lookup-server";
 
 export type CompanySearchResult = CompanyLookupResult & {
   /** Where the hit came from — "nav" is authoritative for adószám + address. */
@@ -89,11 +90,11 @@ async function searchOpenCorporates(query: string, token: string, fetcher: Fetch
 export async function searchHungarianCompanies(
   query: string,
   company: Company | null | undefined,
-  deps: { env?: Record<string, string | undefined>; fetcher?: Fetcher; lookup?: typeof lookupCompanyByTaxNumber } = {},
+  deps: { env?: Record<string, string | undefined>; fetcher?: Fetcher; lookup?: typeof lookupCompanyCached } = {},
 ): Promise<CompanySearchResponse> {
   const q = query.trim();
   const env = deps.env ?? process.env;
-  const lookup = deps.lookup ?? lookupCompanyByTaxNumber;
+  const lookup = deps.lookup ?? lookupCompanyCached;
   const token = env.OPENCORPORATES_API_TOKEN;
   const provider: CompanySearchResponse["provider"] = token ? "opencorporates" : "nav-only";
 

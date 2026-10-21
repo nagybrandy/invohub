@@ -744,3 +744,22 @@ export const workspaceInvite = pgTable(
   },
   (table) => [index("workspace_invite_account_idx").on(table.accountUserId)]
 );
+
+/**
+ * Shared cache of company data already fetched from NAV queryTaxpayer
+ * (production only — test-environment answers are fictional and never stored).
+ * Public registry data keyed by the 8-digit törzsszám, so the next lookup of
+ * the same adószám by anyone skips the NAV round trip. See
+ * lib/company/directory.ts.
+ */
+export const companyDirectory = pgTable("company_directory", {
+  taxNumberBase: text("tax_number_base").primaryKey(),
+  /** Full 8-1-2 adószám when NAV reported the VAT/county codes, else the 8 digits. */
+  taxNumber: text("tax_number").notNull(),
+  name: text("name").notNull(),
+  zipCode: text("zip_code"),
+  city: text("city"),
+  address: text("address"),
+  country: text("country").notNull().default("HU"),
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+});
