@@ -14,14 +14,17 @@ const mockSendEmail = jest.fn();
 jest.mock("@/lib/api/session", () => ({
   requireActor: (...a: unknown[]) => mockRequireActor(...a),
   requireSession: (...a: unknown[]) => mockRequireSession(...a),
+  sessionRole: (s: { scope?: { role?: string } } | null) => s?.scope?.role ?? "owner",
   unauthorizedResponse: () => new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
   jsonResponse: (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }),
 }));
 jest.mock("@/lib/workspaces/service", () => {
   class WorkspaceLimitError extends Error {}
+  class InviteLimitError extends Error {}
   const lazy = (name: keyof typeof mockService) => (...args: unknown[]) => (mockService[name] as (...a: unknown[]) => unknown)(...args);
   return {
     WorkspaceLimitError,
+    InviteLimitError,
     listAccounts: lazy("listAccounts"),
     createWorkspace: lazy("createWorkspace"),
     createInvite: lazy("createInvite"),
@@ -39,7 +42,7 @@ import { GET as listGet, POST as createPost } from "@/app/api/workspaces+api";
 import { POST as invitePost } from "@/app/api/workspaces/invites+api";
 import { POST as acceptPost } from "@/app/api/workspaces/invites/accept+api";
 import { POST as leavePost } from "@/app/api/workspaces/leave+api";
-import { WorkspaceLimitError } from "@/lib/workspaces/service";
+import { InviteLimitError, WorkspaceLimitError } from "@/lib/workspaces/service";
 
 const PERSON = { user: { id: "p1", name: "Kovács Anna", email: "anna@x.hu" } };
 const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
@@ -114,6 +117,33 @@ describe("POST /api/workspaces/invites", () => {
     expect(self.status).toBe(400);
     expect((await self.json()).code).toBe("selfInvite");
     expect(mockService.createInvite).not.toHaveBeenCalled();
+  });
+
+  it("only the owner may invite an administrator; an admin may invite the other roles", async () => {
+    mockRequireSession.mockResolvedValue({ ...PERSON, user: { ...PERSON.user, id: "ws-aaaaaa" }, scope: { role: "admin", accountId: "ws-aaaaaa", actorId: "p1" } });
+    const denied = await invitePost(post("/api/workspaces/invites", { email: "a@b.hu", role: "admin" }));
+    expect([denied.status, (await denied.json()).code]).toEqual([403, "adminOnly"]);
+    expect((await invitePost(post("/api/workspaces/invites", { email: "a@b.hu", role: "accountant" }))).status).toBe(201);
+    mockRequireSession.mockResolvedValue({ ...PERSON, user: { ...PERSON.user, id: "ws-aaaaaa" }, scope: { role: "owner", accountId: "ws-aaaaaa", actorId: "p1" } });
+    expect((await invitePost(post("/api/workspaces/invites", { email: "a@b.hu", role: "admin" }))).status).toBe(201);
+  });
+
+  it("answers 429 when too many invitations are pending", async () => {
+    mockService.createInvite.mockRejectedValue(new InviteLimitError());
+    const res = await invitePost(post("/api/workspaces/invites", { email: "a@b.hu", role: "viewer" }));
+    expect([res.status, (await res.json()).code]).toEqual([429, "inviteLimit"]);
+  });
+
+  it("builds the e-mailed link from the configured app address, not the request's Host header", async () => {
+    const prev = process.env.BETTER_AUTH_URL;
+    process.env.BETTER_AUTH_URL = "https://www.invohub.hu/";
+    try {
+      const res = await invitePost(post("/api/workspaces/invites", { email: "a@b.hu", role: "viewer" }, { host: "evil.example" }));
+      expect((await res.json()).inviteUrl).toBe("https://www.invohub.hu/invite?token=TOKEN123");
+    } finally {
+      if (prev === undefined) delete process.env.BETTER_AUTH_URL;
+      else process.env.BETTER_AUTH_URL = prev;
+    }
   });
 
   it("401s when the role does not allow managing access (requireSession said no)", async () => {

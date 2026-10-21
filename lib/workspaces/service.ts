@@ -6,7 +6,7 @@
 // person works in it through a workspace_access row; requireSession
 // (lib/api/session.ts) then points `session.user.id` at the workspace, which
 // scopes all 50+ routes at once.
-import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { company, user, workspaceAccess, workspaceInvite } from "@/db/schema";
 import { seedDefaultTemplates } from "@/lib/email/templates/service";
@@ -126,31 +126,45 @@ export async function listMembers(accountId: string, viewerId: string): Promise<
     .map((r) => ({ ...r, role: r.role as WorkspaceRole, isYou: r.userId === viewerId }));
 }
 
+export class AdminOnlyError extends Error {
+  readonly code = "adminOnly";
+}
+
 export class LastOwnerError extends Error {
   readonly code = "lastOwner";
 }
 
 /** Removes (or lets leave) a member. The account's last owner can never be removed. */
-export async function removeMember(accountId: string, accessId: string): Promise<boolean> {
+export async function removeMember(accountId: string, accessId: string, actorRole: WorkspaceRole = "owner"): Promise<boolean> {
   const [row] = await db
     .select({ id: workspaceAccess.id, role: workspaceAccess.role })
     .from(workspaceAccess)
     .where(and(eq(workspaceAccess.id, accessId), eq(workspaceAccess.accountUserId, accountId)));
   if (!row) return false;
   if (row.role === "owner") throw new LastOwnerError("The owner cannot be removed.");
+  if (row.role === "admin" && actorRole !== "owner") throw new AdminOnlyError("Only the owner may remove an administrator.");
   await db.delete(workspaceAccess).where(eq(workspaceAccess.id, accessId));
   return true;
 }
 
-export async function changeMemberRole(accountId: string, accessId: string, role: InvitableRole): Promise<boolean> {
+export async function changeMemberRole(accountId: string, accessId: string, role: InvitableRole, actorRole: WorkspaceRole = "owner"): Promise<boolean> {
   const [row] = await db
     .select({ id: workspaceAccess.id, role: workspaceAccess.role })
     .from(workspaceAccess)
     .where(and(eq(workspaceAccess.id, accessId), eq(workspaceAccess.accountUserId, accountId)));
   if (!row) return false;
   if (row.role === "owner") throw new LastOwnerError("The owner's role cannot be changed.");
+  // The administrator role is the owner's to give and take.
+  if ((row.role === "admin" || role === "admin") && actorRole !== "owner") throw new AdminOnlyError("Only the owner may manage administrators.");
   await db.update(workspaceAccess).set({ role }).where(eq(workspaceAccess.id, accessId));
   return true;
+}
+
+/** Pending invitations per account — keeps the invite e-mail from being used as a mail relay. */
+export const MAX_PENDING_INVITES = 20;
+
+export class InviteLimitError extends Error {
+  readonly code = "inviteLimit";
 }
 
 export type InviteSummary = { id: string; email: string; role: string; expiresAt: string; createdAt: string };
@@ -158,6 +172,9 @@ export type InviteSummary = { id: string; email: string; role: string; expiresAt
 export async function createInvite(input: { accountId: string; email: string; role: InvitableRole; invitedBy: string; now?: Date }): Promise<{ invite: InviteSummary; token: string }> {
   const now = input.now ?? new Date();
   const email = normalizeInviteEmail(input.email);
+  const pending = await listPendingInvites(input.accountId, now);
+  // A re-invite of an address that already has a live invite replaces it, so it does not count against the cap.
+  if (pending.filter((p) => p.email !== email).length >= MAX_PENDING_INVITES) throw new InviteLimitError("Too many pending invitations.");
   const { token, tokenHash } = newInviteToken();
   const id = createId();
   const expiresAt = inviteExpiry(now);
@@ -192,7 +209,12 @@ export async function revokeInvite(accountId: string, inviteId: string, now: Dat
 
 export type AcceptResult = { ok: true; accountId: string; accountName: string; role: InvitableRole } | { ok: false; reason: Exclude<InviteVerdict, { ok: true }>["reason"] };
 
-/** Accepts an invitation for the signed-in person. Idempotent per invite (a second accept is refused). */
+/**
+ * Accepts an invitation for the signed-in person.
+ * Order matters: everything that could refuse it runs BEFORE the invitation is
+ * claimed, and the claim itself is one conditional UPDATE — two concurrent
+ * accepts cannot both win, and a revoked/expired invite cannot be claimed.
+ */
 export async function acceptInvite(token: string, person: { id: string; email: string }, now: Date = new Date()): Promise<AcceptResult> {
   const [invite] = await db.select().from(workspaceInvite).where(eq(workspaceInvite.tokenHash, hashInviteToken(token)));
   const verdict = evaluateInvite(invite ?? null, person.email, now);
@@ -200,6 +222,20 @@ export async function acceptInvite(token: string, person: { id: string; email: s
 
   // The person already owns this very account (invited to their own account): nothing to grant.
   if (invite.accountUserId === person.id) return { ok: false, reason: "invalidRole" };
+
+  // The invitation is only as good as the inviter's rights NOW: someone demoted,
+  // removed — or an account closed — since sending it cannot hand out access.
+  const inviterRole = invite.invitedByUserId ? await getAccountRole(invite.invitedByUserId, invite.accountUserId) : null;
+  if (!inviterRole || (inviterRole.role !== "owner" && inviterRole.role !== "admin")) return { ok: false, reason: "revoked" };
+  // Only the owner may hand out the administrator role.
+  if (verdict.role === "admin" && inviterRole.role !== "owner") return { ok: false, reason: "revoked" };
+
+  const claimed = await db
+    .update(workspaceInvite)
+    .set({ acceptedAt: now })
+    .where(and(eq(workspaceInvite.id, invite.id), isNull(workspaceInvite.acceptedAt), isNull(workspaceInvite.revokedAt), gt(workspaceInvite.expiresAt, now)))
+    .returning({ id: workspaceInvite.id });
+  if (claimed.length === 0) return { ok: false, reason: "alreadyAccepted" };
 
   const [existing] = await db
     .select({ id: workspaceAccess.id, role: workspaceAccess.role })
@@ -211,13 +247,10 @@ export async function acceptInvite(token: string, person: { id: string; email: s
   } else {
     await db.insert(workspaceAccess).values({ id: createId(), accountUserId: invite.accountUserId, granteeUserId: person.id, role: verdict.role, invitedByUserId: invite.invitedByUserId, createdAt: now });
   }
-  await db.update(workspaceInvite).set({ acceptedAt: now }).where(eq(workspaceInvite.id, invite.id));
 
-  const [acct] = await db.select({ name: user.name }).from(user).where(eq(user.id, invite.accountUserId));
   const [co] = await db.select({ name: company.name }).from(company).where(eq(company.userId, invite.accountUserId));
-  return { ok: true, accountId: invite.accountUserId, accountName: co?.name || acct?.name || "", role: verdict.role };
+  return { ok: true, accountId: invite.accountUserId, accountName: co?.name || inviterRole.name || "", role: verdict.role };
 }
-
 /** A person gives up their own access to an account. The owner cannot leave their own account. */
 export async function leaveAccount(personId: string, accountId: string): Promise<boolean> {
   const rows = await db

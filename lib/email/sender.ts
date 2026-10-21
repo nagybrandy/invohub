@@ -8,7 +8,8 @@
 // "reply" reaches the issuer, not InvoHub. See AGENTS.md / CLAUDE.md.
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { user } from "@/db/schema";
+import { user, workspaceAccess } from "@/db/schema";
+import { and } from "drizzle-orm";
 import { getCompanyByUserId, type Company } from "@/lib/companies/service";
 import { sanitizeHeaderValue } from "@/lib/email/sanitize";
 
@@ -25,11 +26,21 @@ async function resolveIssuerContactEmail(userId: string): Promise<string | undef
   // login e-mail, so a customer's reply still reaches a real person instead
   // of disappearing into InvoHub's inbox.
   const [row] = await db
-    .select({ email: user.email })
+    .select({ email: user.email, kind: user.kind })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
-  return row?.email ?? undefined;
+  if (row?.kind !== "workspace") return row?.email ?? undefined;
+
+  // A billing account has no mailbox of its own (its address is a placeholder
+  // that bounces): replies go to the person who owns it.
+  const [owner] = await db
+    .select({ email: user.email })
+    .from(workspaceAccess)
+    .innerJoin(user, eq(user.id, workspaceAccess.granteeUserId))
+    .where(and(eq(workspaceAccess.accountUserId, userId), eq(workspaceAccess.role, "owner")))
+    .limit(1);
+  return owner?.email ?? undefined;
 }
 
 export async function resolveSenderIdentity(

@@ -52,6 +52,22 @@ describe("requireSession — billing account scoping", () => {
     expect(s?.scope).toEqual({ accountId: "workspace-123", role: "accountant", actorId: "person-1" });
   });
 
+  it('"self" means the own account and beats a cookie another tab pointed at a workspace', async () => {
+    const s = await requireSession(req("/api/invoices", { headers: { "x-invohub-account": "self", cookie: "invohub_account=workspace-123" } }));
+    expect(s).toBe(PERSON);
+    expect(mockGetAccountRole).not.toHaveBeenCalled();
+  });
+
+  it("a malformed cookie is ignored instead of failing every request", async () => {
+    expect(await requireSession(req("/api/invoices", { headers: { cookie: "invohub_account=%E0%A4%A" } }))).toBe(PERSON);
+  });
+
+  it("the role rules cannot be dodged with a trailing slash", async () => {
+    mockGetAccountRole.mockResolvedValue({ role: "accountant", name: "X", kind: "workspace" });
+    expect(await requireSession(req("/api/companies/", { method: "POST", headers: { "x-invohub-account": "workspace-123" } }))).toBeNull();
+    expect(await requireSession(req("/api/nav/check/", { method: "POST", headers: { "x-invohub-account": "workspace-123" } }))).toBeNull();
+  });
+
   it("reads the selection from the cookie too (iframes and downloads cannot send headers)", async () => {
     mockGetAccountRole.mockResolvedValue({ role: "viewer", name: "X", kind: "workspace" });
     const s = await requireSession(req("/api/invoices/abc/pdf", { headers: { cookie: "a=1; invohub_account=workspace-123; b=2" } }));

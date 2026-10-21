@@ -1,4 +1,4 @@
-import { isPlatformPath, canManageAccess, canPerform, canWrite, isInvitableRole, isWorkspaceRole } from "@/lib/workspaces/permissions";
+import { isPlatformPath, canManageAccess, canManageAdmins, normalizeApiPath, canPerform, canWrite, isInvitableRole, isWorkspaceRole } from "@/lib/workspaces/permissions";
 
 describe("canPerform", () => {
   it("owner and admin can do everything an account user can", () => {
@@ -46,6 +46,46 @@ describe("canPerform", () => {
   });
 });
 
+describe("path normalisation — the router tolerates variants the rules must not miss", () => {
+  it("strips trailing slashes, collapses // and decodes before matching", () => {
+    expect(normalizeApiPath("/api/companies/")).toBe("/api/companies");
+    expect(normalizeApiPath("/api//companies///")).toBe("/api/companies");
+    expect(normalizeApiPath("/API/Companies")).toBe("/api/companies");
+    expect(normalizeApiPath("/api/%63ompanies")).toBe("/api/companies");
+    expect(normalizeApiPath("/api/%E0%A4%A")).toBe("/api/%e0%a4%a");
+    expect(normalizeApiPath("")).toBe("/");
+  });
+
+  it("an accountant cannot reach credentials through a trailing-slash / case / encoding variant", () => {
+    for (const path of ["/api/companies/", "/api/companies//", "/API/COMPANIES", "/api/%63ompanies", "/api/nav/check/", "/api/api-keys/", "/api//api-keys", "/api/workspaces/invites/"]) {
+      expect(canPerform("accountant", "POST", path)).toBe(false);
+      expect(canPerform("accountant", "PATCH", path)).toBe(false);
+      expect(canPerform("viewer", "POST", path)).toBe(false);
+    }
+  });
+
+  it("the same variants of an allowed route are allowed", () => {
+    expect(canPerform("accountant", "POST", "/api/invoices/")).toBe(true);
+    expect(canPerform("accountant", "POST", "/API/Invoices//abc/send/")).toBe(true);
+  });
+});
+
+describe("accountant writes are an allowlist — an unknown or future route is closed by default", () => {
+  it("denies writes to routes nobody opened for the accountant", () => {
+    for (const path of ["/api/some-new-route", "/api/m2m/check", "/api/companies", "/api/dev/seed", "/api/exchange-rates/currencies/x"]) {
+      expect(canPerform("accountant", "POST", path)).toBe(false);
+    }
+  });
+  it("allows the data routes, including NAV submission but not NAV credential checks", () => {
+    for (const path of ["/api/clients/abc", "/api/products", "/api/receipts/abc/send", "/api/receipts/abc/submit-nav", "/api/email-templates/x", "/api/reminders/run", "/api/notifications/read-all", "/api/payments", "/api/import/invoices", "/api/nav/submit", "/api/nav/status"]) {
+      expect(canPerform("accountant", "POST", path)).toBe(true);
+    }
+    expect(canPerform("accountant", "POST", "/api/nav/check")).toBe(false);
+    expect(canPerform("accountant", "GET", "/api/nav/check")).toBe(false); // a GET there does a live NAV token exchange
+    expect(canPerform("viewer", "GET", "/api/nav/check")).toBe(false);
+  });
+});
+
 describe("isPlatformPath", () => {
   it("marks the platform admin API, which ignores the account selection", () => {
     expect(isPlatformPath("/api/admin/users")).toBe(true);
@@ -61,6 +101,10 @@ describe("role helpers", () => {
     expect(isWorkspaceRole("root")).toBe(false);
     expect(isInvitableRole("accountant")).toBe(true);
     expect(isInvitableRole("owner")).toBe(false);
+  });
+  it("only the owner manages administrators", () => {
+    expect(canManageAdmins("owner")).toBe(true);
+    for (const r of ["admin", "accountant", "viewer"] as const) expect(canManageAdmins(r)).toBe(false);
   });
   it("only owner/admin manage access; viewers cannot write", () => {
     expect(canManageAccess("owner")).toBe(true);

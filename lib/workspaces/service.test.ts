@@ -38,6 +38,8 @@ jest.mock("@/lib/id", () => {
 });
 
 import {
+  AdminOnlyError,
+  InviteLimitError,
   LastOwnerError,
   WorkspaceLimitError,
   acceptInvite,
@@ -137,6 +139,22 @@ describe("members", () => {
     mockQ.select = [[]];
     expect(await removeMember("ws1", "ghost")).toBe(false);
   });
+  it("only the owner may remove or re-role an administrator, or make someone one", async () => {
+    for (const actor of ["admin", "accountant"] as const) {
+      mockQ.select = [[{ id: "a3", role: "admin" }]];
+      await expect(removeMember("ws1", "a3", actor)).rejects.toBeInstanceOf(AdminOnlyError);
+      mockQ.select = [[{ id: "a3", role: "admin" }]];
+      await expect(changeMemberRole("ws1", "a3", "viewer", actor)).rejects.toBeInstanceOf(AdminOnlyError);
+      mockQ.select = [[{ id: "a4", role: "viewer" }]];
+      await expect(changeMemberRole("ws1", "a4", "admin", actor)).rejects.toBeInstanceOf(AdminOnlyError);
+    }
+    mockQ.select = [[{ id: "a3", role: "admin" }]];
+    expect(await removeMember("ws1", "a3", "owner")).toBe(true);
+    // an admin may still manage non-admins
+    mockQ.select = [[{ id: "a4", role: "viewer" }]];
+    expect(await changeMemberRole("ws1", "a4", "accountant", "admin")).toBe(true);
+  });
+
   it("lets a member leave, but not an owner", async () => {
     mockQ.delete = [[{ id: "a2" }]];
     expect(await leaveAccount("p2", "ws1")).toBe(true);
@@ -154,6 +172,14 @@ describe("invites", () => {
     expect(JSON.stringify(row)).not.toContain(token);
     expect(mockCalls.some((c) => c.kind === "update" && c.method === "set")).toBe(true); // older invite revoked
   });
+  it("caps pending invitations per account, but a re-invite of the same address does not count", async () => {
+    const pending = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `i${i}`, accountUserId: "ws1", email: `p${i}@x.hu`, role: "viewer", expiresAt: new Date("2027-01-01"), createdAt: NOW }));
+    mockQ.select = [pending(20)];
+    await expect(createInvite({ accountId: "ws1", email: "new@x.hu", role: "viewer", invitedBy: "p1", now: NOW })).rejects.toBeInstanceOf(InviteLimitError);
+    mockQ.select = [pending(20)];
+    await expect(createInvite({ accountId: "ws1", email: "p3@x.hu", role: "viewer", invitedBy: "p1", now: NOW })).resolves.toBeDefined();
+  });
+
   it("revokes a pending invite", async () => {
     mockQ.update = [[{ id: "i1" }]];
     expect(await revokeInvite("ws1", "i1", NOW)).toBe(true);
@@ -168,14 +194,22 @@ describe("acceptInvite", () => {
     expiresAt: new Date("2026-11-01T00:00:00Z"), acceptedAt: null, revokedAt: null, ...over,
   });
   const person = { id: "p2", email: "Konyvelo@pelda.hu" };
+  // getAccountRole(inviter, account): the account's user row, then (inviter is not the account) the inviter's access row
+  const inviterIsOwner = [[{ id: "ws1", name: "ws-user", kind: "workspace", closedAt: null }], [{ role: "owner" }]];
+  const claimed = [[{ id: "i1" }]];
 
-  it("grants the invited role, marks the invite accepted and returns the account", async () => {
-    mockQ.select = [[invite()], [], [{ name: "ws-user" }], [{ name: "Ügyfél Kft." }]];
+  it("claims the invite atomically, grants the invited role and returns the account", async () => {
+    mockQ.select = [[invite()], ...inviterIsOwner, [], [{ name: "Ügyfél Kft." }]];
+    mockQ.update = [...claimed];
     const res = await acceptInvite("tok", person, NOW);
     expect(res).toEqual({ ok: true, accountId: "ws1", accountName: "Ügyfél Kft.", role: "accountant" });
     expect(inserted().at(-1)).toMatchObject({ accountUserId: "ws1", granteeUserId: "p2", role: "accountant" });
-    expect(mockCalls.some((c) => c.kind === "update" && c.method === "set" && "acceptedAt" in (c.args[0] as object))).toBe(true);
+    const claim = mockCalls.find((c) => c.kind === "update" && c.method === "set");
+    expect(claim && "acceptedAt" in (claim.args[0] as object)).toBe(true);
+    // the claim is conditional (accepted_at IS NULL, not revoked, not expired), not a blind update
+    expect(mockCalls.some((c) => c.kind === "update" && c.method === "where")).toBe(true);
   });
+
   it("refuses an unknown, expired, revoked, already used or wrongly addressed invite — granting nothing", async () => {
     const cases: [unknown, string][] = [
       [null, "notFound"],
@@ -191,19 +225,59 @@ describe("acceptInvite", () => {
       expect(mockCalls.some((c) => c.kind === "insert" || c.kind === "update")).toBe(false);
     }
   });
+
+  it("loses a race: if another request claimed it first, nothing is granted", async () => {
+    mockQ.select = [[invite()], ...inviterIsOwner];
+    mockQ.update = [[]]; // the conditional UPDATE matched no row
+    expect(await acceptInvite("tok", person, NOW)).toEqual({ ok: false, reason: "alreadyAccepted" });
+    expect(mockCalls.some((c) => c.kind === "insert")).toBe(false);
+  });
+
+  it("is worthless once the inviter lost their rights (removed, demoted to accountant, or the account closed)", async () => {
+    for (const inviterRows of [
+      [[{ id: "ws1", name: "x", kind: "workspace", closedAt: null }], []], // no access row any more
+      [[{ id: "ws1", name: "x", kind: "workspace", closedAt: null }], [{ role: "accountant" }]], // demoted
+      [[{ id: "ws1", name: "x", kind: "workspace", closedAt: new Date() }]], // account closed
+    ]) {
+      mockCalls.length = 0;
+      mockQ.select = [[invite()], ...inviterRows];
+      expect(await acceptInvite("tok", person, NOW)).toEqual({ ok: false, reason: "revoked" });
+      expect(mockCalls.some((c) => c.kind === "insert" || c.kind === "update")).toBe(false);
+    }
+    // an invitation without any inviter on record (deleted user) cannot be redeemed either
+    mockQ.select = [[invite({ invitedByUserId: null })]];
+    expect(await acceptInvite("tok", person, NOW)).toEqual({ ok: false, reason: "revoked" });
+  });
+
+  it("an administrator invite only counts if the inviter is (still) the owner", async () => {
+    mockQ.select = [[invite({ role: "admin" })], [{ id: "ws1", name: "x", kind: "workspace", closedAt: null }], [{ role: "admin" }]];
+    expect(await acceptInvite("tok", person, NOW)).toEqual({ ok: false, reason: "revoked" });
+    expect(mockCalls.some((c) => c.kind === "insert" || c.kind === "update")).toBe(false);
+  });
+
+  it("an inviter who is the account's own person is its owner", async () => {
+    mockQ.select = [[invite({ accountUserId: "p1", invitedByUserId: "p1" })], [{ id: "p1", name: "Anna", kind: "person", closedAt: null }], [], [{ name: "Anna e.v." }]];
+    mockQ.update = [...claimed];
+    expect((await acceptInvite("tok", person, NOW)).ok).toBe(true);
+  });
+
   it("never downgrades an existing owner through an invitation", async () => {
-    mockQ.select = [[invite({ role: "viewer" })], [{ id: "a9", role: "owner" }], [{ name: "x" }], [{ name: "Ügyfél Kft." }]];
-    const res = await acceptInvite("tok", person, NOW);
-    expect(res.ok).toBe(true);
+    mockQ.select = [[invite({ role: "viewer" })], ...inviterIsOwner, [{ id: "a9", role: "owner" }], [{ name: "Ügyfél Kft." }]];
+    mockQ.update = [...claimed];
+    expect((await acceptInvite("tok", person, NOW)).ok).toBe(true);
     const roleUpdates = mockCalls.filter((c) => c.kind === "update" && c.method === "set" && (c.args[0] as Record<string, unknown>).role !== undefined);
     expect(roleUpdates).toHaveLength(0);
   });
+
   it("changes the role of someone who already has access", async () => {
-    mockQ.select = [[invite({ role: "admin" })], [{ id: "a9", role: "viewer" }], [{ name: "x" }], []];
+    mockQ.select = [[invite({ role: "admin" })], ...inviterIsOwner, [{ id: "a9", role: "viewer" }], []];
+    mockQ.update = [...claimed, []];
     expect((await acceptInvite("tok", person, NOW)).ok).toBe(true);
-    expect(mockCalls.find((c) => c.kind === "update" && c.method === "set")?.args[0]).toEqual({ role: "admin" });
+    const roleUpdate = mockCalls.filter((c) => c.kind === "update" && c.method === "set").find((c) => (c.args[0] as Record<string, unknown>).role !== undefined);
+    expect(roleUpdate?.args[0]).toEqual({ role: "admin" });
     expect(inserted().length).toBe(0);
   });
+
   it("refuses to invite a person into their own account", async () => {
     mockQ.select = [[invite({ accountUserId: "p2" })]];
     expect(await acceptInvite("tok", person, NOW)).toEqual({ ok: false, reason: "invalidRole" });

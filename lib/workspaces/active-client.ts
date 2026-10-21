@@ -45,6 +45,14 @@ export function setActiveAccountId(id: string | null): void {
     : `${ACTIVE_ACCOUNT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
 }
 
+// Another tab switched account: follow it, so this tab's idea of "the active
+// account" is never older than the shared storage.
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === STORAGE_KEY || event.key === null) memory = undefined;
+  });
+}
+
 /** Test hook. */
 export function resetActiveAccountMemory(): void {
   memory = undefined;

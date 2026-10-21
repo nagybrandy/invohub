@@ -100,8 +100,17 @@ describe("buildClosureStatements", () => {
         "notification",
         "product",
         "client",
+        "workspace_access",
+        "workspace_invite",
       ])
     );
+  });
+
+  it("removes billing-account access and invitations tied to the closed login", () => {
+    const access = build().find(({ sql }) => /^delete from "workspace_access"/i.test(sql))!;
+    expect(access.params).toEqual(["u1", "u1"]);
+    const invites = build().find(({ sql }) => /^delete from "workspace_invite"/i.test(sql))!;
+    expect(invites.params).toContain("u1");
   });
 
   it("deletes drafts before pruning clients, and keeps clients referenced by retained invoices", () => {

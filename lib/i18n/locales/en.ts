@@ -1045,6 +1045,8 @@ export default {
       invalidEmail: "Enter a valid e-mail address.",
       invalidRole: "Invalid role.",
       selfInvite: "You cannot invite yourself.",
+      adminOnly: "Only the owner may manage administrators.",
+      inviteLimit: "Too many pending invitations — withdraw some first.",
       lastOwner: "The owner cannot be removed or changed.",
       workspaceLimit: "You reached the maximum number of billing accounts.",
       invalidName: "The name must be 2–120 characters.",

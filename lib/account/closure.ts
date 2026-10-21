@@ -42,6 +42,8 @@ import {
   session,
   user,
   verification,
+  workspaceAccess,
+  workspaceInvite,
 } from "@/db/schema";
 import {
   accountRetentionUntil,
@@ -89,6 +91,21 @@ export function buildClosureStatements(database: Database, input: ClosureInput) 
       .delete(verification)
       .where(or(eq(verification.identifier, previousEmail), eq(verification.value, userId))),
     database.delete(idempotencyKey).where(eq(idempotencyKey.userId, userId)),
+    // Billing-account access: the person's grants into other accounts, and
+    // everyone else's access to this (now closed) account. Invitations
+    // addressed to the closed login (PII: the e-mail) or sent by it go too.
+    database
+      .delete(workspaceAccess)
+      .where(or(eq(workspaceAccess.granteeUserId, userId), eq(workspaceAccess.accountUserId, userId))),
+    database
+      .delete(workspaceInvite)
+      .where(
+        or(
+          eq(workspaceInvite.email, previousEmail.trim().toLowerCase()),
+          eq(workspaceInvite.invitedByUserId, userId),
+          eq(workspaceInvite.accountUserId, userId),
+        ),
+      ),
     database.delete(emailTemplate).where(eq(emailTemplate.userId, userId)),
     database.delete(notification).where(eq(notification.userId, userId)),
     // Line items snapshot description/price/VAT, so the product catalogue

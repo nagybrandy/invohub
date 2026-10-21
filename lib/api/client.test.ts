@@ -89,11 +89,11 @@ describe("apiFetch / ApiError", () => {
 describe("apiFetch — selected billing account", () => {
   const headersOfLastCall = () => (global.fetch as jest.Mock).mock.calls[0][1].headers as Record<string, string>;
 
-  it("sends no account header for the person's own account", async () => {
+  it("says \"self\" explicitly for the person's own account — never leaving it to the shared cookie", async () => {
     (getActiveAccountId as jest.Mock).mockReturnValue(null);
     mockFetchOnce(200, {});
     await apiFetch("/api/invoices");
-    expect(headersOfLastCall()["x-invohub-account"]).toBeUndefined();
+    expect(headersOfLastCall()["x-invohub-account"]).toBe("self");
   });
 
   it("sends the selected account so the server scopes the request to it", async () => {

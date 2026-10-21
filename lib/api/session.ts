@@ -6,7 +6,7 @@
 // whole API; what the person may do there is decided by role
 // (lib/workspaces/permissions.ts) before the route even runs.
 import { auth } from "@/lib/auth";
-import { readActiveAccount } from "@/lib/workspaces/active-account";
+import { SELF_ACCOUNT, readActiveAccount } from "@/lib/workspaces/active-account";
 import { canPerform, isPlatformPath, type WorkspaceRole } from "@/lib/workspaces/permissions";
 import { getAccountRole } from "@/lib/workspaces/service";
 
@@ -17,7 +17,7 @@ export async function requireSession(request: Request) {
   }
 
   const requested = readActiveAccount(request.headers);
-  if (!requested || requested === session.user.id) return session;
+  if (!requested || requested === SELF_ACCOUNT || requested === session.user.id) return session;
 
   const { pathname } = new URL(request.url);
   // Platform administration acts on the person, whatever account is selected.
@@ -34,6 +34,11 @@ export async function requireSession(request: Request) {
     /** Who is really signed in, and in which role they are working here. */
     scope: { accountId: requested, role: access.role as WorkspaceRole, actorId: session.user.id },
   };
+}
+
+/** The caller's role in the selected billing account; the account's own person (no scope) is its owner. */
+export function sessionRole(session: unknown): WorkspaceRole {
+  return (session as { scope?: { role?: WorkspaceRole } } | null)?.scope?.role ?? "owner";
 }
 
 /** The signed-in person themself, ignoring any selected billing account (for account management). */

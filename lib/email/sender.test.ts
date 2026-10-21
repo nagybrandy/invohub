@@ -102,4 +102,15 @@ describe("resolveSenderIdentity", () => {
 
     expect(result.fromName).toBe("Nagy Ünőke Kft. via InvoHub");
   });
+
+  it("for a billing account (no mailbox of its own) replies go to its OWNER, never to the placeholder address", async () => {
+    mockGetCompany.mockResolvedValue({ id: "c1", userId: "ws-1", name: "Ügyfél Kft.", createdAt: "", updatedAt: "" } as never);
+    // 1st select: the account's user row (kind workspace); 2nd: the owner's e-mail through workspace_access
+    mockDb.select
+      .mockReturnValueOnce({ from: jest.fn(() => ({ where: jest.fn(() => ({ limit: jest.fn().mockResolvedValue([{ email: "workspace+x@workspace.invohub.invalid", kind: "workspace" }]) })) })) })
+      .mockReturnValueOnce({ from: jest.fn(() => ({ innerJoin: jest.fn(() => ({ where: jest.fn(() => ({ limit: jest.fn().mockResolvedValue([{ email: "anna@kovacs.hu" }]) })) })) })) });
+    const result = await resolveSenderIdentity("ws-1");
+    expect(result.replyTo).toBe("anna@kovacs.hu");
+    expect(String(result.replyTo)).not.toContain(".invalid");
+  });
 });

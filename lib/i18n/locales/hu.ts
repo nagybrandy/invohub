@@ -1044,6 +1044,8 @@ export default {
       invalidEmail: "Adj meg egy érvényes e-mail-címet.",
       invalidRole: "Érvénytelen jogosultság.",
       selfInvite: "Magadat nem hívhatod meg.",
+      adminOnly: "Csak a tulajdonos kezelheti az adminisztrátorokat.",
+      inviteLimit: "Túl sok függő meghívó — vonj vissza néhányat.",
       lastOwner: "A tulajdonost nem lehet eltávolítani vagy átminősíteni.",
       workspaceLimit: "Elérted a számlázófiókok maximális számát.",
       invalidName: "A névnek 2–120 karakternek kell lennie.",
