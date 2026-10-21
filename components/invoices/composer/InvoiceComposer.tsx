@@ -450,6 +450,23 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
             </Box>
           ) : null}
 
+          {onePage ? (
+            // The page's closing action: big and unmissable at the end of the
+            // form, not only up in the header (desktop one-page layout; on
+            // mobile the sticky bottom bar already carries it).
+            <Box className="mb-6 mt-8" style={sectionCap} testID="composer-bottom-cta">
+              <Button
+                size="lg"
+                className="h-14 w-full"
+                onPress={() => void handleSave("finalize")}
+                disabled={saving || finalizeBlockedByProfile}
+                testID="composer-bottom-finalize"
+              >
+                <ButtonText className="text-base font-semibold">{t("invoices.actions.finalize")}</ButtonText>
+              </Button>
+            </Box>
+          ) : null}
+
           {isDesktop && !onePage ? (
             <HStack space="sm" className="mt-6 justify-between">
               <Button

@@ -100,11 +100,18 @@ export default function DashboardScreen() {
           title={t("nav.dashboard")}
           subtitle={t("dashboard.subtitle")}
           primaryAction={
-            isDesktop ? undefined : (
-              <Button onPress={() => router.push(routes.newInvoice)}>
-                <ButtonText>{t("dashboard.newInvoice")}</ButtonText>
-              </Button>
-            )
+            <Button onPress={() => router.push(routes.newInvoice)} testID="dashboard-new-invoice">
+              <ButtonText>{t("dashboard.newInvoice")}</ButtonText>
+            </Button>
+          }
+          secondaryActions={
+            <Button
+              variant="outline"
+              onPress={() => router.push(routes.newReceipt)}
+              testID="dashboard-new-receipt"
+            >
+              <ButtonText>{t("dashboard.newReceipt")}</ButtonText>
+            </Button>
           }
           overflowActions={
             supportEmail

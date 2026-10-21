@@ -397,6 +397,12 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.companyProfileIncomplete).toBe(false);
   });
 
+  it("shows the buyer details and the dates/payment block from the start (no collapsed toggle)", async () => {
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.showClientDetails).toBe(true);
+    expect(ref.current!.showDatesPayment).toBe(true);
+  });
+
   it("edit mode seeds state from the loaded invoice and does not apply company defaults", async () => {
     const invoice = makeInvoice({
       id: "inv-42",

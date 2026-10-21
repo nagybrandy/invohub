@@ -127,7 +127,9 @@ export function useInvoiceComposer({
   const [clientCity, setClientCity] = React.useState(invoice?.clientCity ?? "");
   const [clientAddress, setClientAddress] = React.useState(invoice?.clientAddress ?? "");
   const [clientEuVatNumber, setClientEuVatNumber] = React.useState(invoice?.clientEuVatNumber ?? "");
-  const [showClientDetails, setShowClientDetails] = React.useState(false);
+  // Buyer details and the dates/payment block are shown from the start —
+  // hiding them behind a toggle cost a click on every invoice.
+  const [showClientDetails, setShowClientDetails] = React.useState(true);
   const appliedInitialClientId = React.useRef(false);
 
   // Dates & payment ---------------------------------------------------------
@@ -165,7 +167,7 @@ export function useInvoiceComposer({
   const [deadlineDays, setDeadlineDaysState] = React.useState(8);
   const [dueDate, setDueDate] = React.useState(invoice?.dueDate ?? addDaysIso(todayIso(), 8));
   const [bankAccount, setBankAccount] = React.useState("");
-  const [showDatesPayment, setShowDatesPayment] = React.useState(false);
+  const [showDatesPayment, setShowDatesPayment] = React.useState(true);
   const dueDateTouched = React.useRef(mode === "edit");
   const appliedCompanyDefaults = React.useRef(false);
 

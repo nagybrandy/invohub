@@ -35,7 +35,10 @@ authTest.describe("Invoice composer — desktop 1440×900 (authenticated)", () =
 
   authTest.use({ viewport: { width: 1440, height: 900 } });
 
-  authTest("step 1 shows at most 3 primary controls before the first line item (INV-1)", async ({
+  // Owner decision 2026-10-21: the dates/payment block and the buyer details
+  // are visible from the start (no collapsed toggle); the earlier "one input
+  // only" rule (INV-1) is replaced by "nothing lies, nothing is hidden".
+  authTest("the dates and payment block is visible from the start; no fake auto-save text (INV-1)", async ({
     page,
   }) => {
     await page.goto("/invoices/new");
@@ -45,13 +48,31 @@ authTest.describe("Invoice composer — desktop 1440×900 (authenticated)", () =
     await expect(page.getByPlaceholder("Partner neve vagy adószáma")).toBeVisible();
     await expect(page.getByText("Dátumok és fizetés")).toBeVisible();
 
-    // The old 14-field wall is gone — only the partner search is a text
-    // input on step 1 until "Dátumok és fizetés" is expanded.
-    const visibleInputs = page.locator("input:visible");
-    await expect(visibleInputs).toHaveCount(1);
+    await expect(page.getByTestId("composer-bottom-finalize")).toBeVisible();
 
     // INV-1: no lying "auto-saved" text before anything has actually saved.
     await expect(page.getByText("Automatikusan mentve piszkozatként")).toHaveCount(0);
+  });
+
+  authTest("a gross unit price is backed out to net, and the dates block is open (owner spec 2026-10-21)", async ({ page }) => {
+    await page.goto("/invoices/new");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByText("Teljesítés dátuma").first()).toBeVisible();
+    await page.getByTestId("unit-price-mode-gross").click();
+    const price = page.getByTestId("lineItem-0-unitPrice");
+    await price.fill("25000");
+    // 25 000 brutto at 27% = 19 685.04 net — the user never does the maths.
+    await expect(page.getByText(/25[\s\u00a0]000/).first()).toBeVisible();
+    await page.getByTestId("unit-price-mode-net").click();
+    await expect(price).toHaveValue("19685.03937");
+  });
+
+  authTest("a new receipt has no customer-name field and a system-assigned number", async ({ page }) => {
+    await page.goto("/receipts/new");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("A nyugta sorszámát a rendszer adja ki")).toBeVisible();
+    await expect(page.getByText("Ügyfél neve")).toHaveCount(0);
   });
 
   authTest("selecting a saved partner never arms e-mail sending (INV-2)", async ({ page }) => {

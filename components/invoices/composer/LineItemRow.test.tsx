@@ -64,6 +64,7 @@ function render(overrides: Partial<React.ComponentProps<typeof LineItemRow>> = {
         onRemove={onRemove}
         onFillFromProduct={onFillFromProduct}
         allowNegativeQuantity={overrides.allowNegativeQuantity}
+        priceMode={overrides.priceMode}
         t={t}
       />
     );
@@ -374,5 +375,29 @@ describe("LineItemRow — compact card layout (responsive-line-item-grid)", () =
     }
     const styled = card.findAll((n) => typeof n.props?.style?.minWidth === "number");
     expect(styled).toHaveLength(0);
+  });
+});
+
+describe("LineItemRow — unit price typed as gross", () => {
+  const item = makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 1000, vatRate: 27, vatCategory: "normal" });
+
+  function priceInput(tree: TestRenderer.ReactTestRenderer) {
+    return tree.root.findAll((n) => n.props.testID === "lineItem-0-unitPrice")[0];
+  }
+
+  it("shows the gross of the stored net and stores the net back for what was typed", () => {
+    const { tree, onChange } = render({ item, priceMode: "gross" });
+    const field = priceInput(tree);
+    expect(field.props.value).toBe("1270");
+    act(() => field.props.onChangeText("25000"));
+    expect(onChange).toHaveBeenCalledWith({ unitPrice: 19685.03937 });
+  });
+
+  it("keeps the stored net untouched in net mode", () => {
+    const { tree, onChange } = render({ item });
+    const field = priceInput(tree);
+    expect(field.props.value).toBe("1000");
+    act(() => field.props.onChangeText("750"));
+    expect(onChange).toHaveBeenCalledWith({ unitPrice: 750 });
   });
 });

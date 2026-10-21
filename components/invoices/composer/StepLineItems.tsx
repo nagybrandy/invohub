@@ -20,6 +20,7 @@ import { COMPOSER_GRID_COLUMNS, lineItemLayoutForWidth } from "@/components/invo
 import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
 import type { InvoiceCurrency, InvoiceLineItem } from "@/lib/invoices/types";
+import type { UnitPriceMode } from "@/lib/invoices/unit-price";
 import type { Product } from "@/lib/products/service";
 
 export function StepLineItems({
@@ -54,6 +55,7 @@ export function StepLineItems({
   const totals = calculateInvoiceTotals(lineItems);
   const vatRows = groupVatRows(lineItems);
   const [catalogOpen, setCatalogOpen] = React.useState(false);
+  const [priceMode, setPriceMode] = React.useState<UnitPriceMode>("net");
   const [containerWidth, setContainerWidth] = React.useState<number | null>(null);
   const layout = lineItemLayoutForWidth(containerWidth);
   const isCard = layout === "card";
@@ -74,6 +76,28 @@ export function StepLineItems({
           </Text>
         </VStack>
       ) : null}
+      <HStack space="sm" className="items-center" testID="unit-price-mode">
+        <Text size="xs" className="text-muted-foreground">
+          {t("invoices.lineItemEditor.unitPriceMode")}
+        </Text>
+        {(["net", "gross"] as const).map((mode) => (
+          <Pressable
+            key={mode}
+            onPress={() => setPriceMode(mode)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: priceMode === mode }}
+            testID={`unit-price-mode-${mode}`}
+            className={`rounded-full border px-3 py-1.5 ${
+              priceMode === mode ? "border-primary bg-primary/10" : "border-border bg-card"
+            }`}
+          >
+            <Text size="xs" className={priceMode === mode ? "font-semibold text-primary" : "text-foreground"}>
+              {t(mode === "net" ? "invoices.lineItemEditor.priceNet" : "invoices.lineItemEditor.priceGross")}
+            </Text>
+          </Pressable>
+        ))}
+      </HStack>
+
       {/* Grid only when the measured column fits the full row
           (composerGridMinWidth = 860px); otherwise every line is a
           compact card — no min-width, no horizontal scroll. */}
@@ -103,6 +127,7 @@ export function StepLineItems({
               products={products}
               canDelete={lineItems.length > 1}
               allowNegativeQuantity={isModification}
+              priceMode={priceMode}
               onChange={(patch) => onUpdate(item.id, patch)}
               onRemove={() => onRemove(item.id)}
               onFillFromProduct={(product) => onUpdate(item.id, {

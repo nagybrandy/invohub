@@ -25,6 +25,7 @@ import {
   lineItemGrossTotal,
   lineItemNetTotal,
 } from "@/lib/invoices/calculations";
+import { displayUnitPrice, netFromGross, storedUnitPrice, type UnitPriceMode } from "@/lib/invoices/unit-price";
 import type { InvoiceCurrency, InvoiceLineItem, VatCategory, VatRate } from "@/lib/invoices/types";
 import type { Product } from "@/lib/products/service";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -42,6 +43,7 @@ export function LineItemRow({
   onRemove,
   onFillFromProduct,
   allowNegativeQuantity = false,
+  priceMode = "net",
   t,
 }: {
   layout: LineItemLayout;
@@ -55,6 +57,8 @@ export function LineItemRow({
   onFillFromProduct: (product: Product) => void;
   /** Helyesbítő reversing lines carry a negative quantity — keep it. */
   allowNegativeQuantity?: boolean;
+  /** Whether the unit-price field is typed/shown as net or gross (the stored value is always net). */
+  priceMode?: UnitPriceMode;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const icons = useIconColors();
@@ -165,21 +169,31 @@ export function LineItemRow({
       <InputField
         testID={`lineItem-${index}-unitPrice`}
         keyboardType="decimal-pad"
-        value={String(item.unitPrice)}
-        onChangeText={(value) => onChange({ unitPrice: Math.max(0, Number(value) || 0) })}
+        value={String(displayUnitPrice(item, priceMode))}
+        onChangeText={(value) =>
+          onChange({ unitPrice: storedUnitPrice(Math.max(0, Number(value) || 0), item, priceMode) })
+        }
         className="min-w-0 tabular-nums"
       />
     </Input>
   );
 
+  // Typing gross: changing the VAT treatment must not move the price the user
+  // typed — re-derive the stored net so the gross stays put.
+  function keepGross(next: Pick<InvoiceLineItem, "vatCategory" | "vatRate">): Partial<InvoiceLineItem> {
+    if (priceMode !== "gross") return {};
+    return { unitPrice: netFromGross(displayUnitPrice(item, "gross"), next) };
+  }
+
   const vatPicker = (
     <VatCategoryPicker
       category={item.vatCategory}
       rate={item.vatRate}
-      onChangeCategory={(category: VatCategory) =>
-        onChange({ vatCategory: category, vatRate: category === "normal" ? item.vatRate || 27 : 0 })
-      }
-      onChangeRate={(rate: VatRate) => onChange({ vatRate: rate })}
+      onChangeCategory={(category: VatCategory) => {
+        const vatRate = category === "normal" ? item.vatRate || 27 : 0;
+        onChange({ vatCategory: category, vatRate, ...keepGross({ vatCategory: category, vatRate }) });
+      }}
+      onChangeRate={(rate: VatRate) => onChange({ vatRate: rate, ...keepGross({ vatCategory: item.vatCategory, vatRate: rate }) })}
       t={t}
     />
   );

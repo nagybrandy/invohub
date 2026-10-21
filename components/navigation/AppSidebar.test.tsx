@@ -98,6 +98,18 @@ describe("AppSidebar", () => {
     act(() => tree.unmount());
   });
 
+  it("adds a + Új nyugta shortcut under it when onNewReceipt is given", async () => {
+    const onNewReceipt = jest.fn();
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(() => {
+      tree = TestRenderer.create(<AppSidebar {...baseProps} onNewReceipt={onNewReceipt} />);
+    });
+    const button = tree.root.find((node) => node.props?.accessibilityLabel === "nav.newReceipt");
+    act(() => button.props.onPress?.());
+    expect(onNewReceipt).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
+  });
+
   it("marks the active row with a background token, not only font weight", async () => {
     let tree!: TestRenderer.ReactTestRenderer;
     await act(() => {
