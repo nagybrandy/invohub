@@ -221,13 +221,10 @@ export function StepPartner(composer: InvoiceComposerState) {
         </VStack>
       )}
 
-      {showClientDetails && clientName.trim() ? (
+      {showClientDetails ? (
         <VStack space="sm" className="rounded-lg border border-border bg-card p-4">
           <HStack className="items-center justify-between">
             <Text className="font-medium text-foreground">{t("invoices.composer.editPartnerDetails")}</Text>
-            <Pressable onPress={() => setShowClientDetails(false)}>
-              <Text size="sm" className="text-primary">{t("invoices.actions.backToEdit")}</Text>
-            </Pressable>
           </HStack>
           <VStack space="sm">
             <LabeledInput label={t("invoices.fields.taxNumber")} value={clientTaxNumber} onChangeText={setClientTaxNumber} />
@@ -273,20 +270,9 @@ export function StepPartner(composer: InvoiceComposerState) {
         </VStack>
       ) : null}
 
-      <Pressable
-        onPress={() => setShowDatesPayment(!showDatesPayment)}
-        className="flex-row items-center gap-2 rounded-lg border border-border bg-card p-4"
-        testID="composer-toggle-dates-payment"
-      >
-        <Text size="sm" className="flex-1 font-medium text-foreground">
-          {t("invoices.sections.datesPayment")}
-        </Text>
-        {showDatesPayment ? (
-          <ChevronUp size={16} color={icons.muted} />
-        ) : (
-          <ChevronDown size={16} color={icons.muted} />
-        )}
-      </Pressable>
+      <Text size="sm" className="font-medium text-foreground" testID="composer-dates-payment-heading">
+        {t("invoices.sections.datesPayment")}
+      </Text>
 
       {showDatesPayment ? (
         <VStack space="md" className="rounded-lg border border-border bg-card p-4">

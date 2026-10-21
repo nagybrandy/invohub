@@ -22,7 +22,6 @@ import { apiFetch } from "@/lib/api/client";
 import { createId } from "@/lib/id";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import { routes } from "@/lib/navigation";
-import { generateReceiptNumber } from "@/lib/receipts/numbers";
 import {
   calculateLineItemTotals,
   type ReceiptLineItemCalcInput,
@@ -65,8 +64,6 @@ export default function NewReceiptScreen() {
   const { t } = useTranslation();
   const icons = useIconColors();
 
-  const [receiptNumber, setReceiptNumber] = React.useState("");
-  const [clientName, setClientName] = React.useState("");
   const [currency, setCurrency] = React.useState<ReceiptCurrency>("HUF");
   const [paymentMethod, setPaymentMethod] = React.useState<ReceiptPaymentMethod>("cash");
   const [entryMode, setEntryMode] = React.useState<EntryMode>("detailed");
@@ -79,12 +76,6 @@ export default function NewReceiptScreen() {
   const [created, setCreated] = React.useState<ReceiptRecord | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    void apiFetch<{ receipts: ReceiptRecord[] }>("/api/receipts")
-      .then((data) => setReceiptNumber(generateReceiptNumber(data.receipts)))
-      .catch(() => undefined);
-  }, []);
 
   const totals = React.useMemo(
     () => calculateLineItemTotals(lineItems),
@@ -108,13 +99,9 @@ export default function NewReceiptScreen() {
 
   function resetForm() {
     setCreated(null);
-    setClientName("");
     setTotalAmount("");
     setLineItems([createEmptyLineItem()]);
     setError(null);
-    void apiFetch<{ receipts: ReceiptRecord[] }>("/api/receipts")
-      .then((data) => setReceiptNumber(generateReceiptNumber(data.receipts)))
-      .catch(() => setReceiptNumber(""));
   }
 
   async function handleCreate() {
@@ -136,8 +123,9 @@ export default function NewReceiptScreen() {
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
-        receiptNumber: receiptNumber.trim() || undefined,
-        clientName: clientName.trim() || undefined,
+        // No receiptNumber / clientName: a nyugta strictly numbered (szigorú
+        // számadású) — the server assigns the next number — and has no
+        // customer on it.
         currency,
         paymentMethod,
       };
@@ -185,11 +173,6 @@ export default function NewReceiptScreen() {
             <Text className="text-center text-lg font-bold text-foreground">
               {formatCurrency(created.totalAmount, created.currency)}
             </Text>
-            {created.clientName ? (
-              <Text size="sm" className="text-muted-foreground">
-                {created.clientName}
-              </Text>
-            ) : null}
             <QRCode value={created.qrUrl} size={200} />
             <Text size="xs" className="text-center text-muted-foreground">
               {t("receipts.qrHint")}
@@ -221,27 +204,9 @@ export default function NewReceiptScreen() {
           <VStack space="md">
             <Heading size="md">{t("receipts.details")}</Heading>
 
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("receipts.number")}</FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField value={receiptNumber} onChangeText={setReceiptNumber} />
-              </Input>
-            </FormControl>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("receipts.client")}</FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField
-                  placeholder={t("receipts.clientOptional")}
-                  value={clientName}
-                  onChangeText={setClientName}
-                />
-              </Input>
-            </FormControl>
+            <Text size="sm" className="text-muted-foreground" testID="receipt-number-auto-hint">
+              {t("receipts.numberAutoHint")}
+            </Text>
 
             <FormControl>
               <FormControlLabel>

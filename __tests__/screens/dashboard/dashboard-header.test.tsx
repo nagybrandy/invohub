@@ -157,7 +157,7 @@ describe("dashboard header — incoming-invoices button removal", () => {
     expect(() => renderer.root.findByProps({ children: "dashboard.incomingInvoices" })).toThrow();
   });
 
-  it("AC2: mobile still renders the dashboard.newInvoice button, and pressing it pushes routes.newInvoice", () => {
+  it("AC2: mobile renders the dashboard.newInvoice button, and pressing it pushes routes.newInvoice", () => {
     const renderer = render(false);
 
     const buttonText = renderer.root.findByProps({ children: "dashboard.newInvoice" });
@@ -174,6 +174,19 @@ describe("dashboard header — incoming-invoices button removal", () => {
     });
 
     expect(mockPush).toHaveBeenCalledWith("/invoices/new");
+  });
+
+  it.each([true, false])("offers 'Új nyugta' next to 'Új számla' and opens the receipt form (desktop=%s)", (isDesktop) => {
+    const renderer = render(isDesktop);
+    expect(renderer.root.findByProps({ children: "dashboard.newInvoice" })).toBeTruthy();
+
+    let node: TestRenderer.TestInstance | null = renderer.root.findByProps({ children: "dashboard.newReceipt" });
+    while (node && typeof node.props.onPress !== "function") node = node.parent;
+    expect(node).toBeTruthy();
+    act(() => {
+      node!.props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/receipts/new");
   });
 
   it("AC3: pressing the dashboard.kpi.outstanding StatCard pushes the filtered unpaid list (desktop)", () => {

@@ -75,6 +75,8 @@ export type AppSidebarProps = {
   collapsed: boolean;
   onNavigate: (href: AppRoute) => void;
   onNewInvoice: () => void;
+  /** Optional shortcut under "Új számla" — receipts are issued as often as invoices. */
+  onNewReceipt?: () => void;
   onOpenCompanySettings: () => void;
   onSignOut: () => void;
 };
@@ -87,6 +89,7 @@ export function AppSidebar({
   collapsed,
   onNavigate,
   onNewInvoice,
+  onNewReceipt,
   onOpenCompanySettings,
   onSignOut,
 }: AppSidebarProps) {
@@ -133,6 +136,23 @@ export function AppSidebar({
               </Text>
             ) : null}
           </Pressable>
+
+          {onNewReceipt ? (
+            <Pressable
+              onPress={onNewReceipt}
+              accessibilityRole="button"
+              accessibilityLabel={t("nav.newReceipt")}
+              testID="sidebar-new-receipt"
+              className={`h-10 flex-row items-center justify-center gap-2 rounded-lg border border-white/25 px-3 ${
+                collapsed ? "px-0" : ""
+              }`}
+            >
+              <Plus size={18} color="#ffffff" />
+              {!collapsed ? (
+                <Text className="text-sm font-medium text-white">{t("nav.newReceipt")}</Text>
+              ) : null}
+            </Pressable>
+          ) : null}
 
           <VStack space="xs">
             {SIDEBAR_PRIMARY_NAV.map((item) => (

@@ -380,6 +380,13 @@ describe("InvoiceComposer — finalize is one click, sending is the secondary op
     expect(tabs.every((tab) => !tab.props.disabled)).toBe(true);
   });
 
+  it("closes the desktop page with a big issue button at the bottom, wired to finalize", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    const [bottom] = findByTestID(tree, "composer-bottom-finalize");
+    expect(bottom).toBeDefined();
+    expect(bottom.props.disabled).toBeFalsy();
+  });
+
   it("disables the primary finalize button too when the company profile is incomplete", async () => {
     mockCompany = { id: "c1", userId: "u1", name: "Acme Kft.", createdAt: "", updatedAt: "" };
     const tree = await renderComposer({ mode: "create" });

@@ -102,6 +102,7 @@ export function AppShell({ viewportWidthForTest }: AppShellProps = {}) {
             collapsed={collapsed}
             onNavigate={navigate}
             onNewInvoice={() => router.push(routes.newInvoice)}
+            onNewReceipt={() => router.push(routes.newReceipt)}
             onOpenCompanySettings={() => router.push(routes.settingsCompany)}
             onSignOut={() => void handleSignOut()}
           />

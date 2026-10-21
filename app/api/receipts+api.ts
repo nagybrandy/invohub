@@ -1,5 +1,6 @@
 // app/api/receipts+api.ts
 // Receipt list and create.
+import { withoutClientReceiptNumber } from "@/lib/receipts/create-input";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import {
   createReceipt,
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const receipt = await createReceipt(session.user.id, body as ReceiptInput);
+    const receipt = await createReceipt(session.user.id, withoutClientReceiptNumber(body) as ReceiptInput);
     return jsonResponse({ receipt }, 201);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create receipt.";
