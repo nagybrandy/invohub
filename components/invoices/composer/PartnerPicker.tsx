@@ -10,6 +10,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import type { Client } from "@/lib/clients/service";
+import type { CompanySearchResult } from "@/lib/company/search";
 import { LISTBOX_ROLE, TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { useIconColors } from "@/lib/theme/icon-colors";
 
@@ -32,6 +33,9 @@ export function PartnerPicker({
   onChangeText,
   onSelect,
   onCreateNew,
+  companyResults = [],
+  companyLoading = false,
+  onSelectCompany,
   error,
   t,
 }: {
@@ -49,6 +53,10 @@ export function PartnerPicker({
     city: string;
     address: string;
   }) => Promise<void> | void;
+  /** Hits from the Hungarian company search (NAV by adószám / registry by name). */
+  companyResults?: CompanySearchResult[];
+  companyLoading?: boolean;
+  onSelectCompany?: (company: CompanySearchResult) => void;
   error?: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
@@ -66,6 +74,12 @@ export function PartnerPicker({
     () => clients.filter((client) => matchesQuery(client, value)).slice(0, MAX_RESULTS),
     [clients, value]
   );
+
+  // A company we already have saved is not offered a second time.
+  const newCompanies = React.useMemo(() => {
+    const savedTax = new Set(clients.map((c) => (c.taxNumber ?? "").replace(/\D/g, "").slice(0, 8)).filter(Boolean));
+    return companyResults.filter((c) => !savedTax.has((c.taxNumber ?? "").replace(/\D/g, "").slice(0, 8)) || !c.taxNumber);
+  }, [clients, companyResults]);
 
   const showResults = focused && value.trim().length > 0;
   const showRecent = focused && value.trim().length === 0 && recentClients.length > 0;
@@ -172,6 +186,42 @@ export function PartnerPicker({
               {t("invoices.composer.noPartnerResults")}
             </Text>
           )}
+
+          {onSelectCompany && (companyLoading || newCompanies.length > 0) ? (
+            <VStack className="border-t border-subtle" testID="composer-company-results">
+              <Text size="2xs" className="px-3 pt-2 font-medium uppercase tracking-wide text-muted-foreground">
+                {t("invoices.composer.hungarianCompanies")}
+              </Text>
+              {newCompanies.map((company) => (
+                <Pressable
+                  key={`${company.taxNumber}|${company.registrationNumber ?? ""}|${company.name}`}
+                  onPress={() => onSelectCompany(company)}
+                  role="option"
+                  aria-selected={false}
+                  accessibilityRole="button"
+                  accessibilityLabel={company.name}
+                  className={`flex-row items-center gap-2 border-b border-subtle px-3 py-2 last:border-b-0 ${TAP_TARGET_MIN_H}`}
+                >
+                  <Search size={14} color={icons.muted} />
+                  <VStack className="flex-1">
+                    <Text size="sm" className="text-foreground">
+                      {company.name}
+                    </Text>
+                    <Text size="2xs" className="text-muted-foreground">
+                      {[company.taxNumber || t("invoices.composer.companyTaxNumberMissing"), company.zipCode, company.city]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  </VStack>
+                </Pressable>
+              ))}
+              {companyLoading && newCompanies.length === 0 ? (
+                <Text size="sm" className="px-3 py-2 text-muted-foreground">
+                  {t("invoices.composer.companySearching")}
+                </Text>
+              ) : null}
+            </VStack>
+          ) : null}
 
           {creating ? (
             <VStack space="xs" className="border-t border-subtle p-3">

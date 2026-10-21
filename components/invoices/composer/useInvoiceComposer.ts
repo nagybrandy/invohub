@@ -26,6 +26,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useProducts } from "@/hooks/useProducts";
 import { apiFetch, ApiError } from "@/lib/api/client";
+import { partnerToRemember, productsToRemember } from "@/lib/invoices/remember-entities";
 import type { Client } from "@/lib/clients/service";
 import { isCompanyProfileComplete } from "@/lib/companies/completeness";
 import { calculateInvoiceTotals, createEmptyLineItem, createId } from "@/lib/invoices/calculations";
@@ -96,8 +97,8 @@ export function useInvoiceComposer({
   initialFocusField,
 }: UseInvoiceComposerOptions) {
   const { t } = useTranslation();
-  const { clients } = useClients();
-  const { products } = useProducts();
+  const { clients, refresh: refreshClients } = useClients();
+  const { products, refresh: refreshProducts } = useProducts();
   const { company, loading: companyLoading } = useCompany();
   const { addOrUpdate } = useInvoices();
 
@@ -540,6 +541,23 @@ export function useInvoiceComposer({
     if (next) setStep(next);
   }
 
+  async function rememberNewEntities(issued: Invoice) {
+    try {
+      const partner = partnerToRemember({ ...issued, clientEmail }, clients);
+      if (partner) {
+        await apiFetch("/api/clients", { method: "POST", body: JSON.stringify(partner) });
+        void refreshClients();
+      }
+      const newProducts = productsToRemember(issued.lineItems, products, issued.currency);
+      for (const product of newProducts) {
+        await apiFetch("/api/products", { method: "POST", body: JSON.stringify(product) });
+      }
+      if (newProducts.length > 0) void refreshProducts();
+    } catch {
+      /* best effort */
+    }
+  }
+
   async function save(action: SaveAction): Promise<Invoice | undefined> {
     setSaveError(null);
 
@@ -634,6 +652,10 @@ export function useInvoiceComposer({
 
       const saved = await addOrUpdate(payload);
       savedInvoiceIdRef.current = saved.id;
+
+      // Remember a new buyer / new line items for next time (best effort: the
+      // invoice is already issued, a failure here must not surface as one).
+      if (status !== "draft") void rememberNewEntities(payload);
 
       if (willSend) {
         await apiFetch(`/api/invoices/${saved.id}/send`, {

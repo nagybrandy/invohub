@@ -53,6 +53,9 @@ function render(props: Partial<React.ComponentProps<typeof PartnerPicker>> = {})
         onChangeText={onChangeText}
         onSelect={onSelect}
         onCreateNew={onCreateNew}
+        companyResults={props.companyResults}
+        companyLoading={props.companyLoading}
+        onSelectCompany={props.onSelectCompany}
         error={props.error}
         t={t}
       />
@@ -220,5 +223,43 @@ describe("PartnerPicker — combobox semantics", () => {
     const input = findByTestId(tree.root, "composer-partner-search");
 
     expect(input.props["aria-expanded"]).toBe(false);
+  });
+});
+
+describe("PartnerPicker — Hungarian company search", () => {
+  const hit = { source: "nav" as const, name: "Zöld Energia Zrt.", taxNumber: "23456789-2-13", city: "Szeged", zipCode: "6720", country: "HU" };
+
+  function focusAndGet(props: Partial<React.ComponentProps<typeof PartnerPicker>>) {
+    const r = render({ value: "zöld", ...props });
+    act(() => {
+      findByTestId(r.tree.root, "composer-partner-search").props.onFocus?.();
+    });
+    return r;
+  }
+
+  it("offers company hits under the saved partners and picks one", () => {
+    const onSelectCompany = jest.fn();
+    const { tree } = focusAndGet({ companyResults: [hit], onSelectCompany });
+    expect(JSON.stringify(tree.toJSON())).toContain("invoices.composer.hungarianCompanies");
+    const row = tree.root.findAll((n) => n.props?.accessibilityLabel === "Zöld Energia Zrt." && typeof n.props.onPress === "function")[0];
+    act(() => row.props.onPress());
+    expect(onSelectCompany).toHaveBeenCalledWith(hit);
+  });
+
+  it("does not offer a company that is already a saved partner (same törzsszám)", () => {
+    const clients = [{ id: "c1", userId: "u", name: "Zöld Energia Zrt.", taxNumber: "23456789-2-13", createdAt: "", updatedAt: "" }];
+    const { tree } = focusAndGet({ clients, companyResults: [hit], onSelectCompany: jest.fn() });
+    expect(JSON.stringify(tree.toJSON())).not.toContain("invoices.composer.hungarianCompanies");
+  });
+
+  it("keeps a registry hit without adószám and says the number is missing", () => {
+    const registry = { ...hit, source: "registry" as const, taxNumber: "", registrationNumber: "01-10-1" };
+    const { tree } = focusAndGet({ companyResults: [registry], onSelectCompany: jest.fn() });
+    expect(JSON.stringify(tree.toJSON())).toContain("invoices.composer.companyTaxNumberMissing");
+  });
+
+  it("shows a searching hint while the search is in flight", () => {
+    const { tree } = focusAndGet({ companyResults: [], companyLoading: true, onSelectCompany: jest.fn() });
+    expect(JSON.stringify(tree.toJSON())).toContain("invoices.composer.companySearching");
   });
 });
