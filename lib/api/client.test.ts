@@ -4,6 +4,9 @@
 // translated message, or read fields like `invoice` off a 409 body — see
 // app/(app)/invoices/[id]/index.tsx's handleConvert / runAction.
 import { apiFetch, ApiError } from "@/lib/api/client";
+import { getActiveAccountId } from "@/lib/workspaces/active-client";
+
+jest.mock("@/lib/workspaces/active-client", () => ({ getActiveAccountId: jest.fn(() => null) }));
 
 jest.mock("@/lib/auth-url", () => ({
   getAuthBaseUrl: () => "http://localhost:8081",
@@ -80,5 +83,31 @@ describe("apiFetch / ApiError", () => {
     await expect(apiFetch("/api/invoices/1/convert", { method: "POST" })).resolves.toEqual({
       invoice: { id: "inv-3" },
     });
+  });
+});
+
+describe("apiFetch — selected billing account", () => {
+  const headersOfLastCall = () => (global.fetch as jest.Mock).mock.calls[0][1].headers as Record<string, string>;
+
+  it("says \"self\" explicitly for the person's own account — never leaving it to the shared cookie", async () => {
+    (getActiveAccountId as jest.Mock).mockReturnValue(null);
+    mockFetchOnce(200, {});
+    await apiFetch("/api/invoices");
+    expect(headersOfLastCall()["x-invohub-account"]).toBe("self");
+  });
+
+  it("sends the selected account so the server scopes the request to it", async () => {
+    (getActiveAccountId as jest.Mock).mockReturnValue("workspace-123");
+    mockFetchOnce(200, {});
+    await apiFetch("/api/invoices");
+    expect(headersOfLastCall()["x-invohub-account"]).toBe("workspace-123");
+    expect(headersOfLastCall()["Content-Type"]).toBe("application/json");
+  });
+
+  it("lets a caller's own headers win", async () => {
+    (getActiveAccountId as jest.Mock).mockReturnValue("workspace-123");
+    mockFetchOnce(200, {});
+    await apiFetch("/api/invoices", { headers: { "x-invohub-account": "other-9999" } });
+    expect(headersOfLastCall()["x-invohub-account"]).toBe("other-9999");
   });
 });

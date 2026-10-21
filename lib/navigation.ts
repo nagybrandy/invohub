@@ -45,6 +45,8 @@ export const routes = {
   bulkUpload: "/bulk" as Href,
   settingsCompany: "/settings/company" as Href,
   settingsBilling: "/settings/billing" as Href,
+  settingsAccess: "/settings/access" as Href,
+  invite: "/invite" as Href,
   settingsTemplates: "/settings/templates" as Href,
   settingsPdf: "/settings/pdf" as Href,
   settingsReminders: "/settings/reminders" as Href,

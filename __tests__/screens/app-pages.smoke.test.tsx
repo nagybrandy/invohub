@@ -326,6 +326,7 @@ const SCREENS: Array<{ label: string; loader: () => { default: React.ComponentTy
   { label: "settings company", loader: () => require("@/app/(app)/settings/company") },
   { label: "bulk upload", loader: () => require("@/app/(app)/bulk/index") },
   { label: "data export", loader: () => require("@/app/(app)/export/index") },
+  { label: "settings access", loader: () => require("@/app/(app)/settings/access") },
   { label: "settings billing", loader: () => require("@/app/(app)/settings/billing") },
   { label: "settings templates", loader: () => require("@/app/(app)/settings/templates") },
   { label: "settings reminders", loader: () => require("@/app/(app)/settings/reminders") },

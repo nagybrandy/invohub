@@ -85,6 +85,13 @@
       "when": 1792578439494,
       "tag": "0011_owner-spec-billing-settings",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792582915914,
+      "tag": "0012_workspaces-and-access",
+      "breakpoints": true
     }
   ]
 }

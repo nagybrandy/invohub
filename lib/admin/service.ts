@@ -36,7 +36,9 @@ export async function listAllUsers(): Promise<AdminUserSummary[]> {
       companyName: company.name,
     })
     .from(user)
-    .leftJoin(company, eq(company.userId, user.id));
+    .leftJoin(company, eq(company.userId, user.id))
+    // Billing accounts (kind = "workspace") are not people: no login, no role to manage.
+    .where(eq(user.kind, "person"));
 
   return rows.map((row) => ({
     id: row.id,
@@ -86,7 +88,7 @@ export async function updateUserRole(
 export async function getPlatformStats(): Promise<PlatformStats> {
   const [[usersRow], [companiesRow], [invoicesRow], [clientsRow], [productsRow]] =
     await Promise.all([
-      db.select({ value: count() }).from(user),
+      db.select({ value: count() }).from(user).where(eq(user.kind, "person")),
       db.select({ value: count() }).from(company),
       db.select({ value: count() }).from(invoice),
       db.select({ value: count() }).from(client),

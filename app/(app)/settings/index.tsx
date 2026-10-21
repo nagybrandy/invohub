@@ -16,6 +16,7 @@ import {
   Moon,
   KeyRound,
   Shield,
+  Users,
 } from "lucide-react-native";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { TaxAuditExportCard } from "@/components/settings/TaxAuditExportCard";
@@ -48,6 +49,12 @@ const SETTINGS_LINKS = [
     labelKey: "settings.billing",
     descKey: "settings.billingHint",
     icon: Receipt,
+  },
+  {
+    href: routes.settingsAccess,
+    labelKey: "settings.access",
+    descKey: "settings.accessHint",
+    icon: Users,
   },
   {
     href: routes.emailEditor,

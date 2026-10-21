@@ -20,6 +20,8 @@ describe("routes", () => {
     expect(routes.invoices).toBe("/invoices");
     expect(routes.settingsCompany).toBe("/settings/company");
     expect(routes.settingsBilling).toBe("/settings/billing");
+    expect(routes.settingsAccess).toBe("/settings/access");
+    expect(routes.invite).toBe("/invite");
     expect(routes.receipts).toBe("/receipts");
     expect(routes.dataExport).toBe("/export");
     expect(routes.bulkUpload).toBe("/bulk");

@@ -373,4 +373,20 @@ authTest.describe("Billing settings and reminders (authenticated)", () => {
     await page.getByTestId("composer-currency-more").click();
     await expect(page.getByTestId("composer-currency-CHF")).toBeVisible();
   });
+
+  authTest("the account switcher is in the top strip and the access page offers invitations", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("account-switcher-button")).toBeVisible();
+    // Working in your own account shows no "you are in someone else's account" banner.
+    await expect(page.getByTestId("foreign-account-banner")).toHaveCount(0);
+
+    await page.goto("/settings/access");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Számlázófiókok és hozzáférés").first()).toBeVisible();
+    await expect(page.getByTestId("account-new-name")).toBeVisible();
+    await expect(page.getByTestId("invite-email")).toBeVisible();
+    await expect(page.getByText(/\baccounts\.[a-zA-Z]+/)).toHaveCount(0); // no raw translation keys
+  });
 });
