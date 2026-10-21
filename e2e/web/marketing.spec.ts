@@ -91,7 +91,7 @@ test.describe("Static marketing homepage", () => {
     expect(hidden).toBe(0);
   });
 
-  test("in-page navigation reaches the product and roadmap sections", async ({
+  test("in-page navigation reaches the product section and has no roadmap entry", async ({
     page,
   }, testInfo) => {
     await seedDismissedConsent(page);
@@ -105,8 +105,9 @@ test.describe("Static marketing homepage", () => {
       await expect(page.getByTestId("marketing-mobile-menu")).toBeVisible();
     }
 
-    await page.getByRole("link", { name: "EV-út", exact: true }).first().click();
-    await expect(page.getByTestId("marketing-section-roadmap")).toBeInViewport();
+    // The page does not announce future features (owner decision 2026-10-21).
+    await expect(page.getByRole("link", { name: "EV-út", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("marketing-section-roadmap")).toHaveCount(0);
   });
 
   test("uses a floating transparent header that solidifies on scroll", async ({ page }) => {
@@ -160,24 +161,11 @@ test.describe("Static marketing homepage", () => {
     ).toHaveAttribute("href", "/login");
   });
 
-  test("labels the EV journey with distinct, honest statuses", async ({ page }) => {
+  test("never mentions bank matching, tax planning or filing as upcoming features", async ({ page }) => {
     await seedDismissedConsent(page);
     await page.goto("/");
-
-    const roadmap = page.getByTestId("marketing-section-roadmap");
-    await roadmap.scrollIntoViewIfNeeded();
-
-    const cards = roadmap.locator(".journey__card");
-    await expect(cards).toHaveCount(4);
-    await expect(cards.nth(0)).toContainText("Elérhető");
-    await expect(cards.nth(0)).toContainText("Számlázás");
-    await expect(cards.nth(1)).toContainText("Fejlesztés alatt");
-    await expect(cards.nth(1)).toContainText("Banki párosítás");
-    await expect(cards.nth(2)).toContainText("Tervezett");
-    await expect(cards.nth(3)).toContainText("Tervezett");
-
-    // No start date is ever promised for the non-shipped stages.
-    await expect(roadmap).not.toContainText(/202[5-9]\s*(Q[1-4])?/i);
+    const text = await page.locator("body").innerText();
+    expect(text).not.toMatch(/bevallás|adótervez|adókalkulátor|banki párosítás|M2M|Tervezett/i);
   });
 
   test("keeps the language switcher as the right-most header control on desktop, and inside the fullscreen menu (not the top bar) on mobile", async ({
