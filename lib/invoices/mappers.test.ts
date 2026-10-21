@@ -261,6 +261,7 @@ describe("mapLineItemToDb", () => {
       vatCategory: "normal",
       vatExemptionReason: null,
       unit: null,
+      comment: null,
       sortOrder: 0,
     });
   });
@@ -339,5 +340,24 @@ describe("mapInvoiceToDb", () => {
       modificationIndex: 1,
       exchangeRate: "390.5",
     });
+  });
+});
+
+describe("language and line remark", () => {
+  it("round-trips the document language and the per-line comment", () => {
+    const row = { ...(mapInvoiceToDb(makeInvoice({ language: "en" }), "u1") as never) } as never;
+    expect(mapInvoiceToDb(makeInvoice({ language: "en" }), "u1").language).toBe("en");
+    expect(mapInvoiceToDb(makeInvoice(), "u1").language).toBeNull();
+    expect(mapLineItemToDb(makeLineItem({ comment: "  Project Alpha  " }), "inv", 0).comment).toBe("Project Alpha");
+    expect(mapLineItemToDb(makeLineItem({ comment: "   " }), "inv", 0).comment).toBeNull();
+    void row;
+  });
+  it("reads them back, ignoring an unknown language", () => {
+    const base = mapInvoiceToDb(makeInvoice({ language: "en" }), "u1");
+    const inv = mapInvoiceFromDb({ ...base, createdAt: new Date(), updatedAt: new Date(), paidAt: null, paidAmount: null, exchangeRate: null } as never, []);
+    expect(inv.language).toBe("en");
+    expect(mapInvoiceFromDb({ ...base, language: "xx", createdAt: new Date(), updatedAt: new Date(), paidAt: null, paidAmount: null, exchangeRate: null } as never, []).language).toBeUndefined();
+    const li = mapLineItemFromDb({ id: "l", invoiceId: "i", description: "d", quantity: "1", unitPrice: "1", vatRate: 27, vatCategory: "normal", vatExemptionReason: null, unit: null, comment: "x", sortOrder: 0, createdAt: new Date(), updatedAt: new Date() } as never);
+    expect(li.comment).toBe("x");
   });
 });

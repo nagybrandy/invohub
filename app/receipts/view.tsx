@@ -53,6 +53,11 @@ export default function PublicReceiptViewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrToken]);
 
+  // The page speaks the language the receipt was issued in (English or, by
+  // default, the viewer's own app language).
+  const lng = receipt?.language === "en" ? "en" : undefined;
+  const tr = (key: string) => (lng ? t(key, { lng }) : t(key));
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <Box className="flex-1 items-center justify-center px-6 py-8">
@@ -62,10 +67,10 @@ export default function PublicReceiptViewScreen() {
               <Text className="text-xl font-bold text-primary-foreground">IH</Text>
             </Box>
             <Heading size="xl" className="text-center text-foreground">
-              {t("receipts.verify.title")}
+              {tr("receipts.verify.title")}
             </Heading>
             <Text size="sm" className="text-center text-muted-foreground">
-              {t("receipts.verify.subtitle")}
+              {tr("receipts.verify.subtitle")}
             </Text>
           </VStack>
 
@@ -87,22 +92,22 @@ export default function PublicReceiptViewScreen() {
               <VStack space="md">
                 <HStack space="sm" className="items-center justify-center">
                   <CheckCircle2 size={22} color={icons.primary} />
-                  <Text className="font-semibold text-primary">{t("receipts.verify.verified")}</Text>
+                  <Text className="font-semibold text-primary">{tr("receipts.verify.verified")}</Text>
                 </HStack>
 
                 <VStack space="sm">
-                  <Row label={t("receipts.verify.receiptNumber")} value={receipt.receiptNumber} />
-                  <Row label={t("receipts.verify.issuer")} value={receipt.issuerName} />
+                  <Row label={tr("receipts.verify.receiptNumber")} value={receipt.receiptNumber} />
+                  <Row label={tr("receipts.verify.issuer")} value={receipt.issuerName} />
                   {receipt.clientName ? (
-                    <Row label={t("receipts.verify.customer")} value={receipt.clientName} />
+                    <Row label={tr("receipts.verify.customer")} value={receipt.clientName} />
                   ) : null}
                   <Row
-                    label={t("receipts.verify.amount")}
+                    label={tr("receipts.verify.amount")}
                     value={formatCurrency(receipt.totalAmount, receipt.currency)}
                     emphasize
                   />
                   <Row
-                    label={t("receipts.issued")}
+                    label={tr("receipts.issued")}
                     value={formatDateWithTime(receipt.issuedAt)}
                   />
                 </VStack>

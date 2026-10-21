@@ -1,4 +1,5 @@
 // lib/receipts/service.ts
+import { isDocumentLanguage, type DocumentLanguage } from "@/lib/companies/billing-settings";
 import { and, between, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { receipt, receiptLineItem } from "@/db/schema";
@@ -19,6 +20,8 @@ export { calculateLineItemTotals } from "@/lib/receipts/calculations";
 export type ReceiptLineItemInput = ReceiptLineItemCalcInput;
 
 export type ReceiptInput = {
+  /** Language the receipt is issued in (hu/en shown today). */
+  language?: DocumentLanguage;
   receiptNumber?: string;
   clientName?: string;
   totalAmount?: number;
@@ -46,6 +49,7 @@ export type ReceiptRecord = {
   totalAmount: number;
   currency: ReceiptCurrency;
   paymentMethod: string;
+  language?: DocumentLanguage;
   qrToken: string;
   qrUrl: string;
   navSubmitted: boolean;
@@ -67,6 +71,7 @@ function mapRow(
     totalAmount: Number(row.totalAmount),
     currency: row.currency as ReceiptCurrency,
     paymentMethod: row.paymentMethod ?? "cash",
+    language: isDocumentLanguage(row.language) ? row.language : undefined,
     qrToken: row.qrToken,
     qrUrl: buildReceiptQrUrl(row.qrToken),
     navSubmitted: row.navSubmitted,
@@ -201,6 +206,7 @@ export async function createReceipt(
       totalAmount: String(totalAmount),
       currency: input.currency ?? "HUF",
       paymentMethod: input.paymentMethod ?? "cash",
+      language: isDocumentLanguage(input.language) ? input.language : null,
       qrToken,
       issuedAt: now,
       createdAt: now,
@@ -268,6 +274,7 @@ export async function getPublicReceiptByToken(
     currency: row.currency as ReceiptCurrency,
     issuedAt: row.issuedAt.toISOString(),
     issuerName: company?.name ?? "InvoHub merchant",
+    language: isDocumentLanguage(row.language) ? row.language : undefined,
     verified: true,
   };
 }

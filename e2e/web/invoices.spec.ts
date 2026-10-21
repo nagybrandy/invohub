@@ -63,9 +63,20 @@ authTest.describe("Invoice composer — desktop 1440×900 (authenticated)", () =
     const price = page.getByTestId("lineItem-0-unitPrice");
     await price.fill("25000");
     // 25 000 brutto at 27% = 19 685.04 net — the user never does the maths.
-    await expect(page.getByText(/25[\s\u00a0]000/).first()).toBeVisible();
+    await expect(page.getByText(/25[\s,.\u00a0]?000/).first()).toBeVisible();
     await page.getByTestId("unit-price-mode-net").click();
     await expect(price).toHaveValue("19685.03937");
+  });
+
+  authTest("shows translated labels (no raw keys), a per-line remark and the document language", async ({ page }) => {
+    await page.goto("/invoices/new");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByText("A bizonylat nyelve")).toBeVisible();
+    await expect(page.getByTestId("lineItem-0-comment")).toBeVisible();
+    await expect(page.getByText("Egységár megadása:")).toBeVisible();
+    // A missing translation renders its dotted key — none may be on the screen.
+    await expect(page.getByText(/\b(invoices|billing|settings|receipts)\.[a-zA-Z]+\.[a-zA-Z.]+/)).toHaveCount(0);
   });
 
   authTest("a new receipt has no customer-name field and a system-assigned number", async ({ page }) => {
@@ -299,5 +310,24 @@ authTest.describe("Invoice detail (money header + timeline + danger zone)", () =
     // The old HTML|PDF tab pair is gone — a single preview + a
     // "PDF letöltése" download button instead.
     await expect(page.getByTestId("invoice-preview-download-pdf")).toBeVisible();
+  });
+});
+
+authTest.describe("Billing settings and reminders (authenticated)", () => {
+  authTest.skip(
+    !hasE2ECredentials,
+    "Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see TESTING.md) to run authenticated specs."
+  );
+
+  authTest("the billing settings page loads, and the reminders page shows words, not keys", async ({ page }) => {
+    await page.goto("/settings/billing");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Számla-előtag").first()).toBeVisible();
+    await expect(page.getByTestId("billing-prefix-input")).toBeVisible();
+
+    await page.goto("/settings/reminders");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Ütemezés mentése")).toBeVisible();
+    await expect(page.getByText(/\breminders\.[a-zA-Z]+/)).toHaveCount(0);
   });
 });

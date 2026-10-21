@@ -117,6 +117,15 @@ export function LineItemRow({
           ))}
         </VStack>
       ) : null}
+      <Input className="mt-1">
+        <InputField
+          testID={`lineItem-${index}-comment`}
+          placeholder={t("invoices.lineItemEditor.commentPlaceholder")}
+          value={item.comment ?? ""}
+          onChangeText={(value) => onChange({ comment: value })}
+          className="min-w-0 text-sm"
+        />
+      </Input>
     </>
   );
 

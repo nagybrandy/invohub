@@ -20,9 +20,11 @@ import {
   vatSummaryByRate,
 } from "@/lib/invoices/calculations";
 import {
+  DOCUMENT_INTL_LOCALE,
   documentLabels,
   documentStatusChip,
   documentTitleFor,
+  toDocumentLocale,
   formatDocumentAmount,
   formatDocumentQuantity,
   formatPartyAddress,
@@ -34,6 +36,7 @@ import {
   toHufAmount,
 } from "@/lib/invoices/exchange-rate";
 import { resolveVatExemptionReason } from "@/lib/invoices/vat";
+import { localizePdfTemplate } from "@/lib/invoices/pdf-template/defaults";
 import { formatDateOnly, formatInvoiceDueDate } from "@/lib/dates/format";
 import { createPdfDocument, withPdfKitFonts } from "@/lib/invoices/pdf-document";
 import { registerDocumentFonts, type DocumentFonts } from "@/lib/invoices/pdf-fonts";
@@ -261,11 +264,14 @@ export function invoicePdfFilename(invoiceNumber: string): string {
 
 export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer> {
   const { invoice, company } = ctx;
-  const template = mergePdfTemplate(ctx.template ?? DEFAULT_PDF_TEMPLATE);
+  // The document is issued in the invoice's own language (Hungarian unless set).
+  const locale = toDocumentLocale(invoice.language);
+  const intlLocale = DOCUMENT_INTL_LOCALE[locale];
+  const template = localizePdfTemplate(mergePdfTemplate(ctx.template ?? DEFAULT_PDF_TEMPLATE), locale);
   const fonts = pdfFontSizes(template.fontScale);
   const totals = calculateInvoiceTotals(invoice.lineItems);
   const logoBuffer = company?.logoUrl ? await loadLogoImage(company.logoUrl) : null;
-  const labels = documentLabels();
+  const labels = documentLabels(locale);
 
   return withPdfKitFonts(
     () =>
@@ -367,7 +373,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         const documentTitle =
           invoice.documentType === "invoice"
             ? template.titleText
-            : documentTitleFor(invoice.documentType).toUpperCase();
+            : documentTitleFor(invoice.documentType, locale).toUpperCase();
         const documentNumber = invoice.invoiceNumber || labels.draftNumber;
         const titleColumnMax = pageWidth * 0.5;
         const header = fitHeaderColumn(doc, {
@@ -477,14 +483,14 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // on a non-HUF document.
         // -------------------------------------------------------------
         const metaCells: Array<{ label: string; value: string }> = [
-          { label: labels.issueDate, value: formatDateOnly(invoice.issueDate) },
+          { label: labels.issueDate, value: formatDateOnly(invoice.issueDate, intlLocale) },
         ];
         // Teljesítés kelte (AC6): only when a fulfillment date is actually
         // resolved — the issue date is never printed under this label.
         if (invoice.fulfillmentDate) {
-          metaCells.push({ label: labels.fulfillmentDate, value: formatDateOnly(invoice.fulfillmentDate) });
+          metaCells.push({ label: labels.fulfillmentDate, value: formatDateOnly(invoice.fulfillmentDate, intlLocale) });
         }
-        metaCells.push({ label: labels.dueDate, value: formatInvoiceDueDate(invoice) });
+        metaCells.push({ label: labels.dueDate, value: formatInvoiceDueDate(invoice, intlLocale) });
         if (invoice.paymentMethod) {
           metaCells.push({
             label: labels.paymentMethod,
@@ -602,11 +608,12 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           item,
           cells: {
             description: item.description,
-            quantity: formatDocumentQuantity(item.quantity, item.unit),
-            unitPrice: formatDocumentAmount(item.unitPrice, invoice.currency),
-            net: formatDocumentAmount(lineItemNetTotal(item), invoice.currency),
+            note: item.comment?.trim() || undefined,
+            quantity: formatDocumentQuantity(item.quantity, item.unit, locale),
+            unitPrice: formatDocumentAmount(item.unitPrice, invoice.currency, locale),
+            net: formatDocumentAmount(lineItemNetTotal(item), invoice.currency, locale),
             vat: item.vatCategory === "normal" ? `${item.vatRate}%` : item.vatCategory,
-            total: formatDocumentAmount(lineItemGrossTotal(item), invoice.currency),
+            total: formatDocumentAmount(lineItemGrossTotal(item), invoice.currency, locale),
           },
         }));
         doc.font(docFonts.regular).fontSize(fonts.body);
@@ -685,8 +692,8 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // --- right column: totals ---
         type TotalsRow = { label: string; value: string };
         const totalsRows: TotalsRow[] = [
-          { label: labels.netTotal, value: formatDocumentAmount(totals.subtotal, invoice.currency) },
-          { label: labels.vatTotal, value: formatDocumentAmount(totals.vatTotal, invoice.currency) },
+          { label: labels.netTotal, value: formatDocumentAmount(totals.subtotal, invoice.currency, locale) },
+          { label: labels.vatTotal, value: formatDocumentAmount(totals.vatTotal, invoice.currency, locale) },
         ];
         // A non-HUF invoice also shows the VAT amount in forint — same rule
         // as the NAV XML builder (lib/nav/invoice-xml.ts): convert per
@@ -696,7 +703,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
             (sum, item) => sum + toHufAmount(lineItemVatAmount(item), rateResolution.rate),
             0
           );
-          totalsRows.push({ label: labels.vatInHuf, value: formatDocumentAmount(vatTotalHuf, "HUF") });
+          totalsRows.push({ label: labels.vatInHuf, value: formatDocumentAmount(vatTotalHuf, "HUF", locale) });
         }
         const totalsRowGap = 6;
         doc.font(docFonts.regular).fontSize(fonts.body);
@@ -715,7 +722,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
         // A net-negative correction/storno is money owed TO the buyer.
         const isRefund = totals.totalAmount < 0;
         const dueLabel = isRefund ? labels.refundTotal : labels.grossTotal;
-        const dueValue = formatDocumentAmount(totals.totalAmount, invoice.currency);
+        const dueValue = formatDocumentAmount(totals.totalAmount, invoice.currency, locale);
         const duePadX = 14;
         const duePadY = 11;
         const dueValueSize = fonts.subtitle + 4;
@@ -745,7 +752,7 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           ? [
               { label: labels.bankAccount, value: company!.bankAccount! },
               ...(invoice.invoiceNumber ? [{ label: labels.paymentReference, value: invoice.invoiceNumber }] : []),
-              { label: labels.dueDate, value: formatInvoiceDueDate(invoice) },
+              { label: labels.dueDate, value: formatInvoiceDueDate(invoice, intlLocale) },
             ]
           : [];
         const paymentPad = 12;
@@ -791,9 +798,9 @@ export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer
           vatCells(
             [
               row.label,
-              formatDocumentAmount(row.net, invoice.currency),
-              formatDocumentAmount(row.vat, invoice.currency),
-              formatDocumentAmount(row.gross, invoice.currency),
+              formatDocumentAmount(row.net, invoice.currency, locale),
+              formatDocumentAmount(row.vat, invoice.currency, locale),
+              formatDocumentAmount(row.gross, invoice.currency, locale),
             ],
             vatY,
             { color: ink.secondary }

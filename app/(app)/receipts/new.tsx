@@ -19,6 +19,8 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { FormScreen } from "@/components/layout/FormScreen";
 import { apiFetch } from "@/lib/api/client";
+import { useCompany } from "@/hooks/useCompany";
+import type { DocumentLanguage } from "@/lib/companies/billing-settings";
 import { createId } from "@/lib/id";
 import { formatCurrency } from "@/lib/invoices/calculations";
 import { routes } from "@/lib/navigation";
@@ -64,7 +66,9 @@ export default function NewReceiptScreen() {
   const { t } = useTranslation();
   const icons = useIconColors();
 
+  const { company } = useCompany();
   const [currency, setCurrency] = React.useState<ReceiptCurrency>("HUF");
+  const [language, setLanguage] = React.useState<DocumentLanguage>("hu");
   const [paymentMethod, setPaymentMethod] = React.useState<ReceiptPaymentMethod>("cash");
   const [entryMode, setEntryMode] = React.useState<EntryMode>("detailed");
 
@@ -76,6 +80,19 @@ export default function NewReceiptScreen() {
   const [created, setCreated] = React.useState<ReceiptRecord | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Company defaults (settings → Számlázási beállítások), applied once while
+  // the form is still untouched — the same defaults an invoice starts from.
+  const appliedDefaults = React.useRef(false);
+  React.useEffect(() => {
+    if (!company || appliedDefaults.current) return;
+    appliedDefaults.current = true;
+    if (company.defaultCurrency === "HUF" || company.defaultCurrency === "EUR") setCurrency(company.defaultCurrency);
+    if (company.defaultLanguage) setLanguage(company.defaultLanguage);
+    if (company.defaultPaymentMethod && (RECEIPT_PAYMENT_METHODS as string[]).includes(company.defaultPaymentMethod)) {
+      setPaymentMethod(company.defaultPaymentMethod as ReceiptPaymentMethod);
+    }
+  }, [company]);
 
   const totals = React.useMemo(
     () => calculateLineItemTotals(lineItems),
@@ -128,6 +145,7 @@ export default function NewReceiptScreen() {
         // customer on it.
         currency,
         paymentMethod,
+        language,
       };
 
       if (entryMode === "simple") {
@@ -224,6 +242,26 @@ export default function NewReceiptScreen() {
                     }`}
                   >
                     <Text size="sm">{value}</Text>
+                  </Pressable>
+                ))}
+              </HStack>
+            </FormControl>
+
+            <FormControl>
+              <FormControlLabel>
+                <FormControlLabelText>{t("receipts.language")}</FormControlLabelText>
+              </FormControlLabel>
+              <HStack space="sm">
+                {(["hu", "en"] as const).map((value) => (
+                  <Pressable
+                    key={value}
+                    onPress={() => setLanguage(value)}
+                    testID={`receipt-language-${value}`}
+                    className={`rounded-md border px-4 py-2 ${
+                      language === value ? "border-primary bg-primary/10" : "border-border bg-background"
+                    }`}
+                  >
+                    <Text size="sm">{t(`billing.languages.${value}`)}</Text>
                   </Pressable>
                 ))}
               </HStack>

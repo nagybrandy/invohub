@@ -26,6 +26,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useProducts } from "@/hooks/useProducts";
 import { apiFetch, ApiError } from "@/lib/api/client";
+import type { DocumentLanguage } from "@/lib/companies/billing-settings";
 import { partnerToRemember, productsToRemember } from "@/lib/invoices/remember-entities";
 import type { Client } from "@/lib/clients/service";
 import { isCompanyProfileComplete } from "@/lib/companies/completeness";
@@ -143,6 +144,9 @@ export function useInvoiceComposer({
     invoice?.paymentMethod ?? "transfer"
   );
   const [currency, setCurrency] = React.useState<InvoiceCurrency>(invoice?.currency ?? "HUF");
+  // Language the PDF is issued in. Hungarian unless the invoice (edit) or the
+  // company default (new invoice, applied below) says otherwise.
+  const [language, setLanguage] = React.useState<DocumentLanguage>(invoice?.language ?? "hu");
   const [exchangeRate, setExchangeRateRaw] = React.useState(
     invoice?.exchangeRate != null ? String(invoice.exchangeRate) : ""
   );
@@ -366,6 +370,7 @@ export function useInvoiceComposer({
 
     if (company.defaultCurrency) setCurrency(company.defaultCurrency);
     if (company.defaultPaymentMethod) setPaymentMethod(company.defaultPaymentMethod);
+    if (company.defaultLanguage) setLanguage(company.defaultLanguage);
     if (company.bankAccount) setBankAccount(company.bankAccount);
     // Only while the note is still empty — never over something typed.
     if (company.defaultNote) setNotes((current) => current || company.defaultNote!);
@@ -489,6 +494,7 @@ export function useInvoiceComposer({
       lineItems: lineItems.filter((item) => item.description.trim()),
       notes: notes.trim() || undefined,
       paymentMethod,
+      language,
       createdAt: invoice?.createdAt ?? now,
       updatedAt: now,
     };
@@ -511,6 +517,7 @@ export function useInvoiceComposer({
     lineItems,
     notes,
     paymentMethod,
+    language,
   ]);
 
   const invalidSteps: Record<ComposerStepId, boolean> = {
@@ -648,6 +655,7 @@ export function useInvoiceComposer({
         lineItems: lineItems.filter((item) => item.description.trim()),
         notes: notes.trim() || undefined,
         paymentMethod,
+        language,
         createdAt: invoice?.createdAt ?? now,
         updatedAt: now,
       };
@@ -773,6 +781,11 @@ export function useInvoiceComposer({
     paymentMethod,
     setPaymentMethod: (v: PaymentMethod) => {
       setPaymentMethod(v);
+      markDirty();
+    },
+    language,
+    setLanguage: (v: DocumentLanguage) => {
+      setLanguage(v);
       markDirty();
     },
     currency,

@@ -757,3 +757,50 @@ describe("generateInvoicePdf — header title never wraps or overlaps", () => {
     });
   }
 });
+
+describe("generateInvoicePdf — document language and line remarks", () => {
+  const base = {
+    invoiceNumber: "INV-2026-00042",
+    clientName: "Nordic Trade Bt.",
+    currency: "EUR" as const,
+    exchangeRate: 395.12,
+    lineItems: [
+      makeLineItem({ id: "a", description: "Consulting day", quantity: 2, unitPrice: 350, comment: "Project Alpha — kickoff workshop" }),
+    ],
+  };
+  const texts = (calls: Array<{ text?: string }>) => calls.map((c) => String(c.text ?? "")).join("\n");
+
+  it("issues an English invoice with English labels and keeps a customised template text", async () => {
+    const invoice = makeInvoice({ ...base, language: "en" });
+    const { calls } = await withRecordedDoc(invoice, { invoice, company: { name: "InvoHub Demo Kft.", taxNumber: "12345678-2-41" } });
+    const out = texts(calls);
+    expect(out).toContain("INVOICE");
+    expect(out).not.toContain("SZÁMLA");
+    expect(out).toContain(documentLabels("en").buyer.toUpperCase());
+    expect(out).toContain("Thank you for your business!");
+
+    const custom = await withRecordedDoc(invoice, { invoice, template: { titleText: "TAX INVOICE" } });
+    expect(texts(custom.calls)).toContain("TAX INVOICE");
+  });
+
+  it("stays Hungarian when no language is set", async () => {
+    const invoice = makeInvoice(base);
+    const { calls } = await withRecordedDoc(invoice, { invoice });
+    const out = texts(calls);
+    expect(out).toContain("SZÁMLA");
+    expect(out).toContain(documentLabels("hu").buyer.toUpperCase());
+  });
+
+  it("prints a line's remark under its description and grows the row for it", async () => {
+    const withNote = makeInvoice(base);
+    const withoutNote = makeInvoice({ ...base, lineItems: [{ ...base.lineItems[0], comment: undefined }] });
+    const a = await withRecordedDoc(withNote, { invoice: withNote });
+    const b = await withRecordedDoc(withoutNote, { invoice: withoutNote });
+    expect(texts(a.calls)).toContain("Project Alpha — kickoff workshop");
+    expect(texts(b.calls)).not.toContain("Project Alpha");
+    const yOf = (calls: typeof a.calls, needle: string) => calls.find((c) => String(c.text ?? "").includes(needle));
+    const noteCall = yOf(a.calls, "Project Alpha");
+    const descCall = yOf(a.calls, "Consulting day");
+    expect(noteCall && descCall && noteCall.startY).toBeGreaterThan(descCall!.startY);
+  });
+});

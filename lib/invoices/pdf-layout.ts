@@ -299,6 +299,8 @@ export function drawTableHeader(
 
 export type TableRow = {
   description: string;
+  /** Per-line remark, printed small and muted under the description. */
+  note?: string;
   quantity: string;
   unitPrice: string;
   net: string;
@@ -318,6 +320,13 @@ export function drawTableRow(
 
   const descHeight = doc.heightOfString(row.description, { width: cols.descWidth, lineGap: 2 });
   const singleLine = doc.currentLineHeight();
+  const noteSize = Math.max(6.5, fontSize - 1.5);
+  let noteHeight = 0;
+  if (row.note) {
+    doc.fontSize(noteSize);
+    noteHeight = doc.heightOfString(row.note, { width: cols.descWidth, lineGap: 1 }) + 2;
+    doc.fontSize(fontSize);
+  }
   // Every cell is measured, not just the description: a numeric value that
   // still wraps (a squeezed column) grows the row instead of running into
   // the next one.
@@ -328,10 +337,15 @@ export function drawTableRow(
     doc.heightOfString(row.vat, { width: cols.vatWidth }),
     doc.heightOfString(row.total, { width: cols.totalWidth }),
   ];
-  const rowHeight = Math.max(descHeight, singleLine, ...cellHeights) + 9;
+  const rowHeight = Math.max(descHeight + noteHeight, singleLine, ...cellHeights) + 9;
 
   doc.fillColor("#14162b");
   doc.text(row.description, cols.left, y, { width: cols.descWidth, lineGap: 2 });
+  if (row.note) {
+    doc.fontSize(noteSize).fillColor("#6b7090");
+    doc.text(row.note, cols.left, y + descHeight + 2, { width: cols.descWidth, lineGap: 1 });
+    doc.fontSize(fontSize);
+  }
   doc.fillColor("#4a4f6a");
   doc.text(row.quantity, cols.qtyX, y, { width: cols.qtyWidth, align: "right" });
   doc.text(row.unitPrice, cols.unitX, y, { width: cols.unitWidth, align: "right" });

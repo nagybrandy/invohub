@@ -1,6 +1,7 @@
 // lib/invoices/pdf-template/defaults.test.ts
 import {
   DEFAULT_PDF_TEMPLATE,
+  localizePdfTemplate,
   mergePdfTemplate,
   normalizeHexColor,
   pdfFontSizes,
@@ -42,5 +43,18 @@ describe("normalizeHexColor", () => {
 describe("pdfFontSizes", () => {
   it("returns larger sizes for large scale", () => {
     expect(pdfFontSizes("large").title).toBeGreaterThan(pdfFontSizes("small").title);
+  });
+});
+
+describe("localizePdfTemplate", () => {
+  it("turns the default Hungarian texts English for an English document", () => {
+    const out = localizePdfTemplate(DEFAULT_PDF_TEMPLATE, "en");
+    expect(out).toMatchObject({ titleText: "INVOICE", footerText: "Thank you for your business!", notesLabel: "Note" });
+    expect(out.accentColor).toBe(DEFAULT_PDF_TEMPLATE.accentColor);
+  });
+  it("never touches a text the user customised, nor a Hungarian document", () => {
+    const custom = { ...DEFAULT_PDF_TEMPLATE, titleText: "ÁFÁS SZÁMLA", footerText: "Viszlát!" };
+    expect(localizePdfTemplate(custom, "en")).toMatchObject({ titleText: "ÁFÁS SZÁMLA", footerText: "Viszlát!", notesLabel: "Note" });
+    expect(localizePdfTemplate(DEFAULT_PDF_TEMPLATE, "hu")).toBe(DEFAULT_PDF_TEMPLATE);
   });
 });
