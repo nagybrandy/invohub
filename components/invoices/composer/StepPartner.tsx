@@ -2,6 +2,7 @@
 // Step 1: exactly one required field (the partner). Everything else — the
 // selected partner's details and the dates/payment defaults — starts
 // collapsed (spec §2.3, fixing the 14-field wall of INV-1).
+import { CurrencyPicker } from "@/components/settings/CurrencyPicker";
 import { useCompanySearch } from "@/hooks/useCompanySearch";
 import * as React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
@@ -363,15 +364,7 @@ export function StepPartner(composer: InvoiceComposerState) {
           <HStack space="sm" className="flex-wrap items-end">
             <VStack space="xs">
               <Text size="xs" className="text-muted-foreground">{t("invoices.fields.currency")}</Text>
-              <ChoicePillGroup>
-                {(["HUF", "EUR"] as InvoiceCurrency[]).map((value) => (
-                  <ChoicePill key={value} selected={currency === value} onPress={() => setCurrency(value)}>
-                    <Text size="sm" className={currency === value ? "font-medium text-primary" : "text-foreground"}>
-                      {value}
-                    </Text>
-                  </ChoicePill>
-                ))}
-              </ChoicePillGroup>
+              <CurrencyPicker value={currency} onChange={(value) => value && setCurrency(value)} testIDPrefix="composer-currency" />
             </VStack>
             {currency !== "HUF" ? (
               <VStack className="min-w-[140px]">

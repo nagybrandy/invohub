@@ -1,6 +1,7 @@
 // lib/invoices/calculations.ts
 // Invoice line-item and document total calculations.
 
+import { currencyFractionDigits, currencySymbol } from "@/lib/currency/currencies";
 import { resolveVatRate } from "@/lib/invoices/vat";
 import type { Invoice, InvoiceLineItem, InvoiceTotals } from "@/lib/invoices/types";
 
@@ -77,15 +78,18 @@ export function vatSummaryByRate(lineItems: InvoiceLineItem[]): VatSummaryRow[] 
 }
 
 export function formatCurrency(amount: number, currency: Invoice["currency"]): string {
-  const symbol = currency === "EUR" ? "€" : "Ft";
-  const digits = currency === "EUR" ? 2 : 0;
+  const digits = currencyFractionDigits(currency);
   // A helyesbítő draft nets to zero; never show "-0 Ft" for a float residue.
   const value = Math.abs(amount) < 0.5 / 10 ** digits ? 0 : amount;
   const formatted = value.toLocaleString(undefined, {
-    minimumFractionDigits: currency === "EUR" ? 2 : 0,
-    maximumFractionDigits: currency === "EUR" ? 2 : 0,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   });
-  return currency === "EUR" ? `${symbol}${formatted}` : `${formatted} ${symbol}`;
+  const symbol = currencySymbol(currency);
+  // Forint after the amount ("1 234 Ft"); € $ £ before it; any other
+  // currency after it with its ISO code ("1,234.50 CHF").
+  if (currency === "HUF") return `${formatted} ${symbol}`;
+  return symbol.length === 1 ? `${symbol}${formatted}` : `${formatted} ${symbol}`;
 }
 
 export type CreateEmptyLineItemOptions = {

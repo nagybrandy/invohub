@@ -363,4 +363,14 @@ authTest.describe("Billing settings and reminders (authenticated)", () => {
     await expect(page.getByText(/vat_rate: 27, 18, 5, 0/)).toBeVisible();
     await expect(page.getByTestId("bulk-create")).toBeEnabled();
   });
+
+  authTest("USD can be chosen and the MNB rate is filled in automatically", async ({ page }) => {
+    await page.goto("/invoices/new");
+    await page.waitForLoadState("networkidle");
+    await page.getByTestId("composer-currency-USD").click();
+    await expect(page.getByText(/MNB/).first()).toBeVisible({ timeout: 20000 });
+    // The "more currencies" list offers the others the MNB publishes.
+    await page.getByTestId("composer-currency-more").click();
+    await expect(page.getByTestId("composer-currency-CHF")).toBeVisible();
+  });
 });

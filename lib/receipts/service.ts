@@ -1,4 +1,5 @@
 // lib/receipts/service.ts
+import { isCurrencyCode } from "@/lib/currency/currencies";
 import { isDocumentLanguage, type DocumentLanguage } from "@/lib/companies/billing-settings";
 import { and, between, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
@@ -105,8 +106,8 @@ export function validateReceiptInput(input: Partial<ReceiptInput>): string | nul
       return "totalAmount must be greater than zero.";
     }
   }
-  if (input.currency && input.currency !== "EUR" && input.currency !== "HUF") {
-    return "currency must be EUR or HUF.";
+  if (input.currency && !isCurrencyCode(input.currency)) {
+    return "currency must be a three-letter ISO code (HUF, EUR, USD, GBP, …).";
   }
   if (input.receiptNumber !== undefined && !input.receiptNumber.trim()) {
     return "receiptNumber cannot be empty.";

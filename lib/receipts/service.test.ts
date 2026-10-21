@@ -114,11 +114,17 @@ describe("validateReceiptInput", () => {
     ).toContain("quantity");
   });
 
+  it("accepts any three-letter ISO currency (the MNB decides which have a rate)", () => {
+    for (const currency of ["HUF", "EUR", "USD", "GBP", "CHF"]) {
+      expect(validateReceiptInput({ totalAmount: 10, currency })).toBeNull();
+    }
+  });
+
   it("rejects invalid currency", () => {
     expect(
       validateReceiptInput({
         totalAmount: 100,
-        currency: "USD" as "EUR" | "HUF",
+        currency: "euro",
       })
     ).toContain("currency");
   });

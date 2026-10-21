@@ -428,6 +428,18 @@ describe("buildNavInvoiceXml — non-HUF exchange rate (AC4-AC8)", () => {
     );
   });
 
+  it.each(["USD", "GBP", "CHF", "PLN"])("reports a %s invoice in that currency with the MNB rate, and the HUF amounts converted from it", (currency) => {
+    const invoice = makeInvoice({
+      currency,
+      exchangeRate: 400,
+      lineItems: [{ id: "l1", description: "Consulting", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }],
+    });
+    const xml = buildNavInvoiceXml(invoice, null);
+    expect(extractTag(xml, "currencyCode")).toBe(currency);
+    expect(extractTag(xml, "exchangeRate")).toBe("400");
+    expect(extractTag(extractBlock(xml, "line")!, "lineNetAmountHUF")).toBe("40000.00");
+  });
+
   it("is byte-for-byte unchanged for a HUF invoice — exchangeRate 1 and every …HUF element equal to its document-currency sibling (AC6)", () => {
     const invoice = makeInvoice({
       currency: "HUF",

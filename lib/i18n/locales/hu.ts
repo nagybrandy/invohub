@@ -986,10 +986,14 @@ export default {
       invalidChoice: "nem megengedett érték",
       invalidVatRate: "27, 18, 5, 0 vagy AAM/TAM/FAD/ATK/KBAET/AHK",
       invalidDate: "ÉÉÉÉ-HH-NN formátumú dátum kell",
-      invalidCurrency: "HUF vagy EUR",
+      invalidCurrency: "hárombetűs pénznemkód (HUF, EUR, USD, GBP…)",
       dueBeforeIssue: "a fizetési határidő nem lehet a kiállítás előtt",
       addressRequiredToIssue: "kiállításhoz a vevő irányítószáma, városa és címe kötelező",
     },
+  },
+  currency: {
+    other: "Más deviza…",
+    hint: "Csak olyan deviza választható, amelyhez van aktuális MNB-árfolyam; az árfolyamot a rendszer az MNB napi árfolyamából tölti ki.",
   },
   settings: {
     title: "Beállítások",

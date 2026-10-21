@@ -1,6 +1,7 @@
 // lib/bulk/validate.ts
 // Raw rows → documents ready to create, or per-row errors the user can fix in
 // the file. Pure: no network, no clock (today is passed in).
+import { isCurrencyCode } from "@/lib/currency/currencies";
 import { BULK_DOCUMENT_TYPES, BULK_MAX_ROWS, type BulkDocumentType } from "@/lib/bulk/columns";
 import type { RawRow } from "@/lib/bulk/parse";
 import { DOCUMENT_LANGUAGES, PAYMENT_METHODS, type DocumentLanguage } from "@/lib/companies/billing-settings";
@@ -39,7 +40,7 @@ export type BulkInvoiceRow = {
 
 export type BulkReceiptRow = {
   kind: "receipt";
-  currency: "HUF" | "EUR";
+  currency: string;
   paymentMethod: "cash" | "card" | "transfer" | "voucher";
   language: DocumentLanguage;
   lineItem: { description: string; quantity: number; unitPrice: number; vatRate: number; unit: string };
@@ -141,7 +142,9 @@ function validateRow(raw: RawRow, rowNumber: number, d: BulkDefaults): BulkRowRe
   }
 
   const currencyRaw = (get("currency") || d.defaultCurrency || "HUF").toUpperCase();
-  const currency = currencyRaw === "HUF" || currencyRaw === "EUR" ? currencyRaw : null;
+  // Any ISO code is accepted here; a currency the MNB has no rate for ends up
+  // with no automatic rate and the invoice asks for one (needs-exchange-rate).
+  const currency = isCurrencyCode(currencyRaw) ? currencyRaw : null;
   if (!currency) err("currency", "invalidCurrency");
 
   const langRaw = (get("language") || d.defaultLanguage || "hu").toLowerCase();

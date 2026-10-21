@@ -157,6 +157,9 @@ describe("document language", () => {
     expect(plain(formatDocumentAmount(1234567, "HUF", "en"))).toBe("1,234,567 Ft");
     expect(plain(formatDocumentAmount(1234.5, "EUR", "en"))).toBe("1,234.50 €");
     expect(plain(formatDocumentAmount(1234.5, "EUR", "hu"))).toBe("1 234,50 €");
+    expect(plain(formatDocumentAmount(1234.5, "USD", "hu"))).toBe("1 234,50 USD");
+    expect(plain(formatDocumentAmount(1234.5, "GBP", "en"))).toBe("1,234.50 GBP");
+    expect(plain(formatDocumentAmount(1200, "JPY", "en"))).toBe("1,200 JPY");
     expect(plain(formatDocumentQuantity(1.5, "óra", "en"))).toBe("1.5 óra");
     expect(plain(formatDocumentQuantity(1.5, "óra", "hu"))).toBe("1,5 óra");
   });

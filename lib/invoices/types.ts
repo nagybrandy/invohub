@@ -35,7 +35,12 @@ export type VatRate = 0 | 5 | 18 | 27;
  */
 export type VatCategory = "normal" | "AAM" | "TAM" | "KBAET" | "AHK" | "FAD" | "ATK";
 
-export type InvoiceCurrency = "EUR" | "HUF";
+/**
+ * ISO-4217 code. HUF, or any currency the MNB publishes a rate for
+ * (see lib/currency/currencies.ts) — the HUF rate is mandatory on a foreign
+ * currency invoice.
+ */
+export type InvoiceCurrency = string;
 
 export type PaymentMethod = "transfer" | "cash" | "card" | "other";
 

@@ -8,6 +8,7 @@
 // signed-in user has the app set to (an EN-UI user still issues a Hungarian
 // bizonylat). Pass locale="en" explicitly for the rare case an English
 // document is wanted.
+import { currencyFractionDigits } from "@/lib/currency/currencies";
 import en from "@/lib/i18n/locales/en";
 import hu from "@/lib/i18n/locales/hu";
 import type { InvoiceCurrency, InvoiceDocumentType, InvoiceStatus } from "@/lib/invoices/types";
@@ -92,8 +93,10 @@ export function formatDocumentAmount(
   currency: InvoiceCurrency,
   locale: DocumentLocale = "hu"
 ): string {
-  const symbol = currency === "EUR" ? "€" : "Ft";
-  const fractionDigits = currency === "EUR" ? 2 : 0;
+  // Documents print € and Ft as before and the ISO code for everything else
+  // ("1 234,50 USD") — a code is unambiguous on a legal document.
+  const symbol = currency === "EUR" ? "€" : currency === "HUF" ? "Ft" : currency;
+  const fractionDigits = currencyFractionDigits(currency);
   const formatted = new Intl.NumberFormat(DOCUMENT_INTL_LOCALE[locale], {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
