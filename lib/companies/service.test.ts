@@ -114,6 +114,69 @@ describe("upsertCompany", () => {
     expect(company.vatExempt).toBe(false);
   });
 
+  describe("billing settings (tax profile, defaults, invoice prefix)", () => {
+    const baseRow = {
+      id: "c1", userId: "user-1", name: "Demo Kft.", country: "HU", navEnvironment: "test", vatExempt: false,
+      createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
+    };
+
+    function captureInsert(row: Record<string, unknown> = baseRow) {
+      const values = jest.fn((v: Record<string, unknown>) => ({
+        returning: jest.fn().mockResolvedValue([{ ...row, ...v }]),
+      }));
+      mockDb.insert.mockReturnValue({ values });
+      return values;
+    }
+
+    it("stores a valid tax profile, prefix and defaults, normalising the prefix", async () => {
+      mockCompanySelect(null);
+      const values = captureInsert();
+      const company = await upsertCompany("user-1", {
+        name: "Demo Kft.", taxMode: "kiva", vatRegime: "quarterly", hipaMode: "general", invoicePrefix: "dc",
+        defaultPaymentMethod: "card", defaultPaymentTermDays: 15, defaultCurrency: "EUR", defaultLanguage: "en",
+        defaultVatRate: 27, defaultNote: "Köszönjük!",
+      });
+      expect(values.mock.calls[0][0]).toMatchObject({
+        taxMode: "kiva", vatRegime: "quarterly", hipaMode: "general", invoicePrefix: "DC",
+        defaultPaymentMethod: "card", defaultPaymentTermDays: 15, defaultCurrency: "EUR", defaultLanguage: "en",
+        defaultVatRate: 27, defaultNote: "Köszönjük!", vatExempt: false,
+      });
+      expect(company).toMatchObject({ taxMode: "kiva", invoicePrefix: "DC", defaultLanguage: "en" });
+    });
+
+    it("choosing the AAM ÁFA-status keeps the vatExempt flag in step (and leaving it clears it)", async () => {
+      mockCompanySelect(null);
+      const values = captureInsert();
+      await upsertCompany("user-1", { name: "Demo Kft.", vatRegime: "aam" });
+      expect(values.mock.calls[0][0]).toMatchObject({ vatRegime: "aam", vatExempt: true });
+
+      mockCompanySelect({ ...baseRow, vatRegime: "aam", vatExempt: true });
+      const set = jest.fn((v: Record<string, unknown>) => ({
+        where: jest.fn(() => ({ returning: jest.fn().mockResolvedValue([{ ...baseRow, ...v }]) })),
+      }));
+      mockDb.update.mockReturnValue({ set });
+      await upsertCompany("user-1", { name: "Demo Kft.", vatRegime: "monthly" });
+      expect(set.mock.calls[0][0]).toMatchObject({ vatRegime: "monthly", vatExempt: false });
+    });
+
+    it("keeps stored settings when a later save does not mention them, and clears on null", async () => {
+      mockCompanySelect({ ...baseRow, taxMode: "tao", invoicePrefix: "SG", defaultNote: "x" });
+      const set = jest.fn((v: Record<string, unknown>) => ({
+        where: jest.fn(() => ({ returning: jest.fn().mockResolvedValue([{ ...baseRow, ...v }]) })),
+      }));
+      mockDb.update.mockReturnValue({ set });
+      await upsertCompany("user-1", { name: "Demo Kft.", defaultNote: null as unknown as string });
+      expect(set.mock.calls[0][0]).toMatchObject({ taxMode: "tao", invoicePrefix: "SG", defaultNote: null });
+    });
+
+    it("never stores an invalid value (the API rejects it earlier; the service just ignores it)", async () => {
+      mockCompanySelect(null);
+      const values = captureInsert();
+      await upsertCompany("user-1", { name: "Demo Kft.", taxMode: "bogus" as never, invoicePrefix: "a-b" });
+      expect(values.mock.calls[0][0]).toMatchObject({ taxMode: null, invoicePrefix: null });
+    });
+  });
+
   it("falls back to demo when production is requested but not enabled", async () => {
     delete process.env.NAV_PRODUCTION_ENABLED;
     mockCompanySelect(null);

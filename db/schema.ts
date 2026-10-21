@@ -116,6 +116,24 @@ export const company = pgTable(
     navReceiptSoftwareId: text("nav_receipt_software_id"),
     /** Alanyi adómentes (VAT-exempt sole trader) — new invoices default every line to AAM/0% VAT. */
     vatExempt: boolean("vat_exempt").notNull().default(false),
+    // --- Tax profile (settings the owner states about the business; used as
+    // defaults/labels only — see lib/companies/billing-settings.ts) ---
+    /** kata | atalanyado | vszja | tao | kiva */
+    taxMode: text("tax_mode"),
+    /** aam | monthly | quarterly | yearly */
+    vatRegime: text("vat_regime"),
+    /** banded | general (helyi iparűzési adó) */
+    hipaMode: text("hipa_mode"),
+    // --- Invoice-number series + invoicing defaults ---
+    /** Prefix of the invoice number series, e.g. "DC" -> DC-2026-00018 (invoice-type documents). */
+    invoicePrefix: text("invoice_prefix"),
+    defaultPaymentMethod: text("default_payment_method"),
+    defaultPaymentTermDays: integer("default_payment_term_days"),
+    defaultCurrency: text("default_currency"),
+    /** hu | en | de | fr | es */
+    defaultLanguage: text("default_language"),
+    defaultVatRate: integer("default_vat_rate"),
+    defaultNote: text("default_note"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -226,6 +244,8 @@ export const invoice = pgTable(
     paymentLink: text("payment_link"),
     /** transfer | cash | card | other — real column; older rows kept it inside notes. */
     paymentMethod: text("payment_method"),
+    /** Document language of the PDF/e-mail: hu | en | de | fr | es (null = Hungarian). */
+    language: text("language"),
     paidAt: timestamp("paid_at"),
     paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }),
     /** Set on a storno document; the ORIGINAL invoice also flips to status "cancelled". */
@@ -293,6 +313,8 @@ export const invoiceLineItem = pgTable(
     vatCategory: text("vat_category").notNull().default("normal"),
     /** Human-readable exemption/reverse-charge reason shown on the PDF; auto-filled from vatCategory when unset. */
     vatExemptionReason: text("vat_exemption_reason"),
+    /** Per-line remark ("megjegyzés") shown under the description on the PDF; not sent to NAV. */
+    comment: text("comment"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -460,6 +482,8 @@ export const receipt = pgTable(
       .default("0"),
     currency: text("currency").notNull().default("HUF"),
     paymentMethod: text("payment_method").default("cash"),
+    /** Document language: hu | en | de | fr | es (null = Hungarian). */
+    language: text("language"),
     qrToken: text("qr_token").notNull().unique(),
     navSubmitted: boolean("nav_submitted").notNull().default(false),
     issuedAt: timestamp("issued_at").notNull().defaultNow(),

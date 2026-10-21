@@ -340,12 +340,13 @@ function isIssuedAndNumbered(row: Pick<Invoice, "status" | "invoiceNumber">): bo
  * profile has the mandatory Áfa tv. 169. § fields (throws
  * CompanyProfileIncompleteError otherwise).
  */
-async function assertCompanyProfileComplete(userId: string): Promise<void> {
+async function assertCompanyProfileComplete(userId: string): Promise<NonNullable<Awaited<ReturnType<typeof getCompanyByUserId>>>> {
   const company = await getCompanyByUserId(userId);
   const missingFields = getMissingCompanyProfileFields(company);
-  if (missingFields.length > 0) {
+  if (missingFields.length > 0 || !company) {
     throw new CompanyProfileIncompleteError(missingFields);
   }
+  return company;
 }
 
 /** The neon-http `db` or a runInTransaction `tx` — both drizzle PgDatabase instances. */
@@ -431,7 +432,7 @@ export async function upsertInvoice(
     if (existing && isIssuedAndNumbered(existing)) {
       throw new InvoiceAlreadyFinalizedError(existing.invoiceNumber);
     }
-    await assertCompanyProfileComplete(userId);
+    const issuer = await assertCompanyProfileComplete(userId);
     const year = issueYearOf(data.issueDate);
 
     // --- Atomic: number + invoice row + line items, or nothing. ---
@@ -446,7 +447,7 @@ export async function upsertInvoice(
           throw new InvoiceAlreadyFinalizedError(locked.invoiceNumber);
         }
       }
-      const invoiceNumber = await generateNextInvoiceNumber(userId, data.documentType, year, tx);
+      const invoiceNumber = await generateNextInvoiceNumber(userId, data.documentType, year, tx, issuer.invoicePrefix);
       await writeInvoiceRows(tx, userId, { ...data, invoiceNumber }, existing, now);
     });
   }

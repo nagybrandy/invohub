@@ -151,3 +151,16 @@ describe("vatSummaryByRate", () => {
     expect(vatSummaryByRate([])).toEqual([]);
   });
 });
+
+describe("createEmptyLineItem — company default VAT rate", () => {
+  it("uses a valid default rate for taxed lines and falls back to 27% for anything else", () => {
+    expect(createEmptyLineItem({ defaultVatRate: 5 }).vatRate).toBe(5);
+    expect(createEmptyLineItem({ defaultVatRate: 0 }).vatRate).toBe(0);
+    expect(createEmptyLineItem({ defaultVatRate: 20 }).vatRate).toBe(27);
+    expect(createEmptyLineItem().vatRate).toBe(27);
+  });
+  it("an AAM company still defaults to AAM/0% whatever the default rate", () => {
+    const li = createEmptyLineItem({ vatExempt: true, defaultVatRate: 18 });
+    expect(li).toMatchObject({ vatCategory: "AAM", vatRate: 0 });
+  });
+});

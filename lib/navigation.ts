@@ -42,6 +42,7 @@ export const routes = {
   productEdit: (id: string) => `/products/${id}/edit` as Href,
   settings: "/settings" as Href,
   settingsCompany: "/settings/company" as Href,
+  settingsBilling: "/settings/billing" as Href,
   settingsTemplates: "/settings/templates" as Href,
   settingsPdf: "/settings/pdf" as Href,
   settingsReminders: "/settings/reminders" as Href,

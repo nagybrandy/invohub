@@ -55,6 +55,20 @@ export function prefixForDocType(docType: InvoiceDocumentType): string {
   return PREFIX[sequenceBucketForDocType(docType)];
 }
 
+/**
+ * The prefix a document is actually numbered with. A company-chosen series
+ * prefix (settings → "számla-előtag", e.g. "DC") replaces INV for the invoice
+ * bucket only — invoice, storno and helyesbítő share one series, as before.
+ * Díjbekérő (DBK) and előlegszámla (ELO) keep their own prefixes. The year
+ * and the counter are unchanged, so changing the prefix mid-year continues
+ * the sequence (INV-2026-00017 → DC-2026-00018) and never reuses a number.
+ */
+export function effectivePrefix(docType: InvoiceDocumentType, customInvoicePrefix?: string | null): string {
+  const bucket = sequenceBucketForDocType(docType);
+  const custom = customInvoicePrefix?.trim();
+  return bucket === "invoice" && custom ? custom : PREFIX[bucket];
+}
+
 export function formatDocumentNumber(
   prefix: string,
   year: number,
@@ -103,9 +117,10 @@ export async function generateNextInvoiceNumber(
   userId: string,
   docType: InvoiceDocumentType,
   year: number,
-  executor: SequenceExecutor = db
+  executor: SequenceExecutor = db,
+  customInvoicePrefix?: string | null
 ): Promise<string> {
   const bucket = sequenceBucketForDocType(docType);
   const seq = await nextSequenceNumber(userId, bucket, year, executor);
-  return formatDocumentNumber(PREFIX[bucket], year, seq);
+  return formatDocumentNumber(effectivePrefix(docType, customInvoicePrefix), year, seq);
 }

@@ -367,6 +367,8 @@ export function useInvoiceComposer({
     if (company.defaultCurrency) setCurrency(company.defaultCurrency);
     if (company.defaultPaymentMethod) setPaymentMethod(company.defaultPaymentMethod);
     if (company.bankAccount) setBankAccount(company.bankAccount);
+    // Only while the note is still empty — never over something typed.
+    if (company.defaultNote) setNotes((current) => current || company.defaultNote!);
     if (company.defaultPaymentTermDays) {
       setDeadlineDaysState(company.defaultPaymentTermDays);
       if (!dueDateTouched.current) {
@@ -383,7 +385,7 @@ export function useInvoiceComposer({
         only.unitPrice === 0 &&
         only.vatCategory === "normal";
       return isPristine
-        ? [{ ...createEmptyLineItem({ vatExempt: company.vatExempt }), unit: "db" }]
+        ? [{ ...createEmptyLineItem({ vatExempt: company.vatExempt, defaultVatRate: company.defaultVatRate }), unit: "db" }]
         : items;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -419,7 +421,7 @@ export function useInvoiceComposer({
   function addLineItem() {
     setLineItems((items) => [
       ...items,
-      { ...createEmptyLineItem({ vatExempt: company?.vatExempt }), unit: "db" },
+      { ...createEmptyLineItem({ vatExempt: company?.vatExempt, defaultVatRate: company?.defaultVatRate }), unit: "db" },
     ]);
     markDirty();
   }

@@ -5,11 +5,19 @@ import { db } from "@/db";
 import { company } from "@/db/schema";
 import { findClientByName } from "@/lib/clients/service";
 import { normalizeEmailList, type EmailRecipientsInput } from "@/lib/email/recipients";
+import {
+  isDocumentLanguage,
+  isHipaMode,
+  isTaxMode,
+  isVatRegime,
+  validateBillingSettings,
+  type BillingSettings,
+} from "@/lib/companies/billing-settings";
 import { createId } from "@/lib/id";
 import { encryptNavSecret, isMaskedNavSecret } from "@/lib/nav/credentials";
 import { isNavEnvironment, parseNavEnvironment, type NavEnvironment } from "@/lib/nav/environment";
 
-export type CompanyInput = {
+export type CompanyInput = BillingSettings & {
   name: string;
   taxNumber?: string;
   euVatNumber?: string;
@@ -111,8 +119,44 @@ function mapRow(row: typeof company.$inferSelect): Company {
     navEnvironment: parseNavEnvironment(row.navEnvironment),
     navReceiptSoftwareId: row.navReceiptSoftwareId ?? undefined,
     vatExempt: row.vatExempt ?? false,
+    taxMode: isTaxMode(row.taxMode) ? row.taxMode : undefined,
+    vatRegime: isVatRegime(row.vatRegime) ? row.vatRegime : undefined,
+    hipaMode: isHipaMode(row.hipaMode) ? row.hipaMode : undefined,
+    invoicePrefix: row.invoicePrefix ?? undefined,
+    defaultPaymentMethod: (row.defaultPaymentMethod as BillingSettings["defaultPaymentMethod"]) ?? undefined,
+    defaultPaymentTermDays: row.defaultPaymentTermDays ?? undefined,
+    defaultCurrency: row.defaultCurrency ?? undefined,
+    defaultLanguage: isDocumentLanguage(row.defaultLanguage) ? row.defaultLanguage : undefined,
+    defaultVatRate: row.defaultVatRate ?? undefined,
+    defaultNote: row.defaultNote ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * The ten billing-setting columns for an upsert: a present, valid field is
+ * applied (null clears it), an absent or invalid one keeps the stored value.
+ * Choosing the AAM ÁFA-status also keeps the older vatExempt flag in step.
+ */
+function patchBillingSettings(input: Partial<CompanyInput>, existingRow: typeof company.$inferSelect | null) {
+  const { values } = validateBillingSettings(input as Record<string, unknown>);
+  const pick = <K extends keyof typeof values>(key: K, previous: string | number | null | undefined) =>
+    key in values ? (values[key] as string | number | null) : previous ?? null;
+  const vatRegime = pick("vatRegime", existingRow?.vatRegime) as string | null;
+  return {
+    taxMode: pick("taxMode", existingRow?.taxMode) as string | null,
+    vatRegime,
+    hipaMode: pick("hipaMode", existingRow?.hipaMode) as string | null,
+    invoicePrefix: pick("invoicePrefix", existingRow?.invoicePrefix) as string | null,
+    defaultPaymentMethod: pick("defaultPaymentMethod", existingRow?.defaultPaymentMethod) as string | null,
+    defaultPaymentTermDays: pick("defaultPaymentTermDays", existingRow?.defaultPaymentTermDays) as number | null,
+    defaultCurrency: pick("defaultCurrency", existingRow?.defaultCurrency) as string | null,
+    defaultLanguage: pick("defaultLanguage", existingRow?.defaultLanguage) as string | null,
+    defaultVatRate: pick("defaultVatRate", existingRow?.defaultVatRate) as number | null,
+    defaultNote: pick("defaultNote", existingRow?.defaultNote) as string | null,
+    // `values` only holds a vatRegime the caller actually sent (and that was valid).
+    vatExemptFromRegime: "vatRegime" in values ? vatRegime === "aam" : undefined,
   };
 }
 
@@ -120,7 +164,9 @@ function buildCompanyValues(
   input: Partial<CompanyInput> & { name: string },
   existingRow: typeof company.$inferSelect | null
 ) {
+  const { vatExemptFromRegime, ...billing } = patchBillingSettings(input, existingRow);
   return {
+    ...billing,
     name: input.name.trim(),
     taxNumber: patchOptionalField(input.taxNumber, existingRow?.taxNumber ?? undefined),
     euVatNumber: patchOptionalField(input.euVatNumber, existingRow?.euVatNumber ?? undefined),
@@ -136,7 +182,12 @@ function buildCompanyValues(
     navTechnicalPassword: patchSecretField(input.navTechnicalPassword, existingRow?.navTechnicalPassword),
     navXmlSignKey: patchSecretField(input.navXmlSignKey, existingRow?.navXmlSignKey),
     navXmlChangeKey: patchSecretField(input.navXmlChangeKey, existingRow?.navXmlChangeKey),
-    vatExempt: input.vatExempt !== undefined ? input.vatExempt : existingRow?.vatExempt ?? false,
+    vatExempt:
+      vatExemptFromRegime !== undefined
+        ? vatExemptFromRegime
+        : input.vatExempt !== undefined
+          ? input.vatExempt
+          : existingRow?.vatExempt ?? false,
     navEnvironment:
       input.navEnvironment !== undefined
         ? isNavEnvironment(input.navEnvironment)
