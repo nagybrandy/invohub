@@ -311,6 +311,24 @@ authTest.describe("Invoice detail (money header + timeline + danger zone)", () =
     // "PDF letöltése" download button instead.
     await expect(page.getByTestId("invoice-preview-download-pdf")).toBeVisible();
   });
+
+  authTest("the data export downloads a filtered CSV", async ({ page }) => {
+    await page.goto("/export");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Adatexport").first()).toBeVisible();
+
+    await page.getByTestId("export-dataset-clients").click();
+    await expect(page.getByText(/\d+ sor lesz a fájlban/)).toBeVisible();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByTestId("export-download").click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^partnerek-osszes-\d{4}-\d{2}-\d{2}\.csv$/);
+
+    await page.getByTestId("export-dataset-invoices").click();
+    await page.getByTestId("export-status-paid").click();
+    await expect(page.getByText(/\d+ sor lesz a fájlban/)).toBeVisible();
+  });
 });
 
 authTest.describe("Billing settings and reminders (authenticated)", () => {

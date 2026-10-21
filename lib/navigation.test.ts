@@ -21,6 +21,7 @@ describe("routes", () => {
     expect(routes.settingsCompany).toBe("/settings/company");
     expect(routes.settingsBilling).toBe("/settings/billing");
     expect(routes.receipts).toBe("/receipts");
+    expect(routes.dataExport).toBe("/export");
     expect(routes.admin).toBe("/admin");
   });
 

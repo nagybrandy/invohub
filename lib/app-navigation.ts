@@ -2,6 +2,7 @@
 // Shared nav structure: desktop sidebar, mobile tabs + "Továbbiak" sheet, and feature hubs.
 import type { LucideIcon } from "lucide-react-native";
 import {
+  Download,
   FileText,
   LayoutDashboard,
   MoreHorizontal,
@@ -52,6 +53,7 @@ export const SIDEBAR_PRIMARY_NAV: AppNavItem[] = [
 /** Desktop sidebar — secondary items below the divider (Importálás, Admin). */
 export const SIDEBAR_SECONDARY_NAV: AppNavItem[] = [
   { href: routes.emailEditor, labelKey: "nav.emailEditor", icon: MailOpen },
+  { href: routes.dataExport, labelKey: "nav.dataExport", icon: Download },
   { href: routes.import, labelKey: "nav.import", icon: Upload },
 ];
 
@@ -102,6 +104,7 @@ export const MOBILE_MORE_NAV: AppNavItem[] = [
   { href: routes.receipts, labelKey: "nav.receipts", icon: Receipt },
   { href: routes.products, labelKey: "nav.products", icon: Package },
   { href: routes.emailEditor, labelKey: "nav.emailEditor", icon: MailOpen },
+  { href: routes.dataExport, labelKey: "nav.dataExport", icon: Download },
   { href: routes.import, labelKey: "nav.import", icon: Upload },
   { href: routes.settings, labelKey: "nav.settings", icon: Settings },
 ];
