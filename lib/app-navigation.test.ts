@@ -34,23 +34,23 @@ describe("SIDEBAR_PRIMARY_NAV", () => {
 
 describe("SIDEBAR_SECONDARY_NAV / getSidebarSecondaryNav", () => {
   it("carries Importálás below the divider for every role", () => {
-    expect(SIDEBAR_SECONDARY_NAV.map((item) => item.href)).toEqual([routes.emailEditor, routes.dataExport, routes.import]);
+    expect(SIDEBAR_SECONDARY_NAV.map((item) => item.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.import]);
   });
 
   it("does not include admin for a non-admin role", () => {
     const items = getSidebarSecondaryNav("entrepreneur", { importEnabled: true });
-    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.import]);
+    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.import]);
   });
 
   it("appends the admin panel below the divider for admins", () => {
     const items = getSidebarSecondaryNav("admin", { importEnabled: true });
-    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.import, routes.admin]);
+    expect(items.map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.import, routes.admin]);
   });
 
   it("hides Importálás unless the deploy turned it on — which is the default", () => {
-    expect(getSidebarSecondaryNav("entrepreneur").map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport]);
-    expect(getSidebarSecondaryNav("admin").map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.admin]);
-    expect(getSidebarSecondaryNav("entrepreneur", { importEnabled: false }).map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport]);
+    expect(getSidebarSecondaryNav("entrepreneur").map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload]);
+    expect(getSidebarSecondaryNav("admin").map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload, routes.admin]);
+    expect(getSidebarSecondaryNav("entrepreneur", { importEnabled: false }).map((i) => i.href)).toEqual([routes.emailEditor, routes.dataExport, routes.bulkUpload]);
   });
 });
 
@@ -85,6 +85,7 @@ describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
       routes.products,
       routes.emailEditor,
       routes.dataExport,
+      routes.bulkUpload,
       routes.import,
       routes.settings,
     ]);
@@ -102,6 +103,7 @@ describe("MOBILE_MORE_NAV / getMobileMoreNav", () => {
       routes.products,
       routes.emailEditor,
       routes.dataExport,
+      routes.bulkUpload,
       routes.settings,
     ]);
   });
