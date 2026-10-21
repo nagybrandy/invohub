@@ -14,7 +14,6 @@ import {
   LandingFooter,
   LandingHero,
   ProductTransition,
-  RoadmapSection,
   WorkflowSection,
 } from "@/components/marketing/LandingSections";
 import {
@@ -146,7 +145,6 @@ export default function Landing() {
       <ProductTransition isDesktop={isDesktop} onLayout={onSectionLayout} />
       <CapabilityBento isDesktop={isDesktop} onLayout={onSectionLayout} />
       <WorkflowSection isDesktop={isDesktop} onLayout={onSectionLayout} />
-      <RoadmapSection isDesktop={isDesktop} onLayout={onSectionLayout} />
       <BlogInsightsSection
         isDesktop={isDesktop}
         onLayout={onSectionLayout}

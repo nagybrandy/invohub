@@ -15,7 +15,6 @@ export const blogPosts: BlogPost[] = [
     relatedSlugs: [
       "pdf-es-email-szamlakuldes",
       "partner-es-termek-torzsadatok",
-      "elerheto-es-tervezett-funkciok",
     ],
     sections: [
       {
@@ -87,7 +86,7 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "Mi tartozik a folyamathoz — és mi nem",
         paragraphs: [
-          "A PDF-előnézet, letöltés és e-mail küldés elérhető funkció. A banki tranzakciók automatikus párosítása ezzel szemben tervezett irány, nem része a jelenlegi kézbesítési folyamatnak.",
+          "A PDF-előnézet, a letöltés és az e-mail küldés a számla kiállításával egy lépésben elérhető.",
           "Ha a küldés után fizetésre vársz, a következő logikus eszköz a fizetési emlékeztető — erről külön cikkben írunk.",
         ],
       },
@@ -105,7 +104,6 @@ export const blogPosts: BlogPost[] = [
     relatedSlugs: [
       "pdf-es-email-szamlakuldes",
       "magyar-szamlazas-alapok",
-      "elerheto-es-tervezett-funkciok",
     ],
     sections: [
       {
@@ -132,7 +130,7 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "Tervezett, de még nem elérhető: banki párosítás",
         paragraphs: [
-          "A beérkező banki tranzakciók és a nyitott számlák automatikus vagy támogatott párosítása tervezett funkció. Amíg ez nem érhető el, a fizetés rögzítése és az emlékeztetők manuális ellenőrzéssel egészítik ki egymást.",
+          "A fizetés rögzítése és az emlékeztetők kézi ellenőrzéssel egészítik ki egymást: a beérkezett összeget a számlán jelölöd fizetettnek, a többire az emlékeztető figyel.",
           "Ez a megkülönböztetés fontos: az emlékeztető ma használható eszköz; a banki matching későbbi fejlesztési irány.",
         ],
       },
@@ -150,7 +148,6 @@ export const blogPosts: BlogPost[] = [
     relatedSlugs: [
       "magyar-szamlazas-alapok",
       "pdf-es-email-szamlakuldes",
-      "elerheto-es-tervezett-funkciok",
     ],
     sections: [
       {
@@ -178,66 +175,7 @@ export const blogPosts: BlogPost[] = [
         heading: "Minőségi ellenőrzés néhány perces rutinnal",
         paragraphs: [
           "Negyedévente érdemes átnézni a leggyakoribb partnereket és termékeket: változott-e a cím, az adószám, az ár vagy az ÁFA-kezelés. Egy rövid karbantartás sok későbbi korrekciót megspórol.",
-          "A tiszta törzsadat a későbbi funkciók — például a tervezett banki párosítás — számára is jobb alapot ad, mert egyértelműbbé teszi, melyik számla melyik partnerhez tartozik.",
-        ],
-      },
-    ],
-  },
-  {
-    slug: "elerheto-es-tervezett-funkciok",
-    titleEn: "Available vs planned features",
-    title: "Elérhető és tervezett funkciók: mi működik ma az InvoHubban",
-    description:
-      "Egyértelmű lista arról, mi érhető el most, és mi van csak tervezett irányként megjelölve — banki párosítás, EV adókalkulátor és M2M.",
-    publishedAt: "2026-09-06",
-    readingMinutes: 6,
-    tags: ["termék", "roadmap", "átláthatóság"],
-    relatedSlugs: [
-      "magyar-szamlazas-alapok",
-      "fizetesi-emlekeztetok",
-      "pdf-es-email-szamlakuldes",
-    ],
-    sections: [
-      {
-        heading: "Miért fontos a pontos címkézés",
-        paragraphs: [
-          "A marketing és a termék akkor marad megbízható, ha világosan elválasztja az elérhető funkciókat a jövőbeli irányoktól. Ez a cikk ezért szándékosan két listát használ.",
-          "Ha egy képesség mellett a „tervezett” jelölés szerepel, az azt jelenti: nincs éles, általános rendelkezésre állás, és nincs ígért indulási dátum.",
-        ],
-      },
-      {
-        heading: "Elérhető ma",
-        paragraphs: [
-          "Számlakészítés partner- és tételsorokkal, előnézet, PDF-letöltés és e-mailes küldés. Partner- és terméktörzs a gyorsabb újraszámlázáshoz. Fizetési emlékeztetők a nyitott tételekhez. Nyugták külön munkafolyamatban. Beállítások a cégadatokhoz, sablonokhoz és PDF-megjelenéshez.",
-          "Ezek a funkciók a napi magyar számlázási munkát támogatják. A konkrét jogszabályi megfelelés és a NAV-beküldések helyességének ellenőrzése a felhasználó feladata.",
-        ],
-      },
-      {
-        heading: "Tervezett: banki párosítás",
-        paragraphs: [
-          "A banki párosítás célja, hogy a beérkező tranzakciókat támogatott módon össze lehessen rendelni a nyitott számlákkal. Ez beleegyezésen alapuló banki kapcsolódást, normalizált tranzakciókat és felülvizsgálható javaslatokat igényel.",
-          "Állapot: tervezett. Nem érhető el a jelenlegi szolgáltatásban, és nem szabad úgy kommunikálni, mintha már automatikusan egyeztetné a fizetéseket.",
-        ],
-      },
-      {
-        heading: "Tervezett: EV adókalkulátor",
-        paragraphs: [
-          "Az egyéni vállalkozói adókalkulátor tájékoztató jellegű számításokat adna a támogatott adózási módokhoz, verziózott szabályokkal és magyarázható eredményekkel. Nem helyettesítené a könyvelői tanácsadást.",
-          "Állapot: tervezett. Amíg nincs élesítve, az InvoHub nem ígér adószámítási eredményt a felületen.",
-        ],
-      },
-      {
-        heading: "Tervezett: M2M bevallási / gépi beküldési folyamat",
-        paragraphs: [
-          "Az M2M (machine-to-machine) irány scoped API-kulcsokat, idempotens beküldést, webhookokat és auditnaplót feltételez. Ez a későbbi integrációs réteg része.",
-          "Állapot: tervezett. A mai termékben a hangsúly a felhasználói felületen keresztüli számlázási munkafolyamaton van, nem a teljes gépi bevallási automatizmuson.",
-        ],
-      },
-      {
-        heading: "Hogyan dönts a következő lépésről",
-        paragraphs: [
-          "Ha ma szeretnél rendezetten számlázni, kezdd a törzsadatokkal, a számlakészítéssel és a PDF/e-mail folyamattal. Az emlékeztetők a kintlévőségekhez adnak segítséget.",
-          "A banki párosítás, az EV kalkulátor és az M2M akkor válik relevánssá, amikor ezek a fejlesztési fázisok elkészülnek — addig a roadmap csak irányt mutat, nem elérhető szolgáltatást.",
+          "A tiszta törzsadat egyértelműbbé teszi, melyik számla melyik partnerhez tartozik, így a lista, a keresés és az emlékeztetők is áttekinthetőbbek maradnak.",
         ],
       },
     ],
