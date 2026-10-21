@@ -32,7 +32,7 @@ test.describe("Static marketing homepage", () => {
 
     await expect(page.getByTestId("marketing-page")).toBeVisible();
     await expect(page.getByTestId("marketing-brand")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("bevallásig");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("magyarul és angolul");
     await expect(page.getByTestId("marketing-hero")).toBeVisible();
     await expect(page.getByText("1 284 500 Ft")).toBeVisible();
   });
@@ -135,7 +135,7 @@ test.describe("Static marketing homepage", () => {
       : page.getByTestId("marketing-lang-switcher");
 
     await switcher.getByRole("button", { name: "EN" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("tax return");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("English and Hungarian");
 
     if (isMobile(testInfo.project.name)) {
       // The header CTA isn't in the top bar on mobile — check the menu's CTA.
@@ -145,7 +145,7 @@ test.describe("Static marketing homepage", () => {
       await expect(page.getByTestId("marketing-header-cta")).toHaveText("Start for free");
       await switcher.getByRole("button", { name: "HU" }).click();
     }
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("bevallásig");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("magyarul és angolul");
   });
 
   test("primary calls to action point at the application login", async ({ page }, testInfo) => {
