@@ -117,6 +117,26 @@ describe("generateNextInvoiceNumber", () => {
   });
 });
 
+describe("company invoice prefix (settings → számla-előtag)", () => {
+  it("numbers invoice-bucket documents with the chosen prefix and keeps the counter going", async () => {
+    expect(await generateNextInvoiceNumber("user-1", "invoice", 2026)).toBe("INV-2026-00001");
+    expect(await generateNextInvoiceNumber("user-1", "invoice", 2026, undefined, "DC")).toBe("DC-2026-00002");
+    // storno / helyesbítő stay in the same series, with the same prefix
+    expect(await generateNextInvoiceNumber("user-1", "storno", 2026, undefined, "DC")).toBe("DC-2026-00003");
+    expect(await generateNextInvoiceNumber("user-1", "modify", 2026, undefined, "DC")).toBe("DC-2026-00004");
+  });
+
+  it("leaves díjbekérő and előlegszámla on their own prefixes", async () => {
+    expect(await generateNextInvoiceNumber("user-1", "proforma", 2026, undefined, "DC")).toBe("DBK-2026-00001");
+    expect(await generateNextInvoiceNumber("user-1", "advance", 2026, undefined, "DC")).toBe("ELO-2026-00001");
+  });
+
+  it("falls back to INV for a blank prefix", async () => {
+    expect(await generateNextInvoiceNumber("user-1", "invoice", 2026, undefined, "  ")).toBe("INV-2026-00001");
+    expect(await generateNextInvoiceNumber("user-1", "invoice", 2026, undefined, null)).toBe("INV-2026-00002");
+  });
+});
+
 describe("executor (finalize transaction) support", () => {
   it("runs the document_sequence upsert through the given executor, not the HTTP db client", async () => {
     const returning = jest.fn(async () => [{ lastNumber: 42 }]);

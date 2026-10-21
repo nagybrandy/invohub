@@ -206,7 +206,7 @@
         ["Irányítópult", "/dashboard"], ["Számlák", "/invoices"], ["Új számla", "/invoices/new"],
         ["Partnerek", "/clients"], ["Új partner", "/clients/new"], ["Termékek", "/products"],
         ["Nyugták", "/receipts"], ["Új nyugta", "/receipts/new"], ["E-mail szerkesztő", "/email-editor"],
-        ["Beállítások", "/settings"], ["Cégadatok", "/settings/company"], ["PDF sablon", "/settings/pdf"],
+        ["Beállítások", "/settings"], ["Cégadatok", "/settings/company"], ["Számlázási beállítások", "/settings/billing"], ["PDF sablon", "/settings/pdf"],
         ["Emlékeztetők", "/settings/reminders"], ["E-mail sablonok", "/settings/templates"], ["Onboarding", "/onboarding"], ["Import", "/import"], ["Admin", "/admin"],
       ] },
     ];

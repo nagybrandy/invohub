@@ -91,7 +91,11 @@ export function formatCurrency(amount: number, currency: Invoice["currency"]): s
 export type CreateEmptyLineItemOptions = {
   /** Company is alanyi adómentes (VAT-exempt) — default new lines to AAM/0% instead of 27%. */
   vatExempt?: boolean;
+  /** The company's default ÁFA rate for taxed lines (settings → Alapértelmezett ÁFA-kulcs); 27% when unset. */
+  defaultVatRate?: number;
 };
+
+const TAXED_RATES = [0, 5, 18, 27] as const;
 
 export function createEmptyLineItem(
   options: CreateEmptyLineItemOptions = {}
@@ -111,7 +115,9 @@ export function createEmptyLineItem(
     description: "",
     quantity: 1,
     unitPrice: 0,
-    vatRate: 27,
+    vatRate: (TAXED_RATES as readonly number[]).includes(options.defaultVatRate ?? 27)
+      ? ((options.defaultVatRate ?? 27) as InvoiceLineItem["vatRate"])
+      : 27,
     vatCategory: "normal",
   };
 }

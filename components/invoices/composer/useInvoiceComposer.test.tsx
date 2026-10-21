@@ -427,6 +427,22 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.companyProfileIncomplete).toBe(false);
   });
 
+  it("starts a new invoice from the company's billing defaults (VAT rate, note, payment, term)", async () => {
+    setupApiFetch({
+      company: {
+        id: "c1", userId: "u1", name: "Demo Kft.", vatExempt: false, createdAt: "", updatedAt: "",
+        defaultVatRate: 18, defaultNote: "Köszönjük!", defaultPaymentMethod: "card", defaultPaymentTermDays: 15,
+      },
+    });
+    const ref = await renderComposer({ mode: "create" });
+    expect(ref.current!.lineItems[0].vatRate).toBe(18);
+    expect(ref.current!.notes).toBe("Köszönjük!");
+    expect(ref.current!.paymentMethod).toBe("card");
+    expect(ref.current!.deadlineDays).toBe(15);
+    act(() => ref.current!.addLineItem());
+    expect(ref.current!.lineItems[1].vatRate).toBe(18);
+  });
+
   it("shows the buyer details and the dates/payment block from the start (no collapsed toggle)", async () => {
     const ref = await renderComposer({ mode: "create" });
     expect(ref.current!.showClientDetails).toBe(true);

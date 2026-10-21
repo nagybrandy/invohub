@@ -19,6 +19,7 @@ describe("routes", () => {
   it("exposes static app routes", () => {
     expect(routes.invoices).toBe("/invoices");
     expect(routes.settingsCompany).toBe("/settings/company");
+    expect(routes.settingsBilling).toBe("/settings/billing");
     expect(routes.receipts).toBe("/receipts");
     expect(routes.admin).toBe("/admin");
   });

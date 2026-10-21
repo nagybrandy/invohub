@@ -12,6 +12,7 @@ import {
   Languages,
   LogOut,
   Mail,
+  Receipt,
   Moon,
   KeyRound,
   Shield,
@@ -41,6 +42,12 @@ const SETTINGS_LINKS = [
     labelKey: "settings.company",
     descKey: "settings.companyHint",
     icon: Building2,
+  },
+  {
+    href: routes.settingsBilling,
+    labelKey: "settings.billing",
+    descKey: "settings.billingHint",
+    icon: Receipt,
   },
   {
     href: routes.emailEditor,

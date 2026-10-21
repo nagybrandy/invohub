@@ -5,6 +5,7 @@ import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/se
 import { getCompanyByUserId, upsertCompany } from "@/lib/companies/service";
 import type { CompanyInput } from "@/lib/companies/service";
 import { toPublicCompany } from "@/lib/companies/public-company";
+import { validateBillingSettings } from "@/lib/companies/billing-settings";
 import { isNavEnvironment } from "@/lib/nav/environment";
 
 export async function GET(request: Request) {
@@ -33,6 +34,14 @@ export async function POST(request: Request) {
     }
     if (body.navEnvironment !== undefined && !isNavEnvironment(body.navEnvironment)) {
       return jsonResponse({ error: "navEnvironment must be test or production." }, 400);
+    }
+
+    const billing = validateBillingSettings(body as unknown as Record<string, unknown>);
+    if (billing.errors.length > 0) {
+      return jsonResponse(
+        { error: "Invalid billing settings.", code: "invalidBillingSettings", fields: billing.errors.map((e) => e.field) },
+        400
+      );
     }
 
     const company = await upsertCompany(session.user.id, body);
