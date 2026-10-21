@@ -31,6 +31,9 @@ export type NavTaxpayerQueryResult =
       city?: string;
       zipCode?: string;
       country?: string;
+      /** From taxNumberDetail — together with the 8 digits they form the full 8-1-2 adószám. */
+      vatCode?: string;
+      countyCode?: string;
     };
 
 export type NavManageInvoiceResult = { transactionId: string };
