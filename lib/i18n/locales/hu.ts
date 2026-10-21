@@ -1172,7 +1172,6 @@ export default {
       product: "Termék",
       capabilities: "Lehetőségek",
       workflow: "Munkafolyamat",
-      roadmap: "Irány",
       blog: "Blog",
       openMenu: "Menü megnyitása",
       closeMenu: "Menü bezárása",
@@ -1186,7 +1185,7 @@ export default {
       productTour: "Mutasd a terméket",
       readBlog: "Olvasd a blogot",
       reassurance:
-        "A jelenleg elérhető funkciókat mutatjuk — a fejlesztés alatt álló terveket külön jelöljük.",
+        "Számlázás magyarul és angolul, NAV-megfelelően — magyar és külföldi ügyfelekkel is.",
       infographicAlt:
         "Infografika a számlakészítésről, PDF e-mail küldésről és a fizetések követéséről az InvoHubban",
     },
@@ -1194,7 +1193,7 @@ export default {
       eyebrow: "Tudásanyag",
       title: "Gyakorlati útmutatók a magyar számlázáshoz",
       subtitle:
-        "Rövid, pontos cikkek arról, mi működik ma — és mi van csak tervezett irányként megjelölve.",
+        "Rövid, pontos cikkek arról, hogyan működik ma a magyar számlázás.",
       viewAll: "Összes cikk",
     },
     product: {
@@ -1276,28 +1275,6 @@ export default {
           "A dokumentum piszkozatként menthető, véglegesíthető, PDF-ként letölthető vagy e-mailben elküldhető.",
       },
     },
-    roadmap: {
-      label: "Fejlesztési irány · még nem elérhető",
-      title: "A következő réteg: kevesebb kézi egyeztetés",
-      description:
-        "Ezek az elemek a termék tervezett irányát mutatják. Jelenleg nem részei az elérhető szolgáltatásnak, és nem ígérünk hozzájuk indulási dátumot.",
-      future: "Tervezett",
-      bank: {
-        title: "Banki párosítás",
-        description:
-          "A beérkező tranzakciók és a nyitott számlák támogatott összerendelése.",
-      },
-      tax: {
-        title: "EV adókalkulátor",
-        description:
-          "Egyéni vállalkozóknak szánt, tájékoztató jellegű adótervezési nézet.",
-      },
-      m2m: {
-        title: "M2M bevallási folyamat",
-        description:
-          "A támogatott adatok előkészítése és beküldési lépések egy későbbi fejlesztési fázisban.",
-      },
-    },
     finalCta: {
       eyebrow: "Rendezett kezdet",
       title: "Vidd egy biztosabb rendszerbe a napi számlázást.",
@@ -1324,7 +1301,7 @@ export default {
     eyebrow: "InvoHub blog",
     indexTitle: "Pontos útmutatók a magyar számlázáshoz",
     indexSubtitle:
-      "Alapok, PDF/e-mail küldés, emlékeztetők, törzsadatok — és egyértelmű különbség az elérhető és a tervezett funkciók között.",
+      "Alapok, PDF/e-mail küldés, emlékeztetők és törzsadatok — gyakorlati útmutatók a magyar számlázáshoz.",
     readingMinutes: "{{count}} perc olvasás",
     readArticle: "Cikk elolvasása",
     allArticles: "Összes cikk",

@@ -1174,7 +1174,6 @@ export default {
       product: "Product",
       capabilities: "Capabilities",
       workflow: "Workflow",
-      roadmap: "Direction",
       blog: "Blog",
       openMenu: "Open menu",
       closeMenu: "Close menu",
@@ -1188,7 +1187,7 @@ export default {
       productTour: "See the product",
       readBlog: "Read the blog",
       reassurance:
-        "We show what is available today — work in development is clearly marked separately.",
+        "Invoicing in Hungarian and English, NAV-compliant — for Hungarian and international customers alike.",
       infographicAlt:
         "Infographic showing invoice creation, PDF email delivery, and payment tracking in InvoHub",
     },
@@ -1196,7 +1195,7 @@ export default {
       eyebrow: "Guides",
       title: "Practical guides for Hungarian invoicing",
       subtitle:
-        "Short, precise articles on what works today — and what is labeled as planned only.",
+        "Short, precise articles on how Hungarian invoicing works today.",
       viewAll: "All articles",
     },
     product: {
@@ -1278,28 +1277,6 @@ export default {
           "Save as a draft, finalize the document, download its PDF, or send it by email.",
       },
     },
-    roadmap: {
-      label: "Product direction · not available yet",
-      title: "The next layer: less manual reconciliation",
-      description:
-        "These items describe the planned direction of the product. They are not currently part of the available service, and no launch date is promised.",
-      future: "Planned",
-      bank: {
-        title: "Bank matching",
-        description:
-          "Assisted matching of incoming transactions with open invoices.",
-      },
-      tax: {
-        title: "Sole proprietor tax calculator",
-        description:
-          "An informational tax-planning view designed for sole proprietors.",
-      },
-      m2m: {
-        title: "M2M filing workflow",
-        description:
-          "Preparing supported data and submission steps in a later development phase.",
-      },
-    },
     finalCta: {
       eyebrow: "An organized start",
       title: "Move daily invoicing into a more dependable system.",
@@ -1326,7 +1303,7 @@ export default {
     eyebrow: "InvoHub blog",
     indexTitle: "Precise guides for Hungarian invoicing",
     indexSubtitle:
-      "Basics, PDF/email delivery, reminders, master data — and a clear split between available and planned features.",
+      "Basics, PDF/email delivery, reminders and master data — practical guides to Hungarian invoicing.",
     readingMinutes: "{{count}} min read",
     readArticle: "Read article",
     allArticles: "All articles",

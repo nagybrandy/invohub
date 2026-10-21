@@ -19,6 +19,7 @@ import { VStack } from "@/components/ui/vstack";
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { InvoiceListTable } from "@/components/invoices/InvoiceListTable";
 import { NextActionsCard } from "@/components/dashboard/NextActionsCard";
+import { isM2mDemoCardVisible } from "@/lib/m2m/demo-flag";
 import { M2mDemoCard } from "@/components/dashboard/M2mDemoCard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
@@ -239,7 +240,7 @@ export default function DashboardScreen() {
           )}
         </VStack>
 
-        <M2mDemoCard />
+        {isM2mDemoCardVisible() ? <M2mDemoCard /> : null}
       </VStack>
       {toastMessage ? (
         <Box className="absolute left-0 right-0 top-4 z-50 items-center px-4" testID="dashboard-toast">

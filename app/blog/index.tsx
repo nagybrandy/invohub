@@ -14,7 +14,7 @@ export default function BlogIndexRoute() {
   const seo = buildPageSeo({
     title: "Blog",
     description:
-      "Magyar számlázási útmutatók az InvoHubtól: alapok, PDF/e-mail küldés, emlékeztetők, törzsadatok és a tervezett funkciók átlátható listája.",
+      "Magyar számlázási útmutatók az InvoHubtól: alapok, PDF/e-mail küldés, emlékeztetők és törzsadatok.",
     path: "/blog",
   });
 

@@ -54,15 +54,13 @@ describe("blog catalog", () => {
         "pdf-es-email-szamlakuldes",
         "fizetesi-emlekeztetok",
         "partner-es-termek-torzsadatok",
-        "elerheto-es-tervezett-funkciok",
       ]),
     );
 
-    const roadmap = getBlogPostBySlug("elerheto-es-tervezett-funkciok");
-    const body = roadmap?.sections.map((s) => s.paragraphs.join(" ")).join(" ") ?? "";
-    expect(body).toMatch(/tervezett/i);
-    expect(body).toMatch(/banki párosítás/i);
-    expect(body).toMatch(/EV adókalkulátor|adókalkulátor/i);
-    expect(body).toMatch(/M2M/i);
+    // The published catalog never talks about future features (owner decision 2026-10-21).
+    expect(slugs).not.toContain("elerheto-es-tervezett-funkciok");
+    const all = slugs.map((slug) => getBlogPostBySlug(slug)).flatMap((post) => post?.sections ?? []);
+    const text = all.map((s) => s.paragraphs.join(" ")).join(" ");
+    expect(text).not.toMatch(/tervezett|roadmap|banki párosítás|adókalkulátor|M2M/i);
   });
 });

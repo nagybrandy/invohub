@@ -175,9 +175,11 @@ test.describe("Premium landing page", () => {
     await page.getByTestId("landing-menu-toggle").click();
     await expect(page.getByTestId("landing-mobile-menu")).toBeVisible();
 
-    const roadmapLink = page.getByRole("link", { name: /^(Irány|Direction)$/i });
-    expect((await roadmapLink.boundingBox())?.height).toBeGreaterThanOrEqual(44);
-    await roadmapLink.click();
-    await expect(page.getByTestId("landing-section-roadmap")).toBeInViewport();
+    // No "Irány"/roadmap entry any more — the landing does not announce future features.
+    await expect(page.getByRole("link", { name: /^(Irány|Direction)$/i })).toHaveCount(0);
+    const workflowLink = page.getByRole("link", { name: /^(Munkafolyamat|Workflow)$/i });
+    expect((await workflowLink.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await workflowLink.click();
+    await expect(page.getByTestId("landing-section-workflow")).toBeInViewport();
   });
 });

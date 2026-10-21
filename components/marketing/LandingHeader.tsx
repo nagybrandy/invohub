@@ -14,7 +14,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 
-export type LandingSectionId = "product" | "capabilities" | "workflow" | "roadmap" | "insights";
+export type LandingSectionId = "product" | "capabilities" | "workflow" | "insights";
 
 type LandingHeaderProps = {
   isDesktop: boolean;
@@ -52,7 +52,6 @@ export function LandingHeader({
     ["product", t("landing.nav.product")],
     ["capabilities", t("landing.nav.capabilities")],
     ["workflow", t("landing.nav.workflow")],
-    ["roadmap", t("landing.nav.roadmap")],
   ];
 
   React.useEffect(() => {

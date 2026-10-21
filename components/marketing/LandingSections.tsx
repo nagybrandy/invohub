@@ -11,12 +11,9 @@ import {
   ChevronRight,
   FileOutput,
   FileText,
-  Landmark,
   Mail,
-  Package,
   ReceiptText,
   Send,
-  Sparkles,
   Users,
 } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
@@ -424,68 +421,6 @@ export function WorkflowSection({
             ))}
           </VStack>
         </Box>
-      </Box>
-    </Box>
-  );
-}
-
-export function RoadmapSection({
-  isDesktop,
-  onLayout,
-}: {
-  isDesktop: boolean;
-  onLayout: SectionLayoutHandler;
-}) {
-  const { t } = useTranslation();
-  const roadmap = [
-    [Landmark, "landing.roadmap.bank.title", "landing.roadmap.bank.description"],
-    [Sparkles, "landing.roadmap.tax.title", "landing.roadmap.tax.description"],
-    [Package, "landing.roadmap.m2m.title", "landing.roadmap.m2m.description"],
-  ] as const;
-
-  return (
-    <Box
-      onLayout={(event) => onLayout("roadmap", event)}
-      testID="landing-section-roadmap"
-      className="bg-[#1f305e] px-4 py-16 md:px-8 md:py-24"
-    >
-      <Box className={`mx-auto w-full max-w-[1120px] gap-10 ${isDesktop ? "flex-row" : ""}`}>
-        <VStack className={isDesktop ? "w-[38%]" : ""} space="md">
-          <Box className="self-start rounded-lg border border-primary/40 px-2.5 py-1">
-            <Text className="text-xs font-semibold uppercase tracking-[1.5px] text-[#d9e7ff]">
-              {t("landing.roadmap.label")}
-            </Text>
-          </Box>
-          <Heading className="text-3xl leading-tight tracking-tight text-white md:text-4xl">
-            {t("landing.roadmap.title")}
-          </Heading>
-          <Text className="font-light leading-7 text-[#c8d2e6]">
-            {t("landing.roadmap.description")}
-          </Text>
-        </VStack>
-        <VStack className={isDesktop ? "flex-1" : ""} space="sm">
-          {roadmap.map(([Icon, titleKey, descriptionKey]) => (
-            <HStack
-              key={titleKey}
-              className="gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5"
-            >
-              <Box className="h-10 w-10 items-center justify-center rounded-xl bg-primary/15">
-                <Icon size={18} color={landingColors.paleBlue} />
-              </Box>
-              <VStack className="flex-1" space="xs">
-                <HStack className="items-center justify-between gap-3">
-                  <Text className="font-semibold text-white">{t(titleKey)}</Text>
-                  <Text className="text-[10px] font-semibold uppercase tracking-wider text-[#aebee0]">
-                    {t("landing.roadmap.future")}
-                  </Text>
-                </HStack>
-                <Text size="sm" className="font-light leading-6 text-[#b9c6df]">
-                  {t(descriptionKey)}
-                </Text>
-              </VStack>
-            </HStack>
-          ))}
-        </VStack>
       </Box>
     </Box>
   );
