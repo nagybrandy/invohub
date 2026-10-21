@@ -10,6 +10,7 @@
 // unsaved draft sits beside the form on every step (ComposerSideLayout,
 // composerPreviewLayout); narrower screens — or a user who hid the panel —
 // get an "Előnézet" button that opens the same PDF in a drawer.
+import { currencySymbol } from "@/lib/currency/currencies";
 import * as React from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
@@ -618,7 +619,7 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
               {t("invoices.totals.grossTotal")}:{" "}
               <Text size="sm" className="tabular-nums font-semibold text-foreground">
                 {new Intl.NumberFormat("hu-HU").format(totals.totalAmount)}{" "}
-                {currency === "EUR" ? "€" : "Ft"}
+                {currencySymbol(currency)}
               </Text>
             </Text>
             {mobileTotalsExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}

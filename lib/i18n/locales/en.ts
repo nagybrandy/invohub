@@ -992,6 +992,10 @@ export default {
       addressRequiredToIssue: "the buyer's postal code, city and address are required to issue",
     },
   },
+  currency: {
+    other: "Other currency…",
+    hint: "Only currencies with a current MNB rate can be chosen; the rate is filled in from the MNB's daily rate.",
+  },
   settings: {
     title: "Settings",
     subtitle: "Account, templates, and app preferences.",

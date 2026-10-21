@@ -1,5 +1,6 @@
 // lib/invoices/create-from-payload.ts
 // Validates and builds an Invoice from API / external payloads.
+import { isCurrencyCode } from "@/lib/currency/currencies";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { validateEmailRecipientsInput } from "@/lib/email/recipients";
 import { autofillMissingExchangeRate } from "@/lib/invoices/exchange-rate-autofill";
@@ -123,8 +124,8 @@ export function validateExternalInvoiceInput(
   if (body.documentType && !DOCUMENT_TYPES.includes(body.documentType)) {
     return `documentType must be one of ${DOCUMENT_TYPES.join(", ")}.`;
   }
-  if (body.currency && body.currency !== "EUR" && body.currency !== "HUF") {
-    return "currency must be EUR or HUF.";
+  if (body.currency && !isCurrencyCode(body.currency)) {
+    return "currency must be a three-letter ISO code (HUF, EUR, USD, GBP, …).";
   }
   // exchangeRate is no longer required for a non-HUF currency — the server
   // fetches the official MNB rate when it's omitted (see

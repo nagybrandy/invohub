@@ -1,4 +1,6 @@
 // app/(app)/receipts/new.tsx
+import { CurrencyPicker } from "@/components/settings/CurrencyPicker";
+import { isCurrencyCode } from "@/lib/currency/currencies";
 import * as React from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
@@ -40,7 +42,6 @@ import QRCode from "react-native-qrcode-svg";
 
 type DraftLineItem = ReceiptLineItemCalcInput & { id: string };
 
-const CURRENCIES: ReceiptCurrency[] = ["HUF", "EUR"];
 
 const PAYMENT_METHOD_LABEL_KEYS: Record<ReceiptPaymentMethod, string> = {
   cash: "receipts.paymentMethods.cash",
@@ -87,7 +88,7 @@ export default function NewReceiptScreen() {
   React.useEffect(() => {
     if (!company || appliedDefaults.current) return;
     appliedDefaults.current = true;
-    if (company.defaultCurrency === "HUF" || company.defaultCurrency === "EUR") setCurrency(company.defaultCurrency);
+    if (isCurrencyCode(company.defaultCurrency)) setCurrency(company.defaultCurrency);
     if (company.defaultLanguage) setLanguage(company.defaultLanguage);
     if (company.defaultPaymentMethod && (RECEIPT_PAYMENT_METHODS as string[]).includes(company.defaultPaymentMethod)) {
       setPaymentMethod(company.defaultPaymentMethod as ReceiptPaymentMethod);
@@ -230,21 +231,7 @@ export default function NewReceiptScreen() {
               <FormControlLabel>
                 <FormControlLabelText>{t("receipts.currency")}</FormControlLabelText>
               </FormControlLabel>
-              <HStack space="sm">
-                {CURRENCIES.map((value) => (
-                  <Pressable
-                    key={value}
-                    onPress={() => setCurrency(value)}
-                    className={`rounded-md border px-4 py-2 ${
-                      currency === value
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-background"
-                    }`}
-                  >
-                    <Text size="sm">{value}</Text>
-                  </Pressable>
-                ))}
-              </HStack>
+              <CurrencyPicker value={currency} onChange={(value) => value && setCurrency(value)} testIDPrefix="receipt-currency" />
             </FormControl>
 
             <FormControl>

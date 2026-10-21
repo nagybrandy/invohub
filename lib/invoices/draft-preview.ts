@@ -7,6 +7,7 @@
 // The result is always rendered as an unnumbered draft: the number prints
 // as the "Piszkozat" placeholder and the status chip as PISZKOZAT, so a
 // preview can never pass for a finalized document.
+import { isCurrencyCode } from "@/lib/currency/currencies";
 import type {
   Invoice,
   InvoiceCurrency,
@@ -20,7 +21,6 @@ import type {
 export const DRAFT_PREVIEW_MAX_LINE_ITEMS = 200;
 
 const DOCUMENT_TYPES: InvoiceDocumentType[] = ["invoice", "proforma", "advance", "storno", "modify"];
-const CURRENCIES: InvoiceCurrency[] = ["HUF", "EUR"];
 const PAYMENT_METHODS: PaymentMethod[] = ["transfer", "cash", "card", "other"];
 const VAT_CATEGORIES: VatCategory[] = ["normal", "AAM", "TAM", "KBAET", "AHK", "FAD", "ATK"];
 const VAT_RATES: VatRate[] = [0, 5, 18, 27];
@@ -82,7 +82,7 @@ export function parseDraftPreviewInvoice(body: unknown): Parsed {
     return { ok: false, error: `At most ${DRAFT_PREVIEW_MAX_LINE_ITEMS} line items can be previewed.` };
   }
 
-  const currency = oneOf(raw.currency, CURRENCIES, "HUF");
+  const currency = isCurrencyCode(raw.currency) ? raw.currency : "HUF";
   const exchangeRate = finite(raw.exchangeRate);
   const now = new Date().toISOString();
   const paymentMethod = PAYMENT_METHODS.includes(raw.paymentMethod as PaymentMethod)

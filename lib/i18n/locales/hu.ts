@@ -991,6 +991,10 @@ export default {
       addressRequiredToIssue: "kiállításhoz a vevő irányítószáma, városa és címe kötelező",
     },
   },
+  currency: {
+    other: "Más deviza…",
+    hint: "Csak olyan deviza választható, amelyhez van aktuális MNB-árfolyam; az árfolyamot a rendszer az MNB napi árfolyamából tölti ki.",
+  },
   settings: {
     title: "Beállítások",
     subtitle: "Fiók, sablonok és alkalmazás beállítások.",

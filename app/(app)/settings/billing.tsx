@@ -14,6 +14,7 @@ import { Text } from "@/components/ui/text";
 import { Textarea, TextareaInput } from "@/components/ui/textarea";
 import { VStack } from "@/components/ui/vstack";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { CurrencyPicker } from "@/components/settings/CurrencyPicker";
 import { OptionChips } from "@/components/settings/OptionChips";
 import { useCompany } from "@/hooks/useCompany";
 import {
@@ -31,7 +32,6 @@ import { routes } from "@/lib/navigation";
 
 /** The languages a document can actually be issued in today (more follow). */
 const AVAILABLE_LANGUAGES: DocumentLanguage[] = ["hu", "en"];
-const CURRENCIES = ["HUF", "EUR"] as const;
 
 export default function BillingSettingsScreen() {
   const { t } = useTranslation();
@@ -237,13 +237,7 @@ export default function BillingSettingsScreen() {
             </VStack>
             <VStack space="xs">
               <Text size="sm" className="font-medium text-foreground">{t("billing.defaults.currency")}</Text>
-              <OptionChips
-                testIDPrefix="billing-currency"
-                clearable
-                value={form.defaultCurrency}
-                onChange={(v) => set("defaultCurrency", v)}
-                options={CURRENCIES.map((value) => ({ value, label: value }))}
-              />
+              <CurrencyPicker clearable testIDPrefix="billing-currency" value={form.defaultCurrency} onChange={(v) => set("defaultCurrency", v)} />
             </VStack>
             <VStack space="xs">
               <Text size="sm" className="font-medium text-foreground">{t("billing.defaults.note")}</Text>

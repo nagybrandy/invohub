@@ -1,5 +1,6 @@
 // lib/receipts/types.ts
-export type ReceiptCurrency = "EUR" | "HUF";
+/** ISO-4217 code — same rule as InvoiceCurrency. */
+export type ReceiptCurrency = string;
 
 export type ReceiptPaymentMethod = "cash" | "card" | "transfer" | "voucher";
 
