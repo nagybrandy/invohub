@@ -3,7 +3,7 @@
 // production mode with credentials, deterministic demo taxpayers otherwise.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { getCompanyByUserId } from "@/lib/companies/service";
-import { lookupCompanyByTaxNumber } from "@/lib/company/lookup";
+import { lookupCompanyCached } from "@/lib/company/lookup-server";
 
 export async function GET(request: Request) {
   const session = await requireSession(request);
@@ -16,6 +16,6 @@ export async function GET(request: Request) {
   }
 
   const company = await getCompanyByUserId(session.user.id);
-  const result = await lookupCompanyByTaxNumber(taxNumber, company);
+  const result = await lookupCompanyCached(taxNumber, company);
   return jsonResponse({ company: result });
 }
