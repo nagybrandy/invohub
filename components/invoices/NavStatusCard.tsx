@@ -55,17 +55,17 @@ const MAX_AUTO_POLLS = 6;
 function statusTone(status: string): string {
   switch (status.toLowerCase()) {
     case "done":
-      return "text-green-600";
+      return "text-ok";
     case "aborted":
     case "error":
-      return "text-destructive";
+      return "text-err";
     case "pending":
     case "processing":
     case "received":
     case "saved":
-      return "text-amber-600";
+      return "text-warn";
     default:
-      return "text-muted-foreground";
+      return "text-muted-ink";
   }
 }
 
@@ -180,9 +180,9 @@ export function NavStatusCard({
       <VStack space="sm">
         <HStack className="items-center justify-between">
           <HStack space="xs" className="items-center flex-wrap">
-            <Text className="font-semibold text-foreground">{t("invoices.nav.title")}</Text>
+            <Text className="font-semibold text-ink">{t("invoices.nav.title")}</Text>
             {isDemo ? (
-              <Badge variant="outline" className="border-primary/40">
+              <Badge variant="outline" className="border-primary-line">
                 <BadgeText className="text-[10px] text-primary">{t("invoices.nav.demoBadge")}</BadgeText>
               </Badge>
             ) : null}
@@ -210,13 +210,13 @@ export function NavStatusCard({
         </HStack>
 
         {!submission ? (
-          <Text size="sm" className="text-muted-foreground">
+          <Text size="sm" className="text-muted-ink">
             {t("invoices.nav.notSubmitted")}
           </Text>
         ) : (
           <VStack space="xs">
             <HStack className="items-center justify-between">
-              <Text size="sm" className="text-muted-foreground">
+              <Text size="sm" className="text-muted-ink">
                 {t("invoices.nav.status")}
               </Text>
               <Text size="sm" className={`font-medium ${statusTone(submission.status)}`}>
@@ -227,21 +227,21 @@ export function NavStatusCard({
             </HStack>
             {submission.transactionId ? (
               <HStack className="items-center justify-between">
-                <Text size="sm" className="text-muted-foreground">
+                <Text size="sm" className="text-muted-ink">
                   {t("invoices.nav.transactionId")}
                 </Text>
                 <Text size="sm">{submission.transactionId}</Text>
               </HStack>
             ) : null}
             {submission.errorMessage ? (
-              <Text size="xs" className="text-destructive" testID="nav-status-error-message">
+              <Text size="xs" className="text-err" testID="nav-status-error-message">
                 {submission.errorMessage}
               </Text>
             ) : null}
             {messages.length > 0 ? (
-              <VStack space="xs" className="rounded-md bg-muted/50 p-2">
+              <VStack space="xs" className="rounded-md bg-wash2 p-2">
                 {messages.map((m, i) => (
-                  <Text key={i} size="xs" className="text-muted-foreground">
+                  <Text key={i} size="xs" className="text-muted-ink">
                     {m}
                   </Text>
                 ))}
@@ -251,7 +251,7 @@ export function NavStatusCard({
         )}
 
         {error ? (
-          <Text size="sm" className="text-destructive">
+          <Text size="sm" className="text-err">
             {error}
           </Text>
         ) : null}

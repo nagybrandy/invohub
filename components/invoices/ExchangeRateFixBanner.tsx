@@ -5,7 +5,7 @@
 // filter state and passes it in.
 import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
@@ -38,7 +38,7 @@ export function ExchangeRateFixBanner({
   const onPress = active ? onShowAll : onShowAffected;
 
   const text = (
-    <Text size="sm" className="flex-1 text-destructive">
+    <Text size="sm" className="flex-1 text-warn">
       {active
         ? t("invoices.exchangeRateFix.activeTitle")
         : t("invoices.exchangeRateFix.banner", { count })}
@@ -47,24 +47,19 @@ export function ExchangeRateFixBanner({
 
   const action = (
     <Button
-      variant="outline"
-      className={
-        isDesktop
-          ? `border-destructive/40 ${TAP_TARGET_MIN_H}`
-          : `border-destructive/40 w-full ${TAP_TARGET_MIN_H}`
-      }
+      variant="secondary"
+      className={isDesktop ? TAP_TARGET_MIN_H : `w-full ${TAP_TARGET_MIN_H}`}
       onPress={onPress}
       testID="exchange-rate-fix-banner-action"
     >
-      <ButtonText className="text-destructive">{label}</ButtonText>
+      <ButtonText>{label}</ButtonText>
     </Button>
   );
 
   return (
-    <Card
-      testID="exchange-rate-fix-banner"
-      className="border border-destructive/40 bg-destructive/10 p-3"
-    >
+    // A warn note (redesign 2026-11), not an error: the invoices still exist,
+    // they only cannot be sent to NAV until a HUF rate is stored.
+    <Box testID="exchange-rate-fix-banner" className="rounded-card bg-warn-wash px-3.5 py-2.5">
       {isDesktop ? (
         <HStack space="md" className="items-center justify-between">
           {text}
@@ -76,6 +71,6 @@ export function ExchangeRateFixBanner({
           {action}
         </VStack>
       )}
-    </Card>
+    </Box>
   );
 }

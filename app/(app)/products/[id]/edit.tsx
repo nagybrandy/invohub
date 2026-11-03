@@ -112,7 +112,7 @@ export default function EditProductScreen() {
             <InputField value={vatRate} onChangeText={setVatRate} keyboardType="number-pad" />
           </Input>
         </FormControl>
-        {error ? <Text className="text-destructive">{error}</Text> : null}
+        {error ? <Text className="text-err">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
           <ButtonText>{t("products.saveChanges")}</ButtonText>
         </Button>

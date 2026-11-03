@@ -58,15 +58,15 @@ export function NavExchangeRateAuditCard({
   return (
     <Card
       testID="nav-exchange-rate-audit-card"
-      className="border border-destructive/40 bg-destructive/10 p-4"
+      className="border border-err-line bg-err-wash p-4"
     >
       <VStack space="sm">
-        <Text className="font-semibold text-destructive">
+        <Text className="font-semibold text-err">
           {t("invoices.navExchangeRateAudit.title")}
         </Text>
 
         {hasAmounts ? (
-          <Text size="sm" className="text-muted-foreground">
+          <Text size="sm" className="text-muted-ink">
             {t("invoices.navExchangeRateAudit.body", {
               currency,
               reportedRate: reportedRateText,
@@ -76,13 +76,13 @@ export function NavExchangeRateAuditCard({
             })}
           </Text>
         ) : (
-          <Text size="sm" className="text-muted-foreground">
+          <Text size="sm" className="text-muted-ink">
             {t("invoices.navExchangeRateAudit.missingRateBody", { currency })}
           </Text>
         )}
 
         {report.source === "legacyImplicitOne" ? (
-          <Text size="xs" className="text-muted-foreground">
+          <Text size="xs" className="text-muted-ink">
             {t("invoices.navExchangeRateAudit.legacyNote")}
           </Text>
         ) : null}
@@ -105,7 +105,7 @@ export function NavExchangeRateAuditCard({
         ) : null}
 
         {hasAmounts ? (
-          <Text size="xs" className="text-muted-foreground">
+          <Text size="xs" className="text-muted-ink">
             {t("invoices.navExchangeRateAudit.correctionHint")}
           </Text>
         ) : null}
@@ -113,12 +113,12 @@ export function NavExchangeRateAuditCard({
         <HStack space="sm" className={isDesktop ? "self-start" : "flex-wrap"}>
           <Button
             testID="nav-exchange-rate-audit-primary-action"
-            variant="outline"
+            variant="danger"
             disabled={busy}
-            className={`border-destructive/40 ${isDesktop ? "" : "w-full"} ${TAP_TARGET_MIN_H}`}
+            className={`${isDesktop ? "" : "w-full"} ${TAP_TARGET_MIN_H}`}
             onPress={hasAmounts ? onIssueCorrection : onAddRate}
           >
-            <ButtonText className="text-destructive">
+            <ButtonText>
               {hasAmounts
                 ? t("invoices.navExchangeRateAudit.issueCorrection")
                 : t("invoices.navExchangeRateAudit.addRate")}

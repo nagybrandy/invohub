@@ -130,7 +130,7 @@ export default function NewClientScreen() {
           </Input>
         </FormControl>
         <ClientPartyTypeSwitch value={partyType} onChange={setPartyType} />
-        {error ? <Text className="text-destructive">{error}</Text> : null}
+        {error ? <Text className="text-err">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
           <ButtonText>{saving ? t("common.saving") : t("clients.save")}</ButtonText>
         </Button>

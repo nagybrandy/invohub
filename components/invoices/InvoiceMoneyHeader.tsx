@@ -33,26 +33,26 @@ export function InvoiceMoneyHeader({
   const showOutstanding = outstanding > 0 && invoice.status !== "draft" && invoice.status !== "cancelled";
 
   return (
-    <VStack space="md" className="rounded-xl border border-subtle p-5" testID="invoice-money-header">
+    <VStack space="md" className="rounded-card border border-line bg-surface p-5" testID="invoice-money-header">
       <HStack className="flex-wrap items-start justify-between gap-4">
         <VStack space="xs">
           <HStack space="sm" className="flex-wrap items-center">
-            <Text size="sm" className="font-medium text-muted-foreground">
+            <Text size="sm" className="font-medium text-muted-ink">
               {invoice.invoiceNumber || t("invoices.status.draft")}
             </Text>
             <InvoiceStatusChip status={displayStatus} />
           </HStack>
-          <Text size="sm" className="text-muted-foreground">
+          <Text size="sm" className="text-muted-ink">
             {invoice.clientName}
           </Text>
           <Text
-            className="font-heading text-2xl font-bold tabular-nums text-foreground"
+            className="font-heading text-2xl font-bold tabular-nums text-ink"
             testID="invoice-money-header-gross"
           >
             {formatCurrency(totals.totalAmount, invoice.currency)}
           </Text>
           {showOutstanding ? (
-            <Text size="sm" className="text-muted-foreground">
+            <Text size="sm" className="text-muted-ink">
               {t("invoices.detail.outstanding", {
                 amount: formatCurrency(outstanding, invoice.currency),
               })}
@@ -61,7 +61,7 @@ export function InvoiceMoneyHeader({
           {overdue ? (
             <Text
               size="sm"
-              className="font-medium text-destructive"
+              className="font-medium text-err"
               testID="invoice-money-header-overdue"
             >
               {t("invoices.list.overdueBy", { days })}

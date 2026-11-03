@@ -178,7 +178,7 @@ export default function EditClientScreen() {
           </Input>
         </FormControl>
         <ClientPartyTypeSwitch value={partyType} onChange={setPartyType} />
-        {error ? <Text className="text-destructive">{error}</Text> : null}
+        {error ? <Text className="text-err">{error}</Text> : null}
         <Button onPress={handleSave} disabled={saving}>
           <ButtonText>{t("clients.saveChanges")}</ButtonText>
         </Button>

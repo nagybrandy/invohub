@@ -79,7 +79,7 @@ export default function ReceiptDetailScreen() {
     return (
       <ScreenLayout>
         <VStack space="md">
-          <Text className="text-destructive">{error ?? t("receipts.notFound")}</Text>
+          <Text className="text-err">{error ?? t("receipts.notFound")}</Text>
           <Button variant="outline" onPress={() => void reload()}>
             <ButtonText>{t("common.refresh")}</ButtonText>
           </Button>
@@ -104,7 +104,7 @@ export default function ReceiptDetailScreen() {
         <Card className="items-center p-6">
           <VStack space="md" className="items-center">
             <QRCode value={receipt.qrUrl} size={200} />
-            <Text size="xs" className="text-center text-muted-foreground">
+            <Text size="xs" className="text-center text-muted-ink">
               {t("receipts.qrHint")}
             </Text>
           </VStack>
@@ -113,13 +113,13 @@ export default function ReceiptDetailScreen() {
         <Card className="p-4">
           <VStack space="sm">
             <HStack className="justify-between">
-              <Text size="sm" className="text-muted-foreground">
+              <Text size="sm" className="text-muted-ink">
                 {t("receipts.issued")}
               </Text>
               <Text>{formatDateWithTime(receipt.issuedAt)}</Text>
             </HStack>
             <HStack className="justify-between">
-              <Text size="sm" className="text-muted-foreground">
+              <Text size="sm" className="text-muted-ink">
                 {t("receipts.amount")}
               </Text>
               <Text className="text-lg font-bold">
@@ -128,7 +128,7 @@ export default function ReceiptDetailScreen() {
             </HStack>
             {receipt.clientName ? (
               <HStack className="justify-between">
-                <Text size="sm" className="text-muted-foreground">
+                <Text size="sm" className="text-muted-ink">
                   {t("receipts.client")}
                 </Text>
                 <Text>{receipt.clientName}</Text>
@@ -142,10 +142,10 @@ export default function ReceiptDetailScreen() {
             <VStack space="sm">
               <Heading size="sm">{t("receipts.lineItems")}</Heading>
               {receipt.lineItems.map((li, idx) => (
-                <HStack key={idx} className="items-center justify-between border-b border-border pb-2 last:border-b-0">
+                <HStack key={idx} className="items-center justify-between border-b border-line pb-2 last:border-b-0">
                   <VStack>
                     <Text size="sm" className="font-medium">{li.description}</Text>
-                    <Text size="xs" className="text-muted-foreground">
+                    <Text size="xs" className="text-muted-ink">
                       {li.quantity} × {formatCurrency(li.unitPrice, receipt.currency)} ({li.vatRate}% VAT)
                     </Text>
                   </VStack>
@@ -166,7 +166,7 @@ export default function ReceiptDetailScreen() {
           currency={receipt.currency}
         />
 
-        <Text size="xs" selectable className="font-mono text-muted-foreground">
+        <Text size="xs" selectable className="font-mono text-muted-ink">
           {receipt.qrUrl}
         </Text>
 

@@ -54,30 +54,30 @@ export function ReceiptNavCard({
     <Card className="p-4">
       <VStack space="sm">
         <HStack className="items-center justify-between">
-          <Text size="sm" className="text-muted-foreground">NAV</Text>
+          <Text size="sm" className="text-muted-ink">NAV</Text>
           {navSubmitted ? (
             <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
-              <BadgeText className="text-xs text-green-600">{t("receipts.navSubmitted")}</BadgeText>
+              <BadgeText className="text-xs text-ok">{t("receipts.navSubmitted")}</BadgeText>
             </Badge>
           ) : (
             <Badge variant="outline" className="rounded-full px-2 py-0.5">
-              <BadgeText className="text-xs text-muted-foreground">{t("receipts.navPending")}</BadgeText>
+              <BadgeText className="text-xs text-muted-ink">{t("receipts.navPending")}</BadgeText>
             </Badge>
           )}
         </HStack>
         <HStack className="items-center justify-between">
           <Badge variant="outline" className="rounded-full px-2 py-0.5">
-            <BadgeText className="text-xs text-muted-foreground">
+            <BadgeText className="text-xs text-muted-ink">
               {t(NAV_MODE_LABEL_KEY[navMode])}
             </BadgeText>
           </Badge>
-          <Text size="xs" className="flex-1 text-right text-muted-foreground">
+          <Text size="xs" className="flex-1 text-right text-muted-ink">
             {t(NAV_MODE_HINT_KEY[navMode])}
           </Text>
         </HStack>
         {navReportId ? (
           <HStack className="justify-between">
-            <Text size="sm" className="text-muted-foreground">
+            <Text size="sm" className="text-muted-ink">
               {t("receipts.navReportId")}
             </Text>
             <Text selectable size="xs" className="flex-1 text-right font-mono">
@@ -87,10 +87,10 @@ export function ReceiptNavCard({
         ) : null}
         {navError ? (
           <VStack space="xs">
-            <Text size="xs" className="text-muted-foreground">
+            <Text size="xs" className="text-muted-ink">
               {t("receipts.navReportError")}
             </Text>
-            <Text size="xs" className="text-destructive">
+            <Text size="xs" className="text-err">
               {errorText}
             </Text>
           </VStack>
