@@ -4,6 +4,7 @@
 // NAV_PRODUCTION_ENABLED=true): the kill switch lives on the server
 // (lib/nav/environment.ts), the picker just mirrors it — a stored
 // "production" still falls back to demo there when the switch is off.
+// Look: the segmented control (tokens.md §6.1).
 import { useTranslation } from "react-i18next";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -31,25 +32,28 @@ export function NavEnvironmentPicker({
 
   return (
     <VStack space="xs">
-      <HStack className="rounded-lg border border-border bg-muted p-1">
+      <HStack accessibilityRole="radiogroup" className="gap-1 rounded-xl border border-seg-line bg-seg-track p-1">
         {NAV_ENVIRONMENTS.map((environment) => {
           const disabled = environment === "production" && !productionEnabled;
+          const selected = value === environment;
           return (
             <Pressable
               key={environment}
+              testID={`nav-environment-${environment}`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected, disabled }}
+              aria-checked={selected}
               disabled={disabled}
               onPress={() => {
                 if (!disabled) onChange(environment);
               }}
-              className={`flex-1 rounded-md px-3 py-2 ${
-                value === environment ? "bg-background shadow-sm" : ""
+              className={`min-h-9 min-w-0 flex-1 items-center justify-center rounded-control px-3 py-2 ${
+                selected ? "bg-seg-active" : "data-[hover=true]:bg-seg-hover"
               } ${disabled ? "opacity-40" : ""}`}
             >
               <Text
                 size="sm"
-                className={`text-center font-medium ${
-                  value === environment ? "text-foreground" : "text-muted-foreground"
-                }`}
+                className={`text-center ${selected ? "font-medium text-seg-active-ink" : "font-normal text-seg-ink"}`}
               >
                 {labels[environment]}
               </Text>
@@ -58,7 +62,7 @@ export function NavEnvironmentPicker({
         })}
       </HStack>
       {value === "production" ? (
-        <Text size="xs" className="text-muted-foreground" testID="nav-production-hint">
+        <Text size="xs" className="text-muted-ink" testID="nav-production-hint">
           {t(productionEnabled ? "company.navMode.productionEnabledHint" : "company.navMode.productionDisabledHint")}
         </Text>
       ) : null}

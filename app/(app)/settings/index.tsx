@@ -1,90 +1,34 @@
 // app/(app)/settings/index.tsx
-// Settings hub: profile, templates, reminders, theme, adóhatósági ellenőrzési
-// adatszolgáltatás (tax-audit XML export), demo data, sign out.
+// The Beállítások start page for narrow screens (the frame redirects wide ones
+// to Céges profil, where the left nav is the start list): a search field, the
+// grouped list of pages (title + one-line description), a separate card with
+// the logout row, then the admin link and the dev-only demo seed.
 import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import {
-  Building2,
-  ChevronRight,
-  Database,
-  FileText,
-  Languages,
-  LogOut,
-  Mail,
-  Receipt,
-  Moon,
-  KeyRound,
-  Shield,
-  Users,
-} from "lucide-react-native";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
-import { TaxAuditExportCard } from "@/components/settings/TaxAuditExportCard";
+import { Database, Shield } from "lucide-react-native";
+import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { HStack } from "@/components/ui/hstack";
-import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
-import { FeatureLinkCard } from "@/components/layout/FeatureLinkCard";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { LogoutRow } from "@/components/settings/LogoutRow";
+import { SettingsPage } from "@/components/settings/SettingsSheet";
+import { SettingsSearchField } from "@/components/settings/SettingsSearchField";
+import {
+  SettingsRowCard,
+  SettingsStartList,
+  SettingsStartRow,
+} from "@/components/settings/SettingsStartList";
 import { apiFetch } from "@/lib/api/client";
-import { signOut, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
-import { useColorScheme } from "@/lib/useColorScheme";
+import { SETTINGS_NAV_ITEMS, filterSettingsNav } from "@/lib/settings-navigation";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { canAccessAdminPanel } from "@/lib/user-roles";
 import { isDevSeedButtonVisible } from "@/lib/dev/seed-visible";
-
-const SETTINGS_LINKS = [
-  {
-    href: routes.settingsCompany,
-    labelKey: "settings.company",
-    descKey: "settings.companyHint",
-    icon: Building2,
-  },
-  {
-    href: routes.settingsBilling,
-    labelKey: "settings.billing",
-    descKey: "settings.billingHint",
-    icon: Receipt,
-  },
-  {
-    href: routes.settingsAccess,
-    labelKey: "settings.access",
-    descKey: "settings.accessHint",
-    icon: Users,
-  },
-  {
-    href: routes.emailEditor,
-    labelKey: "settings.templates",
-    descKey: "settings.templatesHint",
-    icon: Mail,
-  },
-  {
-    href: routes.settingsPdf,
-    labelKey: "settings.pdf",
-    descKey: "settings.pdfHint",
-    icon: FileText,
-  },
-  {
-    href: routes.settingsReminders,
-    labelKey: "settings.reminders",
-    descKey: "settings.remindersHint",
-    icon: Mail,
-  },
-  {
-    href: routes.settingsApiKeys,
-    labelKey: "settings.apiKeys",
-    descKey: "settings.apiKeysHint",
-    icon: KeyRound,
-  },
-] as const;
+import { type } from "@/lib/ui/type";
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const { isDarkColorScheme, preference, cycleTheme } = useColorScheme();
   const icons = useIconColors();
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
@@ -94,6 +38,7 @@ export default function SettingsScreen() {
   const seedEnabled = isDevSeedButtonVisible();
   const [seeding, setSeeding] = React.useState(false);
   const [seedMessage, setSeedMessage] = React.useState<string | null>(null);
+  const [query, setQuery] = React.useState("");
 
   async function handleSeed() {
     setSeeding(true);
@@ -123,130 +68,56 @@ export default function SettingsScreen() {
     }
   }
 
-  async function handleSignOut() {
-    await signOut();
-    router.replace(routes.login);
-  }
+  const items = filterSettingsNav(SETTINGS_NAV_ITEMS, query, t);
 
   return (
-    <ScreenLayout
-      header={
-        <PageHeader
-          title={t("settings.title")}
-          subtitle={t("settings.subtitle")}
-        />
-      }
-    >
-      <VStack space="lg">
-        <Card className="p-4">
-          <HStack className="items-center justify-between gap-4">
-            <HStack space="sm" className="flex-1 items-center">
-              <Languages size={20} color={icons.accent} />
-              <VStack className="flex-1">
-                <Text className="font-semibold text-foreground">
-                  {t("language.title")}
-                </Text>
-                <Text size="xs" className="text-muted-foreground">
-                  {t("language.hint")}
-                </Text>
-              </VStack>
-            </HStack>
-            <LanguageSwitcher />
-          </HStack>
-        </Card>
+    <SettingsPage title={t("settings.title")} lead={t("settingsPages.startLead")} testID="settings-start">
+      <SettingsSearchField value={query} onChange={setQuery} />
 
-        {/* The audit export is the one thing an ellenőrzés asks for — it sits
-            right under the profile, not at the bottom under "tools". */}
-        <TaxAuditExportCard />
+      {items.length === 0 ? (
+        <Text testID="settings-search-empty" className={`${type.meta} px-1`}>
+          {t("settingsPages.noResults", { query: query.trim() })}
+        </Text>
+      ) : (
+        <SettingsStartList items={items} onOpen={(item) => router.push(item.href)} />
+      )}
 
-        <VStack space="sm">
-          <Text className="font-semibold text-foreground">{t("settings.account")}</Text>
-          <HStack space="sm" className="flex-wrap">
-            {SETTINGS_LINKS.map((link) => (
-              <FeatureLinkCard
-                key={link.href as string}
-                icon={link.icon}
-                title={t(link.labelKey)}
-                description={t(link.descKey)}
-                onPress={() => router.push(link.href)}
-              />
-            ))}
-          </HStack>
-        </VStack>
+      {isAdmin ? (
+        <SettingsRowCard testID="settings-admin-card">
+          <SettingsStartRow
+            testID="settings-admin"
+            icon={Shield}
+            title={t("admin.title")}
+            description={t("admin.subtitle")}
+            onPress={() => router.push(routes.admin)}
+          />
+        </SettingsRowCard>
+      ) : null}
 
-        <VStack space="sm">
-          <Text className="font-semibold text-foreground">{t("settings.tools")}</Text>
-          <HStack space="sm" className="flex-wrap">
-            <Pressable onPress={() => void cycleTheme()} className="flex-1 min-w-[45%]" testID="settings-appearance">
-              <Card className="h-full p-4 active:opacity-80">
-                <HStack className="items-start justify-between">
-                  <VStack space="xs" className="flex-1">
-                    <HStack space="sm" className="items-center">
-                      <Moon size={20} color={icons.accent} />
-                      <Text className="font-semibold text-foreground">
-                        {t("settings.darkMode")}
-                      </Text>
-                    </HStack>
-                    <Text size="xs" className="text-muted-foreground">
-                      {preference === "system"
-                        ? t("settings.themeSystem", { current: t(isDarkColorScheme ? "settings.themeDark" : "settings.themeLight") })
-                        : t(preference === "dark" ? "settings.themeDark" : "settings.themeLight")}
-                    </Text>
-                  </VStack>
-                  <ChevronRight size={16} color={icons.muted} />
-                </HStack>
-              </Card>
-            </Pressable>
-          </HStack>
-        </VStack>
+      <LogoutRow />
 
-        {isAdmin ? (
-          <VStack space="sm">
-            <Text className="font-semibold text-foreground">{t("admin.title")}</Text>
-            <FeatureLinkCard
-              icon={Shield}
-              title={t("admin.title")}
-              description={t("admin.subtitle")}
-              onPress={() => router.push(routes.admin)}
-            />
-          </VStack>
-        ) : null}
-
-        <Button variant="outline" onPress={() => void handleSignOut()}>
-          <HStack space="sm" className="items-center">
-            <LogOut size={18} color={icons.muted} />
-            <ButtonText>{t("nav.signOut")}</ButtonText>
-          </HStack>
-        </Button>
-
-        {seedEnabled ? (
-          // Demoted to an outline button at the bottom (S1) — this is a
-          // dev/demo-only tool, not the primary action of the settings hub,
-          // and previously outranked every other button on the page.
-          <Card className="p-4">
-            <VStack space="md">
-              <HStack space="sm" className="items-center">
-                <Database size={20} color={icons.muted} />
-                <VStack className="flex-1">
-                  <Text className="font-medium">{t("settings.demoData")}</Text>
-                  <Text size="sm" className="text-muted-foreground">
-                    {t("settings.demoDataHint")}
-                  </Text>
-                </VStack>
-              </HStack>
-              <Button
-                testID="settings-seed-demo-button"
-                variant="outline"
-                onPress={() => void handleSeed()}
-                disabled={seeding}
-              >
-                {seeding ? <ButtonSpinner /> : <ButtonText>{t("common.seedDemo")}</ButtonText>}
-              </Button>
-              {seedMessage ? <Text size="sm">{seedMessage}</Text> : null}
-            </VStack>
-          </Card>
-        ) : null}
-      </VStack>
-    </ScreenLayout>
+      {seedEnabled ? (
+        // A dev/demo-only tool, not part of the settings: last on the page and
+        // an outline button, never the primary action.
+        <Box testID="settings-demo-card" className="gap-3 rounded-card bg-surface p-4 shadow-card">
+          <Box className="flex-row items-center gap-3">
+            <Database size={20} color={icons.muted} />
+            <Box className="min-w-0 flex-1">
+              <Text className={type.itemTitle}>{t("settings.demoData")}</Text>
+              <Text className={`${type.meta} mt-0.5`}>{t("settings.demoDataHint")}</Text>
+            </Box>
+          </Box>
+          <Button
+            testID="settings-seed-demo-button"
+            variant="outline"
+            onPress={() => void handleSeed()}
+            disabled={seeding}
+          >
+            {seeding ? <ButtonSpinner /> : <ButtonText>{t("common.seedDemo")}</ButtonText>}
+          </Button>
+          {seedMessage ? <Text className={type.meta}>{seedMessage}</Text> : null}
+        </Box>
+      ) : null}
+    </SettingsPage>
   );
 }

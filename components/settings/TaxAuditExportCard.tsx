@@ -2,22 +2,21 @@
 // "Adóhatósági ellenőrzési adatszolgáltatás" — the built-in audit export
 // function 23/2014. NGM rendelet 11/A. § requires: pick a date range or an
 // invoice-number range, download the NAV-schema XML
-// (GET /api/invoices/tax-audit-export).
+// (GET /api/invoices/tax-audit-export). Rendered inside the "NAV: adatok
+// letöltése" section of Settings > NAV (the section carries the hint).
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { FileDown } from "lucide-react-native";
+import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
 import { DateField } from "@/components/ui/date-field";
-import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
+import { FormField } from "@/components/layout/FormField";
 import { saveDownload } from "@/components/settings/save-download";
 import { getAuthBaseUrl } from "@/lib/auth-url";
 import { budapestDateKey } from "@/lib/dates/budapest";
-import { useIconColors } from "@/lib/theme/icon-colors";
+import { type } from "@/lib/ui/type";
 
 type Mode = "date" | "number";
 
@@ -34,7 +33,6 @@ function filenameFrom(disposition: string | null): string {
 
 export function TaxAuditExportCard({ now = new Date() }: { now?: Date }) {
   const { t } = useTranslation();
-  const icons = useIconColors();
   const today = budapestDateKey(now);
 
   const [mode, setMode] = React.useState<Mode>("date");
@@ -76,123 +74,99 @@ export function TaxAuditExportCard({ now = new Date() }: { now?: Date }) {
   }
 
   return (
-    <Card className="p-4">
-      <VStack space="md">
-        <HStack space="sm" className="items-start">
-          <FileDown size={20} color={icons.accent} />
-          <VStack className="flex-1" space="xs">
-            <Text className="font-semibold text-foreground">{t("settings.taxAudit.title")}</Text>
-            <Text size="xs" className="text-muted-foreground">
-              {t("settings.taxAudit.hint")}
-            </Text>
-          </VStack>
-        </HStack>
+    <Box className="gap-4" testID="tax-audit-export">
+      <Text className={type.itemTitle}>{t("settings.taxAudit.title")}</Text>
 
-        <ChoicePillGroup accessibilityLabel={t("settings.taxAudit.modeLabel")}>
-          <ChoicePill
-            testID="tax-audit-mode-date"
-            selected={mode === "date"}
-            onPress={() => setMode("date")}
-          >
-            <Text size="sm">{t("settings.taxAudit.modeDate")}</Text>
-          </ChoicePill>
-          <ChoicePill
-            testID="tax-audit-mode-number"
-            selected={mode === "number"}
-            onPress={() => setMode("number")}
-          >
-            <Text size="sm">{t("settings.taxAudit.modeNumber")}</Text>
-          </ChoicePill>
-        </ChoicePillGroup>
+      <SegmentedControl<Mode>
+        outlined
+        fullWidth
+        accessibilityLabel={t("settings.taxAudit.modeLabel")}
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: "date", label: t("settings.taxAudit.modeDate"), testID: "tax-audit-mode-date" },
+          { value: "number", label: t("settings.taxAudit.modeNumber"), testID: "tax-audit-mode-number" },
+        ]}
+      />
 
-        {mode === "date" ? (
-          <HStack space="sm" className="flex-wrap">
-            <VStack space="xs" className="min-w-[140px] flex-1">
-              <Text size="xs" className="text-muted-foreground">
-                {t("settings.taxAudit.from")}
-              </Text>
-              <DateField
-                testID="tax-audit-from"
-                value={from}
-                onChange={setFrom}
-                max={to || undefined}
-                accessibilityLabel={t("settings.taxAudit.from")}
+      {mode === "date" ? (
+        <Box className="flex-row flex-wrap gap-3">
+          <FormField label={t("settings.taxAudit.from")} className="min-w-[140px] flex-1">
+            <DateField
+              testID="tax-audit-from"
+              value={from}
+              onChange={setFrom}
+              max={to || undefined}
+              accessibilityLabel={t("settings.taxAudit.from")}
+            />
+          </FormField>
+          <FormField label={t("settings.taxAudit.to")} className="min-w-[140px] flex-1">
+            <DateField
+              testID="tax-audit-to"
+              value={to}
+              onChange={setTo}
+              min={from || undefined}
+              accessibilityLabel={t("settings.taxAudit.to")}
+            />
+          </FormField>
+        </Box>
+      ) : (
+        <Box className="flex-row flex-wrap gap-3">
+          <FormField label={t("settings.taxAudit.fromNumber")} className="min-w-[140px] flex-1">
+            <Input>
+              <InputField
+                testID="tax-audit-from-number"
+                value={fromNumber}
+                onChangeText={setFromNumber}
+                placeholder="INV-2026-00001"
+                autoCapitalize="characters"
+                accessibilityLabel={t("settings.taxAudit.fromNumber")}
               />
-            </VStack>
-            <VStack space="xs" className="min-w-[140px] flex-1">
-              <Text size="xs" className="text-muted-foreground">
-                {t("settings.taxAudit.to")}
-              </Text>
-              <DateField
-                testID="tax-audit-to"
-                value={to}
-                onChange={setTo}
-                min={from || undefined}
-                accessibilityLabel={t("settings.taxAudit.to")}
+            </Input>
+          </FormField>
+          <FormField label={t("settings.taxAudit.toNumber")} className="min-w-[140px] flex-1">
+            <Input>
+              <InputField
+                testID="tax-audit-to-number"
+                value={toNumber}
+                onChangeText={setToNumber}
+                placeholder="INV-2026-00050"
+                autoCapitalize="characters"
+                accessibilityLabel={t("settings.taxAudit.toNumber")}
               />
-            </VStack>
-          </HStack>
-        ) : (
-          <HStack space="sm" className="flex-wrap">
-            <VStack space="xs" className="min-w-[140px] flex-1">
-              <Text size="xs" className="text-muted-foreground">
-                {t("settings.taxAudit.fromNumber")}
-              </Text>
-              <Input>
-                <InputField
-                  testID="tax-audit-from-number"
-                  value={fromNumber}
-                  onChangeText={setFromNumber}
-                  placeholder="INV-2026-00001"
-                  autoCapitalize="characters"
-                  accessibilityLabel={t("settings.taxAudit.fromNumber")}
-                />
-              </Input>
-            </VStack>
-            <VStack space="xs" className="min-w-[140px] flex-1">
-              <Text size="xs" className="text-muted-foreground">
-                {t("settings.taxAudit.toNumber")}
-              </Text>
-              <Input>
-                <InputField
-                  testID="tax-audit-to-number"
-                  value={toNumber}
-                  onChangeText={setToNumber}
-                  placeholder="INV-2026-00050"
-                  autoCapitalize="characters"
-                  accessibilityLabel={t("settings.taxAudit.toNumber")}
-                />
-              </Input>
-            </VStack>
-          </HStack>
-        )}
+            </Input>
+          </FormField>
+        </Box>
+      )}
 
-        <Button testID="tax-audit-download" onPress={() => void handleDownload()} disabled={loading}>
+      <Box className="flex-row">
+        <Button
+          testID="tax-audit-download"
+          variant="primary"
+          onPress={() => void handleDownload()}
+          disabled={loading}
+        >
           {loading ? <ButtonSpinner /> : <ButtonText>{t("settings.taxAudit.download")}</ButtonText>}
         </Button>
+      </Box>
 
-        {error ? (
-          <VStack space="xs" accessibilityRole="alert">
-            <Text size="sm" className="text-destructive">
-              {t(`settings.taxAudit.errors.${error.code}`, {
-                defaultValue: t("settings.taxAudit.errors.exportFailed"),
-                ...(error.limit ? { limit: error.limit } : {}),
-              })}
-            </Text>
-            {error.problems?.map((problem) => (
-              <Text key={`${problem.invoiceNumber}-${problem.field}`} size="xs" className="text-destructive">
-                {`${problem.invoiceNumber}: ${t(`settings.taxAudit.fields.${problem.field}`)}`}
-              </Text>
-            ))}
-          </VStack>
-        ) : null}
-
-        {notice ? (
-          <Text size="sm" className="text-muted-foreground">
-            {notice}
+      {error ? (
+        <Box className="gap-1" accessibilityRole="alert">
+          <Text className="text-sm text-err">
+            {t(`settings.taxAudit.errors.${error.code}`, {
+              defaultValue: t("settings.taxAudit.errors.exportFailed"),
+              ...(error.limit ? { limit: error.limit } : {}),
+            })}
           </Text>
-        ) : null}
-      </VStack>
-    </Card>
+          {error.problems?.map((problem) => (
+            <Text key={`${problem.invoiceNumber}-${problem.field}`} className="text-xs text-err">
+              {`${problem.invoiceNumber}: ${t(`settings.taxAudit.fields.${problem.field}`)}`}
+            </Text>
+          ))}
+        </Box>
+      ) : null}
+
+      {notice ? <Text className={type.meta}>{notice}</Text> : null}
+    </Box>
   );
 }

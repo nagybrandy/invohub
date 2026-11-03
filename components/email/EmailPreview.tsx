@@ -11,9 +11,9 @@ export type EmailPreviewProps = { subject: string; bodyHtml: string; testID?: st
 
 export function EmailPreview({ subject, bodyHtml, testID = "email-preview" }: EmailPreviewProps) {
   return (
-    <Box className="rounded-lg border border-subtle bg-surface p-4" testID={testID}>
-      <Text className="mb-2 font-semibold text-foreground">{renderTemplate(subject, SAMPLE_VARIABLES)}</Text>
-      <Text size="sm" className="text-foreground">{htmlToText(renderTemplate(bodyHtml, SAMPLE_VARIABLES))}</Text>
+    <Box className="rounded-control border border-line bg-surface p-4" testID={testID}>
+      <Text className="mb-2 text-sm font-bold text-ink">{renderTemplate(subject, SAMPLE_VARIABLES)}</Text>
+      <Text className="text-sm text-ink">{htmlToText(renderTemplate(bodyHtml, SAMPLE_VARIABLES))}</Text>
     </Box>
   );
 }
