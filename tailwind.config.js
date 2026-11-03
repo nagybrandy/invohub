@@ -10,7 +10,9 @@ const rgb = (name) => `rgb(var(--${name}-rgb) / <alpha-value>)`;
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: "class",
-  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
+  // lib/ui holds the type-scale class presets (lib/ui/type.ts); without it
+  // classes such as text-[30px] / leading-[1.1] are never generated.
+  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/ui/**/*.{ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
