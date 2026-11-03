@@ -8,11 +8,11 @@ import {
   FormControlLabel,
   FormControlLabelText,
 } from "@/components/ui/form-control";
-import { Heading } from "@/components/ui/heading";
 import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { FormScreen } from "@/components/layout/FormScreen";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { routes } from "@/lib/navigation";
 import { useClients } from "@/hooks/useClients";
 import { ClientPartyTypeSwitch } from "@/components/clients/ClientPartyTypeSwitch";
@@ -70,7 +70,14 @@ export default function NewClientScreen() {
   }
 
   return (
-    <FormScreen header={<Heading size="2xl">{t("partners.add")}</Heading>}>
+    <FormScreen
+      header={
+        <PageHeader
+          breadcrumb={[{ label: t("nav.partners"), href: routes.clients }, { label: t("partners.add") }]}
+          title={t("partners.add")}
+        />
+      }
+    >
       <VStack space="md">
         <FormControl>
           <FormControlLabel>

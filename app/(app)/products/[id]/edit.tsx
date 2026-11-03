@@ -74,7 +74,15 @@ export default function EditProductScreen() {
   }
 
   return (
-    <FormScreen header={<PageHeader title={t("products.edit")} subtitle={name} />}>
+    <FormScreen
+      header={
+        <PageHeader
+          breadcrumb={[{ label: t("nav.products"), href: routes.products }, { label: name || t("nav.breadcrumb.product") }]}
+          title={t("products.edit")}
+          subtitle={name}
+        />
+      }
+    >
       <VStack space="md">
         <FormControl>
           <FormControlLabel>

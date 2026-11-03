@@ -104,6 +104,7 @@ export default function EditClientScreen() {
     <FormScreen
       header={
         <PageHeader
+          breadcrumb={[{ label: t("nav.partners"), href: routes.clients }, { label: name || t("nav.breadcrumb.partner") }]}
           title={t("partners.editTitle")}
           subtitle={name}
           primaryAction={

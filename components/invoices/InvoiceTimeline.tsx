@@ -15,6 +15,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { formatShortDate } from "@/lib/dates/format";
+import { useIconColors } from "@/lib/theme/icon-colors";
 import { isOverdue, overdueDays } from "@/lib/invoices/status-visuals";
 import type { Invoice } from "@/lib/invoices/types";
 
@@ -159,19 +160,20 @@ function hintClass(step: TimelineStep): string {
 
 function navTone(status: string): { chip: string; text: string } {
   const s = status.toLowerCase();
-  if (s === "done") return { chip: "bg-[#15803d]/10", text: "text-ok" };
+  if (s === "done") return { chip: "bg-ok-wash", text: "text-ok" };
   if (s === "aborted" || s === "error") return { chip: "bg-err-wash", text: "text-err" };
   return { chip: "bg-primary-wash", text: "text-primary-ink" };
 }
 
 function StepDot({ step }: { step: TimelineStep }) {
+  const icons = useIconColors();
   return (
     <Box
       testID={`invoice-timeline-dot-${step.key}`}
       className={`h-6 w-6 items-center justify-center rounded-full border-2 ${dotClass(step)}`}
     >
-      {step.state === "done" ? <Check size={13} strokeWidth={3} color="#ffffff" /> : null}
-      {step.state === "cancelled" ? <X size={13} strokeWidth={3} color="#ffffff" /> : null}
+      {step.state === "done" ? <Check size={13} strokeWidth={3} color={icons.onNavyActive} /> : null}
+      {step.state === "cancelled" ? <X size={13} strokeWidth={3} color={icons.onNavyActive} /> : null}
       {step.state === "current" ? <Box className="h-2 w-2 rounded-full bg-primary" /> : null}
       {step.state === "alert" ? <Box className="h-2 w-2 rounded-full bg-err" /> : null}
     </Box>

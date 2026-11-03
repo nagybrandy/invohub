@@ -56,7 +56,7 @@ export function ReceiptNavCard({
         <HStack className="items-center justify-between">
           <Text size="sm" className="text-muted-ink">NAV</Text>
           {navSubmitted ? (
-            <Badge variant="outline" className="rounded-full border-green-500 px-2 py-0.5">
+            <Badge variant="outline" className="rounded-full border-ok px-2 py-0.5">
               <BadgeText className="text-xs text-ok">{t("receipts.navSubmitted")}</BadgeText>
             </Badge>
           ) : (

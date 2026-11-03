@@ -11,6 +11,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { routes } from "@/lib/navigation";
 import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { ReceiptNavCard } from "@/components/receipts/ReceiptNavCard";
 import { apiFetch } from "@/lib/api/client";
@@ -95,6 +96,7 @@ export default function ReceiptDetailScreen() {
     <ScreenLayout
       header={
         <PageHeader
+          breadcrumb={[{ label: t("nav.receipts"), href: routes.receipts }, { label: receipt.receiptNumber }]}
           title={receipt.receiptNumber}
           subtitle={receipt.clientName ?? t("receipts.title")}
         />
