@@ -33,8 +33,8 @@ export function ComposerSection({
       className={`py-[22px] ${first ? "" : "border-t border-line"}`}
       testID={testID}
     >
-      <HStack className="mb-3 min-h-[28px] items-center justify-between gap-3">
-        <Heading accessibilityRole="header" aria-level={2} className={`${type.sectionTitle} min-w-0 flex-shrink`}>
+      <HStack className="mb-3 min-h-[28px] flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <Heading accessibilityRole="header" aria-level={2} className={`${type.sectionTitle} flex-shrink-0`}>
           {title}
         </Heading>
         {action}

@@ -161,7 +161,7 @@ export function StepLineItems({
             <ButtonText>+ {t("composer.addItem")}</ButtonText>
           </Button>
           {quickProducts.length > 0 ? (
-            <Box className="flex-row flex-wrap items-center gap-2" testID="composer-quick-add">
+            <Box className="max-w-full flex-row flex-wrap items-center gap-2" testID="composer-quick-add">
               <Text className="text-[13px] text-muted-ink">{t("composer.quickAdd")}</Text>
               {quickProducts.map((product) => (
                 <Pressable
