@@ -68,7 +68,7 @@ export function TaxNumberLookupField({ value, onChangeText, onFound, placeholder
         </Button>
       </HStack>
       {message ? (
-        <Text size="sm" className="text-muted-foreground" testID="client-tax-number-message">
+        <Text size="sm" className="text-muted-ink" testID="client-tax-number-message">
           {message}
         </Text>
       ) : null}

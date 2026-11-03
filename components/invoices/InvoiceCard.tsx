@@ -1,31 +1,26 @@
 // components/invoices/InvoiceCard.tsx
-// Mobile summary card for a single invoice in the list view. Carries the due
-// date + overdue subtext and the shared status chip (L3, L9), and keeps the
-// destructive delete out of the row — it lives at the bottom of the row's
-// "⋯" menu instead (L4), alongside quick preview.
+// A single invoice as a stand-alone card (the dashboard's phone layout), in
+// the redesign's card-row look (tokens.md §6.7): partner + bold amount,
+// "number · date", status pill + NAV icon + overdue label, row menu. The list
+// itself renders the same row through components/lists/InvoiceList. A numbered
+// document is cancelled with a sztornó, never removed, so the menu offers
+// delete for drafts only (canDeleteFromList) — and never send / NAV actions.
 import { Eye, FileEdit, Trash2 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { Card } from "@/components/ui/card";
-import { HStack } from "@/components/ui/hstack";
-import { Pressable } from "@/components/ui/pressable";
+import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
 import { InvoiceStatusChip } from "@/components/invoices/InvoiceStatusChip";
-import { NavDot } from "@/components/invoices/NavDot";
+import { NavStateIcon } from "@/components/invoices/NavStateIcon";
+import { invoiceNavStatus } from "@/components/lists/InvoiceList";
+import { ListCardRow } from "@/components/lists/ListCardRow";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
-import {
-  calculateInvoiceTotals,
-  formatCurrency,
-} from "@/lib/invoices/calculations";
-import { formatInvoiceIssueDateTime, formatDateOnly } from "@/lib/dates/format";
-import { isOverdue, overdueDays } from "@/lib/invoices/status-visuals";
-import type { Invoice } from "@/lib/invoices/types";
+import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
+import { formatDateOnly } from "@/lib/dates/format";
+import { isOverdue } from "@/lib/invoices/status-visuals";
+import { hasInvoiceNumber, type Invoice } from "@/lib/invoices/types";
 import { confirmAsync } from "@/lib/ui/confirm";
 import { canDeleteFromList } from "@/lib/invoices/list-actions";
-
-function formatDate(invoice: Invoice): string {
-  return formatInvoiceIssueDateTime(invoice);
-}
+import { dueLabel } from "@/lib/lists/due-label";
 
 export function InvoiceCard({
   invoice,
@@ -42,17 +37,18 @@ export function InvoiceCard({
   onDelete: (id: string) => void;
   onPress?: (invoice: Invoice) => void;
   onPreview?: (invoice: Invoice) => void;
-  /** "Számla készítése ebből" — offered in the row menu only for a díjbekérő (AC21, mobile parity with the desktop table). */
+  /** "Számla készítése ebből" — offered in the row menu only for a díjbekérő. */
   onConvert?: (invoice: Invoice) => void;
-  /** True when this díjbekérő already has a live conversion (AC16) — shows the "Számlázva" badge and swaps the menu's convert entry for "open existing". */
+  /** True when this díjbekérő already has a live conversion — shows the "Számlázva" badge and swaps the menu's convert entry for "open existing". */
   converted?: boolean;
-  /** Navigates to the existing conversion instead of converting again (AC14/AC16). */
+  /** Navigates to the existing conversion instead of converting again. */
   onOpenExisting?: (invoice: Invoice) => void;
 }) {
   const { t } = useTranslation();
   const totals = calculateInvoiceTotals(invoice.lineItems);
   const overdue = isOverdue(invoice, now);
-  const days = overdueDays(invoice, now);
+  const label = dueLabel(invoice, now);
+  const showConverted = invoice.documentType === "proforma" && converted;
 
   async function confirmDelete() {
     const confirmed = await confirmAsync({
@@ -88,8 +84,6 @@ export function InvoiceCard({
       onPress: () => onConvert(invoice),
     });
   }
-  // A numbered document is cancelled with a sztornó, never removed — the
-  // server answers 409, so the menu does not offer it (canDeleteFromList).
   if (canDeleteFromList(invoice)) {
     menuItems.push({
       label: t("invoices.card.deleteAction"),
@@ -99,54 +93,32 @@ export function InvoiceCard({
     });
   }
 
+  const number = hasInvoiceNumber(invoice) ? invoice.invoiceNumber : t("invoices.status.draft");
+
   return (
-    <Pressable testID="invoice-card-press" onPress={() => onPress?.(invoice)}>
-      <Card className="p-4">
-        <VStack space="sm">
-          <HStack className="items-start justify-between">
-            <VStack space="xs" className="flex-1 pr-3">
-              <HStack space="xs" className="items-center">
-                <Text className="font-semibold text-foreground">
-                  {invoice.invoiceNumber || t("invoices.status.draft")}
-                </Text>
-                {invoice.documentType === "proforma" && converted ? (
-                  <Text size="xs" className="text-muted-foreground">
-                    {t("invoices.convert.convertedBadge")}
-                  </Text>
-                ) : null}
-              </HStack>
-              <Text size="sm" className="text-muted-foreground">
-                {invoice.clientName}
+    <Box className="overflow-hidden rounded-card bg-surface shadow-card">
+      <ListCardRow
+        testID="invoice-card-press"
+        title={invoice.clientName}
+        amount={formatCurrency(totals.totalAmount, invoice.currency)}
+        meta={`${number} · ${formatDateOnly(invoice.issueDate)}`}
+        onPress={() => onPress?.(invoice)}
+        badges={
+          <>
+            <InvoiceStatusChip status={overdue ? "overdue" : invoice.status} size="sm" />
+            <NavStateIcon status={invoiceNavStatus(invoice)} testID="invoice-card-nav-dot" />
+            {showConverted ? (
+              <Text className="text-xs text-muted-ink">{t("invoices.convert.convertedBadge")}</Text>
+            ) : null}
+            {label?.kind === "overdue" ? (
+              <Text testID="invoice-card-overdue-label" className="text-[13px] text-err">
+                {t("invoices.list.overdueBy", { days: label.days })}
               </Text>
-            </VStack>
-            <HStack space="xs" className="items-center">
-              <NavDot status={invoice.navStatus ?? "none"} testID="invoice-card-nav-dot" />
-              <InvoiceStatusChip status={overdue ? "overdue" : invoice.status} size="sm" />
-              <OverflowMenu items={menuItems} label={t("invoices.list.rowMenuLabel")} />
-            </HStack>
-          </HStack>
-          <HStack className="items-center justify-between">
-            <Text size="sm" className="text-muted-foreground">
-              {t("invoices.card.issued", { date: formatDate(invoice) })}
-            </Text>
-            <Text className="font-semibold text-foreground" numeric>
-              {formatCurrency(totals.totalAmount, invoice.currency)}
-            </Text>
-          </HStack>
-          <HStack className="items-center justify-between">
-            <VStack space="xs">
-              <Text size="xs" className={overdue ? "font-medium text-destructive" : "text-muted-foreground"}>
-                {t("invoices.list.columnDue")}: {formatDateOnly(invoice.dueDate)}
-              </Text>
-              {overdue ? (
-                <Text size="xs" className="font-medium text-destructive" testID="invoice-card-overdue-label">
-                  {t("invoices.list.overdueBy", { days })}
-                </Text>
-              ) : null}
-            </VStack>
-          </HStack>
-        </VStack>
-      </Card>
-    </Pressable>
+            ) : null}
+          </>
+        }
+        menu={<OverflowMenu items={menuItems} label={t("invoices.list.rowMenuLabel")} />}
+      />
+    </Box>
   );
 }

@@ -24,7 +24,7 @@ jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-u
 function render(props: React.ComponentProps<typeof InvoiceListTable>) {
   let tree: TestRenderer.ReactTestRenderer;
   act(() => {
-    tree = TestRenderer.create(<InvoiceListTable {...props} />);
+    tree = TestRenderer.create(<InvoiceListTable layout="table" {...props} />);
   });
   return tree!;
 }

@@ -15,6 +15,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { formatShortDate } from "@/lib/dates/format";
+import { useIconColors } from "@/lib/theme/icon-colors";
 import { isOverdue, overdueDays } from "@/lib/invoices/status-visuals";
 import type { Invoice } from "@/lib/invoices/types";
 
@@ -122,17 +123,17 @@ function reached(step: TimelineStep): boolean {
 function dotClass(step: TimelineStep): string {
   switch (step.state) {
     case "done":
-      return step.key === "paid" ? "border-[#15803d] bg-[#15803d]" : "border-primary bg-primary";
+      return step.key === "paid" ? "border-ok bg-ok" : "border-primary bg-primary";
     case "current":
-      return "border-primary bg-background";
+      return "border-primary bg-surface";
     case "alert":
-      return "border-destructive bg-background";
+      return "border-err bg-surface";
     case "cancelled":
-      return "border-destructive bg-destructive";
+      return "border-err bg-err";
     case "skipped":
-      return "border-dashed border-border bg-muted/40";
+      return "border-dashed border-line-strong bg-wash2";
     default:
-      return "border-border bg-background";
+      return "border-line-strong bg-surface";
   }
 }
 
@@ -142,38 +143,39 @@ function labelClass(step: TimelineStep): string {
       return "text-primary";
     case "alert":
     case "cancelled":
-      return "text-destructive";
+      return "text-err";
     case "skipped":
     case "upcoming":
-      return "text-muted-foreground";
+      return "text-muted-ink";
     default:
-      return step.key === "paid" ? "text-[#15803d]" : "text-foreground";
+      return step.key === "paid" ? "text-ok" : "text-ink";
   }
 }
 
 function hintClass(step: TimelineStep): string {
-  if (step.state === "alert") return "font-medium text-destructive";
+  if (step.state === "alert") return "font-medium text-err";
   if (step.state === "current") return "text-primary";
-  return "text-muted-foreground";
+  return "text-muted-ink";
 }
 
 function navTone(status: string): { chip: string; text: string } {
   const s = status.toLowerCase();
-  if (s === "done") return { chip: "bg-[#15803d]/10", text: "text-[#15803d]" };
-  if (s === "aborted" || s === "error") return { chip: "bg-destructive/10", text: "text-destructive" };
-  return { chip: "bg-primary/10", text: "text-primary" };
+  if (s === "done") return { chip: "bg-ok-wash", text: "text-ok" };
+  if (s === "aborted" || s === "error") return { chip: "bg-err-wash", text: "text-err" };
+  return { chip: "bg-primary-wash", text: "text-primary-ink" };
 }
 
 function StepDot({ step }: { step: TimelineStep }) {
+  const icons = useIconColors();
   return (
     <Box
       testID={`invoice-timeline-dot-${step.key}`}
       className={`h-6 w-6 items-center justify-center rounded-full border-2 ${dotClass(step)}`}
     >
-      {step.state === "done" ? <Check size={13} strokeWidth={3} color="#ffffff" /> : null}
-      {step.state === "cancelled" ? <X size={13} strokeWidth={3} color="#ffffff" /> : null}
+      {step.state === "done" ? <Check size={13} strokeWidth={3} color={icons.onNavyActive} /> : null}
+      {step.state === "cancelled" ? <X size={13} strokeWidth={3} color={icons.onNavyActive} /> : null}
       {step.state === "current" ? <Box className="h-2 w-2 rounded-full bg-primary" /> : null}
-      {step.state === "alert" ? <Box className="h-2 w-2 rounded-full bg-destructive" /> : null}
+      {step.state === "alert" ? <Box className="h-2 w-2 rounded-full bg-err" /> : null}
     </Box>
   );
 }
@@ -193,7 +195,7 @@ function StepText({ step }: { step: TimelineStep }) {
         {t(step.label)}
       </Text>
       {step.date ? (
-        <Text size="xs" className={`${textAlign} text-muted-foreground`}>
+        <Text size="xs" className={`${textAlign} text-muted-ink`}>
           {step.date}
         </Text>
       ) : null}
@@ -211,8 +213,8 @@ function HorizontalSteps({ steps }: { steps: TimelineStep[] }) {
     <HStack className="items-start px-2 pb-4 pt-5" testID="invoice-timeline-steps">
       {steps.map((step, index) => {
         const next = steps[index + 1];
-        const lineIn = index === 0 ? "bg-transparent" : reached(step) ? "bg-primary" : "bg-border";
-        const lineOut = !next ? "bg-transparent" : reached(next) ? "bg-primary" : "bg-border";
+        const lineIn = index === 0 ? "bg-transparent" : reached(step) ? "bg-primary" : "bg-line-strong";
+        const lineOut = !next ? "bg-transparent" : reached(next) ? "bg-primary" : "bg-line-strong";
         return (
           <VStack key={step.key} className="flex-1 items-center" testID={`invoice-timeline-step-${step.key}`}>
             <HStack className="w-full items-center">
@@ -245,7 +247,7 @@ function VerticalSteps({ steps }: { steps: TimelineStep[] }) {
               {next ? (
                 <Box
                   testID={`invoice-timeline-vline-${step.key}`}
-                  className={`my-1 min-h-2 w-0.5 flex-1 ${reached(next) ? "bg-primary" : "bg-border"}`}
+                  className={`my-1 min-h-2 w-0.5 flex-1 ${reached(next) ? "bg-primary" : "bg-line-strong"}`}
                 />
               ) : null}
             </VStack>
@@ -255,7 +257,7 @@ function VerticalSteps({ steps }: { steps: TimelineStep[] }) {
                   {t(step.label)}
                 </Text>
                 {step.date ? (
-                  <Text size="xs" className="text-muted-foreground">
+                  <Text size="xs" className="text-muted-ink">
                     {step.date}
                   </Text>
                 ) : null}
@@ -298,7 +300,7 @@ export function InvoiceTimeline({
 
   return (
     <VStack
-      className="rounded-xl border border-subtle bg-background"
+      className="rounded-card border border-line bg-surface"
       testID="invoice-timeline"
       onLayout={(e: LayoutChangeEvent) => setMeasuredWidth(e.nativeEvent.layout.width)}
     >
@@ -307,10 +309,10 @@ export function InvoiceTimeline({
       {showNav ? (
         <HStack
           space="sm"
-          className="flex-wrap items-center justify-between border-t border-subtle px-4 py-3"
+          className="flex-wrap items-center justify-between border-t border-line px-4 py-3"
           testID="invoice-timeline-nav"
         >
-          <Text size="xs" className="font-medium text-muted-foreground">
+          <Text size="xs" className="font-medium text-muted-ink">
             {t("invoices.timeline.navLabel")}
           </Text>
           {nav ? (
@@ -319,13 +321,13 @@ export function InvoiceTimeline({
                 {nav.label}
               </Text>
               {nav.transactionId ? (
-                <Text size="xs" className="font-mono text-muted-foreground">
+                <Text size="xs" className="font-mono text-muted-ink">
                   {nav.transactionId}
                 </Text>
               ) : null}
             </HStack>
           ) : (
-            <Text size="xs" className="text-muted-foreground" testID="invoice-timeline-nav-none">
+            <Text size="xs" className="text-muted-ink" testID="invoice-timeline-nav-none">
               {t("invoices.timeline.navNotSubmitted")}
             </Text>
           )}

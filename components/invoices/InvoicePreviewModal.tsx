@@ -36,7 +36,7 @@ export function InvoicePreviewModal({
         <DrawerHeader>
           <VStack space="xs">
             <Heading size="md">{invoice.invoiceNumber || t("invoices.status.draft")}</Heading>
-            <Text size="sm" className="text-muted-foreground">
+            <Text size="sm" className="text-muted-ink">
               {t(STATUS_I18N_KEY[invoice.status])} · {invoice.clientName}
             </Text>
           </VStack>

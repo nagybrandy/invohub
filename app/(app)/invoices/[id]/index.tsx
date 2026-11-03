@@ -335,7 +335,7 @@ export default function InvoiceDetailScreen() {
     return (
       <ScreenLayout>
         <VStack space="md">
-          <Text className="text-destructive">{loadError ?? t("invoices.detail.notFound")}</Text>
+          <Text className="text-err">{loadError ?? t("invoices.detail.notFound")}</Text>
           <Button variant="outline" onPress={() => void reload()}>
             <ButtonText>{t("invoices.detail.retry")}</ButtonText>
           </Button>
@@ -505,7 +505,7 @@ export default function InvoiceDetailScreen() {
                       />
                     </Input>
                     {(invoice.paidAmount ?? 0) > 0 ? (
-                      <Text size="xs" className="mt-1 text-muted-foreground">
+                      <Text size="xs" className="mt-1 text-muted-ink">
                         {t("invoices.markPaid.paidAmountHint", {
                           amount: formatCurrency(invoice.paidAmount ?? 0, invoice.currency),
                         })}
@@ -531,22 +531,20 @@ export default function InvoiceDetailScreen() {
         />
 
         {isMissingExchangeRate(invoice) ? (
-          <Card className="border-destructive/40 bg-destructive/10 p-4" testID="exchange-rate-fix-detail-card">
+          <Card className="border-err-line bg-err-wash p-4" testID="exchange-rate-fix-detail-card">
             <VStack space="sm">
-              <Text className="font-semibold text-destructive">
+              <Text className="font-semibold text-err">
                 {t("invoices.exchangeRateFix.detailTitle")}
               </Text>
-              <Text size="sm" className="text-muted-foreground">
+              <Text size="sm" className="text-muted-ink">
                 {t("invoices.exchangeRateFix.detailBody", { currency: invoice.currency })}
               </Text>
               <Button
-                variant="outline"
-                className={`self-start border-destructive/40 ${TAP_TARGET_MIN_H}`}
+                variant="danger"
+                className={`self-start ${TAP_TARGET_MIN_H}`}
                 onPress={() => router.push(routes.invoiceEdit(invoice.id, { focus: "exchangeRate" }))}
               >
-                <ButtonText className="text-destructive">
-                  {t("invoices.exchangeRateFix.addRate")}
-                </ButtonText>
+                <ButtonText>{t("invoices.exchangeRateFix.addRate")}</ButtonText>
               </Button>
             </VStack>
           </Card>
@@ -682,7 +680,7 @@ export default function InvoiceDetailScreen() {
         />
 
         {message ? (
-          <Card className="border-primary/30 bg-accent p-3">
+          <Card className="border-primary-line bg-primary-wash p-3">
             <Text size="sm">{message}</Text>
           </Card>
         ) : null}
@@ -697,23 +695,23 @@ export default function InvoiceDetailScreen() {
         {finalized && !isProforma ? (
           <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
             <Button
-              variant="outline"
-              className="border-destructive/40 self-start"
+              variant="danger"
+              className="self-start"
               disabled={busy === "storno" || invoice.status === "cancelled"}
               onPress={() => void handleStorno()}
             >
-              <ButtonText className="text-destructive">{t("invoices.storno")}</ButtonText>
+              <ButtonText>{t("invoices.storno")}</ButtonText>
             </Button>
           </DangerZone>
         ) : !finalized ? (
           <DangerZone title={t("invoices.detail.dangerZone")} description={t("invoices.detail.dangerZoneHint")}>
             <Button
-              variant="outline"
-              className="border-destructive/40 self-start"
+              variant="danger"
+              className="self-start"
               disabled={busy === "delete"}
               onPress={() => void handleDelete()}
             >
-              <ButtonText className="text-destructive">{t("invoices.detail.deleteAction")}</ButtonText>
+              <ButtonText>{t("invoices.detail.deleteAction")}</ButtonText>
             </Button>
           </DangerZone>
         ) : null}

@@ -19,7 +19,7 @@ export function InvoicesEmptyState() {
         <Heading size="lg" className="text-center">
           No invoices yet
         </Heading>
-        <Text size="sm" className="text-center text-muted-foreground">
+        <Text size="sm" className="text-center text-muted-ink">
           Create your first NAV-ready invoice to get started.
         </Text>
         <Button onPress={() => router.push(routes.newInvoice)}>
