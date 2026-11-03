@@ -14,6 +14,7 @@ import {
   PDF_LOGO_MODES,
   PDF_LOGO_POSITIONS,
   PDF_LOGO_SIZES,
+  applyPdfTemplateInput,
   defaultsForLayout,
   mergePdfTemplate,
   normalizeHexColor,
@@ -144,7 +145,7 @@ export async function upsertPdfTemplate(
   // PATCH that omits `layout` (any older client) must not silently move a
   // legacy row to the new design.
   const base = existing ? mapRow(existing) : DEFAULT_PDF_TEMPLATE;
-  const merged = mergePdfTemplate(input, base);
+  const merged = applyPdfTemplateInput(base, input);
   const defaults = defaultsForLayout(merged.layout);
   const normalized: InvoicePdfTemplate = {
     ...merged,

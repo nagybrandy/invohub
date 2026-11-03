@@ -22,7 +22,7 @@ export type PdfTemplateValidation =
   | { ok: true; value: InvoicePdfTemplateInput }
   | { ok: false; fields: string[] };
 
-type FieldRule = (value: unknown) => { ok: true; value: unknown } | { ok: false };
+type FieldRule = (value: unknown, stored?: unknown) => { ok: true; value: unknown } | { ok: false };
 
 const enumOf =
   (allowed: readonly string[]): FieldRule =>
@@ -33,9 +33,15 @@ const bool: FieldRule = (value) => (typeof value === "boolean" ? { ok: true, val
 
 const text =
   (max: number): FieldRule =>
-  (value) => {
+  (value, stored) => {
     if (typeof value !== "string") return { ok: false };
     const trimmed = value.trim();
+    // The limits are new; the old settings screen had none and the old service
+    // never truncated. A text that is exactly what the user already has stored
+    // is accepted whatever its length, otherwise a legacy user with a long
+    // title or footer could not save any other change (the old screen PATCHes
+    // the whole template back).
+    if (typeof stored === "string" && stored.trim() === trimmed) return { ok: true, value: trimmed };
     return trimmed.length <= max ? { ok: true, value: trimmed } : { ok: false };
   };
 
@@ -68,7 +74,14 @@ const RULES: Array<[keyof InvoicePdfTemplateInput, FieldRule]> = [
   ["footerText", text(PDF_FOOTER_MAX_LENGTH)],
 ];
 
-export function validatePdfTemplateInput(body: unknown): PdfTemplateValidation {
+/**
+ * `stored` is the template the user has saved now (when known): an
+ * over-limit text that equals the stored one is not rejected (see `text`).
+ */
+export function validatePdfTemplateInput(
+  body: unknown,
+  stored?: Partial<Record<keyof InvoicePdfTemplateInput, unknown>> | null
+): PdfTemplateValidation {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { ok: false, fields: ["body"] };
   }
@@ -77,7 +90,7 @@ export function validatePdfTemplateInput(body: unknown): PdfTemplateValidation {
   const fields: string[] = [];
   for (const [key, rule] of RULES) {
     if (!(key in raw) || raw[key] === undefined) continue;
-    const result = rule(raw[key]);
+    const result = rule(raw[key], stored?.[key]);
     if (result.ok) value[key] = result.value;
     else fields.push(key);
   }

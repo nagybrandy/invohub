@@ -123,9 +123,6 @@ export default function PdfSettingsScreen() {
         <Text size="sm" className="text-muted-foreground">
           {t("settings.pdfScreen.description")}
         </Text>
-        <Text size="sm" className="text-muted-foreground">
-          {t("settings.pdfScreen.issuedKeepLook")}
-        </Text>
 
         {loading ? (
           <ActivityIndicator />

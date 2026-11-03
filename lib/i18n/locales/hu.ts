@@ -230,6 +230,7 @@ export default {
       grossTotal: "Fizetendő összesen",
       notes: "Megjegyzés",
       draftNumber: "Piszkozat",
+      issued: "Kiállítva",
       footer: "Készült az InvoHub-bal · invohub.hu",
       exchangeRate: "Árfolyam",
       exchangeRateValue: "1 {{currency}} = {{rate}} HUF",

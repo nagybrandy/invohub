@@ -506,8 +506,6 @@ the number prefix `documentNumber`, the strip caption `paymentDetails`.
   screen redesign; this slice ships the model, API, renderer, i18n keys.
 - **fontScale on the new layouts** (Dóri's form has no size control; legacy
   keeps it).
-- **"KIÁLLÍTVA" tag** on issued documents (a new document label; today's rule
-  prints only draft/paid/cancelled) - open question 4.
 - **HTML paper** in settings: not built; the preview is the PDF.
 - The composer paper's 8 px top bar and "Az ÁFA-t az adatok alapján számoltuk."
   footer line (not part of the canonical paper).
@@ -522,8 +520,9 @@ the number prefix `documentNumber`, the strip caption `paymentDetails`.
 3. Should the new settings offer "Korábbi" (legacy) as a fourth layout card for
    users whose row is legacy, so they can go back after trying the new ones?
    (API accepts it either way.)
-4. Print a "KIÁLLÍTVA" tag on issued documents as in the design? (Not in this
-   plan.)
+4. The "KIÁLLÍTVA" tag is now printed on numbered issued documents (Dóri's
+   header; label `invoices.document.issued`, only on the paper layouts, never on
+   legacy). Dóri / owner to confirm; removing it is one line in `document-content.ts`.
 5. Seller's Közösségi adószám (EU VAT number) is not printed today (the composer
    mock shows it). Legal question, not in this slice.
 6. Footer attribution colour: the design's `#888` is 3.5:1 on white; the
@@ -531,6 +530,12 @@ the number prefix `documentNumber`, the strip caption `paymentDetails`.
    `documentInk.muted` (#5b6178) for it; Dóri to confirm.
 7. The logo image (and the issuer's name/address) are read live, not frozen in
    the snapshot, so changing them would alter an issued PDF. Freeze them too?
+   The snapshot invariant covers the TEMPLATE fields only (incl. `logoMode:
+   "own"`); the legacy renderer already read `company.logoUrl` live. Since no
+   screen sets `logoUrl` yet this is latent, but the logo upload item must not
+   ship before this is settled (e.g. freeze the resolved data URI or a content
+   hash into `pdf_template_snapshot` when `logoMode` is `own`). Needs owner
+   sign-off.
 8. Security: `loadLogoImage` fetches any http(s) `logoUrl` server-side and
    `POST /api/companies` does not validate it (SSRF). Restrict to `data:`
    images in a separate item.
@@ -560,8 +565,27 @@ Built as planned; the deliberate differences and decisions:
 - **Numeric table headers are right-aligned** over their right-aligned values
   (the prototype left-aligns them; with measured column widths this reads
   better). Dóri to confirm.
-- **Meta strip**: five cells stay on one row when every cell fits on one line,
-  otherwise two rows of three (the design has four cells).
+- **Meta strip**: always one row (the design has four cells; five with
+  Teljesítés kelte, six with the MNB rate). With five or six cells each cell gets
+  its content width plus an equal share of the slack, and the captions tighten
+  their letter-spacing / size (Klasszikus serif caps are wider) instead of
+  breaking into a second row.
+- **Issuer box**: an unbreakable `Label: value` line (the bank account) steps
+  down to 8 px at most to stay on one line in the narrow Keretes cell.
+- **Pasted typography**: every string drawn by the paper renderer goes through
+  `lib/invoices/paper/text-sanitize.ts` (non-breaking hyphen, narrow no-break
+  space, soft hyphen, zero-width characters, U+02BC, numero sign) because the new
+  fonts lack those glyphs; the legacy Noto Sans had a few of them.
+- **`showClientTaxNumber` is a no-op on the paper layouts** (the buyer's tax
+  number is mandatory, Áfa tv. 169. §; the legacy renderer honours the toggle).
+  The stored value is kept. The settings wiring must remove or disable that
+  toggle for non-legacy layouts; whether a domestic B2B buyer's tax number may
+  ever be hidden needs human tax verification (question 1).
+- **Template changes merge onto the STORED row** (`applyPdfTemplateInput`), in
+  PATCH and in the POST sample alike; moving a never-customised legacy row to a
+  paper layout swaps the legacy accent / footer / title / note label for
+  Dóri's. PATCH/POST accept an over-limit text that equals the stored one, so a
+  legacy user with a long footer can still save other changes.
 - **ÁFA-összesítő** sits beside the totals when its measured width fits,
   otherwise above them; the payment strip keeps a small `Fizetési információ`
   caption; the exemption statement sits between totals and the payment strip.

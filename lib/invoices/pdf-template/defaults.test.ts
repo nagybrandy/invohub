@@ -2,6 +2,7 @@
 import {
   DEFAULT_PDF_TEMPLATE,
   LEGACY_PDF_TEMPLATE,
+  applyPdfTemplateInput,
   localizePdfTemplate,
   mergePdfTemplate,
   normalizeHexColor,
@@ -103,10 +104,14 @@ describe("localizePdfTemplate", () => {
     expect(
       localizePdfTemplate({ ...LEGACY_PDF_TEMPLATE, footerText: "Köszönjük a bizalmát!" }, "en").footerText
     ).toBe("Köszönjük a bizalmát!");
-    // new layouts: only the new default is a default
+    // new layouts: the legacy default footer (a row switched from legacy by an
+    // older client) is a default too, so an English document never prints Hungarian
     expect(
       localizePdfTemplate({ ...DEFAULT_PDF_TEMPLATE, footerText: "Köszönjük a bizalmat!" }, "en").footerText
-    ).toBe("Köszönjük a bizalmat!");
+    ).toBe("Thank you for your business!");
+    expect(localizePdfTemplate({ ...LEGACY_PDF_TEMPLATE, layout: "frame" }, "en").footerText).toBe(
+      "Thank you for your business!"
+    );
     expect(localizePdfTemplate({ ...DEFAULT_PDF_TEMPLATE, layout: "band" }, "en").footerText).toBe(
       "Thank you for your business!"
     );
@@ -199,5 +204,33 @@ describe("parsePdfTemplateSnapshot", () => {
       footerText: "Saved footer",
     });
     expect(parsed).not.toHaveProperty("injected");
+  });
+});
+
+describe("applyPdfTemplateInput", () => {
+  it("an omitted field means 'as saved' (a legacy row stays legacy)", () => {
+    expect(applyPdfTemplateInput(LEGACY_PDF_TEMPLATE, { showBankDetails: false })).toEqual({
+      ...LEGACY_PDF_TEMPLATE,
+      showBankDetails: false,
+    });
+  });
+
+  it("moving a legacy row to a paper layout swaps the never-edited legacy defaults for Dóri's", () => {
+    const out = applyPdfTemplateInput(LEGACY_PDF_TEMPLATE, { layout: "frame" });
+    expect(out).toEqual({ ...DEFAULT_PDF_TEMPLATE, layout: "frame" });
+    expect(localizePdfTemplate(out, "en").footerText).toBe("Thank you for your business!");
+  });
+
+  it("keeps what the user did edit, and what the same request sets explicitly", () => {
+    const stored = { ...LEGACY_PDF_TEMPLATE, accentColor: "#112233", footerText: "Viszlát!" };
+    const out = applyPdfTemplateInput(stored, { layout: "band", notesLabel: "Jegyzet" });
+    expect(out).toMatchObject({ layout: "band", accentColor: "#112233", footerText: "Viszlát!", notesLabel: "Jegyzet" });
+    const explicit = applyPdfTemplateInput(LEGACY_PDF_TEMPLATE, { layout: "clean", accentColor: "#6495ed" });
+    expect(explicit.accentColor).toBe("#6495ed");
+  });
+
+  it("does not touch a row that is already on a paper layout", () => {
+    const stored = { ...DEFAULT_PDF_TEMPLATE, layout: "band" as const };
+    expect(applyPdfTemplateInput(stored, { layout: "clean" })).toEqual({ ...stored, layout: "clean" });
   });
 });

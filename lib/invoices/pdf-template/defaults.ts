@@ -93,6 +93,35 @@ export function mergePdfTemplate(
 }
 
 /**
+ * Applies a client's partial `input` onto the template the user has STORED
+ * (or Dóri's defaults for a user without one). An omitted field means "as
+ * saved", so an older client or a partial body never moves a legacy row to
+ * the new design by accident.
+ *
+ * When the change moves a LEGACY row onto a paper layout, the values the user
+ * never edited (still exactly the legacy defaults: cornflower accent, the old
+ * footer text, ...) become Dóri's defaults for that field, unless the input
+ * sets that field explicitly. Without this a layout-only PATCH would keep the
+ * legacy accent colour and the legacy footer (an English invoice would then
+ * print the Hungarian footer, see localizePdfTemplate).
+ */
+export function applyPdfTemplateInput(
+  stored: InvoicePdfTemplate,
+  input: Partial<InvoicePdfTemplate> | null | undefined
+): InvoicePdfTemplate {
+  const merged = mergePdfTemplate(input, stored);
+  if (stored.layout !== "legacy" || merged.layout === "legacy") return merged;
+  const out: InvoicePdfTemplate = { ...merged };
+  for (const key of ["accentColor", "footerText", "notesLabel", "titleText"] as const) {
+    const explicit = input?.[key] !== undefined;
+    if (!explicit && stored[key].toLowerCase() === LEGACY_PDF_TEMPLATE[key].toLowerCase()) {
+      out[key] = DEFAULT_PDF_TEMPLATE[key];
+    }
+  }
+  return out;
+}
+
+/**
  * A strict #rrggbb colour, else `fallback`. The default fallback is the
  * frozen LEGACY accent: the legacy renderer (and every pre-redesign caller)
  * relies on it; new-layout callers pass DEFAULT_PDF_TEMPLATE.accentColor.
@@ -164,10 +193,16 @@ export function localizePdfTemplate(
 ): InvoicePdfTemplate {
   if (locale !== "en") return template;
   const defaults = defaultsForLayout(template.layout);
+  // A paper layout also treats the legacy default footer as a default: a row
+  // that was switched from legacy to a paper layout by an older client may
+  // still carry it, and an English invoice must not print Hungarian.
+  const isDefaultFooter =
+    template.footerText === defaults.footerText ||
+    (template.layout !== "legacy" && template.footerText === LEGACY_PDF_TEMPLATE.footerText);
   return {
     ...template,
     titleText: template.titleText === defaults.titleText ? ENGLISH_DEFAULTS.titleText : template.titleText,
-    footerText: template.footerText === defaults.footerText ? ENGLISH_DEFAULTS.footerText : template.footerText,
+    footerText: isDefaultFooter ? ENGLISH_DEFAULTS.footerText : template.footerText,
     notesLabel: template.notesLabel === defaults.notesLabel ? ENGLISH_DEFAULTS.notesLabel : template.notesLabel,
   };
 }

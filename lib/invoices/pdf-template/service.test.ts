@@ -355,6 +355,29 @@ describe("upsertPdfTemplate", () => {
       logoPosition: "right",
     });
   });
+
+  it("a layout-only change on a never-customised legacy row takes Dóri's accent and footer, and still freezes the legacy look onto issued invoices", async () => {
+    const legacyRow = {
+      ...STORED_ROW,
+      titleText: LEGACY_PDF_TEMPLATE.titleText,
+      accentColor: LEGACY_PDF_TEMPLATE.accentColor,
+      footerText: LEGACY_PDF_TEMPLATE.footerText,
+      layout: "legacy",
+    };
+    const updates = recordUpdates({ ...legacyRow, layout: "frame" });
+    mockDb.select.mockReturnValue(chain([legacyRow]));
+
+    await upsertPdfTemplate("user-1", { layout: "frame" });
+
+    expect(updates[0].values).toMatchObject({
+      pdfTemplateSnapshot: { layout: "legacy", accentColor: "#6495ed", footerText: "Köszönjük a bizalmat!" },
+    });
+    expect(updates.find((u) => u.table === invoicePdfTemplate)!.values).toMatchObject({
+      layout: "frame",
+      accentColor: DEFAULT_PDF_TEMPLATE.accentColor,
+      footerText: DEFAULT_PDF_TEMPLATE.footerText,
+    });
+  });
 });
 
 describe("getLegacyAppearance", () => {

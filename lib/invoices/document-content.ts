@@ -270,7 +270,10 @@ export function buildDocumentContent(
     title,
     number,
     isUnnumberedDraft,
-    statusChip: documentStatusChip(invoice.status, locale),
+    // Dóri's header carries a grey "KIÁLLÍTVA" tag on an issued document. It is
+    // definitional (not app state like sent/unpaid) and only shown when no
+    // stronger status (Piszkozat / Kifizetve / Törölve) takes the tag's place.
+    statusChip: documentStatusChip(invoice.status, locale) ?? (numbered ? labels.issued : null),
     referenceText,
     issuer,
     metaCells,

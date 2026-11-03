@@ -182,7 +182,9 @@ describe("renderPaperPdf: logo", () => {
     const left = await render({ logoPosition: "left" });
     const right = await render({ logoPosition: "right" });
     expect(textOf(left, "SZÁMLA")!.x).toBeGreaterThan(300);
-    expect(textOf(right, "SZÁMLA")!.x).toBeCloseTo(px(34), 0);
+    // the title column starts at the left margin with the "Kiállítva" tag, the title follows it
+    expect(textOf(right, "KIÁLLÍTVA")!.x).toBeCloseTo(px(34), 0);
+    expect(textOf(right, "SZÁMLA")!.x).toBeLessThan(textOf(left, "SZÁMLA")!.x);
     expect(textOf(left, "Kovács Anna e.v.")!.x).toBeLessThan(120);
     expect(textOf(right, "Kovács Anna e.v.")!.x).toBeGreaterThan(200);
     // the logo stays to the left of the issuer text
@@ -225,17 +227,18 @@ describe("renderPaperPdf: fonts", () => {
 });
 
 describe("renderPaperPdf: status tag, draft watermark, footer", () => {
-  it("prints a tag (upper-case status text) only for draft / paid / cancelled", async () => {
+  it("prints a status tag: Piszkozat / Fizetve / Törölve, else Dóri's grey KIÁLLÍTVA on a numbered document", async () => {
     const labels = documentLabels("hu");
-    const tags = Object.values({ draft: labels.status.draft, paid: labels.status.paid, cancelled: labels.status.cancelled }).map((t) => t.toUpperCase());
-    const drawnTags = async (status: Invoice["status"], number = "INV-2026-1") =>
-      (await render({}, makeInvoice({ status, invoiceNumber: number }))).strings.filter((s) => tags.includes(s));
-    for (const status of ["sent", "unpaid", "overdue", "partially_paid"] as const) {
-      expect([status, await drawnTags(status)]).toEqual([status, []]);
+    const status = { draft: labels.status.draft, paid: labels.status.paid, cancelled: labels.status.cancelled };
+    const tags = [...Object.values(status), labels.issued].map((t) => t.toUpperCase());
+    const drawnTags = async (st: Invoice["status"], number = "INV-2026-1") =>
+      (await render({}, makeInvoice({ status: st, invoiceNumber: number }))).strings.filter((s) => tags.includes(s));
+    for (const st of ["sent", "unpaid", "overdue", "partially_paid"] as const) {
+      expect([st, await drawnTags(st)]).toEqual([st, ["KIÁLLÍTVA"]]);
     }
-    expect(await drawnTags("paid")).toEqual([labels.status.paid.toUpperCase()]);
-    expect(await drawnTags("cancelled")).toEqual([labels.status.cancelled.toUpperCase()]);
-    expect(await drawnTags("draft", "")).toEqual([labels.status.draft.toUpperCase()]);
+    expect(await drawnTags("paid")).toEqual([status.paid.toUpperCase()]);
+    expect(await drawnTags("cancelled")).toEqual([status.cancelled.toUpperCase()]);
+    expect(await drawnTags("draft", "")).toEqual([status.draft.toUpperCase()]);
   });
 
   it("draws the Piszkozat watermark only on an unnumbered draft, rotated -24 deg at 7 % opacity", async () => {
@@ -307,5 +310,60 @@ describe("renderPaperPdf: pagination", () => {
     const r = await render({}, makeInvoice({ notes: "Hosszú megjegyzés. ".repeat(400) }));
     expect(r.pageCount).toBeGreaterThan(1);
     expect(r.strings.some((s) => /\(FOLYTATÁS\)$/.test(s))).toBe(true);
+  });
+});
+
+describe("renderPaperPdf: the meta strip is one row, in every font style", () => {
+  const FONT_STYLES = ["invohub", "classic", "round"] as const;
+  const eur = makeInvoice({
+    invoiceNumber: "INV-2026-7",
+    currency: "EUR",
+    exchangeRate: 395.5,
+    fulfillmentDate: "2026-06-01",
+    paymentMethod: "transfer",
+  });
+
+  it.each(FONT_STYLES)("%s: five cells (sample) and six cells (EUR + MNB rate) sit on a single row of captions", async (fontStyle) => {
+    for (const [invoice, count] of [[buildSamplePreviewInvoice(), 5], [eur, 6]] as const) {
+      const r = await render({ layout: "frame", fontStyle }, invoice);
+      const captions = ["Kiállítás kelte", "Fizetési határidő", "Fizetési mód", "Pénznem", "Árfolyam"]
+        .map((label) => textOf(r, label.toUpperCase()) ?? textOf(r, label))
+        .filter((t): t is NonNullable<typeof t> => !!t);
+      expect(captions.length).toBeGreaterThanOrEqual(count === 5 ? 4 : 5);
+      const ys = new Set(captions.map((t) => Math.round(t.y)));
+      expect({ fontStyle, count, rows: ys.size }).toEqual({ fontStyle, count, rows: 1 });
+    }
+  });
+
+  it("a date value does not wrap in the six-cell strip", async () => {
+    const r = await render({ layout: "frame" }, eur);
+    const dates = r.strings.filter((s) => /^2026\. \d\d\. \d\d\.$/.test(s));
+    expect(dates.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("renderPaperPdf: the issuer's bank account stays on one line in Keretes", () => {
+  it.each(["invohub", "classic", "round"] as const)("%s", async (fontStyle) => {
+    const r = await render({ layout: "frame", fontStyle });
+    const bank = r.strings.filter((s) => s.startsWith("Bankszámlaszám: "));
+    expect(bank).toEqual(["Bankszámlaszám: 10700024-12345678-51100005"]);
+  });
+});
+
+describe("renderPaperPdf: pasted typography the fonts lack is normalised", () => {
+  it("prints a non-breaking hyphen as a hyphen and drops zero-width characters", async () => {
+    const r = await render(
+      {},
+      makeInvoice({
+        invoiceNumber: "INV-2026-8",
+        clientName: "Dél\u2011Pest\u200B Kft.",
+        notes: "határidő\u202F15\u2011én",
+        lineItems: [makeLineItem({ id: "a", description: "Web\u2011fejlesztés", quantity: 1, unitPrice: 1000 })],
+      })
+    );
+    const all = r.strings.join("\n");
+    expect(all).not.toMatch(/[\u2011\u200B\u202F]/);
+    expect(all).toContain("Web-fejlesztés");
+    expect(all).toContain("Dél-Pest Kft.");
   });
 });

@@ -14,6 +14,7 @@ import { toWinAnsiSafe } from "@/lib/invoices/document-labels";
 import { documentInk } from "@/lib/invoices/document-ink";
 import type { InvoicePdfContext } from "@/lib/invoices/generate-pdf";
 import { parseLogoDataUri, paperInitials } from "@/lib/invoices/paper/logo";
+import { sanitizePaperText } from "@/lib/invoices/paper/text-sanitize";
 import {
   A4_HEIGHT_PT,
   A4_WIDTH_PT,
@@ -167,6 +168,10 @@ export async function renderPaperPdf(ctx: PaperInput): Promise<Buffer> {
   // "Ügyfél adószám" toggle says.
   const content = buildDocumentContent(ctx, { alwaysPrintBuyerTaxNumber: true });
   const variant = paperVariant(content.template);
+  // KNOWN GAP (PLAN open question 7): the snapshot freezes the template
+  // (logoMode "own"), not the image or the issuer name behind it; both are
+  // read from the live company row, as the legacy renderer always did. The logo
+  // upload item must settle this before shipping.
   const logoBuffer = variant.logo.mode === "own" ? parseLogoDataUri(ctx.company?.logoUrl) : null;
 
   return withPdfKitFonts(
@@ -184,12 +189,23 @@ export async function renderPaperPdf(ctx: PaperInput): Promise<Buffer> {
 
         try {
           const fonts = registerPaperFonts(doc, variant.fontStyle);
-          if (!fonts.embedded) {
-            // Helvetica last resort: WinAnsi has no ő/ű (see document-labels.ts).
-            const rawText = doc.text.bind(doc) as (...args: unknown[]) => typeof doc;
-            doc.text = ((value: string, ...rest: unknown[]) =>
-              rawText(toWinAnsiSafe(value), ...rest)) as typeof doc.text;
-          }
+          // Every string that is measured or drawn goes through one text path:
+          // code points the paper fonts lack (non-breaking hyphen, narrow
+          // no-break space, soft hyphen, ...) become plain equivalents instead
+          // of .notdef boxes; on the Helvetica last resort WinAnsi has no ő/ű
+          // either (see document-labels.ts).
+          const clean = (value: string) => {
+            const plain = sanitizePaperText(value);
+            return fonts.embedded ? plain : toWinAnsiSafe(plain);
+          };
+          const rawText = doc.text.bind(doc) as (...args: unknown[]) => typeof doc;
+          doc.text = ((value: string, ...rest: unknown[]) => rawText(clean(String(value)), ...rest)) as typeof doc.text;
+          const rawWidth = doc.widthOfString.bind(doc) as (...args: unknown[]) => number;
+          doc.widthOfString = ((value: string, ...rest: unknown[]) =>
+            rawWidth(clean(String(value)), ...rest)) as typeof doc.widthOfString;
+          const rawHeight = doc.heightOfString.bind(doc) as (...args: unknown[]) => number;
+          doc.heightOfString = ((value: string, ...rest: unknown[]) =>
+            rawHeight(clean(String(value)), ...rest)) as typeof doc.heightOfString;
           drawDocument(doc, createPainter(doc, fonts), content, variant, logoBuffer);
           doc.flushPages();
           doc.end();
@@ -364,24 +380,48 @@ function drawDocument(
     const n = c.metaCells.length;
     const padX = px(9);
     const padY = px(7);
-    const captionOpts = { role: "head600", size: 7.5, spacing: 0.07, upper: true, color: PAPER_INK.caption } as const;
     const valueOpts = { role: "body700", size: 10.5, color: PAPER_INK.body } as const;
-    // Dóri's strip has four cells; a fifth or sixth (Teljesítés kelte, Árfolyam)
-    // stays on one row when every cell fits on one line, else two rows of three.
-    const fitsOneRow =
-      n <= 4 ||
-      c.metaCells.every(
-        (cell) =>
-          Math.max(p.widthOf(cell.label, captionOpts), p.widthOf(cell.value, valueOpts)) <= WIDTH / n - padX * 2
+    // Dóri's strip is always ONE row (4 cells, 5 with Teljesítés kelte, 6 with
+    // the MNB rate). The serif caps of Klasszikus are wider than the sans ones,
+    // so instead of breaking into a second row the captions tighten their
+    // letter-spacing and then their size until every cell fits one line.
+    const captionSteps = [
+      { size: 7.5, spacing: 0.07 },
+      { size: 7.5, spacing: 0.04 },
+      { size: 7, spacing: 0.02 },
+      { size: 6.5, spacing: 0 },
+    ] as const;
+    const captionFor = (step: (typeof captionSteps)[number]) =>
+      ({ role: "head600", size: step.size, spacing: step.spacing, upper: true, color: PAPER_INK.caption }) as const;
+    // Natural width of every cell (its caption or value, whichever is wider).
+    const needs = (step: (typeof captionSteps)[number]) =>
+      c.metaCells.map(
+        (cell) => Math.max(p.widthOf(cell.label, captionFor(step)), p.widthOf(cell.value, valueOpts)) + padX * 2 + 1
       );
-    const cols = fitsOneRow ? n : 3;
+    const fitsOneRowWith = (step: (typeof captionSteps)[number]) =>
+      needs(step).reduce((sum, w) => sum + w, 0) <= WIDTH;
+    const fittingStep = n <= 4 ? captionSteps[0] : captionSteps.find(fitsOneRowWith);
+    const captionOpts = captionFor(fittingStep ?? captionSteps[captionSteps.length - 1]!);
+    // Up to six cells always stay on one row (a caption that still does not fit
+    // the tightest step wraps inside its cell). Only a hypothetical 7+ cells
+    // split evenly over two rows, never 3+2 with an empty block.
+    const cols = n <= 6 ? n : Math.ceil(n / 2);
     const rows: typeof c.metaCells[] = [];
     for (let i = 0; i < n; i += cols) rows.push(c.metaCells.slice(i, i + cols));
-    const cellW = WIDTH / cols;
+    // Four cells split the strip evenly (Dóri's). With five or six, each cell
+    // gets what its content needs plus an equal share of the slack, so a long
+    // value (a date, the MNB rate) never wraps while a short one stays narrow.
+    let colWidths: number[] = Array.from({ length: cols }, () => WIDTH / cols);
+    if (n > 4 && n <= 6 && fittingStep) {
+      const need = needs(fittingStep);
+      const slack = (WIDTH - need.reduce((sum, w) => sum + w, 0)) / n;
+      colWidths = need.map((w) => w + slack);
+    }
+    const colOffsets = colWidths.map((_, i) => colWidths.slice(0, i).reduce((sum, w) => sum + w, 0));
     const rowHeights = rows.map((row) =>
       Math.max(
-        ...row.map((cell) => {
-          const inner = cellW - padX * 2;
+        ...row.map((cell, i) => {
+          const inner = colWidths[i]! - padX * 2;
           return (
             padY * 2 +
             p.measure(cell.label, inner, captionOpts).height +
@@ -400,9 +440,9 @@ function drawDocument(
     rows.forEach((row, rowIndex) => {
       if (rowIndex > 0) hLine(doc, LEFT + px(1), RIGHT - px(1), ry - px(0.5), T.meta.fill === "tint" && !T.meta.cellDividers ? PAPER_INK.white : PAPER_INK.line);
       row.forEach((cell, i) => {
-        const cx = LEFT + i * cellW;
+        const cx = LEFT + colOffsets[i]!;
         if (i > 0 && T.meta.cellDividers) vLine(doc, cx, ry + px(1), ry + rowHeights[rowIndex]! - px(1), PAPER_INK.line);
-        const inner = cellW - padX * 2;
+        const inner = colWidths[i]! - padX * 2;
         const ly = ry + padY;
         const hCap = p.put(cell.label, cx + padX, ly, inner, captionOpts);
         p.put(cell.value, cx + padX, ly + hCap + px(2), inner, valueOpts);
@@ -423,10 +463,21 @@ function drawDocument(
     const captionOpts = { role: "head600", size: 7.5, spacing: 0.07, upper: true, color: PAPER_INK.caption } as const;
     const innerX = (i: number) => LEFT + i * cellW + (flush ? 0 : padX);
     const innerW = flush ? cellW - padX : cellW - padX * 2;
+    // "Label: 10700024-12345678-51100005": an identifier that cannot break. In a
+    // narrow Keretes cell it would drop to its own line, so such a line steps
+    // down (to 8 px at most) until it fits; any other line wraps as usual.
+    const lineOpts = (line: string) => {
+      const tail = line.includes(": ") ? line.slice(line.indexOf(": ") + 2) : "";
+      let size = 9.5;
+      if (tail && !/\s/.test(tail)) {
+        while (size > 8 && p.widthOf(line, { role: "body400", size }) > innerW) size -= 0.25;
+      }
+      return { role: "body400", size, color: PAPER_INK.secondary } as const;
+    };
     const heights = parties.map((party) => {
       let h = padY * 2 + p.measure(party.title, innerW, captionOpts).height + px(2);
       h += p.measure(party.name, innerW, { role: "body700", size: 10.5, color: PAPER_INK.body }).height;
-      for (const line of party.lines) h += p.measure(line, innerW, { role: "body400", size: 9.5, color: PAPER_INK.secondary }).height;
+      for (const line of party.lines) h += p.measure(line, innerW, lineOpts(line)).height;
       return h;
     });
     const totalH = Math.max(...heights);
@@ -439,7 +490,7 @@ function drawDocument(
       cy += p.put(party.title, innerX(i), cy, innerW, captionOpts) + px(2);
       cy += p.put(party.name, innerX(i), cy, innerW, { role: "body700", size: 10.5, color: PAPER_INK.body });
       for (const line of party.lines) {
-        cy += p.put(line, innerX(i), cy, innerW, { role: "body400", size: 9.5, color: PAPER_INK.secondary });
+        cy += p.put(line, innerX(i), cy, innerW, lineOpts(line));
       }
     });
     if (T.parties.bottomRule) hLine(doc, LEFT, RIGHT, y + totalH - px(1), PAPER_INK.line);

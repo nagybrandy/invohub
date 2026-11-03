@@ -116,3 +116,18 @@ describe("validatePdfTemplateInput", () => {
     expect(ok(full)).toEqual(full);
   });
 });
+
+describe("validatePdfTemplateInput with the stored template", () => {
+  const long = "x".repeat(300);
+  it("accepts an over-limit text that equals the stored one, but no other over-limit text", () => {
+    expect(validatePdfTemplateInput({ footerText: long }, { footerText: long })).toEqual({
+      ok: true,
+      value: { footerText: long },
+    });
+    expect(validatePdfTemplateInput({ footerText: `${long}y` }, { footerText: long })).toEqual({
+      ok: false,
+      fields: ["footerText"],
+    });
+    expect(validatePdfTemplateInput({ footerText: long }, null)).toEqual({ ok: false, fields: ["footerText"] });
+  });
+});

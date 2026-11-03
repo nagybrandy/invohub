@@ -230,6 +230,7 @@ export default {
       grossTotal: "Total due",
       notes: "Notes",
       draftNumber: "Draft",
+      issued: "Issued",
       footer: "Made with InvoHub · invohub.hu",
       exchangeRate: "Exchange rate",
       exchangeRateValue: "1 {{currency}} = {{rate}} HUF",

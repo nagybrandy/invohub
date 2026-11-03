@@ -65,6 +65,15 @@ describe("buildDocumentContent", () => {
     expect(content().isUnnumberedDraft).toBe(false);
   });
 
+  it("tags a numbered, issued document 'Kiállítva' (Dóri's header) unless a stronger status takes the tag's place", () => {
+    expect(content({ status: "unpaid" }).statusChip).toBe("Kiállítva");
+    expect(content({ status: "sent" }).statusChip).toBe("Kiállítva");
+    expect(content({ status: "paid" }).statusChip).toBe("Fizetve");
+    expect(content({ status: "cancelled" }).statusChip).not.toBe("Kiállítva");
+    expect(content({ invoiceNumber: "", status: "draft" }).statusChip).toBe("Piszkozat");
+    expect(content({ status: "unpaid", language: "en" }).statusChip).toBe("Issued");
+  });
+
   it("prints Teljesítés kelte only when a fulfillment date is resolved, and Árfolyam only for a non-HUF currency", () => {
     expect(content().metaCells.map((c) => c.label)).toEqual(["Kiállítás kelte", "Fizetési határidő", "Pénznem"]);
     const eur = content({ currency: "EUR", exchangeRate: 395.5, fulfillmentDate: "2026-06-01", paymentMethod: "transfer" });

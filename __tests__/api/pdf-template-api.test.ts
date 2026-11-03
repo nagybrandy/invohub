@@ -22,7 +22,7 @@ import { GET, PATCH, POST } from "@/app/api/pdf-template+api";
 import { requireSession } from "@/lib/api/session";
 import { buildSamplePdfContext } from "@/lib/invoices/build-pdf-context";
 import { generateInvoicePdf } from "@/lib/invoices/generate-pdf";
-import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
+import { DEFAULT_PDF_TEMPLATE, LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 import { getPdfTemplate, upsertPdfTemplate } from "@/lib/invoices/pdf-template/service";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
@@ -114,6 +114,21 @@ describe("/api/pdf-template", () => {
       expect(response.status).toBe(400);
       expect((await response.json()).code).toBe("invalidPdfTemplate");
     });
+
+    it("does not lock out a user whose STORED text is longer than the new limits", async () => {
+      const longFooter = "Hosszú lábléc. ".repeat(20).trim();
+      const longTitle = "NAGYON HOSSZÚ SZÁMLA CÍM ".repeat(3).trim();
+      mockGet.mockResolvedValue({ ...LEGACY_PDF_TEMPLATE, footerText: longFooter, titleText: longTitle });
+      // the old screen PATCHes the whole template back
+      const ok = await PATCH(
+        request("PATCH", { ...LEGACY_PDF_TEMPLATE, footerText: longFooter, titleText: longTitle, accentColor: "#112233" })
+      );
+      expect(ok.status).toBe(200);
+      // a NEW over-limit text is still rejected
+      const bad = await PATCH(request("PATCH", { footerText: `${longFooter} ez más` }));
+      expect(bad.status).toBe(400);
+      expect((await bad.json()).fields).toEqual(["footerText"]);
+    });
   });
 
   describe("POST (sample PDF with an unsaved template)", () => {
@@ -123,6 +138,18 @@ describe("/api/pdf-template", () => {
       expect(response.headers.get("Content-Type")).toBe("application/pdf");
       const ctx = mockGenerate.mock.calls[0]![0];
       expect(ctx.template).toEqual({ ...DEFAULT_PDF_TEMPLATE, layout: "clean", accentColor: "#e8590c", fontStyle: "round" });
+    });
+
+    it("an omitted field means 'as saved': a legacy user's sample stays on the legacy layout", async () => {
+      mockGet.mockResolvedValue({ ...LEGACY_PDF_TEMPLATE });
+      await POST(request("POST", { showBankDetails: false }));
+      expect(mockGenerate.mock.calls[0]![0].template).toEqual({ ...LEGACY_PDF_TEMPLATE, showBankDetails: false });
+    });
+
+    it("previewing a layout for a legacy user swaps the never-edited legacy defaults for Dóri's", async () => {
+      mockGet.mockResolvedValue({ ...LEGACY_PDF_TEMPLATE });
+      await POST(request("POST", { layout: "frame" }));
+      expect(mockGenerate.mock.calls[0]![0].template).toEqual({ ...DEFAULT_PDF_TEMPLATE, layout: "frame" });
     });
 
     it("validates too: 400 and no PDF for an invalid template", async () => {
