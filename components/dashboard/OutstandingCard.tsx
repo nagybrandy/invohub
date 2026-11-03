@@ -25,6 +25,8 @@ export type OutstandingCardProps = {
   /** "2026. 11. 03." */
   asOf: string;
   loading?: boolean;
+  /** Extra classes for the card (the wide grid passes "flex-1" so it fills the row's height). */
+  className?: string;
   /** Opens the list of outstanding invoices (legend-less fallback and the hero number). */
   onOpenAll: () => void;
   onOpenNotDue: () => void;
@@ -38,6 +40,7 @@ export function OutstandingCard({
   overdueCount,
   asOf,
   loading = false,
+  className = "",
   onOpenAll,
   onOpenNotDue,
   onOpenOverdue,
@@ -48,7 +51,7 @@ export function OutstandingCard({
   const bothSegments = split.notDueShare > 0 && split.overdueShare > 0;
 
   return (
-    <Card testID="dashboard-outstanding" className="gap-0 px-[22px] py-5">
+    <Card testID="dashboard-outstanding" className={`gap-0 px-[22px] py-5 ${className}`}>
       <HStack className="items-baseline justify-between gap-3">
         <Heading className={type.sectionTitle}>{t("dashboard.kpi.outstanding")}</Heading>
         <Text className="text-xs text-muted-ink">{t("home.outstanding.asOf", { date: asOf })}</Text>

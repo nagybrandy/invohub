@@ -51,8 +51,8 @@ export function DashboardStatCard({
         </VStack>
       ) : (
         <VStack space="xs">
-          <HStack className="items-start justify-between gap-2">
-            <Text className="min-w-0 flex-1 text-[13px] font-medium text-muted-ink">{label}</Text>
+          <HStack className="items-center gap-2">
+            <Text className="min-w-0 shrink text-[13px] font-medium text-muted-ink">{label}</Text>
             {info ? (
               <Tooltip content={info} testID={`${testID}-tooltip`}>
                 <Pressable

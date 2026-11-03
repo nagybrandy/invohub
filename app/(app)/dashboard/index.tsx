@@ -97,6 +97,7 @@ export default function DashboardScreen() {
 
   const hero = (
     <OutstandingCard
+      className={breakpoint === "wide" ? "flex-1" : ""}
       outstanding={summary.outstanding}
       overdueTotal={summary.overdueTotal}
       outstandingCount={outstandingCount}
