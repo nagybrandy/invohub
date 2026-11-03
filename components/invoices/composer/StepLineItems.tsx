@@ -1,27 +1,34 @@
 // components/invoices/composer/StepLineItems.tsx
-// Step 2: an inline-editable grid (spec §2.4) when the form column is wide
-// enough, compact per-line cards otherwise. The choice is CONTAINER-driven
-// (responsive-line-item-grid): the form column is measured with onLayout,
-// because the window width ignores the app sidebar and the live PDF side
-// preview (≈620px column on a 1440px laptop with both open). Neither layout
-// ever scrolls sideways — the totals bar below
-// the grid is sticky and carries the "Előnézet" previewSlot (a drawer with
-// the live PDF) whenever the composer's side PDF panel isn't shown
-// (< 1024px or hidden — see docs/decisions/2026-09-22-single-live-pdf-preview.md).
+// "Mit számlázol?" — the line items section of the one-page composer
+// (redesign 2026-11, SPEC §8.5): a header line and one row per item when the
+// section is wide enough, Megnevezés-over-numbers cards otherwise (the choice
+// is CONTAINER-driven: the section measures itself with onLayout, the window
+// width ignores the sidebar and the preview column). Below the rows: "+ Új
+// tétel", the "Gyors hozzáadás" chips (the user's first five products) and the
+// totals block. The "Bruttó összegek megadása" switch flips the unit-price
+// field between net and gross entry (the stored price is always net).
 import * as React from "react";
-import type { LayoutChangeEvent } from "react-native";
-import { Text } from "@/components/ui/text";
+import { Box } from "@/components/ui/box";
+import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
-import { VStack } from "@/components/ui/vstack";
+import { Switch } from "@/components/ui/switch";
+import { Text } from "@/components/ui/text";
+import { ComposerSection } from "@/components/invoices/composer/ComposerSection";
+import { ComposerTotals } from "@/components/invoices/composer/ComposerTotals";
 import { LineItemRow } from "@/components/invoices/composer/LineItemRow";
 import { groupVatRows } from "@/components/invoices/composer/composer-logic";
-import { COMPOSER_GRID_COLUMNS, lineItemLayoutForWidth } from "@/components/invoices/composer/grid-columns";
-import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
-import { calculateInvoiceTotals, formatCurrency } from "@/lib/invoices/calculations";
+import { QUICK_PRODUCT_COUNT } from "@/components/invoices/composer/composer-view";
+import {
+  COMPOSER_GRID_COLUMNS,
+  isCompactWidth,
+  lineItemLayoutForWidth,
+} from "@/components/invoices/composer/grid-columns";
+import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import type { InvoiceCurrency, InvoiceLineItem } from "@/lib/invoices/types";
 import type { UnitPriceMode } from "@/lib/invoices/unit-price";
 import type { Product } from "@/lib/products/service";
+import { useMeasuredWidth } from "@/lib/ui/use-measured-width";
 
 export function StepLineItems({
   lineItems,
@@ -31,8 +38,10 @@ export function StepLineItems({
   onAdd,
   onAddFromProduct,
   onRemove,
-  previewSlot,
   isModification = false,
+  error,
+  focusField,
+  onFocusHandled,
   t,
 }: {
   lineItems: InvoiceLineItem[];
@@ -42,85 +51,82 @@ export function StepLineItems({
   onAdd: () => void;
   onAddFromProduct: (product: Product) => void;
   onRemove: (id: string) => void;
-  /** "Teljes előnézet" button, rendered in the sticky totals bar (AC10). */
-  previewSlot?: React.ReactNode;
   /**
    * Helyesbítő (modify) draft: it starts as reversing line + editable copy
    * per original line (lib/invoices/modification-lines.ts). Shows the hint
    * and lets a quantity stay negative instead of being clamped to 0.
    */
   isModification?: boolean;
+  /** "Legalább egy tételt adj meg." — shown under the rows. */
+  error?: string;
+  /** The composer's focusField; "lineItem-0-description" focuses the first description. */
+  focusField?: string | null;
+  onFocusHandled?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const totals = calculateInvoiceTotals(lineItems);
   const vatRows = groupVatRows(lineItems);
-  const [catalogOpen, setCatalogOpen] = React.useState(false);
   const [priceMode, setPriceMode] = React.useState<UnitPriceMode>("net");
-  const [containerWidth, setContainerWidth] = React.useState<number | null>(null);
-  const layout = lineItemLayoutForWidth(containerWidth);
-  const isCard = layout === "card";
+  const { width, onLayout } = useMeasuredWidth();
+  const layout = lineItemLayoutForWidth(width);
+  const compact = layout === "stacked" && isCompactWidth(width);
+  const quickProducts = products.slice(0, QUICK_PRODUCT_COUNT);
+  const grossEntry = priceMode === "gross";
 
-  const handleLayout = React.useCallback((event: LayoutChangeEvent) => {
-    const width = Math.round(event.nativeEvent.layout.width);
-    setContainerWidth((prev) => (prev === width ? prev : width));
-  }, []);
-
-  const buttonClass = `${TAP_TARGET_MIN_H} items-center justify-center rounded-lg border border-border bg-card px-4 py-2`;
+  const unitPriceHeader = `${t("invoices.lineItemEditor.unitPrice")} (${t(
+    grossEntry ? "invoices.lineItemEditor.priceGross" : "invoices.lineItemEditor.priceNet"
+  )})`;
 
   return (
-    <VStack space="md" onLayout={handleLayout} testID="line-items-container">
-      {isModification ? (
-        <VStack className="rounded-lg border border-border bg-muted/50 px-3 py-2" testID="modification-draft-hint">
-          <Text size="sm" className="text-foreground">
-            {t("invoices.correction.draftHint")}
-          </Text>
-        </VStack>
-      ) : null}
-      <HStack space="sm" className="items-center" testID="unit-price-mode">
-        <Text size="xs" className="text-muted-foreground">
-          {t("invoices.lineItemEditor.unitPriceMode")}
-        </Text>
-        {(["net", "gross"] as const).map((mode) => (
-          <Pressable
-            key={mode}
-            onPress={() => setPriceMode(mode)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: priceMode === mode }}
-            testID={`unit-price-mode-${mode}`}
-            className={`rounded-full border px-3 py-1.5 ${
-              priceMode === mode ? "border-primary bg-primary/10" : "border-border bg-card"
-            }`}
+    <ComposerSection
+      title={t("invoices.sections.lineItems")}
+      testID="composer-section-items"
+      action={
+        <HStack className="items-center gap-2" testID="unit-price-mode">
+          <Text className="text-[13px] font-semibold text-ink">{t("invoices.fields.grossToggle")}</Text>
+          <Switch
+            value={grossEntry}
+            onValueChange={(on) => setPriceMode(on ? "gross" : "net")}
+            accessibilityLabel={t("invoices.fields.grossToggle")}
+            testID="unit-price-mode-switch"
+          />
+        </HStack>
+      }
+    >
+      <Box onLayout={onLayout} testID="line-items-container">
+        {isModification ? (
+          <Box
+            className="mb-3 rounded-control border border-line-strong bg-neutral-wash px-3 py-2"
+            testID="modification-draft-hint"
           >
-            <Text size="xs" className={priceMode === mode ? "font-semibold text-primary" : "text-foreground"}>
-              {t(mode === "net" ? "invoices.lineItemEditor.priceNet" : "invoices.lineItemEditor.priceGross")}
-            </Text>
-          </Pressable>
-        ))}
-      </HStack>
+            <Text className="text-sm text-ink">{t("invoices.correction.draftHint")}</Text>
+          </Box>
+        ) : null}
 
-      {/* Grid only when the measured column fits the full row
-          (composerGridMinWidth = 860px); otherwise every line is a
-          compact card — no min-width, no horizontal scroll. */}
-      <VStack space={isCard ? "sm" : "md"}>
-        {isCard ? null : (
-          <HStack space="sm" className="border-b border-subtle pb-2" testID="line-items-grid-header">
+        {layout === "row" ? (
+          <Box className="flex-row gap-2 pb-1" testID="line-items-grid-header">
             {COMPOSER_GRID_COLUMNS.map((col) => (
-              <VStack key={col.key} className={col.className}>
+              <Box key={col.key} className={col.className}>
                 {col.labelKey ? (
-                  <Text size="xs" className="font-medium uppercase tracking-wide text-muted-foreground">
-                    {t(col.labelKey)}
+                  <Text
+                    className={`text-xs text-muted-ink ${col.key === "total" ? "text-right" : ""} ${
+                      col.key === "quantity" || col.key === "unitPrice" ? "pr-1" : ""
+                    }`}
+                  >
+                    {col.key === "unitPrice" ? unitPriceHeader : t(col.labelKey)}
                   </Text>
                 ) : null}
-              </VStack>
+              </Box>
             ))}
-          </HStack>
-        )}
+          </Box>
+        ) : null}
 
-        <VStack space={isCard ? "sm" : "xs"}>
+        <Box>
           {lineItems.map((item, index) => (
             <LineItemRow
               key={item.id}
               layout={layout}
+              compact={compact}
               index={index}
               item={item}
               currency={currency}
@@ -128,97 +134,67 @@ export function StepLineItems({
               canDelete={lineItems.length > 1}
               allowNegativeQuantity={isModification}
               priceMode={priceMode}
+              focusDescription={index === 0 && focusField === "lineItem-0-description"}
+              onFocusHandled={onFocusHandled}
               onChange={(patch) => onUpdate(item.id, patch)}
               onRemove={() => onRemove(item.id)}
-              onFillFromProduct={(product) => onUpdate(item.id, {
-                description: product.name,
-                unitPrice: product.unitPrice,
-                unit: product.unit ?? "db",
-              })}
+              onFillFromProduct={(product) =>
+                onUpdate(item.id, {
+                  description: product.name,
+                  unitPrice: product.unitPrice,
+                  unit: product.unit ?? "db",
+                })
+              }
               t={t}
             />
           ))}
-        </VStack>
-      </VStack>
+        </Box>
 
-      <HStack space="sm" className={isCard ? "flex-col" : "flex-wrap"}>
-        <Pressable onPress={onAdd} className={isCard ? `w-full ${buttonClass}` : buttonClass}>
-          <Text size="sm" className="font-medium text-foreground">
-            {t("invoices.lineItemEditor.addLineItem")}
+        {error ? (
+          <Text accessibilityRole="alert" className="mt-2 text-[13px] font-semibold text-err" testID="composer-items-error">
+            {error}
           </Text>
-        </Pressable>
-        <VStack className={isCard ? "relative w-full" : "relative"}>
-          <Pressable
-            onPress={() => setCatalogOpen((v) => !v)}
-            className={isCard ? `w-full ${buttonClass}` : buttonClass}
-          >
-            <Text size="sm" className="font-medium text-foreground">
-              {t("invoices.composer.addFromCatalog")}
-            </Text>
-          </Pressable>
-          {catalogOpen ? (
-            <VStack className="absolute top-11 z-10 w-64 max-w-full rounded-lg border border-border bg-card shadow-sm">
-              {products.length === 0 ? (
-                <Text size="sm" className="px-3 py-2 text-muted-foreground">
-                  {t("invoices.composer.noProducts")}
-                </Text>
-              ) : (
-                products.map((product) => (
-                  <Pressable
-                    key={product.id}
-                    onPress={() => {
-                      onAddFromProduct(product);
-                      setCatalogOpen(false);
-                    }}
-                    className={`${TAP_TARGET_MIN_H} justify-center border-b border-subtle px-3 py-2 last:border-b-0`}
-                  >
-                    <Text size="sm">{product.name}</Text>
-                  </Pressable>
-                ))
-              )}
-            </VStack>
-          ) : null}
-        </VStack>
-      </HStack>
+        ) : null}
 
-      {/* Sticky totals bar: live totals stay one glance away and the
-          "Előnézet" (live PDF) one click away, now that step 2 has no
-          sticky ComposerSummary column beside it (INV-9, INV-13 both hold —
-          docs/decisions/2026-09-18-composer-items-step-full-width-grid.md). */}
-      <HStack
-        className="w-full flex-wrap items-end justify-between gap-3 border-t border-subtle pt-3 md:sticky md:bottom-0 md:z-10 md:bg-background"
-        space="sm"
-      >
-        {previewSlot ? <VStack className="hidden md:flex">{previewSlot}</VStack> : null}
-        <VStack className="ml-auto items-end gap-1" space="xs">
-          <HStack className="w-full max-w-[280px] justify-between gap-4 md:w-[280px]">
-            <Text size="sm" className="text-muted-foreground">
-              {t("invoices.totals.netTotal")}
-            </Text>
-            <Text size="sm" className="tabular-nums text-foreground">
-              {formatCurrency(totals.subtotal, currency)}
-            </Text>
-          </HStack>
-          {vatRows.map((row) => (
-            <HStack key={row.key} className="w-full max-w-[280px] justify-between gap-4 md:w-[280px]">
-              <Text size="sm" className="text-muted-foreground">
-                {t("invoices.composer.vatRowLabel", { label: row.label })}
-              </Text>
-              <Text size="sm" className="tabular-nums text-foreground">
-                {formatCurrency(row.vat, currency)}
-              </Text>
-            </HStack>
-          ))}
-          <HStack className="w-full max-w-[280px] justify-between gap-4 md:w-[280px]">
-            <Text size="sm" className="font-semibold text-foreground">
-              {t("invoices.totals.grossTotal")}
-            </Text>
-            <Text size="sm" className="font-semibold tabular-nums text-foreground">
-              {formatCurrency(totals.totalAmount, currency)}
-            </Text>
-          </HStack>
-        </VStack>
-      </HStack>
-    </VStack>
+        <Box className="mt-3 flex-row flex-wrap items-center gap-x-3 gap-y-2">
+          <Button variant="secondary" size="sm" onPress={onAdd} testID="composer-add-item">
+            <ButtonText>+ {t("composer.addItem")}</ButtonText>
+          </Button>
+          {quickProducts.length > 0 ? (
+            <Box className="flex-row flex-wrap items-center gap-2" testID="composer-quick-add">
+              <Text className="text-[13px] text-muted-ink">{t("composer.quickAdd")}</Text>
+              {quickProducts.map((product) => (
+                <Pressable
+                  key={product.id}
+                  onPress={() => onAddFromProduct(product)}
+                  accessibilityRole="button"
+                  testID={`composer-quick-add-${product.id}`}
+                  className="min-h-10 justify-center rounded-full border border-dashed border-line-strong px-3 data-[hover=true]:bg-neutral-wash"
+                >
+                  <Text className="text-[13px] text-ink">{product.name}</Text>
+                </Pressable>
+              ))}
+            </Box>
+          ) : null}
+        </Box>
+
+        <ComposerTotals
+          netLabel={t("invoices.totals.netTotal")}
+          net={totals.subtotal}
+          vatRows={
+            vatRows.length > 0
+              ? vatRows.map((row) => ({
+                  key: row.key,
+                  label: t("invoices.composer.vatRowLabel", { label: row.label }),
+                  amount: row.vat,
+                }))
+              : [{ key: "empty", label: t("invoices.composer.vatRowEmpty"), amount: 0 }]
+          }
+          grossLabel={t("invoices.totals.grossTotal")}
+          gross={totals.totalAmount}
+          currency={currency}
+        />
+      </Box>
+    </ComposerSection>
   );
 }

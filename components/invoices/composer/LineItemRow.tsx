@@ -1,22 +1,21 @@
 // components/invoices/composer/LineItemRow.tsx
-// One line item of step 2, in one of two container-driven layouts
-// (responsive-line-item-grid — StepLineItems measures the form column with
-// onLayout and picks via lineItemLayoutForWidth()):
-//   - "grid": the single inline-editable row under StepLineItems' column
-//     header, widths from COMPOSER_GRID_COLUMNS (spec §2.4);
-//   - "card": a compact labelled card for any column narrower than the
-//     grid (phones, and a 1440px laptop with the sidebar AND the live PDF
-//     side preview open): description / qty + unit + unit price / VAT +
-//     total + delete. No fixed widths, so it never scrolls sideways.
-// Autocomplete, the UNIT_OPTIONS picker and delete-confirmation are shared
-// by both layouts.
+// One line item of "Mit számlázol?", in one of two container-driven layouts
+// (StepLineItems measures the form column with onLayout and picks via
+// lineItemLayoutForWidth()), redesign 2026-11, tokens.md §6.18:
+//   - "row": a single row under StepLineItems' one header line — Megnevezés
+//     grows, then Menny., Egység, Egységár, ÁFA, Összesen and the delete icon;
+//   - "stacked": Megnevezés full width (delete icon beside it), then Menny.,
+//     Egység, Egységár, ÁFA on one LABELLED line; in a narrow container
+//     Összesen drops to its own line under a dashed rule.
+// No row numbers. Cells are 38px. Autocomplete from the product list, the
+// unit options and the delete confirmation are shared by both layouts.
 import * as React from "react";
 import { Trash2 } from "lucide-react-native";
-import { HStack } from "@/components/ui/hstack";
+import { Box } from "@/components/ui/box";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
+import { ItemSelect } from "@/components/invoices/composer/ItemSelect";
 import { UNIT_OPTIONS } from "@/components/invoices/composer/composer-logic";
 import { COMPOSER_GRID_COLUMNS, type LineItemLayout } from "@/components/invoices/composer/grid-columns";
 import { VatCategoryPicker } from "@/components/invoices/composer/VatCategoryPicker";
@@ -30,10 +29,17 @@ import type { InvoiceCurrency, InvoiceLineItem, VatCategory, VatRate } from "@/l
 import type { Product } from "@/lib/products/service";
 import { useIconColors } from "@/lib/theme/icon-colors";
 import { confirmAsync } from "@/lib/ui/confirm";
-import { TAP_TARGET_DROPDOWN_TOP, TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+
+const CELL = "h-[38px]";
+const LABEL_CLASS = "mb-1 text-xs text-muted-ink";
+
+function colClass(key: (typeof COMPOSER_GRID_COLUMNS)[number]["key"]): string {
+  return COMPOSER_GRID_COLUMNS.find((col) => col.key === key)!.className;
+}
 
 export function LineItemRow({
   layout,
+  compact = false,
   index,
   item,
   currency,
@@ -44,9 +50,13 @@ export function LineItemRow({
   onFillFromProduct,
   allowNegativeQuantity = false,
   priceMode = "net",
+  focusDescription = false,
+  onFocusHandled,
   t,
 }: {
   layout: LineItemLayout;
+  /** Stacked layout in a narrow container: smaller cells, Összesen on its own line. */
+  compact?: boolean;
   index: number;
   item: InvoiceLineItem;
   currency: InvoiceCurrency;
@@ -59,11 +69,21 @@ export function LineItemRow({
   allowNegativeQuantity?: boolean;
   /** Whether the unit-price field is typed/shown as net or gross (the stored value is always net). */
   priceMode?: UnitPriceMode;
+  /** Focus this row's description (a failed save asks for it). */
+  focusDescription?: boolean;
+  onFocusHandled?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const icons = useIconColors();
   const [descFocused, setDescFocused] = React.useState(false);
-  const [unitMenuOpen, setUnitMenuOpen] = React.useState(false);
+  const [noteOpen, setNoteOpen] = React.useState(false);
+  const descriptionRef = React.useRef<{ focus?: () => void } | null>(null);
+
+  React.useEffect(() => {
+    if (!focusDescription) return;
+    descriptionRef.current?.focus?.();
+    onFocusHandled?.();
+  }, [focusDescription, onFocusHandled]);
 
   const matches = React.useMemo(() => {
     const q = item.description.trim().toLowerCase();
@@ -85,17 +105,24 @@ export function LineItemRow({
     onRemove();
   }
 
-  // A line whose dropdown is open must paint above the lines after it,
-  // otherwise the next card/row covers the menu.
-  const stackClass = (descFocused && matches.length > 0) || unitMenuOpen ? "relative z-30" : "relative z-0";
+  // A line whose autocomplete is open must paint above the lines after it.
+  const stackClass = descFocused && matches.length > 0 ? "relative z-30" : "relative z-0";
+
+  const unitOptions = React.useMemo(() => {
+    const current = item.unit || "db";
+    const units = UNIT_OPTIONS.includes(current) ? UNIT_OPTIONS : [current, ...UNIT_OPTIONS];
+    return units.map((unit) => ({ value: unit, label: unit }));
+  }, [item.unit]);
 
   // --- shared fields (identical behaviour in both layouts) ---------------
 
   const descriptionField = (
-    <>
-      <Input>
+    <Box className="relative">
+      <Input className={CELL}>
         <InputField
+          ref={descriptionRef as never}
           testID={`lineItem-${index}-description`}
+          accessibilityLabel={t("invoices.lineItemEditor.description")}
           placeholder={t("invoices.lineItemEditor.descriptionPlaceholder")}
           value={item.description}
           onChangeText={(value) => onChange({ description: value })}
@@ -105,84 +132,80 @@ export function LineItemRow({
         />
       </Input>
       {descFocused && matches.length > 0 ? (
-        <VStack className={`absolute ${TAP_TARGET_DROPDOWN_TOP} z-10 w-full rounded-lg border border-border bg-card shadow-sm`}>
+        <Box className="absolute left-0 right-0 top-[42px] z-10 overflow-hidden rounded-menu border border-line-strong bg-surface p-1.5 shadow-menu">
           {matches.map((product) => (
             <Pressable
               key={product.id}
               onPress={() => onFillFromProduct(product)}
-              className={`${TAP_TARGET_MIN_H} justify-center border-b border-subtle px-2 py-1.5 last:border-b-0`}
+              className="min-h-11 justify-center rounded-control px-2.5 py-1.5 data-[hover=true]:bg-neutral-wash"
             >
-              <Text size="sm">{product.name}</Text>
+              <Text className="text-sm text-ink">{product.name}</Text>
             </Pressable>
           ))}
-        </VStack>
+        </Box>
       ) : null}
-      <Input className="mt-1">
-        <InputField
-          testID={`lineItem-${index}-comment`}
-          placeholder={t("invoices.lineItemEditor.commentPlaceholder")}
-          value={item.comment ?? ""}
-          onChangeText={(value) => onChange({ comment: value })}
-          className="min-w-0 text-sm"
-        />
-      </Input>
-    </>
+      {item.comment || noteOpen ? (
+        <Input className={`${CELL} mt-2`}>
+          <InputField
+            testID={`lineItem-${index}-comment`}
+            accessibilityLabel={t("invoices.lineItemEditor.commentPlaceholder")}
+            placeholder={t("invoices.lineItemEditor.commentPlaceholder")}
+            value={item.comment ?? ""}
+            onChangeText={(value) => onChange({ comment: value })}
+            className="min-w-0 text-sm"
+          />
+        </Input>
+      ) : (
+        <Pressable
+          onPress={() => setNoteOpen(true)}
+          accessibilityRole="button"
+          testID={`lineItem-${index}-comment-add`}
+          className="mt-1 min-h-8 justify-center self-start"
+        >
+          <Text className="text-xs font-semibold text-primary">{t("composer.itemNoteAdd")}</Text>
+        </Pressable>
+      )}
+    </Box>
   );
 
   const quantityField = (
-    <Input className="min-w-0 flex-1">
+    <Input className={CELL}>
       <InputField
         testID={`lineItem-${index}-quantity`}
+        accessibilityLabel={t("invoices.lineItemEditor.quantity")}
         keyboardType="decimal-pad"
         value={String(item.quantity)}
         onChangeText={(value) => {
           const parsed = Number(value) || 0;
           onChange({ quantity: allowNegativeQuantity ? parsed : Math.max(0, parsed) });
         }}
-        className="min-w-0 tabular-nums"
+        className="min-w-0 text-right tabular-nums"
       />
     </Input>
   );
 
-  const unitButton = (extraClassName: string) => (
-    <Pressable
-      onPress={() => setUnitMenuOpen((v) => !v)}
-      accessibilityRole="button"
+  const unitField = (
+    <ItemSelect
+      value={item.unit || "db"}
+      options={unitOptions}
       accessibilityLabel={t("invoices.fields.unit")}
-      hitSlop={8}
-      className={`h-11 items-center justify-center rounded-lg border border-border bg-card ${extraClassName}`}
-    >
-      <Text size="sm">{item.unit || "db"}</Text>
-    </Pressable>
+      testID={`lineItem-${index}-unit`}
+      onChange={(unit) => onChange({ unit })}
+    />
   );
 
-  const unitMenu = unitMenuOpen ? (
-    <VStack className={`absolute ${TAP_TARGET_DROPDOWN_TOP} z-10 w-full min-w-[96px] rounded-lg border border-border bg-card shadow-sm`}>
-      {UNIT_OPTIONS.map((unit) => (
-        <Pressable
-          key={unit}
-          onPress={() => {
-            onChange({ unit });
-            setUnitMenuOpen(false);
-          }}
-          className={`${TAP_TARGET_MIN_H} justify-center px-2 py-1.5`}
-        >
-          <Text size="sm">{unit}</Text>
-        </Pressable>
-      ))}
-    </VStack>
-  ) : null;
-
   const unitPriceField = (
-    <Input>
+    <Input className={CELL}>
       <InputField
         testID={`lineItem-${index}-unitPrice`}
+        accessibilityLabel={t("invoices.lineItemEditor.unitPrice")}
+        placeholder={t(priceMode === "net" ? "invoices.lineItemEditor.priceNet" : "invoices.lineItemEditor.priceGross")}
         keyboardType="decimal-pad"
         value={String(displayUnitPrice(item, priceMode))}
         onChangeText={(value) =>
           onChange({ unitPrice: storedUnitPrice(Math.max(0, Number(value) || 0), item, priceMode) })
         }
-        className="min-w-0 tabular-nums"
+        className="min-w-0 text-right tabular-nums"
       />
     </Input>
   );
@@ -198,138 +221,105 @@ export function LineItemRow({
     <VatCategoryPicker
       category={item.vatCategory}
       rate={item.vatRate}
-      onChangeCategory={(category: VatCategory) => {
-        const vatRate = category === "normal" ? item.vatRate || 27 : 0;
-        onChange({ vatCategory: category, vatRate, ...keepGross({ vatCategory: category, vatRate }) });
-      }}
-      onChangeRate={(rate: VatRate) => onChange({ vatRate: rate, ...keepGross({ vatCategory: item.vatCategory, vatRate: rate }) })}
+      testID={`lineItem-${index}-vat`}
+      onChange={({ category, rate }: { category: VatCategory; rate: VatRate }) =>
+        onChange({ vatCategory: category, vatRate: rate, ...keepGross({ vatCategory: category, vatRate: rate }) })
+      }
       t={t}
     />
   );
 
-  // amount: bruttó + nettó, merged — neither figure disappears (AC8)
+  // Összesen: bruttó + nettó, merged — neither figure disappears (AC8)
   const amount = (
     <>
-      <Text size="sm" className="font-semibold tabular-nums text-foreground">
+      <Text className="text-sm font-semibold tabular-nums text-ink" testID={`lineItem-${index}-total`}>
         {formatCurrency(lineItemGrossTotal(item), currency)}
       </Text>
-      <Text size="xs" className="tabular-nums text-muted-foreground">
+      <Text className="text-xs tabular-nums text-muted-ink">
         {t("invoices.lineItemEditor.netAbbrev")} {formatCurrency(lineItemNetTotal(item), currency)}
       </Text>
     </>
   );
 
-  if (layout === "card") {
-    const label = (text: string) => (
-      <Text size="xs" className="mb-1 text-muted-foreground">
-        {text}
-      </Text>
-    );
+  const deleteButton = canDelete ? (
+    <Pressable
+      onPress={() => void handleRemove()}
+      accessibilityRole="button"
+      accessibilityLabel={t("invoices.lineItemEditor.deleteAction")}
+      testID={`lineItem-${index}-delete`}
+      className="h-10 w-10 items-center justify-center rounded-control data-[hover=true]:bg-neutral-wash tab:h-[34px] tab:w-[34px]"
+    >
+      <Trash2 size={16} color={icons.muted} />
+    </Pressable>
+  ) : null;
+
+  if (layout === "row") {
     return (
-      <VStack
-        space="sm"
-        className={`${stackClass} rounded-lg border border-border bg-card p-3`}
-        testID={`lineItem-${index}-card`}
-      >
-        {/* row 1 — description (+ product autocomplete). z-20 keeps the
-            dropdown above the rows below it. */}
-        <VStack className="relative z-20" testID={`lineItem-${index}-card-description`}>
-          <Text size="xs" className="mb-1 font-medium text-foreground">
-            {t("invoices.lineItemEditor.lineLabel", { index: index + 1 })}
-            <Text size="xs" className="font-normal text-muted-foreground">
-              {" · "}
-              {t("invoices.lineItemEditor.description")}
-            </Text>
-          </Text>
-          <VStack className="relative">{descriptionField}</VStack>
-        </VStack>
-
-        {/* row 2 — quantity + unit + unit price */}
-        <HStack space="sm" className="relative z-10 items-end" testID={`lineItem-${index}-card-amounts`}>
-          <VStack className="min-w-0 flex-1">
-            {label(t("invoices.lineItemEditor.quantity"))}
-            <HStack>{quantityField}</HStack>
-          </VStack>
-          <VStack className="w-16 shrink-0">
-            {label(t("invoices.lineItemEditor.unitShort"))}
-            <VStack className="relative">
-              {unitButton("w-full")}
-              {unitMenu}
-            </VStack>
-          </VStack>
-          <VStack className="min-w-0 flex-[1.4]">
-            {label(t("invoices.lineItemEditor.unitPrice"))}
-            {unitPriceField}
-          </VStack>
-        </HStack>
-
-        {/* row 3 — ÁFA picker + computed total + delete. Wraps: side by
-            side when the card is wide enough, total + delete drop under
-            the picker on the narrowest phones. */}
-        <HStack className="flex-wrap items-start gap-x-3 gap-y-2" testID={`lineItem-${index}-card-vat`}>
-          <VStack className="min-w-[200px] flex-1">
-            {label(t("invoices.vat.categoryLabel"))}
-            {vatPicker}
-          </VStack>
-          <HStack space="xs" className="ml-auto shrink-0 items-start">
-            <VStack className="items-end">
-              {label(t("invoices.lineItemEditor.amountColumn"))}
-              {amount}
-            </VStack>
-            {canDelete ? (
-              <Pressable
-                onPress={() => void handleRemove()}
-                accessibilityRole="button"
-                accessibilityLabel={t("invoices.lineItemEditor.deleteAction")}
-                hitSlop={8}
-                className="h-11 w-11 items-center justify-center"
-              >
-                <Trash2 size={18} color={icons.muted} />
-              </Pressable>
-            ) : null}
-          </HStack>
-        </HStack>
-      </VStack>
+      <Box className={`${stackClass} flex-row items-start gap-2 py-2`} testID={`lineItem-${index}-row`}>
+        <Box className={colClass("description")}>{descriptionField}</Box>
+        <Box className={colClass("quantity")}>{quantityField}</Box>
+        <Box className={colClass("unit")}>{unitField}</Box>
+        <Box className={colClass("unitPrice")}>{unitPriceField}</Box>
+        <Box className={colClass("vat")}>{vatPicker}</Box>
+        <Box className={`${colClass("total")} min-h-[38px] justify-center`}>{amount}</Box>
+        <Box className={`${colClass("actions")} h-[38px] justify-center`}>{deleteButton}</Box>
+      </Box>
     );
   }
 
+  const label = (text: string) => <Text className={LABEL_CLASS}>{text}</Text>;
+
   return (
-    <VStack className={`${stackClass} py-2`}>
-      {/* Grid row — 6 cells, widths from COMPOSER_GRID_COLUMNS
-          (grid-columns.ts) so this can never drift from StepLineItems'
-          header (composer-line-item-horizontal-scroll-1440). */}
-      <HStack space="sm" className="items-start" testID={`lineItem-${index}-grid-row`}>
-        <VStack className={`relative ${COMPOSER_GRID_COLUMNS[0].className}`}>{descriptionField}</VStack>
+    <Box
+      className={`${stackClass} gap-3 py-3 ${index > 0 ? "border-t border-line" : ""}`}
+      testID={`lineItem-${index}-stacked`}
+    >
+      <Box className="flex-row items-start gap-2">
+        <Box className="min-w-0 flex-1">
+          {label(t("invoices.lineItemEditor.description"))}
+          {descriptionField}
+        </Box>
+        <Box className="mt-[22px] h-[38px] justify-center">{deleteButton}</Box>
+      </Box>
 
-        {/* quantity + unit, merged — "2 óra" is one thought (INV-6) */}
-        <VStack className={`relative ${COMPOSER_GRID_COLUMNS[1].className}`}>
-          <HStack space="xs">
-            {quantityField}
-            {unitButton("w-[44px]")}
-          </HStack>
-          {unitMenu}
-        </VStack>
+      <Box className="flex-row items-end gap-2" testID={`lineItem-${index}-numbers`}>
+        <Box className={compact ? "w-14" : "w-[72px]"}>
+          {label(t("invoices.lineItemEditor.quantity"))}
+          {quantityField}
+        </Box>
+        <Box className={compact ? "w-[76px]" : "w-[84px]"}>
+          {label(t("invoices.lineItemEditor.unitShort"))}
+          {unitField}
+        </Box>
+        <Box className="min-w-0 flex-1">
+          {label(
+            `${t("invoices.lineItemEditor.unitPrice")} (${t(
+              priceMode === "net" ? "invoices.lineItemEditor.priceNet" : "invoices.lineItemEditor.priceGross"
+            )})`
+          )}
+          {unitPriceField}
+        </Box>
+        <Box className={compact ? "w-[100px]" : "w-[112px]"}>
+          {label(t("invoices.fields.vat"))}
+          {vatPicker}
+        </Box>
+        {compact ? null : (
+          <Box className="w-[128px] items-end">
+            {label(t("invoices.lineItemEditor.amountColumn"))}
+            <Box className="min-h-[38px] items-end justify-center">{amount}</Box>
+          </Box>
+        )}
+      </Box>
 
-        <VStack className={COMPOSER_GRID_COLUMNS[2].className}>{unitPriceField}</VStack>
-
-        <VStack className={COMPOSER_GRID_COLUMNS[3].className}>{vatPicker}</VStack>
-
-        <VStack className={COMPOSER_GRID_COLUMNS[4].className}>{amount}</VStack>
-
-        <VStack className={COMPOSER_GRID_COLUMNS[5].className}>
-          {canDelete ? (
-            <Pressable
-              onPress={() => void handleRemove()}
-              accessibilityRole="button"
-              accessibilityLabel={t("invoices.lineItemEditor.deleteAction")}
-              hitSlop={8}
-              className="h-9 w-9 items-center justify-center"
-            >
-              <Trash2 size={16} color={icons.muted} />
-            </Pressable>
-          ) : null}
-        </VStack>
-      </HStack>
-    </VStack>
+      {compact ? (
+        <Box
+          className="flex-row items-start justify-between gap-3 border-t border-dashed border-line-strong pt-2"
+          testID={`lineItem-${index}-total-line`}
+        >
+          <Text className="text-xs text-muted-ink">{t("invoices.lineItemEditor.amountColumn")}</Text>
+          <Box className="items-end">{amount}</Box>
+        </Box>
+      ) : null}
+    </Box>
   );
 }

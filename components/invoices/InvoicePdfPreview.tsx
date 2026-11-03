@@ -14,7 +14,6 @@ import { ActivityIndicator } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -91,14 +90,14 @@ export function InvoicePdfPreview({
     <VStack space="sm" testID={testID}>
       <HStack space="sm" className="min-h-9 items-center">
         {showTitle ? (
-          <Text size="sm" className="font-medium text-muted-foreground">
+          <Text className="font-heading text-base font-bold text-ink">
             {t("invoices.preview.title")}
           </Text>
         ) : null}
         {refreshing ? (
           <HStack space="xs" className="items-center" testID="invoice-pdf-preview-refreshing">
             <ActivityIndicator size="small" />
-            <Text size="xs" className="text-muted-foreground">
+            <Text size="xs" className="text-muted-ink">
               {t("invoices.preview.refreshing")}
             </Text>
           </HStack>
@@ -107,7 +106,7 @@ export function InvoicePdfPreview({
           {headerAction}
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             onPress={() => void handleOpen()}
             disabled={openDisabled}
             testID={openTestID}
@@ -118,15 +117,18 @@ export function InvoicePdfPreview({
       </HStack>
 
       {source.kind === "draft" ? (
-        <Text size="xs" className="text-muted-foreground">
+        <Text className="text-[13px] text-muted-ink">
           {t("invoices.preview.draftNote")}
         </Text>
       ) : null}
 
-      <Card className="overflow-hidden bg-white p-0">
+      {/* The "desk": a neutral wash around the page. The paper itself stays
+          white in dark mode too (the one colour exception of the redesign). */}
+      <Box className="overflow-hidden rounded-card border border-line bg-neutral-wash p-2.5">
+      <Box className="overflow-hidden rounded-control bg-white">
         {!embed ? (
           <Box className="items-center px-4 py-8" testID="invoice-pdf-preview-native">
-            <Text size="sm" className="text-center text-muted-foreground">
+            <Text size="sm" className="text-center text-muted-ink">
               {t("invoices.preview.nativeHint")}
             </Text>
           </Box>
@@ -156,11 +158,12 @@ export function InvoicePdfPreview({
             <ActivityIndicator />
           </Box>
         )}
-      </Card>
+      </Box>
+      </Box>
 
       {embed && preview.error && preview.url ? (
         <HStack space="sm" className="items-center" testID="invoice-pdf-preview-refresh-error">
-          <Text size="xs" className="text-destructive">
+          <Text size="xs" className="text-err">
             {t("invoices.preview.refreshFailed")}
           </Text>
           <Pressable onPress={preview.retry}>
@@ -171,7 +174,7 @@ export function InvoicePdfPreview({
         </HStack>
       ) : null}
       {openError ? (
-        <Text size="xs" className="text-destructive">
+        <Text size="xs" className="text-err">
           {openError}
         </Text>
       ) : null}

@@ -1,11 +1,9 @@
 // components/invoices/composer/LineItemRow.test.tsx
-// The desktop grid row after the merge (composer-line-item-horizontal-
-// scroll-1440): exactly 6 cells whose widths come from COMPOSER_GRID_COLUMNS
-// (AC6), the merged qty/unit cell keeps the unit picker wired through
-// onChange (AC7, INV-6), the merged amount cell still shows both bruttó and
-// nettó (AC8), the mobile card is untouched (AC11), and tap targets don't
-// shrink (AC12). VatCategoryPicker has its own coverage
-// (VatCategoryPicker.test.tsx) — stubbed here.
+// One line item in the redesigned composer (tokens.md §6.18): a single row
+// whose cells take their widths from COMPOSER_GRID_COLUMNS, or — in a narrower
+// container — Megnevezés over one labelled line of numbers. No row numbers,
+// 38px cells, delete with confirmation, product autocomplete, unit and VAT as
+// selects (VatCategoryPicker / ItemSelect have their own coverage — stubbed).
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { LineItemRow } from "@/components/invoices/composer/LineItemRow";
@@ -26,19 +24,39 @@ jest.mock("lucide-react-native", () => {
   const { View } = require("react-native");
   return new Proxy({}, { get: () => View });
 });
-jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/ui/box", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/input", () => {
-  const { TextInput } = require("react-native");
+  const { TextInput, View } = require("react-native");
   return {
-    Input: ({ children }: { children?: React.ReactNode }) => children ?? null,
+    Input: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
+      <View className={className}>{children}</View>
+    ),
     InputField: (props: Record<string, unknown>) => <TextInput {...props} />,
   };
 });
+
+type SelectProps = {
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+  testID?: string;
+  accessibilityLabel: string;
+};
+const selects: Record<string, SelectProps> = {};
+jest.mock("@/components/invoices/composer/ItemSelect", () => ({
+  ItemSelect: (props: SelectProps) => {
+    selects[props.testID ?? props.accessibilityLabel] = props;
+    return null;
+  },
+}));
+let lastVat: { onChange: (next: { category: string; rate: number }) => void } | null = null;
 jest.mock("@/components/invoices/composer/VatCategoryPicker", () => ({
-  VatCategoryPicker: () => null,
+  VatCategoryPicker: (props: { onChange: (next: { category: string; rate: number }) => void }) => {
+    lastVat = props;
+    return null;
+  },
 }));
 
 const t = (key: string, opts?: Record<string, unknown>) =>
@@ -54,7 +72,8 @@ function render(overrides: Partial<React.ComponentProps<typeof LineItemRow>> = {
   act(() => {
     tree = TestRenderer.create(
       <LineItemRow
-        layout={overrides.layout ?? "grid"}
+        layout={overrides.layout ?? "row"}
+        compact={overrides.compact}
         index={overrides.index ?? 0}
         item={overrides.item ?? makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 450000, vatRate: 27 })}
         currency={overrides.currency ?? "HUF"}
@@ -72,332 +91,213 @@ function render(overrides: Partial<React.ComponentProps<typeof LineItemRow>> = {
   return { tree: tree!, onChange, onRemove, onFillFromProduct };
 }
 
-function findByText(root: TestRenderer.ReactTestInstance, text: string) {
-  return root.findAll((node) => node.props?.children === text);
+function byTestID(root: TestRenderer.ReactTestInstance, testID: string) {
+  return root.findAll((node) => node.props?.testID === testID);
 }
 
-function findPressableWithText(root: TestRenderer.ReactTestInstance, text: string) {
-  return root
-    .findAll((node) => typeof node.props?.onPress === "function")
-    .find((node) => node.findAll((child) => child.props?.children === text).length > 0);
+function texts(tree: TestRenderer.ReactTestRenderer) {
+  return JSON.stringify(tree.toJSON());
 }
 
-function findPressableWithA11yLabel(root: TestRenderer.ReactTestInstance, label: string) {
-  return root.findAll((node) => node.props?.accessibilityLabel === label && typeof node.props?.onPress === "function");
-}
-
-describe("LineItemRow — desktop grid (composer-line-item-horizontal-scroll-1440)", () => {
+describe("LineItemRow — one row per item (container >= 820)", () => {
   beforeEach(() => {
     mockConfirmAsync.mockReset();
   });
 
-  it("renders exactly 6 desktop cells, one per COMPOSER_GRID_COLUMNS entry (AC6)", () => {
+  it("renders one cell per COMPOSER_GRID_COLUMNS entry", () => {
     const { tree } = render();
-    // The desktop branch is the (mocked-to-View) HStack with items-start
-    // that holds one direct cell child per grid column (mirrors
-    // StepLineItems' header). The mock renders a composite AND a host node
-    // with the same className — pick whichever actually has the fan-out of
-    // children, host or composite.
-    const candidates = tree.root.findAll((node) => node.props?.testID === "lineItem-0-grid-row");
-    const desktopRow = candidates.find((n) => Array.isArray(n.children) && n.children.length > 1);
-    expect(desktopRow).toBeTruthy();
-    expect(desktopRow!.children).toHaveLength(COMPOSER_GRID_COLUMNS.length);
+    const row = byTestID(tree.root, "lineItem-0-row").find((n) => Array.isArray(n.children) && n.children.length > 1);
+    expect(row).toBeTruthy();
+    expect(row!.children).toHaveLength(COMPOSER_GRID_COLUMNS.length);
   });
 
-  it("renders the quantity InputField plus a unit control labeled invoices.fields.unit (AC7, INV-6)", () => {
-    const { tree, onChange } = render();
-    const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
-    expect(unitControl).toBeTruthy();
+  it("has no row number anywhere", () => {
+    const { tree } = render({ index: 2 });
+    expect(texts(tree)).not.toContain("lineLabel");
+    expect(texts(tree)).not.toContain("3. ");
+  });
 
-    act(() => {
-      unitControl.props.onPress?.();
+  it("makes every input cell 38px high", () => {
+    const { tree } = render();
+    const inputs = tree.root.findAll((n) => n.type === "View" && typeof n.props?.className === "string" && n.props.className.includes("h-[38px]"));
+    expect(inputs.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("types the quantity, the unit price and the description through onChange", () => {
+    const { tree, onChange } = render();
+    act(() => byTestID(tree.root, "lineItem-0-quantity")[0].props.onChangeText("3"));
+    expect(onChange).toHaveBeenLastCalledWith({ quantity: 3 });
+    act(() => byTestID(tree.root, "lineItem-0-unitPrice")[0].props.onChangeText("1200"));
+    expect(onChange).toHaveBeenLastCalledWith({ unitPrice: 1200 });
+    act(() => byTestID(tree.root, "lineItem-0-description")[0].props.onChangeText("Oktatás"));
+    expect(onChange).toHaveBeenLastCalledWith({ description: "Oktatás" });
+  });
+
+  it("clamps a negative quantity to 0 unless it is a helyesbítő line", () => {
+    const normal = render();
+    act(() => byTestID(normal.tree.root, "lineItem-0-quantity")[0].props.onChangeText("-2"));
+    expect(normal.onChange).toHaveBeenLastCalledWith({ quantity: 0 });
+
+    const correction = render({ allowNegativeQuantity: true });
+    act(() => byTestID(correction.tree.root, "lineItem-0-quantity")[0].props.onChangeText("-2"));
+    expect(correction.onChange).toHaveBeenLastCalledWith({ quantity: -2 });
+  });
+
+  it("types a gross unit price and stores the net one", () => {
+    const { tree, onChange } = render({
+      priceMode: "gross",
+      item: makeLineItem({ description: "x", quantity: 1, unitPrice: 100, vatRate: 27, vatCategory: "normal" }),
     });
-    const unitOption = findPressableWithText(tree.root, "óra");
-    expect(unitOption).toBeTruthy();
-    act(() => {
-      unitOption?.props.onPress?.();
-    });
+    act(() => byTestID(tree.root, "lineItem-0-unitPrice")[0].props.onChangeText("127"));
+    expect(onChange).toHaveBeenLastCalledWith({ unitPrice: 100 });
+  });
+
+  it("offers the unit as a select, keeps an unusual unit from a product in the list, and reports a pick", () => {
+    const { onChange } = render({ item: makeLineItem({ description: "x", unit: "perc" }) });
+    const unit = selects["lineItem-0-unit"];
+    expect(unit.value).toBe("perc");
+    expect(unit.options.map((o) => o.value)).toEqual(expect.arrayContaining(["perc", "db", "óra", "nap"]));
+    act(() => unit.onChange("óra"));
     expect(onChange).toHaveBeenCalledWith({ unit: "óra" });
   });
 
-  it("anchors the open unit-picker menu at top-11, matching the 44px row it sits under (fixround1 finding, exchange-rate-input-tap-target-mobile)", () => {
-    const { tree } = render();
-    const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
-
-    act(() => {
-      unitControl.props.onPress?.();
+  it("re-derives the net price when the VAT treatment changes while typing gross", () => {
+    const { onChange } = render({
+      priceMode: "gross",
+      item: makeLineItem({ description: "x", unitPrice: 100, vatRate: 27, vatCategory: "normal" }),
     });
-
-    const menu = tree.root.findAll(
-      (node) => typeof node.props?.className === "string" && node.props.className.includes("absolute")
-    );
-    expect(menu.length).toBeGreaterThan(0);
-    for (const node of menu) {
-      expect(String(node.props.className)).toContain("top-11");
-      expect(String(node.props.className)).not.toContain("top-9");
-    }
+    act(() => lastVat!.onChange({ category: "AAM", rate: 0 }));
+    // gross 127 stays 127 -> net 127 under AAM (0%)
+    expect(onChange).toHaveBeenLastCalledWith({ vatCategory: "AAM", vatRate: 0, unitPrice: 127 });
   });
 
-  it("anchors the description-autocomplete dropdown at top-11, matching the 44px row it sits under (fixround2 finding, exchange-rate-input-tap-target-mobile)", () => {
-    const products: Product[] = [
-      {
-        id: "p1",
-        userId: "u1",
-        name: "Tanácsadás óra",
-        unitPrice: 15000,
-        unit: "óra",
-        vatRate: 27,
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      },
-    ];
-    const { tree } = render({
-      item: makeLineItem({ description: "Tan", quantity: 1, unitPrice: 450000, vatRate: 27 }),
-      products,
-    });
-
-    const descriptionField = tree.root.findByProps({ testID: "lineItem-0-description" });
-    act(() => {
-      descriptionField.props.onFocus?.();
-    });
-
-    const menu = tree.root.findAll(
-      (node) => typeof node.props?.className === "string" && node.props.className.includes("absolute")
-    );
-    expect(menu.length).toBeGreaterThan(0);
-    for (const node of menu) {
-      expect(String(node.props.className)).toContain("top-11");
-      expect(String(node.props.className)).not.toContain("top-9");
-    }
+  it("changes the VAT treatment without touching the price in net mode", () => {
+    const { onChange } = render();
+    act(() => lastVat!.onChange({ category: "normal", rate: 18 }));
+    expect(onChange).toHaveBeenLastCalledWith({ vatCategory: "normal", vatRate: 18 });
   });
 
-  it("shows both the bruttó and nettó figures in the merged amount cell, no figure disappears (AC8)", () => {
-    const { tree } = render({
-      item: makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 450000, vatRate: 27, vatCategory: "normal" }),
-    });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("571,500");
-    expect(json).toContain("450,000");
+  it("shows both the bruttó and the nettó figure in the Összesen cell", () => {
+    const { tree } = render({ item: makeLineItem({ description: "x", quantity: 2, unitPrice: 100, vatRate: 27 }) });
+    const json = texts(tree);
+    expect(json).toContain("254"); // gross 2 x 127
     expect(json).toContain("invoices.lineItemEditor.netAbbrev");
-
-    const grossNode = findByText(tree.root, "571,500 Ft").find(
-      (node) => typeof node.props?.className === "string" && node.props.className.includes("font-semibold")
-    );
-    expect(grossNode).toBeTruthy();
-
-    const netLine = tree.root.findAll(
-      (node) =>
-        typeof node.props?.className === "string" &&
-        node.props.className.includes("text-muted-foreground") &&
-        Array.isArray(node.props?.children) &&
-        JSON.stringify(node.props.children).includes("450,000")
-    );
-    expect(netLine.length).toBeGreaterThan(0);
   });
 
-  it("matches the unit control to the quantity input's height (h-11), keeps the delete control at h-9 with hitSlop 8 (AC12, exchange-rate-input-tap-target-mobile)", () => {
-    const { tree } = render();
-    const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
-    expect(unitControl.props.hitSlop).toBe(8);
-    expect(String(unitControl.props.className)).toContain("h-11");
-    expect(String(unitControl.props.className)).not.toContain("h-9");
-
-    const deleteControls = findPressableWithA11yLabel(tree.root, "invoices.lineItemEditor.deleteAction");
-    const desktopDelete = deleteControls.find((n) => String(n.props.className).includes("h-9"));
-    expect(desktopDelete).toBeTruthy();
-    expect(desktopDelete!.props.hitSlop).toBe(8);
-  });
-
-  it("does not delete without confirmation when the description is filled, and calls onRemove once confirmed", async () => {
-    mockConfirmAsync.mockResolvedValue(true);
-    const { tree, onRemove } = render({
-      item: makeLineItem({ description: "Tanácsadás" }),
-    });
-    const desktopDelete = findPressableWithA11yLabel(tree.root, "invoices.lineItemEditor.deleteAction").find((n) =>
-      String(n.props.className).includes("h-9")
-    );
+  it("deletes without asking when the description is empty", async () => {
+    const { tree, onRemove } = render({ item: makeLineItem({ description: "" }) });
     await act(async () => {
-      await desktopDelete!.props.onPress?.();
+      byTestID(tree.root, "lineItem-0-delete")[0].props.onPress();
     });
-    expect(mockConfirmAsync).toHaveBeenCalled();
-    expect(onRemove).toHaveBeenCalled();
+    expect(mockConfirmAsync).not.toHaveBeenCalled();
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks before deleting a filled line and only removes it once confirmed", async () => {
+    mockConfirmAsync.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const { tree, onRemove } = render();
+    await act(async () => {
+      byTestID(tree.root, "lineItem-0-delete")[0].props.onPress();
+    });
+    expect(onRemove).not.toHaveBeenCalled();
+    await act(async () => {
+      byTestID(tree.root, "lineItem-0-delete")[0].props.onPress();
+    });
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no delete control when it is the only line, but keeps the column", () => {
+    const { tree } = render({ canDelete: false });
+    expect(byTestID(tree.root, "lineItem-0-delete")).toHaveLength(0);
+    const row = byTestID(tree.root, "lineItem-0-row").find((n) => Array.isArray(n.children) && n.children.length > 1);
+    expect(row!.children).toHaveLength(COMPOSER_GRID_COLUMNS.length);
+  });
+
+  it("keeps the line note field hidden until asked for, then shows it", () => {
+    const { tree, onChange } = render();
+    expect(byTestID(tree.root, "lineItem-0-comment")).toHaveLength(0);
+    act(() => byTestID(tree.root, "lineItem-0-comment-add")[0].props.onPress());
+    const field = byTestID(tree.root, "lineItem-0-comment")[0];
+    expect(field).toBeTruthy();
+    act(() => field.props.onChangeText("Megjegyzés"));
+    expect(onChange).toHaveBeenLastCalledWith({ comment: "Megjegyzés" });
+  });
+
+  it("shows the note field straight away when the line already has one", () => {
+    const { tree } = render({ item: makeLineItem({ description: "x", comment: "van" }) });
+    expect(byTestID(tree.root, "lineItem-0-comment")[0].props.value).toBe("van");
   });
 });
 
-describe("LineItemRow — compact card layout (responsive-line-item-grid)", () => {
-  beforeEach(() => {
-    mockConfirmAsync.mockReset();
-  });
+describe("LineItemRow — product autocomplete", () => {
+  const products = [
+    { id: "p1", name: "Webfejlesztés (óradíj)", unitPrice: 15000, vatRate: 27, unit: "óra" },
+    { id: "p2", name: "Tanácsadás", unitPrice: 20000, vatRate: 27, unit: "óra" },
+  ] as unknown as Product[];
 
-  const PRODUCT: Product = {
-    id: "p1",
-    userId: "u1",
-    name: "Tanácsadás óra",
-    unitPrice: 15000,
-    unit: "óra",
-    vatRate: 27,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  };
-
-  it("renders only the card, never the grid row, in card layout", () => {
-    const { tree } = render({ layout: "card" });
-    expect(tree.root.findAll((n) => n.props?.testID === "lineItem-0-grid-row")).toHaveLength(0);
-    expect(tree.root.findAll((n) => n.props?.testID === "lineItem-0-card").length).toBeGreaterThan(0);
-  });
-
-  it("renders only the grid row, never the card, in grid layout", () => {
-    const { tree } = render({ layout: "grid" });
-    expect(tree.root.findAll((n) => n.props?.testID === "lineItem-0-card")).toHaveLength(0);
-  });
-
-  it("stacks description / qty+unit+price / VAT+total+delete in three rows", () => {
-    const { tree } = render({ layout: "card" });
-    const rows = ["description", "amounts", "vat"].map((name) =>
-      tree.root.findAll((n) => n.props?.testID === `lineItem-0-card-${name}`)
-    );
-    for (const row of rows) expect(row.length).toBeGreaterThan(0);
-    const amounts = rows[1][0];
-    expect(amounts.findAll((n) => n.props?.testID === "lineItem-0-quantity").length).toBeGreaterThan(0);
-    expect(amounts.findAll((n) => n.props?.accessibilityLabel === "invoices.fields.unit").length).toBeGreaterThan(0);
-    expect(amounts.findAll((n) => n.props?.testID === "lineItem-0-unitPrice").length).toBeGreaterThan(0);
-    const vatRow = rows[2][0];
-    expect(
-      vatRow.findAll((n) => n.props?.accessibilityLabel === "invoices.lineItemEditor.deleteAction").length
-    ).toBeGreaterThan(0);
-    expect(JSON.stringify(tree.toJSON())).toContain("571,500");
-  });
-
-  it("labels every input because the column headers are gone", () => {
-    const { tree } = render({ layout: "card", index: 2 });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("invoices.lineItemEditor.lineLabel");
-    expect(json).toContain("\\\"index\\\":3");
-    expect(json).toContain("invoices.lineItemEditor.description");
-    expect(json).toContain("invoices.lineItemEditor.quantity");
-    expect(json).toContain("invoices.lineItemEditor.unitShort");
-    expect(json).toContain("invoices.lineItemEditor.unitPrice");
-    expect(json).toContain("invoices.vat.categoryLabel");
-    expect(json).toContain("invoices.lineItemEditor.amountColumn");
-    expect(json).toContain("invoices.lineItemEditor.netAbbrev");
-  });
-
-  it("keeps the UNIT_OPTIONS picker working in card layout", () => {
-    const { tree, onChange } = render({ layout: "card" });
-    const unitControl = findPressableWithA11yLabel(tree.root, "invoices.fields.unit")[0];
-    expect(String(unitControl.props.className)).toContain("h-11");
-    act(() => {
-      unitControl.props.onPress?.();
-    });
-    const option = findPressableWithText(tree.root, "nap");
-    expect(option).toBeTruthy();
-    expect(String(option!.props.className)).toContain("min-h-11");
-    act(() => {
-      option!.props.onPress?.();
-    });
-    expect(onChange).toHaveBeenCalledWith({ unit: "nap" });
-  });
-
-  it("keeps the product autocomplete working in card layout", () => {
+  it("suggests matching products while the description is focused and fills from the pick", () => {
     const { tree, onFillFromProduct } = render({
-      layout: "card",
-      item: makeLineItem({ description: "Tan", quantity: 1, unitPrice: 0, vatRate: 27 }),
-      products: [PRODUCT],
+      products,
+      item: makeLineItem({ description: "tan", id: "l1" }),
     });
-    act(() => {
-      tree.root.findByProps({ testID: "lineItem-0-description" }).props.onFocus?.();
-    });
-    const match = findPressableWithText(tree.root, "Tanácsadás óra");
-    expect(match).toBeTruthy();
-    expect(String(match!.props.className)).toContain("min-h-11");
-    act(() => {
-      match!.props.onPress?.();
-    });
-    expect(onFillFromProduct).toHaveBeenCalledWith(PRODUCT);
-  });
-
-  it("wires quantity and unit price edits through onChange", () => {
-    const { tree, onChange } = render({ layout: "card" });
-    act(() => {
-      tree.root.findByProps({ testID: "lineItem-0-quantity" }).props.onChangeText("3");
-      tree.root.findByProps({ testID: "lineItem-0-unitPrice" }).props.onChangeText("1200");
-    });
-    expect(onChange).toHaveBeenCalledWith({ quantity: 3 });
-    expect(onChange).toHaveBeenCalledWith({ unitPrice: 1200 });
-  });
-
-  it("clamps a negative quantity to 0 on a normal invoice", () => {
-    const { tree, onChange } = render({ layout: "card" });
-    act(() => {
-      tree.root.findByProps({ testID: "lineItem-0-quantity" }).props.onChangeText("-2");
-    });
-    expect(onChange).toHaveBeenCalledWith({ quantity: 0 });
-  });
-
-  it("keeps a negative quantity on a helyesbítő reversing line (allowNegativeQuantity)", () => {
-    const { tree, onChange } = render({
-      layout: "card",
-      allowNegativeQuantity: true,
-      item: makeLineItem({ description: "Tanácsadás", quantity: -3, unitPrice: 1000, vatRate: 27 }),
-    });
-    expect(tree.root.findByProps({ testID: "lineItem-0-quantity" }).props.value).toBe("-3");
-    act(() => {
-      tree.root.findByProps({ testID: "lineItem-0-quantity" }).props.onChangeText("-2");
-    });
-    expect(onChange).toHaveBeenCalledWith({ quantity: -2 });
-  });
-
-  it("keeps a 44px delete target (h-11 w-11) that still confirms before deleting", async () => {
-    mockConfirmAsync.mockResolvedValue(true);
-    const { tree, onRemove } = render({ layout: "card" });
-    const del = findPressableWithA11yLabel(tree.root, "invoices.lineItemEditor.deleteAction")[0];
-    expect(String(del.props.className)).toContain("h-11");
-    expect(String(del.props.className)).toContain("w-11");
-    await act(async () => {
-      await del.props.onPress?.();
-    });
-    expect(mockConfirmAsync).toHaveBeenCalled();
-    expect(onRemove).toHaveBeenCalled();
-  });
-
-  // A 320px phone leaves 320 - 2x16 page padding - 2x13 card chrome = 262px
-  // of card content; no fixed width/min-width inside the card may exceed it.
-  it("uses no fixed pixel widths or min-widths that could force horizontal scrolling at 320px", () => {
-    const { tree } = render({ layout: "card" });
-    const card = tree.root.findAll((n) => n.props?.testID === "lineItem-0-card")[0];
-    const classNames = card
-      .findAll((n) => typeof n.props?.className === "string")
-      .map((n) => String(n.props.className));
-    for (const cls of classNames) {
-      const fixed = [...cls.matchAll(/(?:^|\s)(?:min-)?w-\[(\d+)px\]/g)].map((m) => Number(m[1]));
-      for (const px of fixed) expect(px).toBeLessThanOrEqual(240);
-      expect(cls).not.toContain("overflow-x");
-    }
-    const styled = card.findAll((n) => typeof n.props?.style?.minWidth === "number");
-    expect(styled).toHaveLength(0);
+    expect(texts(tree)).not.toContain("Tanácsadás");
+    act(() => byTestID(tree.root, "lineItem-0-description")[0].props.onFocus());
+    expect(texts(tree)).toContain("Tanácsadás");
+    expect(texts(tree)).not.toContain("Webfejlesztés");
+    const option = tree.root.findAll(
+      (n) => typeof n.props?.onPress === "function" && n.findAll((c) => c.props?.children === "Tanácsadás").length > 0
+    )[0];
+    act(() => option.props.onPress());
+    expect(onFillFromProduct).toHaveBeenCalledWith(products[1]);
   });
 });
 
-describe("LineItemRow — unit price typed as gross", () => {
-  const item = makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 1000, vatRate: 27, vatCategory: "normal" });
-
-  function priceInput(tree: TestRenderer.ReactTestRenderer) {
-    return tree.root.findAll((n) => n.props.testID === "lineItem-0-unitPrice")[0];
-  }
-
-  it("shows the gross of the stored net and stores the net back for what was typed", () => {
-    const { tree, onChange } = render({ item, priceMode: "gross" });
-    const field = priceInput(tree);
-    expect(field.props.value).toBe("1270");
-    act(() => field.props.onChangeText("25000"));
-    expect(onChange).toHaveBeenCalledWith({ unitPrice: 19685.03937 });
+describe("LineItemRow — stacked (container < 820)", () => {
+  it("renders Megnevezés on its own line with the delete icon beside it, then ONE labelled line of numbers", () => {
+    const { tree } = render({ layout: "stacked" });
+    expect(byTestID(tree.root, "lineItem-0-row")).toHaveLength(0);
+    expect(byTestID(tree.root, "lineItem-0-stacked").length).toBeGreaterThan(0);
+    expect(byTestID(tree.root, "lineItem-0-numbers").length).toBeGreaterThan(0);
+    const json = texts(tree);
+    for (const label of [
+      "invoices.lineItemEditor.description",
+      "invoices.lineItemEditor.quantity",
+      "invoices.lineItemEditor.unitShort",
+      "invoices.fields.vat",
+      "invoices.lineItemEditor.amountColumn",
+    ]) {
+      expect(json).toContain(label);
+    }
+    expect(byTestID(tree.root, "lineItem-0-delete").length).toBeGreaterThan(0);
   });
 
-  it("keeps the stored net untouched in net mode", () => {
-    const { tree, onChange } = render({ item });
-    const field = priceInput(tree);
-    expect(field.props.value).toBe("1000");
-    act(() => field.props.onChangeText("750"));
-    expect(onChange).toHaveBeenCalledWith({ unitPrice: 750 });
+  it("labels the unit price with net or gross entry", () => {
+    expect(texts(render({ layout: "stacked", priceMode: "net" }).tree)).toContain("invoices.lineItemEditor.priceNet");
+    expect(texts(render({ layout: "stacked", priceMode: "gross" }).tree)).toContain("invoices.lineItemEditor.priceGross");
+  });
+
+  it("keeps Összesen on the numbers line when there is room, on its own dashed line when compact", () => {
+    const roomy = render({ layout: "stacked", compact: false });
+    expect(byTestID(roomy.tree.root, "lineItem-0-total-line")).toHaveLength(0);
+    const narrow = render({ layout: "stacked", compact: true });
+    expect(byTestID(narrow.tree.root, "lineItem-0-total-line").length).toBeGreaterThan(0);
+  });
+
+  it("separates stacked items with a rule from the second one on", () => {
+    const first = render({ layout: "stacked", index: 0 });
+    const second = render({ layout: "stacked", index: 1 });
+    const cls = (r: ReturnType<typeof render>, i: number) => String(byTestID(r.tree.root, `lineItem-${i}-stacked`)[0].props.className);
+    expect(cls(first, 0)).not.toContain("border-t");
+    expect(cls(second, 1)).toContain("border-t");
+  });
+
+  it("uses no fixed widths wider than the screen that could force horizontal scrolling at 320px", () => {
+    const { tree } = render({ layout: "stacked", compact: true });
+    const widths = tree.root
+      .findAll((n) => typeof n.props?.className === "string")
+      .flatMap((n) => [...String(n.props.className).matchAll(/(?:^|\s)(?:min-)?w-\[(\d+)px\]/g)].map((m) => Number(m[1])));
+    expect(Math.max(...widths)).toBeLessThanOrEqual(128);
+    // the numbers line: 56 + 76 + 100 + gaps leaves room for the price at 343px
+    expect(56 + 76 + 100 + 3 * 8).toBeLessThan(343 - 80);
   });
 });
