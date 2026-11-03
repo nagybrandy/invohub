@@ -87,10 +87,10 @@ export function LineItemEditor({
           <VStack
             key={item.id}
             space="sm"
-            className="rounded-lg border border-border p-3"
+            className="rounded-lg border border-line p-3"
           >
             <HStack className="items-center justify-between">
-              <Text className="font-medium text-foreground">
+              <Text className="font-medium text-ink">
                 {t("invoices.lineItemEditor.lineLabel", { index: index + 1 })}
               </Text>
               {lineItems.length > 1 ? (
@@ -166,8 +166,8 @@ export function LineItemEditor({
                     onPress={() => setVatCategory(item.id, category)}
                     className={`rounded-md border px-2.5 py-2 ${
                       item.vatCategory === category
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-background"
+                        ? "border-primary-line bg-primary-wash"
+                        : "border-line bg-surface"
                     }`}
                   >
                     <Text size="xs">{t(`invoices.vat.category.${category}`)}</Text>
@@ -188,8 +188,8 @@ export function LineItemEditor({
                       onPress={() => updateItem(item.id, { vatRate: rate })}
                       className={`rounded-md border px-3 py-2 ${
                         item.vatRate === rate
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-background"
+                          ? "border-primary-line bg-primary-wash"
+                          : "border-line bg-surface"
                       }`}
                     >
                       <Text size="sm">{rate}%</Text>
@@ -214,7 +214,7 @@ export function LineItemEditor({
               </FormControl>
             )}
 
-            <Text size="sm" className="text-muted-foreground">
+            <Text size="sm" className="text-muted-ink">
               {t("invoices.lineItemEditor.lineTotal")}: {formatCurrency(lineItemGrossTotal(item), currency)}
               {isExempt ? ` · ${reasonPreview}` : ""}
             </Text>
