@@ -25,16 +25,16 @@ export function ListFooterStats({ summary, total, showNet = true, testID = "list
   if (summary.count === 0) return null;
   const partial = typeof total === "number" && total > summary.count;
   return (
-    <Box className="mt-3 rounded-lg border border-subtle bg-muted/40 px-4 py-3" testID={testID}>
+    <Box className="mt-3 rounded-card border border-line bg-wash2 px-4 py-3" testID={testID}>
       <HStack space="md" className="flex-wrap items-baseline justify-between gap-y-1">
-        <Text size="sm" className="font-medium text-foreground">
+        <Text size="sm" className="font-medium text-ink">
           {partial
             ? t("common.listFooter.countOf", { shown: summary.count, total })
             : t("common.listFooter.count", { count: summary.count })}
         </Text>
         <HStack space="lg" className="flex-wrap gap-y-1">
           {summary.byCurrency.map((row) => (
-            <Text key={row.currency} size="sm" className="tabular-nums text-muted-foreground">
+            <Text key={row.currency} size="sm" className="tabular-nums text-muted-ink">
               {showNet
                 ? t("common.listFooter.netGross", {
                     net: formatCurrency(row.net, row.currency as Invoice["currency"]),

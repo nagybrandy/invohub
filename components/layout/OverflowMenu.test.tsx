@@ -1,6 +1,6 @@
 // components/layout/OverflowMenu.test.tsx
 import TestRenderer, { act } from "react-test-renderer";
-import { OverflowMenu } from "@/components/layout/OverflowMenu";
+import { MAX_MENU_ITEMS, OverflowMenu } from "@/components/layout/OverflowMenu";
 
 jest.mock("@/lib/theme/icon-colors", () => ({
   useIconColors: () => ({ foreground: "#000", muted: "#666", primary: "#4f46e5", destructive: "#dc2626" }),
@@ -52,7 +52,7 @@ describe("OverflowMenu", () => {
     expect(() => tree.root.findByProps({ testID: "overflow-menu-content" })).toThrow();
   });
 
-  it("trigger and menu items clear the 44px tap-target floor", () => {
+  it("trigger is the 34px (40 on phones) icon button and menu rows keep the 44px floor", () => {
     const tree = render({
       items: [
         { label: "Szerkesztés", onPress: jest.fn() },
@@ -60,7 +60,8 @@ describe("OverflowMenu", () => {
       ],
     });
     const trigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
-    expect(trigger.props.className).toContain("h-11 w-11");
+    expect(trigger.props.className).toContain("h-[34px] w-[34px]");
+    expect(trigger.props.className).toContain("phone:h-10 phone:w-10");
     expect(trigger.props.hitSlop).toEqual(8);
 
     act(() => {
@@ -87,8 +88,50 @@ describe("OverflowMenu", () => {
     // (composite + host through forwardRef in the gluestack mocks), so
     // presence/style is checked via a unique props match rather than a count.
     const editText = tree.root.findByProps({ children: "Szerkesztés" });
-    expect(editText.props.className).toContain("text-foreground");
+    expect(editText.props.className).toContain("text-ink");
     const destructiveText = tree.root.findByProps({ children: "Törlés" });
-    expect(destructiveText.props.className).toContain("text-destructive");
+    expect(destructiveText.props.className).toContain("text-err");
+  });
+});
+
+describe("OverflowMenu design limits (tokens.md §6.14)", () => {
+  const items = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ label: `Művelet ${i + 1}`, onPress: jest.fn() }));
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it("allows at most five actions without complaint", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(MAX_MENU_ITEMS).toBe(5);
+    render({ items: items(5) });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("warns in development when more than five actions are passed", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    render({ items: items(6) });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("at most 5"));
+  });
+
+  it("uses the menu surface: line-strong border, 12px radius, menu shadow, 230px min width", () => {
+    const tree = render({ items: items(2) });
+    act(() => {
+      tree.root.findByProps({ testID: "overflow-menu-trigger" }).props.onPress({});
+    });
+    const content = tree.root.findByProps({ testID: "overflow-menu-content" });
+    for (const c of ["border-line-strong", "rounded-menu", "shadow-menu", "min-w-[230px]", "bg-surface"]) {
+      expect(content.props.className).toContain(c);
+    }
+  });
+
+  it("rows are menuitems; the trigger reports expanded", () => {
+    const tree = render({ items: items(2) });
+    act(() => {
+      tree.root.findByProps({ testID: "overflow-menu-trigger" }).props.onPress({});
+    });
+    expect(tree.root.findByProps({ testID: "overflow-menu-item-0" }).props.accessibilityRole).toBe("menuitem");
+    expect(tree.root.findByProps({ testID: "overflow-menu-trigger" }).props.accessibilityState).toMatchObject({
+      expanded: true,
+    });
   });
 });

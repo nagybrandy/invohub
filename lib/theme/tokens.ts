@@ -1,46 +1,188 @@
 // lib/theme/tokens.ts
-// Single source of truth for customized Gluestack design tokens (RGB space-separated for NativeWind).
+// Single source of truth for the redesign-2026-11 design tokens
+// (docs/design/redesign-2026-11/tokens.md §1). Two naming layers are kept so
+// every existing className keeps compiling:
+//   - the design tokens (`canvas`, `surface`, `ink`, `ok`, ...) as hex, plus an
+//     `-rgb` triplet twin each so Tailwind can apply alpha;
+//   - the Gluestack/NativeWind names (`--background`, `--card`, `--primary`,
+//     ...) as space-separated RGB triplets, mapped per SPEC §1.1.
+// `lib/theme/theme-css.ts` turns this file into the CSS in global.css.
 export type ThemeTokenSet = Record<string, string>;
+
+/** Design tokens, hex, exactly as in tokens.md §1. */
+export const designPalette = {
+  light: {
+    canvas: "#F6F6F8",
+    surface: "#FFFFFF",
+    line: "#E6E8EC",
+    "line-strong": "#C5C7CA",
+    ink: "#212325",
+    muted: "#5B5D61",
+    faint: "#8A8D92",
+    primary: "#3F6BC4",
+    "primary-press": "#335AA8",
+    "primary-ink": "#1F305E",
+    "primary-wash": "#E6EEFC",
+    "primary-line": "#BFD0F2",
+    ok: "#1B7A4F",
+    "ok-wash": "#E1F4EA",
+    warn: "#8A5200",
+    "warn-wash": "#FFF1D1",
+    err: "#C62828",
+    "err-wash": "#FDECEC",
+    "err-line": "#E7B4B4",
+    "neutral-wash": "#EEF0F4",
+    wash2: "#FAFBFD",
+    navy: "#131F4A",
+    "navy-ink": "#C9D3F0",
+    "seg-track": "#FFFFFF",
+    "seg-active": "#1F305E",
+    "seg-active-ink": "#F6F6F8",
+    "seg-ink": "#212325",
+    "seg-hover": "#F2F5FB",
+    "seg-line": "#C5C7CA",
+  },
+  dark: {
+    canvas: "#0A0D12",
+    surface: "#171A20",
+    line: "#262A33",
+    "line-strong": "#3A3F4B",
+    ink: "#E7E9ED",
+    muted: "#A0A6B2",
+    faint: "#7B8190",
+    primary: "#5A85E0",
+    "primary-press": "#4C74CB",
+    "primary-ink": "#CFDDFB",
+    "primary-wash": "#1B2745",
+    "primary-line": "#2F4A85",
+    ok: "#4CC38A",
+    "ok-wash": "#12301F",
+    warn: "#F0B35A",
+    "warn-wash": "#33260D",
+    err: "#F26B6B",
+    "err-wash": "#3A1A1C",
+    "err-line": "#6B2B2E",
+    "neutral-wash": "#222630",
+    wash2: "#1C1F26",
+    navy: "#0B1230",
+    // `--navy-ink` is not overridden in dark: same as light.
+    "navy-ink": "#C9D3F0",
+    "seg-track": "#1E2229",
+    "seg-active": "#5A85E0",
+    "seg-active-ink": "#FFFFFF",
+    "seg-ink": "#E7E9ED",
+    "seg-hover": "#262B35",
+    "seg-line": "#3A3F4B",
+  },
+} as const;
+
+export type DesignTokenName = keyof (typeof designPalette)["light"];
+
+export const DESIGN_TOKEN_NAMES = Object.keys(designPalette.light) as DesignTokenName[];
+
+/**
+ * Design tokens whose hex variable would collide with a Gluestack name that
+ * already means something else (`--primary` and `--muted` are RGB triplets
+ * used by the old class names). These are only available as `--primary-rgb` /
+ * `--muted-rgb`.
+ */
+export const HEX_VAR_COLLISIONS: ReadonlySet<DesignTokenName> = new Set(["primary", "muted"]);
+
+const WHITE = "#FFFFFF";
+
+/** "#3F6BC4" -> "63 107 196" */
+export function hexToRgbTriplet(hex: string): string {
+  const clean = hex.replace(/^#/, "");
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean;
+  const n = parseInt(full, 16);
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+}
+
+type Scheme = "light" | "dark";
+
+/** Gluestack/NativeWind names -> the design token each one is driven by (SPEC §1.1). */
+const GLUESTACK_MAP: Record<string, DesignTokenName | "white"> = {
+  "--background": "canvas",
+  "--card": "surface",
+  "--popover": "surface",
+  "--surface-raised": "surface",
+  "--input": "surface",
+  "--foreground": "ink",
+  "--card-foreground": "ink",
+  "--popover-foreground": "ink",
+  "--muted-foreground": "muted",
+  "--muted": "neutral-wash",
+  "--border-subtle": "line",
+  "--border": "line-strong",
+  "--primary": "primary",
+  "--ring": "primary",
+  "--primary-foreground": "white",
+  "--destructive-foreground": "white",
+  "--secondary": "navy",
+  "--secondary-foreground": "navy-ink",
+  "--accent": "primary-wash",
+  "--accent-foreground": "primary-ink",
+  "--destructive": "err",
+};
+
+function buildTriplets(scheme: Scheme): ThemeTokenSet {
+  const palette = designPalette[scheme];
+  const out: ThemeTokenSet = {};
+  for (const [cssVar, token] of Object.entries(GLUESTACK_MAP)) {
+    out[cssVar] = hexToRgbTriplet(token === "white" ? WHITE : palette[token]);
+  }
+  for (const name of DESIGN_TOKEN_NAMES) {
+    out[`--${name}-rgb`] = hexToRgbTriplet(palette[name]);
+  }
+  return out;
+}
+
+/** Hex design variables (`--canvas: #F6F6F8`), minus the two collisions. */
+export function designHexVars(scheme: Scheme): ThemeTokenSet {
+  const palette = designPalette[scheme];
+  const out: ThemeTokenSet = {};
+  for (const name of DESIGN_TOKEN_NAMES) {
+    if (HEX_VAR_COLLISIONS.has(name)) continue;
+    out[`--${name}`] = palette[name];
+  }
+  return out;
+}
+
+/** RGB-triplet vars: the Gluestack names plus a `-rgb` twin of every design token. */
+export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
+  light: {
+    ...buildTriplets("light"),
+    "--hard-shadow": "33 35 37",
+  },
+  dark: buildTriplets("dark"),
+};
+
+/** Card shadow (`--shadow`), per theme: tokens.md §4. */
+export const shadowVars: { light: string; dark: string } = {
+  light: "0 1px 2px rgba(19,31,74,.06), 0 6px 22px rgba(19,31,74,.06)",
+  dark: "0 1px 2px rgba(0,0,0,.4), 0 6px 22px rgba(0,0,0,.35)",
+};
 
 export const invoHubDesignTokens = {
   color: {
-    /** Brand navy — headers, footers, secondary surfaces */
-    navy: "#111f4a",
-    /** Elevated navy depth panels */
-    depth: "#1f305e",
-    /** Interactive cornflower primary */
-    cornflower: "#6495ed",
-    paleBlue: "#d9e7ff",
-    mist: "#edf2fa",
-    /** Success / paid only — never brand primary */
-    success: "#15803d",
-    primary50: "#d9e7ff",
-    primary500: "#6495ed",
-    primary600: "#4675ca",
-    primary800: "#153a7f",
-    secondary500: "#1f305e",
-    secondary700: "#111f4a",
-    typography900: "#212325",
-    typography800: "#323336",
-    typography600: "#5b5d61",
-    typography500: "#696a6e",
-    typography200: "#c5c7ca",
-    typography100: "#e4e6e8",
-    typography0: "#f9f9f9",
-    background50: "#ffffff",
-    background0: "#f6f6f8",
-    background300: "#a6a8ab",
-    background600: "#5b5d61",
-    light: "#fbfbfb",
-    border200: "#c5c7ca",
-    border100: "#e4e6e8",
-    border400: "#8e9094",
-    /** Lighter card/table border — V8. Not the input/divider --border. */
-    borderSubtle: "#e4e6e8",
-    /** Raised-surface background (popover, modal, sticky footer). */
-    surfaceRaised: "#ffffff",
+    ...designPalette.light,
   },
   radius: {
+    /** controls: buttons, inputs, menu rows */
+    control: 8,
+    card: 12,
+    menu: 12,
+    dialog: 16,
+    sheet: 18,
+    /** status pill */
+    pill: 6,
+    /** legacy scale, still used by older components */
     lg: 8,
     xl: 12,
     "2xl": 16,
@@ -50,8 +192,9 @@ export const invoHubDesignTokens = {
   },
   spacing: [2, 4, 8, 10, 12, 16, 18, 24, 32, 36, 40],
   typography: {
-    body: '"Stack Sans Text", Inter, system-ui, sans-serif',
-    heading: '"Stack Sans Notch", "Stack Sans Text", Inter, system-ui, sans-serif',
+    body: '"Stack Sans Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    heading:
+      '"Stack Sans Notch", "Stack Sans Text", system-ui, -apple-system, "Segoe UI", sans-serif',
     display: {
       hero: { mobile: 40, desktop: 48 },
       section: { mobile: 30, desktop: 36 },
@@ -61,95 +204,37 @@ export const invoHubDesignTokens = {
     hard1: "2px 2px 0 rgba(33, 35, 37, 0.16)",
   },
   marketing: {
-    surfaceHero: "#111f4a",
-    surfaceSoft: "#edf2fa",
-    surfacePanel: "#1f305e",
+    surfaceHero: designPalette.light.navy,
+    surfaceSoft: designPalette.light.canvas,
+    surfacePanel: designPalette.light["primary-ink"],
   },
 } as const;
-
-export const themeTokens: { light: ThemeTokenSet; dark: ThemeTokenSet } = {
-  light: {
-    "--background": "246 246 248",
-    "--foreground": "33 35 37",
-    "--card": "255 255 255",
-    "--card-foreground": "33 35 37",
-    "--popover": "255 255 255",
-    "--popover-foreground": "33 35 37",
-    // primary600 (#4675ca) — not the raw cornflower (primary500 #6495ed):
-    // white-on-#6495ed only reaches ~2.98:1 contrast (fails WCAG AA 4.5:1)
-    // on every solid button/badge that pairs this with --primary-foreground.
-    // primary500 (#6495ed) stays available via invoHubDesignTokens for
-    // large text, icons, and outline/border contexts where the AA bar is
-    // lower or doesn't apply.
-    "--primary": "70 117 202",
-    "--primary-foreground": "255 255 255",
-    "--secondary": "17 31 74",
-    "--secondary-foreground": "228 230 232",
-    "--muted": "249 249 249",
-    "--muted-foreground": "91 93 97",
-    "--accent": "217 231 255",
-    "--accent-foreground": "31 48 94",
-    "--destructive": "220 38 38",
-    "--destructive-foreground": "255 255 255",
-    "--border": "197 199 202",
-    // Lighter card/table border (V8) — #e4e6e8. Distinct from --border, which
-    // stays the heavier input/divider color.
-    "--border-subtle": "228 230 232",
-    // Raised surfaces (popover, modal, sticky footer) — where shadow-sm is
-    // allowed. Plain cards use --card and no shadow.
-    "--surface-raised": "255 255 255",
-    "--input": "255 255 255",
-    "--ring": "100 149 237",
-    "--hard-shadow": "33 35 37",
-  },
-  dark: {
-    "--background": "9 11 16",
-    "--foreground": "241 245 249",
-    "--card": "18 22 30",
-    "--card-foreground": "241 245 249",
-    "--popover": "24 28 38",
-    "--popover-foreground": "241 245 249",
-    "--primary": "120 165 240",
-    "--primary-foreground": "255 255 255",
-    "--secondary": "41 58 104",
-    "--secondary-foreground": "226 232 240",
-    "--muted": "27 32 44",
-    "--muted-foreground": "180 190 204",
-    "--accent": "21 58 127",
-    "--accent-foreground": "228 230 232",
-    "--destructive": "248 113 113",
-    "--destructive-foreground": "255 255 255",
-    "--border": "38 45 61",
-    "--border-subtle": "48 56 74",
-    "--surface-raised": "24 28 38",
-    "--input": "27 32 44",
-    "--ring": "120 165 240",
-  },
-};
 
 /** Hex colors for Lucide icons (RN does not resolve CSS vars on icons). */
+function buildIconColors(scheme: Scheme) {
+  const p = designPalette[scheme];
+  return {
+    primary: p.primary,
+    muted: p.muted,
+    faint: p.faint,
+    foreground: p.ink,
+    destructive: p.err,
+    ok: p.ok,
+    warn: p.warn,
+    accent: p.primary,
+    accentForeground: p["primary-ink"],
+    secondary: p.navy,
+    /** Icon/text colour on the (always navy) sidebar. */
+    onNavy: p["navy-ink"],
+    onNavyActive: WHITE,
+  };
+}
+
 export const iconColors = {
-  light: {
-    primary: "#6495ed",
-    muted: "#5b5d61",
-    foreground: "#212325",
-    destructive: "#dc2626",
-    accent: "#6495ed",
-    accentForeground: "#1f305e",
-    secondary: "#111f4a",
-  },
-  dark: {
-    primary: "#78a5f0",
-    muted: "#b4becf",
-    foreground: "#f1f5f9",
-    destructive: "#f87171",
-    accent: "#78a5f0",
-    accentForeground: "#e2e8f0",
-    secondary: "#293a68",
-  },
+  light: buildIconColors("light"),
+  dark: buildIconColors("dark"),
 } as const;
 
-export type IconColorSet =
-  (typeof iconColors)["light"] | (typeof iconColors)["dark"];
+export type IconColorSet = (typeof iconColors)["light"] | (typeof iconColors)["dark"];
 
 export type ThemeColorName = keyof typeof themeTokens.light;

@@ -1,10 +1,12 @@
 // lib/i18n/locales/en.ts
 export default {
   nav: {
-    dashboard: "Dashboard",
+    dashboard: "Home",
     invoices: "Invoices",
     newInvoice: "New invoice",
     newReceipt: "New receipt",
+    newPartner: "New partner",
+    newShort: "New",
     dataExport: "Data export",
     bulkUpload: "Bulk upload",
     clients: "Clients",
@@ -26,6 +28,63 @@ export default {
     expandSidebar: "Expand sidebar",
     switchToDark: "Switch to dark mode",
     switchToLight: "Switch to light mode",
+    settingsAppearance: "Language and appearance",
+    settingsNav: "NAV",
+    primaryNav: "Main navigation",
+    secondaryNav: "More pages",
+    breadcrumb: {
+      invoice: "Invoice",
+      receipt: "Receipt",
+      partner: "Partner",
+      product: "Product",
+      edit: "Edit",
+      new: "New",
+    },
+  },
+  shell: {
+    brand: "InvoHub",
+    homeLink: "InvoHub home",
+    search: {
+      placeholder: "Search",
+      label: "Search invoices, partners and products",
+      open: "Open search",
+      close: "Close search",
+    },
+    newMenu: {
+      toggle: "Create new",
+      title: "Create new",
+      collapsedMain: "New invoice",
+    },
+    account: {
+      button: "Account and companies",
+      signedIn: "Signed in",
+      companies: "Your companies",
+      manage: "Manage billing accounts",
+      editCompany: "Edit company details",
+      signOut: "Sign out",
+      activeAccount: "Active",
+      noCompany: "InvoHub",
+      menuTitle: "Account",
+    },
+    logout: {
+      title: "Sign out?",
+      text: "You will be signed out of InvoHub on this device. Unsaved changes are not lost.",
+      cancel: "Cancel",
+      confirm: "Sign out",
+    },
+    tabs: {
+      label: "Main navigation",
+      newSheetTitle: "Create new",
+      moreSheetTitle: "More",
+    },
+  },
+  ui: {
+    close: "Close",
+    cancel: "Cancel",
+    back: "Back",
+    loading: "Loading…",
+    select: "Select",
+    sheet: "Dialog",
   },
   emailEditor: {
     title: "E-mail editor",
@@ -692,6 +751,7 @@ export default {
       overflowLabel: "More",
     },
   },
+  lists: {},
   receipts: {
     title: "Receipt",
     subtitle: "Electronic receipts with QR verification.",
@@ -774,6 +834,7 @@ export default {
       amount: "Amount",
     },
   },
+  composer: {},
   dashboard: {
     breadcrumb: "Home / Dashboard",
     subtitle: "Overview of your invoicing and compliance activity.",
@@ -864,6 +925,7 @@ export default {
       demoBadge: "Demo data",
     },
   },
+  home: {},
   billing: {
     title: "Billing settings",
     subtitle: "Tax profile, invoice prefix and defaults — every new invoice and receipt starts from these.",
@@ -1222,6 +1284,7 @@ export default {
       previewFrameTitle: "Sample invoice PDF",
     },
   },
+  settingsPages: {},
   products: {
     title: "Products",
     subtitle: "Services and goods for invoice line items.",
@@ -1512,6 +1575,7 @@ export default {
       copyright: "© {{year}} InvoHub. All rights reserved.",
     },
   },
+  publicSite: {},
   blog: {
     eyebrow: "InvoHub blog",
     indexTitle: "Precise guides for Hungarian invoicing",
@@ -1568,6 +1632,7 @@ export default {
       reminderScheduledBody: "Automatic reminder will be sent in 7 days.",
     },
   },
+  globalSearch: {},
   userMenu: {
     accountSettings: "Account settings",
     companyProfile: "Company profile",

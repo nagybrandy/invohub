@@ -12,15 +12,18 @@ type ScreenLayoutProps = {
   scroll?: boolean;
   scrollProps?: ScrollViewProps;
   /**
-   * "content" (default) caps at LAYOUT.contentMax (1200px) — every screen.
+   * "content" (default) caps at LAYOUT.contentMax (1160px), dashboard and lists.
+   * "settings" caps at 1120px, "composer" at 1240px (tokens.md §4).
    * "form" caps at LAYOUT.formMax (720px) — a single-column form.
    * "full" — no cap (a screen that builds its own multi-column layout).
    */
-  width?: "content" | "form" | "full";
+  width?: "content" | "settings" | "composer" | "form" | "full";
 };
 
 const WIDTH_CLASS: Record<NonNullable<ScreenLayoutProps["width"]>, string> = {
-  content: "max-w-[1200px]",
+  content: "max-w-[1160px]",
+  settings: "max-w-[1120px]",
+  composer: "max-w-[1240px]",
   form: "max-w-[720px]",
   full: "max-w-none",
 };
@@ -36,10 +39,10 @@ export function ScreenLayout({
     <VStack
       testID="screen-layout-content"
       space="md"
-      className={`w-full flex-1 mx-auto ${WIDTH_CLASS[width]} pt-5 md:pt-8`}
+      className={`w-full flex-1 mx-auto ${WIDTH_CLASS[width]} pt-4 tab:pt-6`}
     >
-      {header ? <Box className="px-4 md:px-10">{header}</Box> : null}
-      <Box className="flex-1 px-4 pb-8 md:px-10">{children}</Box>
+      {header ? <Box className="px-4 tab:px-6">{header}</Box> : null}
+      <Box className="flex-1 px-4 pb-8 tab:px-6">{children}</Box>
     </VStack>
   );
 

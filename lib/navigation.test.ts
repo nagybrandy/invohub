@@ -28,6 +28,12 @@ describe("routes", () => {
     expect(routes.admin).toBe("/admin");
   });
 
+  it("exposes the settings routes the redesign adds (appearance, NAV)", () => {
+    expect(routes.settingsAppearance).toBe("/settings/appearance");
+    expect(routes.settingsNav).toBe("/settings/nav");
+    expect(routes.settingsApiKeys).toBe("/settings/api-keys");
+  });
+
   it("exposes every required public legal route", () => {
     expect(routes.terms).toBe("/aszf");
     expect(routes.privacy).toBe("/adatkezeles");

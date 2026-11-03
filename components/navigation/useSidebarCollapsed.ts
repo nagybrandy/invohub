@@ -1,13 +1,11 @@
 // components/navigation/useSidebarCollapsed.ts
-// Desktop sidebar collapse/expand state, owned by AppShell so both
-// AppSidebar (renders narrow/wide) and AppTopStrip (renders the toggle
-// icon) stay in sync off one source of truth.
+// Desktop sidebar collapse/expand state, owned by AppShell and passed to
+// AppSidebar (which renders narrow/wide and hosts the toggle in its head).
 import * as React from "react";
 import { isWeb } from "@/lib/platform";
+import { LAYOUT } from "@/lib/theme/layout";
 
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "invohub.sidebar.collapsed";
-const COLLAPSED_DEFAULT_MIN_WIDTH = 1024;
-const COLLAPSED_DEFAULT_MAX_WIDTH = 1280;
 
 function readStoredCollapsed(): boolean | null {
   if (!isWeb() || typeof window === "undefined" || !window.localStorage) return null;
@@ -30,8 +28,10 @@ function writeStoredCollapsed(value: boolean) {
   }
 }
 
+// SPEC §3: the 72px rail is the default for the tablet range (701-1099); the
+// expanded 248px sidebar is the default from 1100. A stored choice always wins.
 function defaultCollapsedForWidth(width: number): boolean {
-  return width >= COLLAPSED_DEFAULT_MIN_WIDTH && width < COLLAPSED_DEFAULT_MAX_WIDTH;
+  return width > LAYOUT.phoneMax && width < LAYOUT.wideMin;
 }
 
 export function useSidebarCollapsed(width: number) {

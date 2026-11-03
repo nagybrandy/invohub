@@ -5,7 +5,7 @@ import {
   Download,
   Layers,
   FileText,
-  LayoutDashboard,
+  House,
   MoreHorizontal,
   Package,
   Plus,
@@ -39,11 +39,11 @@ export const ADMIN_NAV: AppNavItem = {
 
 /**
  * Desktop sidebar — primary sections above the divider, in the owner's
- * daily-work order (brief 2026-09-14): Vezérlőpult, Számlák, Nyugták,
+ * daily-work order (brief 2026-09-14): Főoldal, Számlák, Nyugták,
  * Partnerek, Termékek, Beállítások.
  */
 export const SIDEBAR_PRIMARY_NAV: AppNavItem[] = [
-  { href: routes.dashboard, labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: routes.dashboard, labelKey: "nav.dashboard", icon: House },
   { href: routes.invoices, labelKey: "nav.invoices", icon: FileText },
   { href: routes.receipts, labelKey: "nav.receipts", icon: Receipt },
   { href: routes.clients, labelKey: "nav.partners", icon: Users },
@@ -81,23 +81,24 @@ export function getSidebarSecondaryNav(
 }
 
 /**
- * Mobile bottom tab bar. The last entry carries no `href` — it opens the
- * "Továbbiak" sheet instead of navigating directly, which is how
- * Nyugták/Termékek/Importálás/Beállítások stay one tap away on mobile
- * without crowding the 5-tab bar (N1 mobile fix).
+ * Phone bottom tab bar (SPEC §5.4): Főoldal, Számlák, **Új**, Partnerek,
+ * Továbbiak. Two entries carry no `href`: `action: "new"` opens the Új sheet
+ * (Új számla / Új nyugta) and `action: "more"` opens the "Továbbiak" sheet, so
+ * Nyugták/Termékek/Beállítások stay one tap away without crowding the bar.
  */
 export type MobileTabItem = {
   labelKey: string;
   icon: LucideIcon;
   href?: AppRoute;
+  action?: "new" | "more";
 };
 
 export const MOBILE_TAB_NAV: MobileTabItem[] = [
+  { href: routes.dashboard, labelKey: "nav.dashboard", icon: House },
   { href: routes.invoices, labelKey: "nav.invoices", icon: FileText },
+  { labelKey: "nav.newShort", icon: Plus, action: "new" },
   { href: routes.clients, labelKey: "nav.partners", icon: Users },
-  { href: routes.newInvoice, labelKey: "nav.newInvoice", icon: Plus },
-  { href: routes.dashboard, labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { labelKey: "nav.more", icon: MoreHorizontal },
+  { labelKey: "nav.more", icon: MoreHorizontal, action: "more" },
 ];
 
 /** Items inside the mobile "Továbbiak" sheet (sign-out is rendered by the
@@ -163,6 +164,8 @@ const SETTINGS_SUBPAGES: { path: AppRoute; labelKey: string }[] = [
   { path: routes.settingsPdf, labelKey: "settings.pdf" },
   { path: routes.settingsReminders, labelKey: "settings.reminders" },
   { path: routes.settingsApiKeys, labelKey: "settings.apiKeys" },
+  { path: routes.settingsAppearance, labelKey: "nav.settingsAppearance" },
+  { path: routes.settingsNav, labelKey: "nav.settingsNav" },
 ];
 
 export function getSettingsBreadcrumbLabelKey(pathname: string): string | undefined {
@@ -189,4 +192,83 @@ export function isNavActive(pathname: string, href: string): boolean {
   if (href === routes.settings) return pathname.startsWith("/settings");
   if (href === routes.admin) return pathname.startsWith("/admin");
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+// ---------------------------------------------------------------------------
+// Breadcrumbs (SPEC §5.6)
+// ---------------------------------------------------------------------------
+
+export type BreadcrumbTrailItem = { label: string; href?: AppRoute };
+
+type TranslateFn = (key: string) => string;
+
+export type BreadcrumbOptions = {
+  /** Label for the last item when the screen knows better than the route (e.g. an invoice number). */
+  currentLabel?: string;
+  /** Prepend "Főoldal" (the composer pages show "Főoldal / Számlák / Új számla"). */
+  includeHome?: boolean;
+};
+
+/** Collection routes whose subpages get a trail, with the label of the singular record. */
+const BREADCRUMB_SECTIONS: Array<{
+  base: string;
+  listRoute: AppRoute;
+  listKey: string;
+  recordKey: string;
+  newPath?: string;
+}> = [
+  { base: "/invoices", listRoute: routes.invoices, listKey: "nav.invoices", recordKey: "nav.breadcrumb.invoice", newPath: "/invoices/new" },
+  { base: "/receipts", listRoute: routes.receipts, listKey: "nav.receipts", recordKey: "nav.breadcrumb.receipt", newPath: "/receipts/new" },
+  { base: "/clients", listRoute: routes.clients, listKey: "nav.partners", recordKey: "nav.breadcrumb.partner", newPath: "/clients/new" },
+  { base: "/products", listRoute: routes.products, listKey: "nav.products", recordKey: "nav.breadcrumb.product", newPath: "/products/new" },
+];
+
+/**
+ * The breadcrumb trail for a subpage route, or undefined for top-level screens
+ * (Főoldal, Számlák, Nyugták, Partnerek, Termékek, the Beállítások start page,
+ * the secondary tools) which have none. Screens pass the result to
+ * `PageHeader`; on phones the Breadcrumb collapses to a "‹ Parent" link.
+ *
+ *   /invoices/new            Számlák › Új
+ *   /invoices/:id            Számlák › Számla            (currentLabel = the number)
+ *   /invoices/:id/edit       Számlák › Számla › Szerkesztés
+ *   /settings/company        Beállítások › Céges profil
+ */
+export function getBreadcrumb(
+  pathname: string,
+  t: TranslateFn,
+  options: BreadcrumbOptions = {},
+): BreadcrumbTrailItem[] | undefined {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  const home: BreadcrumbTrailItem[] = options.includeHome ? [{ label: t("nav.dashboard"), href: routes.dashboard }] : [];
+
+  const settingsKey = getSettingsBreadcrumbLabelKey(path);
+  if (settingsKey) {
+    return [...home, { label: t("nav.settings"), href: routes.settings }, { label: options.currentLabel ?? t(settingsKey) }];
+  }
+
+  for (const section of BREADCRUMB_SECTIONS) {
+    if (path === section.base || !path.startsWith(`${section.base}/`)) continue;
+    const rest = path.slice(section.base.length + 1).split("/");
+    const list: BreadcrumbTrailItem = { label: t(section.listKey), href: section.listRoute };
+    if (section.newPath && path === section.newPath) {
+      return [...home, list, { label: options.currentLabel ?? t("nav.breadcrumb.new") }];
+    }
+    if (rest.length === 1) {
+      // detail page, e.g. /invoices/:id
+      return [...home, list, { label: options.currentLabel ?? t(section.recordKey) }];
+    }
+    if (rest.length === 2 && rest[1] === "edit") {
+      const record = options.currentLabel ?? t(section.recordKey);
+      // Partners and products have no detail page: their edit page IS the record.
+      if (section.base === "/clients" || section.base === "/products") return [...home, list, { label: record }];
+      return [
+        ...home,
+        list,
+        { label: record, href: `${section.base}/${rest[0]}` as AppRoute },
+        { label: t("nav.breadcrumb.edit") },
+      ];
+    }
+  }
+  return undefined;
 }

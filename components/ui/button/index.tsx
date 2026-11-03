@@ -12,7 +12,6 @@ import {
 import { cssInterop } from 'nativewind';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { UIIcon } from '@gluestack-ui/core/icon/creator';
-import { TAP_TARGET_ICON_BOX, TAP_TARGET_MIN_H } from '@/lib/ui/tap-target';
 const SCOPE = 'BUTTON';
 const Root = withStyleContext(Pressable, SCOPE);
 const UIButton = createButton({
@@ -34,64 +33,92 @@ cssInterop(UIIcon, {
     },
   },
 });
-// The 44px floor (Apple HIG 44pt / WCAG 2.5.8 AAA) lives HERE, as a default
-// in each size variant, deliberately using tva()/twMerge rather than
-// ChoicePill's plain-template-literal approach (see
-// components/ui/choice-pill/index.tsx's comment for why that one avoids
-// tva()). Button keeps tva() on purpose: a call site that explicitly passes
-// its own min-h-* (e.g. LandingHeader's min-h-14) should still be able to
-// win, and that override is an explicit, greppable, reviewable act in the
-// diff — unlike ChoicePill's callers, who pass whole layout classNames and
-// could accidentally strip the floor. Do not "unify" these two components.
+
+// Redesign 2026-11 (tokens.md §6.2): one Button, five variants, five sizes.
+// Heights are the design's (sm 34, md 40, form 42, lg 46); the old 44px
+// floor lived here before and now only applies to ChoicePill and the 44px
+// icon boxes. On phones `sm` grows to 40 so touch targets stay >= 40px.
+//
+// Variants: primary | secondary | tertiary | danger | dangerSolid.
+// Old names keep working through VARIANT_ALIAS: default -> primary,
+// outline -> secondary, link/ghost -> tertiary, destructive -> dangerSolid.
+export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'dangerSolid';
+export type ButtonVariantInput =
+  | ButtonVariant
+  | 'default'
+  | 'outline'
+  | 'link'
+  | 'ghost'
+  | 'destructive';
+
+export const VARIANT_ALIAS: Record<ButtonVariantInput, ButtonVariant> = {
+  primary: 'primary',
+  secondary: 'secondary',
+  tertiary: 'tertiary',
+  danger: 'danger',
+  dangerSolid: 'dangerSolid',
+  default: 'primary',
+  outline: 'secondary',
+  link: 'tertiary',
+  ghost: 'tertiary',
+  destructive: 'dangerSolid',
+};
+
+export function resolveButtonVariant(variant?: ButtonVariantInput): ButtonVariant {
+  return VARIANT_ALIAS[variant ?? 'primary'] ?? 'primary';
+}
+
 const buttonStyleVariants = tva({
-  base: 'rounded-lg flex-row items-center justify-center gap-2 h-fit web:transition-[color,background-color,border-color,opacity,box-shadow] web:duration-200 motion-reduce:web:transition-none data-[focus-visible=true]:web:outline-none data-[focus-visible=true]:web:ring-2 data-[focus-visible=true]:web:ring-primary/50 data-[disabled=true]:opacity-40',
+  base: 'rounded-control flex-row items-center justify-center gap-2 web:transition-[color,background-color,border-color,opacity,box-shadow] web:duration-150 motion-reduce:web:transition-none data-[disabled=true]:opacity-40',
   variants: {
     variant: {
-      default:
-        'bg-primary data-[hover=true]:bg-primary/90 data-[active=true]:bg-primary/90',
-      destructive:
-        'bg-destructive data-[hover=true]:bg-destructive/90 data-[active=true]:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
-      outline:
-        'border border-border bg-background shadow-xs data-[hover=true]:bg-accent data-[active=true]:bg-accent dark:bg-input/[0.045] dark:border-border/90 dark:data-[hover=true]:bg-input/[0.075] dark:data-[active=true]:bg-input/[0.075]',
+      primary: 'bg-primary data-[hover=true]:bg-primary-press data-[active=true]:bg-primary-press',
       secondary:
-        'bg-secondary text-secondary-foreground data-[hover=true]:bg-secondary/80 data-[active=true]:bg-secondary/80',
-      ghost: 'data-[hover=true]:bg-accent data-[active=true]:bg-accent dark:data-[hover=true]:bg-accent/50 dark:data-[active=true]:bg-accent/50',
-      link: 'text-primary underline-offset-4 data-[hover=true]:underline data-[active=true]:underline',
+        'border border-line-strong bg-surface data-[hover=true]:bg-neutral-wash data-[active=true]:bg-neutral-wash',
+      tertiary: 'bg-transparent data-[hover=true]:bg-neutral-wash data-[active=true]:bg-neutral-wash',
+      danger:
+        'border border-err-line bg-surface data-[hover=true]:bg-err-wash data-[active=true]:bg-err-wash',
+      dangerSolid: 'bg-err data-[hover=true]:opacity-90 data-[active=true]:opacity-90',
     },
     size: {
-      default: `${TAP_TARGET_MIN_H} px-4 py-2`,
-      sm: `${TAP_TARGET_MIN_H} rounded-lg px-3 text-xs`,
-      lg: `${TAP_TARGET_MIN_H} rounded-lg px-8`,
-      icon: TAP_TARGET_ICON_BOX,
+      default: 'h-10 px-4',
+      md: 'h-10 px-4',
+      sm: 'h-[34px] phone:h-10 px-3',
+      form: 'h-[42px] px-4',
+      lg: 'h-[46px] px-[22px]',
+      icon: 'h-[34px] w-[34px] phone:h-10 phone:w-10 px-0',
     },
   },
   defaultVariants: {
-    variant: 'default',
+    variant: 'primary',
     size: 'default',
   },
 });
 // tva()'s returned function destructures its argument directly, so calling
-// it with zero arguments throws instead of resolving to the `default`/
+// it with zero arguments throws instead of resolving to the `primary`/
 // `default` path. This thin wrapper makes `buttonStyle()` a valid way to ask
-// "what does a bare Button render as" (used by tap-target.test.ts), while
-// every real call site (below, and any other caller) keeps passing an
-// explicit variants object as before.
-const buttonStyle: typeof buttonStyleVariants = (props) => buttonStyleVariants(props ?? {});
+// "what does a bare Button render as", and maps the old variant names.
+const buttonStyle = (props) =>
+  buttonStyleVariants({
+    ...(props ?? {}),
+    variant: resolveButtonVariant(props?.variant),
+  });
 const buttonTextStyle = tva({
-  base: 'web:select-none font-sans',
+  base: 'web:select-none font-sans font-semibold',
   parentVariants: {
     variant: {
-      default: 'text-primary-foreground',
-      destructive: 'text-white',
-      outline: 'text-foreground data-[hover=true]:text-accent-foreground data-[active=true]:text-accent-foreground',
-      secondary: 'text-secondary-foreground',
-      ghost: 'text-foreground ',
-      link: 'text-primary data-[hover=true]:underline data-[active=true]:underline',
+      primary: 'text-primary-foreground',
+      secondary: 'text-ink',
+      tertiary: 'text-primary',
+      danger: 'text-err',
+      dangerSolid: 'text-white',
     },
     size: {
       default: 'text-sm',
-      sm: 'text-xs',
-      lg: 'text-sm',
+      md: 'text-sm',
+      sm: 'text-[13px]',
+      form: 'text-sm',
+      lg: 'text-[15px]',
       icon: 'text-sm',
     },
   },
@@ -102,7 +129,9 @@ const buttonSpinnerStyle = tva({
   parentVariants: {
     size: {
       default: 'h-4 w-4',
+      md: 'h-4 w-4',
       sm: 'h-4 w-4',
+      form: 'h-4 w-4',
       lg: 'h-4 w-4',
       icon: 'h-4 w-4',
     },
@@ -113,19 +142,18 @@ const buttonIconStyle = tva({
   base: 'fill-none pointer-events-none shrink-0',
   parentVariants: {
     variant: {
-      default: 'text-primary-foreground',
-      destructive: 'text-white',
-      outline:
-        'text-foreground data-[hover=true]:text-accent-foreground data-[active=true]:text-accent-foreground',
-      secondary: 'text-secondary-foreground',
-      ghost:
-        'text-foreground data-[hover=true]:text-accent-foreground data-[active=true]:text-accent-foreground',
-      link: 'text-primary',
+      primary: 'text-primary-foreground',
+      secondary: 'text-ink',
+      tertiary: 'text-primary',
+      danger: 'text-err',
+      dangerSolid: 'text-white',
     },
     size: {
       default: 'h-4 w-4',
+      md: 'h-4 w-4',
       sm: 'h-4 w-4',
-      lg: 'h-4 w-4',
+      form: 'h-4 w-4',
+      lg: 'h-[18px] w-[18px]',
       icon: 'h-4 w-4',
     },
   },
@@ -158,17 +186,21 @@ type IButtonProps = Omit<
   React.ComponentPropsWithoutRef<typeof UIButton>,
   'context'
 > &
-  VariantProps<typeof buttonStyle> & { className?: string };
+  Omit<VariantProps<typeof buttonStyleVariants>, 'variant'> & {
+    variant?: ButtonVariantInput;
+    className?: string;
+  };
 const Button = React.forwardRef<
   React.ElementRef<typeof UIButton>,
   IButtonProps
->(({ className, variant = 'default', size = 'default', ...props }, ref) => {
+>(({ className, variant = 'primary', size = 'default', ...props }, ref) => {
+  const resolved = resolveButtonVariant(variant);
   return (
     <UIButton
       ref={ref}
       {...props}
-      className={buttonStyle({ variant, size, class: className })}
-      context={{ variant, size }}
+      className={buttonStyle({ variant: resolved, size, class: className })}
+      context={{ variant: resolved, size }}
     />
   );
 });

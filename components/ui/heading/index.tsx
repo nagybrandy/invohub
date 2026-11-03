@@ -3,6 +3,7 @@ import { H1, H2, H3, H4, H5, H6 } from '@expo/html-elements';
 import { headingStyle } from './styles';
 import type { VariantProps } from '@gluestack-ui/utils/nativewind-utils';
 import { cssInterop } from 'nativewind';
+import { nativeFontStyle } from '@/lib/ui/fonts';
 
 type IHeadingProps = VariantProps<typeof headingStyle> &
   React.ComponentPropsWithoutRef<typeof H1> & {
@@ -210,7 +211,18 @@ const Heading = memo(
     }
 
     return (
-      <MappedHeading className={className} size={size} ref={ref} {...props} />
+      <MappedHeading
+        className={className}
+        size={size}
+        ref={ref}
+        {...props}
+        // Native picks the static Stack Sans Notch cut from the weight class
+        // (headings default to bold); the web uses the variable font instead.
+        style={[
+          nativeFontStyle(className, { role: 'heading', fallbackWeight: 700 }),
+          props.style,
+        ]}
+      />
     );
   })
 );

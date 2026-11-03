@@ -1,6 +1,6 @@
 // components/layout/Section.tsx
-// Labeled content block. variant="card" gives it a bordered/rounded frame
-// (no shadow — plain cards never carry one, §4.3); variant="plain" renders
+// Labeled content block. variant="card" gives it the design's card (12px radius,
+// --surface, card shadow, 20/22 padding; tokens.md §4); variant="plain" renders
 // bare so nested Sections never become "boxes inside boxes".
 import type { ReactNode } from "react";
 import { Heading } from "@/components/ui/heading";
@@ -8,6 +8,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Box } from "@/components/ui/box";
+import { type } from "@/lib/ui/type";
 
 export type SectionProps = {
   title?: string;
@@ -30,7 +31,7 @@ export function Section({
   const hasHeader = Boolean(title || description || action);
   const frameClass =
     variant === "card"
-      ? "rounded-xl border border-subtle bg-card p-5"
+      ? "rounded-card bg-surface px-[22px] py-5 shadow-card"
       : "";
 
   return (
@@ -40,12 +41,10 @@ export function Section({
           <HStack className="items-start justify-between gap-4">
             <VStack space="xs" className="flex-1">
               {title ? (
-                <Heading className="font-heading text-lg leading-7 font-semibold text-foreground">
-                  {title}
-                </Heading>
+                <Heading className={type.sectionTitle}>{title}</Heading>
               ) : null}
               {description ? (
-                <Text size="sm" className="text-muted-foreground">
+                <Text size="sm" className={type.meta}>
                   {description}
                 </Text>
               ) : null}

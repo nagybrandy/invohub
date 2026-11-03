@@ -19,6 +19,7 @@ import {
 } from "@/lib/theme/preference-store";
 import { nextThemePreference, resolveColorScheme } from "@/lib/theme/resolve";
 import { isWebPlatform, useSystemColorScheme } from "@/lib/theme/system-scheme";
+import { script as applyThemeToDocument } from "@/components/ui/gluestack-ui-provider/script";
 
 // nativewind refuses setColorScheme when its stylesheet was not compiled with
 // darkMode "class" — true for the jest shim, never for the app (tailwind.config
@@ -61,6 +62,14 @@ export function useColorScheme() {
     const value = !isWeb && preference === "system" ? "system" : effective;
     applyScheme(setColorScheme, value);
   }, [loaded, isWeb, preference, effective, setColorScheme]);
+
+  // Web: an explicit choice is written to <html data-theme>, which beats the
+  // OS in the CSS (see lib/theme/theme-css.ts); "system" removes the attribute
+  // so the @media (prefers-color-scheme) block decides again.
+  React.useEffect(() => {
+    if (!loaded || !isWeb || typeof document === "undefined") return;
+    applyThemeToDocument(preference ?? "system");
+  }, [loaded, isWeb, preference, effective]);
 
   const setTheme = React.useCallback(
     (pref: ThemePreference) => updateThemePreference(pref),

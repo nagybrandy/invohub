@@ -35,7 +35,21 @@ describe("Text numeric prop (native)", () => {
   it("does not add a tabular-nums style when not numeric", () => {
     const tree = render({ children: "Tanácsadás" });
     const host = tree.root.findByType(RNText);
-    expect(host.props.style).toBeFalsy();
+    const style = (Array.isArray(host.props.style) ? host.props.style : [host.props.style]).filter(Boolean);
+    expect(style).not.toEqual(expect.arrayContaining([expect.objectContaining({ fontVariant: expect.anything() })]));
+  });
+
+  it("selects the static Stack Sans cut from the weight class (native only)", () => {
+    const flat = (tree: TestRenderer.ReactTestRenderer) =>
+      Object.assign({}, ...[tree.root.findByType(RNText).props.style].flat(2).filter(Boolean));
+    expect(flat(render({ children: "a" }))).toMatchObject({ fontFamily: "StackSansText_400Regular", fontWeight: "normal" });
+    expect(flat(render({ className: "font-semibold", children: "a" }))).toMatchObject({
+      fontFamily: "StackSansText_600SemiBold",
+    });
+    expect(flat(render({ bold: true, children: "a" }))).toMatchObject({ fontFamily: "StackSansText_700Bold" });
+    expect(flat(render({ className: "font-heading font-bold", children: "a" }))).toMatchObject({
+      fontFamily: "StackSansNotch_700Bold",
+    });
   });
 });
 

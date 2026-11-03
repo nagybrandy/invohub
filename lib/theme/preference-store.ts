@@ -11,6 +11,19 @@ import {
 
 type Listener = () => void;
 
+// Web only: AsyncStorage is IndexedDB there, which cannot be read before
+// hydration. A synchronous localStorage mirror lets the inline boot script in
+// the GluestackUIProvider apply the stored choice before first paint.
+const MIRROR_KEY = "invohub.theme-preference";
+
+function mirror(pref: ThemePreference) {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) window.localStorage.setItem(MIRROR_KEY, pref);
+  } catch {
+    // Private mode / blocked storage: only the flash-free first paint is lost.
+  }
+}
+
 // null = not loaded from storage yet.
 let current: ThemePreference | null = null;
 let loading: Promise<void> | null = null;
@@ -35,6 +48,7 @@ export function ensureThemePreferenceLoaded(): Promise<void> {
   if (!loading) {
     loading = loadThemePreference().then((stored) => {
       current = stored ?? "system";
+      mirror(current);
       emit();
     });
   }
@@ -44,6 +58,7 @@ export function ensureThemePreferenceLoaded(): Promise<void> {
 export async function updateThemePreference(pref: ThemePreference): Promise<void> {
   await saveThemePreference(pref);
   current = pref;
+  mirror(pref);
   emit();
 }
 

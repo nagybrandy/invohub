@@ -1,8 +1,11 @@
 // components/layout/PageHeader.tsx
 // Consistent screen title row — every screen's top. Backward compatible:
 // the original { title, subtitle, actions } shape still renders unchanged.
-// New: breadcrumb, meta (chip next to the title), and a
-// primary/secondary/overflow action split (spec §1.3, §4.8).
+// Redesign 2026-11: the breadcrumb (subpages only) sits ABOVE the h1; the
+// title is the 26/700 (phone 22) page title and the subtitle the 14px lead
+// (lib/ui/type.ts). Also: meta (chip next to the title) and a
+// primary/secondary/overflow action split (spec §1.3, §4.8). No create
+// buttons on the Főoldal header: pass none.
 import type { ReactNode } from "react";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/layout/Breadcrumb";
 import { Heading } from "@/components/ui/heading";
@@ -11,6 +14,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Box } from "@/components/ui/box";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/layout/OverflowMenu";
+import { type } from "@/lib/ui/type";
 
 export type { BreadcrumbItem } from "@/components/layout/Breadcrumb";
 
@@ -54,13 +58,11 @@ export function PageHeader({
       <HStack className="flex-wrap items-start justify-between gap-4">
         <VStack space="xs" className="min-w-0 flex-1">
           <HStack space="sm" className="items-center flex-wrap">
-            <Heading className="font-heading text-[32px] leading-[38px] font-bold text-foreground">
-              {title}
-            </Heading>
+            <Heading className={type.pageTitle}>{title}</Heading>
             {meta ? <Box>{meta}</Box> : null}
           </HStack>
           {subtitle ? (
-            <Text size="sm" className="text-muted-foreground">
+            <Text size="sm" className={type.lead}>
               {subtitle}
             </Text>
           ) : null}

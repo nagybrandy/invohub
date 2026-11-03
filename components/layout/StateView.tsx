@@ -9,6 +9,7 @@ import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTranslation } from "react-i18next";
+import { type } from "@/lib/ui/type";
 import type { LucideIcon } from "lucide-react-native";
 
 export type StateViewKind = "empty" | "loading" | "error";
@@ -37,7 +38,7 @@ function SkeletonRows({ rows }: { rows: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <Box
           key={i}
-          className="h-12 w-full animate-pulse rounded-lg bg-muted"
+          className="h-12 w-full animate-pulse rounded-control bg-neutral-wash"
         />
       ))}
     </VStack>
@@ -81,14 +82,14 @@ export function StateView({
         {Icon ? (
           <Icon
             size={40}
-            className={kind === "error" ? "text-destructive" : "text-muted-foreground/60"}
+            className={kind === "error" ? "text-err" : "text-faint"}
           />
         ) : null}
-        <Heading size="sm" className="text-center text-foreground">
+        <Heading size="sm" className={`text-center ${type.itemTitle}`}>
           {resolvedTitle}
         </Heading>
         {resolvedDescription ? (
-          <Text size="xs" className="text-center text-muted-foreground">
+          <Text size="sm" className={`text-center ${type.meta}`}>
             {resolvedDescription}
           </Text>
         ) : null}

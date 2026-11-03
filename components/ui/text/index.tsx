@@ -3,6 +3,7 @@ import React from 'react';
 import type { VariantProps } from '@gluestack-ui/utils/nativewind-utils';
 import { Text as RNText } from 'react-native';
 import { textStyle } from './styles';
+import { nativeFontStyle } from '@/lib/ui/fonts';
 
 type ITextProps = React.ComponentProps<typeof RNText> &
   VariantProps<typeof textStyle> & {
@@ -41,11 +42,11 @@ const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(
           highlight: highlight as boolean,
           class: numeric ? `tabular-nums text-right ${className ?? ''}` : className,
         })}
-        style={
-          numeric
-            ? [{ fontVariant: ['tabular-nums'] as const }, style]
-            : style
-        }
+        style={[
+          nativeFontStyle(className, { bold: bold as boolean | undefined }),
+          numeric ? { fontVariant: ['tabular-nums'] as const } : null,
+          style,
+        ]}
         {...props}
         ref={ref}
       />

@@ -1,10 +1,12 @@
 // lib/i18n/locales/hu.ts
 export default {
   nav: {
-    dashboard: "Vezérlőpult",
+    dashboard: "Főoldal",
     invoices: "Számlák",
     newInvoice: "Új számla",
     newReceipt: "Új nyugta",
+    newPartner: "Új partner",
+    newShort: "Új",
     dataExport: "Adatexport",
     bulkUpload: "Tömeges feltöltés",
     clients: "Ügyfelek",
@@ -26,6 +28,63 @@ export default {
     expandSidebar: "Oldalsáv kinyitása",
     switchToDark: "Átváltás sötét módra",
     switchToLight: "Átváltás világos módra",
+    settingsAppearance: "Nyelv és megjelenés",
+    settingsNav: "NAV",
+    primaryNav: "Fő navigáció",
+    secondaryNav: "További oldalak",
+    breadcrumb: {
+      invoice: "Számla",
+      receipt: "Nyugta",
+      partner: "Partner",
+      product: "Termék",
+      edit: "Szerkesztés",
+      new: "Új",
+    },
+  },
+  shell: {
+    brand: "InvoHub",
+    homeLink: "InvoHub főoldal",
+    search: {
+      placeholder: "Keresés",
+      label: "Keresés a számlák, partnerek és termékek között",
+      open: "Keresés megnyitása",
+      close: "Keresés bezárása",
+    },
+    newMenu: {
+      toggle: "Új létrehozása",
+      title: "Új létrehozása",
+      collapsedMain: "Új számla",
+    },
+    account: {
+      button: "Fiók és cégek",
+      signedIn: "Bejelentkezve",
+      companies: "Cégeid",
+      manage: "Számlázófiókok kezelése",
+      editCompany: "Cégadatok szerkesztése",
+      signOut: "Kijelentkezés",
+      activeAccount: "Aktív",
+      noCompany: "InvoHub",
+      menuTitle: "Fiók",
+    },
+    logout: {
+      title: "Kijelentkezel?",
+      text: "Ezen az eszközön kilépsz az InvoHubból. A mentetlen módosítások nem vesznek el.",
+      cancel: "Mégse",
+      confirm: "Kijelentkezés",
+    },
+    tabs: {
+      label: "Fő navigáció",
+      newSheetTitle: "Új létrehozása",
+      moreSheetTitle: "Továbbiak",
+    },
+  },
+  ui: {
+    close: "Bezárás",
+    cancel: "Mégse",
+    back: "Vissza",
+    loading: "Betöltés…",
+    select: "Választás",
+    sheet: "Ablak",
   },
   emailEditor: {
     title: "E-mail szerkesztő",
@@ -691,6 +750,7 @@ export default {
       overflowLabel: "Továbbiak",
     },
   },
+  lists: {},
   receipts: {
     title: "Nyugta",
     subtitle: "Elektronikus nyugták QR kóddal.",
@@ -773,6 +833,7 @@ export default {
       amount: "Összeg",
     },
   },
+  composer: {},
   dashboard: {
     breadcrumb: "Főoldal / Áttekintés",
     subtitle: "Számlázási és megfelelőségi tevékenység áttekintése.",
@@ -863,6 +924,7 @@ export default {
       demoBadge: "Demó adat",
     },
   },
+  home: {},
   billing: {
     title: "Számlázási beállítások",
     subtitle: "Adózási adatok, számla-előtag és alapértelmezések — ezekkel indul minden új számla és nyugta.",
@@ -1221,6 +1283,7 @@ export default {
       previewFrameTitle: "Minta számla PDF",
     },
   },
+  settingsPages: {},
   products: {
     title: "Termékek",
     subtitle: "Szolgáltatások és termékek a számlatételekhez.",
@@ -1510,6 +1573,7 @@ export default {
       copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
     },
   },
+  publicSite: {},
   blog: {
     eyebrow: "InvoHub blog",
     indexTitle: "Pontos útmutatók a magyar számlázáshoz",
@@ -1567,6 +1631,7 @@ export default {
       reminderScheduledBody: "Az automatikus emlékeztető 7 nap múlva megy ki.",
     },
   },
+  globalSearch: {},
   userMenu: {
     accountSettings: "Fiókbeállítások",
     companyProfile: "Céges profil",

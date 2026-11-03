@@ -66,7 +66,7 @@ describe("OverflowMenu (web)", () => {
     expect(tree.root.findByProps({ testID: "overflow-menu-item-2" })).toBeTruthy();
   });
 
-  it("trigger and menu items clear the 44px tap-target floor", () => {
+  it("trigger is the 34px (40 on phones) icon button and menu rows keep the 44px floor", () => {
     const tree = render({
       items: [
         { label: "Szerkesztés", onPress: jest.fn() },
@@ -74,7 +74,8 @@ describe("OverflowMenu (web)", () => {
       ],
     });
     const trigger = tree.root.findByProps({ testID: "overflow-menu-trigger" });
-    expect(trigger.props.className).toContain("h-11 w-11");
+    expect(trigger.props.className).toContain("h-[34px] w-[34px]");
+    expect(trigger.props.className).toContain("phone:h-10 phone:w-10");
     expect(trigger.props.hitSlop).toEqual(8);
 
     act(() => {

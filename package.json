@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@better-auth/expo": "^1.6.23",
+    "@expo-google-fonts/stack-sans-notch": "^0.4.0",
+    "@expo-google-fonts/stack-sans-text": "^0.4.0",
     "@expo/html-elements": "^57.0.0",
     "@gluestack-ui/core": "^5.0.15",
     "@gluestack-ui/utils": "^5.0.6",

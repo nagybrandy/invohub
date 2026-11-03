@@ -1,33 +1,29 @@
 // components/navigation/AppSidebar.tsx
-// Persistent desktop navy left sidebar (N1/N5 fix): the only place on desktop
-// that carries a real, complete nav — every primary section is one click away.
-// Collapse/expand is controlled from outside (the toggle icon lives in
-// AppTopStrip — see useSidebarCollapsed) so this component just renders
-// narrow or wide for whatever `collapsed` it's given.
+// Persistent navy sidebar for widths above the phone breakpoint (SPEC §5.1,
+// tokens.md §6.10). Navy in BOTH themes. Top to bottom: head (logo +
+// wordmark, collapse toggle), the split create button, the six primary rows
+// (Főoldal, Számlák, Nyugták, Partnerek, Termékek, Beállítások), a divider,
+// the real secondary rows (getSidebarSecondaryNav), and the account button in
+// the footer. 248px wide, 72px collapsed (icons with tooltips). The overlays
+// on the navy are the only hard-coded translucent whites in the app chrome.
 import * as React from "react";
+import { PanelLeft } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { Building2, LogOut, Plus } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
-import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { BrandLogo, BrandMark } from "@/components/marketing/BrandLogo";
+import { Tooltip } from "@/components/ui/tooltip";
+import { NewCreateButton } from "@/components/navigation/NewCreateButton";
 import {
   getSidebarSecondaryNav,
   isNavActive,
   SIDEBAR_PRIMARY_NAV,
   type AppNavItem,
 } from "@/lib/app-navigation";
-import { isWeb } from "@/lib/platform";
+import { LAYOUT } from "@/lib/theme/layout";
+import { useIconColors } from "@/lib/theme/icon-colors";
 import type { AppRoute } from "@/lib/navigation";
-
-// Fixed on-navy ink — the sidebar surface is always the navy `bg-secondary`
-// token regardless of app theme, so its icon/text ink stays a constant
-// white/near-white rather than following light/dark foreground tokens
-// (react-native-svg icons need a literal color, not a CSS var).
-const ON_DARK_ACTIVE = "#ffffff";
-const ON_DARK_MUTED = "#aab0c6";
 
 function SidebarNavRow({
   item,
@@ -41,120 +37,128 @@ function SidebarNavRow({
   onPress: () => void;
 }) {
   const { t } = useTranslation();
+  const icons = useIconColors();
   const Icon = item.icon;
-  return (
+  const label = t(item.labelKey);
+  const row = (
     <Pressable
+      testID={`sidebar-nav-${item.labelKey.replace("nav.", "")}`}
       onPress={onPress}
       accessibilityRole="link"
-      accessibilityLabel={t(item.labelKey)}
-      className={`h-10 flex-row items-center gap-2 rounded-lg border-l-[3px] px-2.5 hover:bg-white/8 ${
-        collapsed ? "justify-center px-0" : ""
-      } ${active ? "border-l-primary bg-white/14" : "border-l-transparent"}`}
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      aria-current={active ? "page" : undefined}
+      className={`min-h-10 flex-row items-center gap-3 rounded-control ${
+        collapsed ? "justify-center px-0 py-[11px]" : "px-3 py-[9px]"
+      } ${active ? "bg-white/10" : "data-[hover=true]:bg-white/[0.11]"}`}
     >
-      <Icon size={20} color={active ? ON_DARK_ACTIVE : ON_DARK_MUTED} />
-      {!collapsed ? (
+      <Icon size={18} color={active ? icons.onNavyActive : icons.onNavy} />
+      {collapsed ? null : (
         <Text
-          isTruncated
-          {...(isWeb() ? {} : { numberOfLines: 1 })}
-          className={`text-sm ${
-            active ? "font-semibold text-white" : "text-secondary-foreground/75"
-          }`}
+          numberOfLines={1}
+          className={`flex-1 text-sm font-medium ${active ? "text-white" : "text-navy-ink"}`}
         >
-          {t(item.labelKey)}
+          {label}
         </Text>
-      ) : null}
+      )}
     </Pressable>
+  );
+  // The rail has no room for labels: they live in a tooltip (hover and focus).
+  return collapsed ? (
+    <Tooltip content={label} testID={`sidebar-tooltip-${item.labelKey.replace("nav.", "")}`}>
+      {row}
+    </Tooltip>
+  ) : (
+    row
   );
 }
 
 export type AppSidebarProps = {
   activePathname: string;
   role?: string;
-  companyName?: string;
-  companyTaxId?: string;
   collapsed: boolean;
+  onToggleCollapsed: () => void;
   onNavigate: (href: AppRoute) => void;
   onNewInvoice: () => void;
-  /** Optional shortcut under "Új számla" — receipts are issued as often as invoices. */
-  onNewReceipt?: () => void;
-  onOpenCompanySettings: () => void;
-  onSignOut: () => void;
+  onNewReceipt: () => void;
+  onNewPartner: () => void;
+  /** The account button (AccountMenu variant="sidebar"), rendered in the footer. */
+  accountMenu: React.ReactNode;
 };
 
 export function AppSidebar({
   activePathname,
   role,
-  companyName,
-  companyTaxId,
   collapsed,
+  onToggleCollapsed,
   onNavigate,
   onNewInvoice,
   onNewReceipt,
-  onOpenCompanySettings,
-  onSignOut,
+  onNewPartner,
+  accountMenu,
 }: AppSidebarProps) {
   const { t } = useTranslation();
+  const icons = useIconColors();
   const secondaryNav = getSidebarSecondaryNav(role);
-  // w-72px/w-248px are Tailwind arbitrary-value classes NativeWind resolves
-  // to a real `width`, so a plain CSS `transition-[width]` (web-only utility
-  // — no-ops harmlessly on native) animates the collapse/expand smoothly
-  // instead of the width snapping instantly.
-  const widthClass = collapsed ? "w-[72px]" : "w-[248px]";
+  const width = collapsed ? LAYOUT.sidebarCollapsed : LAYOUT.sidebarWidth;
+
+  const logo = (
+    <Pressable
+      testID="sidebar-logo"
+      accessibilityRole="link"
+      accessibilityLabel={t("shell.homeLink")}
+      onPress={() => onNavigate("/dashboard" as AppRoute)}
+      className="flex-row items-center gap-2.5"
+    >
+      <Box className="h-[26px] w-[26px] rounded-[7px] bg-primary" />
+      {collapsed ? null : (
+        <Text className="font-heading text-lg font-bold text-white">{t("shell.brand")}</Text>
+      )}
+    </Pressable>
+  );
+
+  const toggle = (
+    <Pressable
+      testID="sidebar-collapse-toggle"
+      onPress={onToggleCollapsed}
+      accessibilityRole="button"
+      accessibilityLabel={t(collapsed ? "nav.expandSidebar" : "nav.collapseSidebar")}
+      accessibilityState={{ expanded: !collapsed }}
+      className="h-9 w-9 items-center justify-center rounded-control data-[hover=true]:bg-white/[0.11]"
+    >
+      <PanelLeft size={18} color={icons.onNavy} />
+    </Pressable>
+  );
 
   return (
     <Box
       testID="app-sidebar"
-      className={`h-full flex-shrink-0 overflow-hidden bg-secondary web:transition-[width] web:duration-200 web:ease-in-out ${widthClass}`}
+      // `on-navy` flips the global focus ring to white (global.css).
+      className="on-navy h-full shrink-0 overflow-hidden bg-navy web:transition-[width] web:duration-[220ms] web:ease-in-out"
+      style={{ width }}
     >
-      <VStack className="h-full justify-between px-3 py-4">
-        <VStack space="lg">
-          {/* Collapsed: only the mark (no wordmark — it has no room in a
-              72px rail and would clip). The collapse/expand toggle itself
-              lives in AppTopStrip, not here — see useSidebarCollapsed. */}
-          <HStack
-            className={`items-center px-1 py-1 ${collapsed ? "justify-center" : "justify-start"}`}
-          >
-            {collapsed ? (
-              <BrandMark tone="onDark" size={24} />
-            ) : (
-              <BrandLogo tone="onDark" withMark height={24} />
-            )}
-          </HStack>
+      <VStack className={`h-full justify-between py-4 ${collapsed ? "px-2.5" : "px-3"}`}>
+        <VStack className="gap-3.5">
+          {collapsed ? (
+            <VStack className="items-center gap-2">
+              {logo}
+              {toggle}
+            </VStack>
+          ) : (
+            <Box className="flex-row items-center justify-between px-1">
+              {logo}
+              {toggle}
+            </Box>
+          )}
 
-          <Pressable
-            onPress={onNewInvoice}
-            accessibilityRole="button"
-            accessibilityLabel={t("nav.newInvoice")}
-            className={`h-10 flex-row items-center justify-center gap-2 rounded-lg bg-primary px-3 ${
-              collapsed ? "px-0" : ""
-            }`}
-          >
-            <Plus size={18} color="#ffffff" />
-            {!collapsed ? (
-              <Text className="text-sm font-medium text-primary-foreground">
-                {t("nav.newInvoice")}
-              </Text>
-            ) : null}
-          </Pressable>
+          <NewCreateButton
+            collapsed={collapsed}
+            onNewInvoice={onNewInvoice}
+            onNewReceipt={onNewReceipt}
+            onNewPartner={onNewPartner}
+          />
 
-          {onNewReceipt ? (
-            <Pressable
-              onPress={onNewReceipt}
-              accessibilityRole="button"
-              accessibilityLabel={t("nav.newReceipt")}
-              testID="sidebar-new-receipt"
-              className={`h-10 flex-row items-center justify-center gap-2 rounded-lg border border-white/25 px-3 ${
-                collapsed ? "px-0" : ""
-              }`}
-            >
-              <Plus size={18} color="#ffffff" />
-              {!collapsed ? (
-                <Text className="text-sm font-medium text-white">{t("nav.newReceipt")}</Text>
-              ) : null}
-            </Pressable>
-          ) : null}
-
-          <VStack space="xs">
+          <VStack className="gap-1" role="navigation" aria-label={t("nav.primaryNav")}>
             {SIDEBAR_PRIMARY_NAV.map((item) => (
               <SidebarNavRow
                 key={item.href as string}
@@ -166,9 +170,9 @@ export function AppSidebar({
             ))}
           </VStack>
 
-          <Box className="h-px bg-white/10" />
+          <Box className="mx-1 my-1.5 h-px bg-white/[0.12]" />
 
-          <VStack space="xs">
+          <VStack className="gap-1" role="navigation" aria-label={t("nav.secondaryNav")}>
             {secondaryNav.map((item) => (
               <SidebarNavRow
                 key={item.href as string}
@@ -181,55 +185,7 @@ export function AppSidebar({
           </VStack>
         </VStack>
 
-        <VStack space="xs">
-          <Box className="h-px bg-white/10" />
-
-          <Pressable
-            onPress={onOpenCompanySettings}
-            accessibilityRole="button"
-            accessibilityLabel={t("nav.companySettings")}
-            className={`rounded-lg px-2 py-2 hover:bg-white/8 ${
-              collapsed ? "items-center px-0" : ""
-            }`}
-          >
-            {!collapsed ? (
-              <VStack>
-                <Text
-                  className="text-sm font-medium text-white"
-                  isTruncated
-                  {...(isWeb() ? {} : { numberOfLines: 1 })}
-                >
-                  {companyName || "InvoHub"}
-                </Text>
-                {companyTaxId ? (
-                  <Text
-                    className="text-[10px] font-light text-secondary-foreground/70"
-                    isTruncated
-                    {...(isWeb() ? {} : { numberOfLines: 1 })}
-                  >
-                    {companyTaxId}
-                  </Text>
-                ) : null}
-              </VStack>
-            ) : (
-              <Building2 size={18} color={ON_DARK_MUTED} />
-            )}
-          </Pressable>
-
-          <Pressable
-            onPress={onSignOut}
-            accessibilityRole="button"
-            accessibilityLabel={t("nav.signOut")}
-            className={`h-10 flex-row items-center gap-2 rounded-lg px-2 hover:bg-white/8 ${
-              collapsed ? "justify-center px-0" : ""
-            }`}
-          >
-            <LogOut size={18} color={ON_DARK_MUTED} />
-            {!collapsed ? (
-              <Text className="text-sm text-secondary-foreground/85">{t("nav.signOut")}</Text>
-            ) : null}
-          </Pressable>
-        </VStack>
+        <Box className="border-t border-white/[0.12] pt-2.5">{accountMenu}</Box>
       </VStack>
     </Box>
   );

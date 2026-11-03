@@ -1,132 +1,108 @@
 // components/navigation/MobileTabBar.test.tsx
+// Phone tab bar: Főoldal, Számlák, Új (56x32 primary pill), Partnerek,
+// Továbbiak, on the 1fr 1fr 1.45fr 1fr 1fr grid.
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { MobileTabBar } from "@/components/navigation/MobileTabBar";
+import { MobileTabBar, TAB_COLUMN_FLEX } from "@/components/navigation/MobileTabBar";
+import { routes } from "@/lib/navigation";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@/components/ui/box", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 20, left: 0, right: 0 }),
 }));
 jest.mock("@/lib/theme/icon-colors", () => ({
-  useIconColors: () => ({
-    primary: "#6495ed",
-    muted: "#64748b",
-    foreground: "#0f172a",
-    destructive: "#dc2626",
-    accent: "#8db600",
-    accentForeground: "#1f305e",
-    secondary: "#111f4a",
-  }),
+  useIconColors: () => ({ muted: "#666", primary: "#00f", onNavyActive: "#fff" }),
 }));
+jest.mock("lucide-react-native", () => {
+  const { View } = require("react-native");
+  return new Proxy({}, { get: (_t, name) => (props: object) => <View testID={`icon-${String(name)}`} {...props} /> });
+});
+for (const m of ["box", "pressable", "text"]) jest.mock(`@/components/ui/${m}`, () => require("@/__tests__/mocks/gluestack-ui"));
+
+function render(props: Partial<React.ComponentProps<typeof MobileTabBar>> = {}) {
+  const handlers = { onNavigate: jest.fn(), onOpenNew: jest.fn(), onOpenMore: jest.fn() };
+  let tree!: TestRenderer.ReactTestRenderer;
+  act(() => {
+    tree = TestRenderer.create(<MobileTabBar pathname="/dashboard" {...handlers} {...props} />);
+  });
+  const tab = (id: string) => tree.root.findAll((n) => n.props?.testID === id && typeof n.props.onPress === "function")[0];
+  return { tree, tab, ...handlers };
+}
 
 describe("MobileTabBar", () => {
-  it("renders exactly 5 tabs in order: Számlák, Partnerek, +, Vezérlőpult, Továbbiak", async () => {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(
-        <MobileTabBar pathname="/dashboard" onNavigate={jest.fn()} onOpenMore={jest.fn()} />,
-      );
-    });
-    const order = ["nav.invoices", "nav.partners", "nav.newInvoice", "nav.dashboard", "nav.more"];
+  it("shows Főoldal, Számlák, Új, Partnerek, Továbbiak in that order", () => {
+    const { tree } = render();
     const json = JSON.stringify(tree.toJSON());
-    let lastIndex = -1;
-    for (const key of order) {
-      const idx = json.indexOf(`"${key}"`);
-      expect(idx).toBeGreaterThan(lastIndex);
-      lastIndex = idx;
-    }
-    act(() => tree.unmount());
+    const order = ["nav.dashboard", "nav.invoices", "nav.newShort", "nav.partners", "nav.more"].map((k) => json.indexOf(k));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it("styles the centre + as a raised FAB", async () => {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(
-        <MobileTabBar pathname="/dashboard" onNavigate={jest.fn()} onOpenMore={jest.fn()} />,
-      );
-    });
-    const fab = tree.root.find((node) => node.props?.accessibilityLabel === "nav.newInvoice");
-    expect(fab.props.className).toContain("h-[52px]");
-    expect(fab.props.className).toContain("w-[52px]");
-    expect(fab.props.className).toContain("-mt-5");
-    act(() => tree.unmount());
+  it("is a labelled navigation landmark with the safe-area padding", () => {
+    const { tree } = render();
+    const bar = tree.root.findByProps({ testID: "mobile-tab-bar" });
+    expect(bar.props.role).toBe("navigation");
+    expect(bar.props["aria-label"]).toBe("shell.tabs.label");
+    expect(bar.props.style).toEqual({ paddingBottom: 26 });
+    expect(bar.props.className).toContain("border-t");
+    expect(bar.props.className).toContain("shadow-tabbar");
   });
 
-  it("navigates when a route tab is pressed", async () => {
-    const onNavigate = jest.fn();
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(
-        <MobileTabBar pathname="/dashboard" onNavigate={onNavigate} onOpenMore={jest.fn()} />,
-      );
-    });
-    const partnersTab = tree.root.find((node) => node.props?.accessibilityLabel === "nav.partners");
-    act(() => partnersTab.props.onPress?.());
-    expect(onNavigate).toHaveBeenCalledWith("/clients");
-    act(() => tree.unmount());
+  it("the grid is 1fr 1fr 1.45fr 1fr 1fr so the gaps between shapes are equal", () => {
+    expect(TAB_COLUMN_FLEX).toEqual([1, 1, 1.45, 1, 1]);
+    const { tree } = render();
+    const columns = tree.root.findAll((n) => n.props?.style && "flexGrow" in (n.props.style as object) && "flexBasis" in (n.props.style as object));
+    const grows = Array.from(new Set(columns.map((n) => (n.props.style as { flexGrow: number }).flexGrow)));
+    expect(grows.sort()).toEqual([1, 1.45]);
+    expect(columns.filter((n) => (n.props.style as { flexGrow: number }).flexGrow === 1.45).length).toBeGreaterThan(0);
   });
 
-  it("opens the Továbbiak sheet instead of navigating for the last tab", async () => {
-    const onOpenMore = jest.fn();
-    const onNavigate = jest.fn();
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(
-        <MobileTabBar pathname="/dashboard" onNavigate={onNavigate} onOpenMore={onOpenMore} />,
-      );
-    });
-    const moreTab = tree.root.find((node) => node.props?.accessibilityLabel === "nav.more");
-    act(() => moreTab.props.onPress?.());
+  it("Új is a 56x32 primary pill with a white plus", () => {
+    const { tree, tab } = render();
+    const pill = tree.root.findByProps({ testID: "tab-new-pill" });
+    expect(pill.props.className).toContain("h-8 w-14");
+    expect(pill.props.className).toContain("bg-primary");
+    expect(pill.props.className).toContain("rounded-2xl");
+    expect(tab("tab-new").props.accessibilityLabel).toBe("nav.newShort");
+    expect(tree.root.findAllByProps({ testID: "icon-Plus" })[0].props.color).toBe("#fff");
+  });
+
+  it("Új and Továbbiak open their sheets; the other three navigate", () => {
+    const { tab, onNavigate, onOpenNew, onOpenMore } = render();
+    act(() => tab("tab-new").props.onPress());
+    expect(onOpenNew).toHaveBeenCalledTimes(1);
+    act(() => tab("tab-more").props.onPress());
     expect(onOpenMore).toHaveBeenCalledTimes(1);
-    expect(onNavigate).not.toHaveBeenCalled();
-    act(() => tree.unmount());
+    act(() => tab("tab-dashboard").props.onPress());
+    act(() => tab("tab-invoices").props.onPress());
+    act(() => tab("tab-partners").props.onPress());
+    expect(onNavigate.mock.calls.map((c) => c[0])).toEqual([routes.dashboard, routes.invoices, routes.clients]);
+    expect(onNavigate).toHaveBeenCalledTimes(3);
   });
 
-  it("marks the active tab", async () => {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(
-        <MobileTabBar pathname="/clients" onNavigate={jest.fn()} onOpenMore={jest.fn()} />,
-      );
-    });
-    const partnersTab = tree.root.find((node) => node.props?.accessibilityLabel === "nav.partners");
-    expect(partnersTab.props.accessibilityState?.selected).toBe(true);
-    act(() => tree.unmount());
-  });
-});
-
-describe("MobileTabBar — tap targets", () => {
-  async function render() {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(
-        <MobileTabBar pathname="/invoices" onNavigate={jest.fn()} onOpenMore={jest.fn()} />,
-      );
-    });
-    return tree;
-  }
-
-  it("gives every tab a 44px target (the icon-only box was 38x38)", async () => {
-    const tree = await render();
-    const tabs = tree.root.findAll((n) => n.props?.accessibilityRole === "tab");
-
-    expect(tabs.length).toBeGreaterThan(0);
-    tabs.forEach((tab) => expect(String(tab.props.className)).toMatch(/min-h-11/));
+  it("marks the current section active in primary and the rest muted", () => {
+    const { tree, tab } = render({ pathname: "/invoices/abc" });
+    expect(tab("tab-invoices").props.accessibilityState).toMatchObject({ selected: true });
+    expect(tab("tab-invoices").props["aria-current"]).toBe("page");
+    expect(tab("tab-dashboard").props.accessibilityState).toMatchObject({ selected: false });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("text-primary");
+    expect(json).toContain("text-muted-ink");
   });
 
-  it("puts the label inside the pressable, so the word is tappable too", async () => {
-    const tree = await render();
-    const tabs = tree.root.findAll((n) => n.props?.accessibilityRole === "tab");
+  it("reports an open sheet on Új / Továbbiak", () => {
+    const { tab } = render({ newOpen: true, moreOpen: true });
+    expect(tab("tab-new").props.accessibilityState).toMatchObject({ expanded: true });
+    expect(tab("tab-more").props.accessibilityState).toMatchObject({ expanded: true });
+  });
 
-    const withLabel = tabs.filter(
-      (tab) => tab.findAll((c) => typeof c.props?.children === "string").length > 0,
-    );
-    expect(withLabel.length).toBe(tabs.length);
+  it("every tab keeps a 52px touch height and 11px / 600 labels", () => {
+    const { tree, tab } = render();
+    for (const id of ["tab-dashboard", "tab-invoices", "tab-new", "tab-partners", "tab-more"]) {
+      expect(tab(id).props.className).toContain("min-h-[52px]");
+    }
+    expect(JSON.stringify(tree.toJSON())).toContain("text-[11px] font-semibold");
   });
 });

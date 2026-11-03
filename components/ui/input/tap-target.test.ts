@@ -1,34 +1,36 @@
 // components/ui/input/tap-target.test.ts
-// Pure unit test on the exported `inputStyle` — no rendering. Input's root is
-// a cssInterop-wrapped Gluestack View, and asserting on className after
+// Redesign 2026-11 (tokens.md §6.3): inputs are 42px high. Pure unit test on
+// the exported `inputStyle` — no rendering. Input's root is a
+// cssInterop-wrapped Gluestack View, and asserting on className after
 // cssInterop under jest-expo is the kind of indirection that makes a guard
 // test flaky, so this asserts on the tva() function directly instead.
-import { inputStyle } from "@/components/ui/input";
-import { MIN_TAP_TARGET_PX, TAP_TARGET_H } from "@/lib/ui/tap-target";
+import { INPUT_HEIGHT_PX, inputStyle } from "@/components/ui/input";
 
-it("clears the 44px floor by default", () => {
-  expect(inputStyle()).toContain(TAP_TARGET_H);
-  expect(inputStyle()).not.toContain("h-9");
+it("is 42px high by default", () => {
+  expect(INPUT_HEIGHT_PX).toBe(42);
+  expect(inputStyle()).toContain("h-[42px]");
 });
 
-it("keeps the floor when a call site passes a layout className", () => {
-  expect(inputStyle({ class: "flex-1" })).toContain(TAP_TARGET_H);
+it("keeps the height when a call site passes a layout className", () => {
+  expect(inputStyle({ class: "flex-1" })).toContain("h-[42px]");
 });
 
-it("keeps the rest of the base intact", () => {
+it("uses the design tokens for border, surface, focus, invalid and disabled states", () => {
+  const cls = inputStyle();
   for (const c of [
     "w-full",
     "flex-row",
     "items-center",
-    "rounded-lg",
+    "rounded-control",
+    "border-line-strong",
+    "bg-surface",
     "px-3",
-    "data-[invalid=true]:border-destructive/40",
+    "data-[focus=true]:border-primary",
+    "data-[focus=true]:web:outline-2",
+    "data-[invalid=true]:border-err",
+    "data-[disabled=true]:bg-wash2",
   ]) {
-    expect(inputStyle()).toContain(c);
+    expect(cls).toContain(c);
   }
-});
-
-it("documents the floor it enforces", () => {
-  expect(MIN_TAP_TARGET_PX).toBe(44);
-  expect(TAP_TARGET_H).toBe("h-11");
+  expect(cls).not.toMatch(/#[0-9a-fA-F]{3,6}/);
 });

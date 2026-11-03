@@ -1,5 +1,5 @@
 // app/_layout.tsx
-// Root layout: GluestackUIProvider, navigation theme, and top-level stack routes.
+// Root layout: GluestackUIProvider, navigation theme, fonts, and top-level stack routes.
 import "react-native-gesture-handler";
 import "../global.css";
 import "@/lib/i18n";
@@ -14,6 +14,8 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { hydrateAppLanguage } from "@/lib/i18n/language";
+import { designPalette } from "@/lib/theme/tokens";
+import { useAppFonts } from "@/lib/ui/use-app-fonts";
 import { useColorScheme } from "@/lib/useColorScheme";
 
 export {
@@ -24,11 +26,11 @@ const InvohubLightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: "rgb(246, 246, 248)",
-    card: "rgb(255, 255, 255)",
-    border: "rgb(197, 199, 202)",
-    primary: "rgb(100, 149, 237)",
-    text: "rgb(33, 35, 37)",
+    background: designPalette.light.canvas,
+    card: designPalette.light.surface,
+    border: designPalette.light["line-strong"],
+    primary: designPalette.light.primary,
+    text: designPalette.light.ink,
   },
 };
 
@@ -36,20 +38,25 @@ const InvohubDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: "rgb(9, 11, 16)",
-    card: "rgb(18, 22, 30)",
-    border: "rgb(38, 45, 61)",
-    primary: "rgb(99, 102, 241)",
-    text: "rgb(241, 245, 249)",
+    background: designPalette.dark.canvas,
+    card: designPalette.dark.surface,
+    border: designPalette.dark["line-strong"],
+    primary: designPalette.dark.primary,
+    text: designPalette.dark.ink,
   },
 };
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
+  // Web declares Stack Sans in global.css and is always "loaded"; native loads
+  // the static cuts and holds the splash screen until they are ready.
+  const fontsReady = useAppFonts();
 
   React.useEffect(() => {
     void hydrateAppLanguage();
   }, []);
+
+  if (!fontsReady) return null;
 
   return (
     <GluestackUIProvider mode={colorScheme}>

@@ -42,15 +42,16 @@ describe("Section", () => {
   it("card variant gets a rounded-xl subtle-border frame with no shadow", () => {
     const tree = render({ title: "X", children: <RNText>c</RNText> });
     const root = tree.root.findByProps({ testID: "section" });
-    expect(root.props.className).toContain("rounded-xl");
-    expect(root.props.className).toContain("border-subtle");
-    expect(root.props.className).not.toMatch(/shadow/);
+    expect(root.props.className).toContain("rounded-card");
+    expect(root.props.className).toContain("bg-surface");
+    expect(root.props.className).toContain("shadow-card");
   });
 
   it("plain variant renders no frame classes", () => {
     const tree = render({ variant: "plain", children: <RNText>c</RNText> });
     const root = tree.root.findByProps({ testID: "section" });
-    expect(root.props.className).not.toContain("rounded-xl");
+    expect(root.props.className).not.toContain("rounded-card");
+    expect(root.props.className).not.toContain("shadow-card");
     expect(root.props.className).not.toContain("border");
   });
 
