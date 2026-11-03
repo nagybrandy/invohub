@@ -21,7 +21,38 @@ const fontTargets = [
 // Helvetica in production (loud at request time via console.error, but this
 // script should fail the build instead of letting that ship unnoticed).
 const embeddedFontSrc = path.join(root, "assets/fonts/pdf");
-const embeddedFontFiles = ["NotoSans-Regular.ttf", "NotoSans-Bold.ttf"];
+const embeddedFontFiles = [
+  "NotoSans-Regular.ttf",
+  "NotoSans-Bold.ttf",
+  // Paper redesign (2026-11): the 15 OFL TTFs of the three font styles, kept in
+  // their sub-directories. MUST match PAPER_FONT_FILES in lib/invoices/pdf-fonts.ts
+  // (lib/invoices/pdf-fonts.test.ts checks this list against it).
+  "stack-sans/StackSansNotch-Medium.ttf",
+  "stack-sans/StackSansNotch-SemiBold.ttf",
+  "stack-sans/StackSansNotch-Bold.ttf",
+  "stack-sans/StackSansText-Regular.ttf",
+  "stack-sans/StackSansText-Bold.ttf",
+  "source/SourceSerif4-Medium.ttf",
+  "source/SourceSerif4-SemiBold.ttf",
+  "source/SourceSerif4-Bold.ttf",
+  "source/SourceSans3-Regular.ttf",
+  "source/SourceSans3-Bold.ttf",
+  "nunito/Nunito-Medium.ttf",
+  "nunito/Nunito-SemiBold.ttf",
+  "nunito/Nunito-Bold.ttf",
+  "nunito/NunitoSans-Regular.ttf",
+  "nunito/NunitoSans-Bold.ttf",
+];
+// The OFL texts travel with the fonts they cover.
+const embeddedFontLicences = [
+  "OFL.txt",
+  "stack-sans/OFL-StackSansNotch.txt",
+  "stack-sans/OFL-StackSansText.txt",
+  "source/OFL-SourceSerif4.txt",
+  "source/OFL-SourceSans3.txt",
+  "nunito/OFL-Nunito.txt",
+  "nunito/OFL-NunitoSans.txt",
+];
 const embeddedFontTarget = path.join(root, "dist/server/assets/pdf-fonts");
 
 function destForPackage(name) {
@@ -104,7 +135,9 @@ for (const target of fontTargets) {
 }
 
 fs.mkdirSync(embeddedFontTarget, { recursive: true });
-for (const file of embeddedFontFiles) {
-  fs.copyFileSync(path.join(embeddedFontSrc, file), path.join(embeddedFontTarget, file));
+for (const file of [...embeddedFontFiles, ...embeddedFontLicences]) {
+  const target = path.join(embeddedFontTarget, file);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.copyFileSync(path.join(embeddedFontSrc, file), target);
 }
 console.log(`Copied embedded PDF fonts to ${path.relative(root, embeddedFontTarget)}`);

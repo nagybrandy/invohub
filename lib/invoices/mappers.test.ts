@@ -274,6 +274,11 @@ describe("mapLineItemToDb", () => {
 });
 
 describe("mapInvoiceToDb", () => {
+  it("never writes the appearance snapshot — only the finalize transaction sets it, so a later save (mark paid, edit) can't clear or replace it", () => {
+    const row = mapInvoiceToDb(makeInvoice(), "user-1");
+    expect(row).not.toHaveProperty("pdfTemplateSnapshot");
+  });
+
   it("maps domain invoice to DB shape including clientId", () => {
     const inv = makeInvoice({ clientId: "cli-9" });
     expect(mapInvoiceToDb(inv, "user-1")).toMatchObject({

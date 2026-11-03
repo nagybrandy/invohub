@@ -193,10 +193,15 @@ jest.mock("@/lib/companies/service", () => ({
   getCompanyByUserId: jest.fn(),
 }));
 
+jest.mock("@/lib/invoices/pdf-template/service", () => ({
+  getPdfTemplate: jest.fn(),
+}));
+
 import { db } from "@/db";
 import { invoice as invoiceTable } from "@/db/schema";
 import { runInTransaction } from "@/db/transaction";
 import { getCompanyByUserId } from "@/lib/companies/service";
+import { getPdfTemplate } from "@/lib/invoices/pdf-template/service";
 import { mapInvoiceToDb, mapLineItemToDb } from "@/lib/invoices/mappers";
 import {
   CompanyProfileIncompleteError,
@@ -209,6 +214,18 @@ import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
 const mockRunInTransaction = runInTransaction as jest.MockedFunction<typeof runInTransaction>;
 const mockGetCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
+const mockGetPdfTemplate = getPdfTemplate as jest.MockedFunction<typeof getPdfTemplate>;
+
+const LIVE_TEMPLATE = {
+  titleText: "SZÁMLA",
+  accentColor: "#123456",
+  showCompanyBlock: true,
+  showBankDetails: false,
+  showClientTaxNumber: true,
+  footerText: "Köszönjük!",
+  notesLabel: "Megjegyzés",
+  fontScale: "small" as const,
+};
 
 const COMPLETE_COMPANY = {
   name: "Acme Kft.",
@@ -261,6 +278,55 @@ beforeEach(() => {
   mockLockRowOverride = null;
   mockBeforeFail = null;
   mockGetCompany.mockResolvedValue(COMPLETE_COMPANY as never);
+  mockGetPdfTemplate.mockResolvedValue({ ...LIVE_TEMPLATE });
+});
+
+describe("upsertInvoice — appearance snapshot at issue time", () => {
+  it("freezes the user's current PDF appearance onto a new invoice in the same write that numbers it", async () => {
+    await upsertInvoice("user-1", draft({ status: "unpaid" }));
+
+    expect(mockGetPdfTemplate).toHaveBeenCalledWith("user-1");
+    expect(mockCommitted.invoices.get("inv-1")).toMatchObject({
+      invoiceNumber: "INV-2026-00001",
+      pdfTemplateSnapshot: LIVE_TEMPLATE,
+    });
+  });
+
+  it("freezes the paper-redesign fields (layout, font style, logo mode/size/position) with the rest of the look", async () => {
+    const paperLook = {
+      ...LIVE_TEMPLATE,
+      layout: "band" as const,
+      fontStyle: "classic" as const,
+      logoMode: "none" as const,
+      logoSize: "L" as const,
+      logoPosition: "right" as const,
+    };
+    mockGetPdfTemplate.mockResolvedValue(paperLook);
+
+    await upsertInvoice("user-1", draft({ status: "unpaid" }));
+
+    expect(mockCommitted.invoices.get("inv-1")?.pdfTemplateSnapshot).toEqual(paperLook);
+  });
+
+  it("freezes it when an existing draft is finalized, too", async () => {
+    const existing = draft();
+    seedCommitted(existing);
+
+    await upsertInvoice("user-1", { ...existing, status: "unpaid" });
+
+    expect(mockCommitted.invoices.get("inv-1")).toMatchObject({
+      status: "unpaid",
+      pdfTemplateSnapshot: LIVE_TEMPLATE,
+    });
+  });
+
+  it("reads the template BEFORE opening the transaction (a failed read never touches the counter)", async () => {
+    mockGetPdfTemplate.mockRejectedValueOnce(new Error("template read failed"));
+
+    await expect(upsertInvoice("user-1", draft({ status: "unpaid" }))).rejects.toThrow("template read failed");
+    expect(mockRunInTransaction).not.toHaveBeenCalled();
+    expect(mockCommitted.sequences.size).toBe(0);
+  });
 });
 
 describe("upsertInvoice — atomic numbering (23/2014. NGM rendelet 8. § (1) a))", () => {
