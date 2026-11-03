@@ -6,6 +6,10 @@ jest.mock("@/lib/clipboard", () => ({
   copyText: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
 jest.mock("@/lib/theme/icon-colors", () => ({
   useIconColors: () => ({ muted: "#666" }),
 }));
@@ -65,7 +69,7 @@ describe("CopyableCredential", () => {
     const copyButton = tree!.root
       .findAll((node) => typeof node.props?.onPress === "function")
       .find((node) =>
-        node.findAll((child) => child.props?.children === "Copy").length > 0
+        node.findAll((child) => child.props?.children === "settingsPages.copy").length > 0
       );
 
     await act(async () => {

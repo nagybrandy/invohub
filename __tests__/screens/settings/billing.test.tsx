@@ -26,6 +26,14 @@ jest.mock("@/components/layout/ScreenLayout", () => ({
 for (const m of ["button", "card", "heading", "pressable", "text", "vstack", "hstack"]) {
   jest.mock(`@/components/ui/${m}`, () => require("@/__tests__/mocks/gluestack-ui"));
 }
+// The dropdown is exercised through its onChange (the native one opens a sheet).
+jest.mock("@/components/ui/select", () => ({
+  Select: (props: Record<string, unknown>) => {
+    const { View } = require("react-native");
+    return <View {...props} />;
+  },
+}));
+jest.mock("@/hooks/useSupportedCurrencies", () => ({ useSupportedCurrencies: () => ["HUF", "EUR"] }));
 jest.mock("@/components/ui/input", () => {
   const { TextInput, View } = require("react-native");
   return { Input: View, InputField: (props: Record<string, unknown>) => <TextInput {...props} /> };
@@ -43,11 +51,13 @@ function render() {
     tree = TestRenderer.create(<BillingSettingsScreen />);
   });
   const byId = (id: string) => tree.root.findAll((n) => n.props?.testID === id)[0];
-  const press = (id: string) =>
-    act(() => {
-      tree.root.findAll((n) => n.props?.testID === id && typeof n.props.onPress === "function")[0].props.onPress();
+  /** Pick a value in one of the dropdowns ("" is the "Nincs megadva" row). */
+  const choose = (id: string, value: string) => act(() => {
+      // The innermost match is the Select itself (OptionSelect maps "" to "not set").
+      const matches = tree.root.findAll((n) => n.props?.testID === id && typeof n.props.onChange === "function");
+      matches[matches.length - 1].props.onChange(value);
     });
-  return { tree, byId, press };
+  return { tree, byId, choose };
 }
 
 describe("BillingSettingsScreen", () => {
@@ -67,12 +77,12 @@ describe("BillingSettingsScreen", () => {
   });
 
   it("saves the choices, normalising the prefix and clearing what was cleared", async () => {
-    const { byId, press } = render();
-    press("billing-tax-mode-kiva"); // switch TAO -> KIVA
-    press("billing-vat-regime-monthly"); // pressing the selected chip again clears it
+    const { byId, choose } = render();
+    choose("billing-tax-mode", "kiva"); // switch TAO -> KIVA
+    choose("billing-vat-regime", ""); // the "not set" row clears it
     act(() => byId("billing-prefix-input").props.onChangeText("dc"));
     act(() => byId("billing-term-days").props.onChangeText("30"));
-    press("billing-language-en");
+    choose("billing-language", "en");
     await act(async () => {
       byId("billing-save").props.onPress();
     });
@@ -81,6 +91,23 @@ describe("BillingSettingsScreen", () => {
       name: "Demo Kft.", taxMode: "kiva", vatRegime: null, invoicePrefix: "DC",
       defaultPaymentTermDays: 30, defaultLanguage: "en", defaultVatRate: 27, defaultNote: "Régi megjegyzés",
     });
+  });
+
+  it("shows the sticky save bar only while there are unsaved changes", () => {
+    const { byId, tree } = render();
+    const hasBar = () => tree.root.findAll((n) => n.props?.testID === "billing-save").length > 0;
+    expect(hasBar()).toBe(false);
+    act(() => byId("billing-term-days").props.onChangeText("30"));
+    expect(hasBar()).toBe(true);
+    act(() => byId("billing-term-days").props.onChangeText("15"));
+    expect(hasBar()).toBe(false);
+  });
+
+  it("discard puts the saved values back", () => {
+    const { byId } = render();
+    act(() => byId("billing-term-days").props.onChangeText("45"));
+    act(() => byId("settings-discard").props.onPress());
+    expect(byId("billing-term-days").props.value).toBe("15");
   });
 
   it("blocks saving an invalid prefix and shows the live example", () => {
