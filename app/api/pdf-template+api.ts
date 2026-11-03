@@ -1,12 +1,29 @@
 // app/api/pdf-template+api.ts
-// GET / PATCH user invoice PDF appearance settings.
-import { requireSession, unauthorizedResponse } from "@/lib/api/session";
+// GET / PATCH user invoice PDF appearance settings; POST renders the sample
+// invoice with an unsaved template (live preview and "Minta PDF letöltése").
+import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { buildSamplePdfContext } from "@/lib/invoices/build-pdf-context";
+import { generateInvoicePdf } from "@/lib/invoices/generate-pdf";
 import { mergePdfTemplate } from "@/lib/invoices/pdf-template/defaults";
 import {
   getPdfTemplate,
   upsertPdfTemplate,
 } from "@/lib/invoices/pdf-template/service";
-import type { InvoicePdfTemplateInput } from "@/lib/invoices/pdf-template/types";
+import { validatePdfTemplateInput } from "@/lib/invoices/pdf-template/validate";
+
+function invalidTemplateResponse(fields: string[]) {
+  return jsonResponse({ error: "Invalid PDF template.", code: "invalidPdfTemplate", fields }, 400);
+}
+
+async function readValidatedBody(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return validatePdfTemplateInput(undefined);
+  }
+  return validatePdfTemplateInput(body);
+}
 
 export async function GET(request: Request) {
   const session = await requireSession(request);
@@ -20,8 +37,10 @@ export async function PATCH(request: Request) {
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  const body = (await request.json()) as InvoicePdfTemplateInput;
-  const template = await upsertPdfTemplate(session.user.id, body);
+  const input = await readValidatedBody(request);
+  if (!input.ok) return invalidTemplateResponse(input.fields);
+
+  const template = await upsertPdfTemplate(session.user.id, input.value);
   return Response.json({ template });
 }
 
@@ -29,11 +48,10 @@ export async function POST(request: Request) {
   const session = await requireSession(request);
   if (!session) return unauthorizedResponse();
 
-  const body = (await request.json()) as InvoicePdfTemplateInput;
-  const template = mergePdfTemplate(body);
-  const { buildSamplePdfContext } = await import("@/lib/invoices/build-pdf-context");
-  const { generateInvoicePdf } = await import("@/lib/invoices/generate-pdf");
+  const input = await readValidatedBody(request);
+  if (!input.ok) return invalidTemplateResponse(input.fields);
 
+  const template = mergePdfTemplate(input.value);
   const ctx = await buildSamplePdfContext(session.user.id);
   const pdf = await generateInvoicePdf({ ...ctx, template });
 
