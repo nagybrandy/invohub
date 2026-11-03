@@ -292,6 +292,22 @@ describe("upsertInvoice — appearance snapshot at issue time", () => {
     });
   });
 
+  it("freezes the paper-redesign fields (layout, font style, logo mode/size/position) with the rest of the look", async () => {
+    const paperLook = {
+      ...LIVE_TEMPLATE,
+      layout: "band" as const,
+      fontStyle: "classic" as const,
+      logoMode: "none" as const,
+      logoSize: "L" as const,
+      logoPosition: "right" as const,
+    };
+    mockGetPdfTemplate.mockResolvedValue(paperLook);
+
+    await upsertInvoice("user-1", draft({ status: "unpaid" }));
+
+    expect(mockCommitted.invoices.get("inv-1")?.pdfTemplateSnapshot).toEqual(paperLook);
+  });
+
   it("freezes it when an existing draft is finalized, too", async () => {
     const existing = draft();
     seedCommitted(existing);

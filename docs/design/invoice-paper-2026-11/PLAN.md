@@ -540,3 +540,30 @@ the number prefix `documentNumber`, the strip caption `paymentDetails`.
 10. Ship gate: the document is a legal document. Recommend a PR with owner
     sign-off rather than an auto-merge, with the variant contact sheet and the
     matrix test as evidence.
+
+---
+
+## 14. As built (slice/invoice-paper-redesign)
+
+Built as planned; the deliberate differences and decisions:
+
+- **No template -> legacy.** `generateInvoicePdf` with a context that has no
+  template (or a template without a `layout` key) renders the frozen legacy
+  look. Every real path supplies a template (`loadTemplate`), so drafts and the
+  settings sample get Dóri's defaults; nothing can restyle an issued invoice by
+  omission.
+- **`normalizeHexColor` keeps the legacy fallback (#6495ed)** (the legacy
+  renderer depends on it); new-layout callers pass `DEFAULT_PDF_TEMPLATE.accentColor`.
+- **`pdf-legacy.ts` does not consume `buildDocumentContent`** (kept untouched,
+  golden hashes in `lib/invoices/__golden__`); the mandatory-content matrix
+  (`document-mandatory.test.ts`) keeps the two printing the same strings.
+- **Numeric table headers are right-aligned** over their right-aligned values
+  (the prototype left-aligns them; with measured column widths this reads
+  better). Dóri to confirm.
+- **Meta strip**: five cells stay on one row when every cell fits on one line,
+  otherwise two rows of three (the design has four cells).
+- **ÁFA-összesítő** sits beside the totals when its measured width fits,
+  otherwise above them; the payment strip keeps a small `Fizetési információ`
+  caption; the exemption statement sits between totals and the payment strip.
+- `statusChip` is localized with the document language.
+- Visual check renders: `build/*.png` (`npx tsx scripts/render-invoice-paper-samples.ts <dir>`, then `pdftoppm -png -r 80`).
