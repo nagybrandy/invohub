@@ -22,7 +22,8 @@ export function ComposerBottomBar({
   children,
   testID = "composer-bottom-bar",
 }: {
-  net: number;
+  /** Omitted when only a gross amount is known (a receipt's simple mode). */
+  net?: number;
   gross: number;
   currency: InvoiceCurrency;
   netLabel: string;
@@ -50,12 +51,14 @@ export function ComposerBottomBar({
         ) : null}
         <Box className="flex-row flex-wrap items-center justify-between gap-x-6 gap-y-3 phone:flex-col phone:items-stretch">
           <HStack className="gap-6" testID="composer-bottom-totals">
-            <VStack>
-              <Text className="text-[13px] text-muted-ink">{netLabel}</Text>
-              <Text className={`${type.money} text-base font-bold text-ink`}>
-                {formatCurrency(net, currency)}
-              </Text>
-            </VStack>
+            {net === undefined ? null : (
+              <VStack>
+                <Text className="text-[13px] text-muted-ink">{netLabel}</Text>
+                <Text className={`${type.money} text-base font-bold text-ink`}>
+                  {formatCurrency(net, currency)}
+                </Text>
+              </VStack>
+            )}
             <VStack>
               <Text className="text-[13px] text-muted-ink">{grossLabel}</Text>
               <Text className={`${type.money} text-base font-bold text-ink`} testID="composer-bottom-gross">

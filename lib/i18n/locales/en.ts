@@ -874,6 +874,7 @@ export default {
     // Receipts
     receiptItemsTitle: "What are you billing?",
     receiptVatRate: "VAT",
+    receiptDetailsTitle: "Payment and language",
   },
   dashboard: {
     breadcrumb: "Home / Dashboard",

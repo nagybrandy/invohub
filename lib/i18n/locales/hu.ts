@@ -873,6 +873,7 @@ export default {
     // Receipts
     receiptItemsTitle: "Mit számlázol?",
     receiptVatRate: "ÁFA",
+    receiptDetailsTitle: "Fizetés és nyelv",
   },
   dashboard: {
     breadcrumb: "Főoldal / Áttekintés",
