@@ -1993,17 +1993,14 @@ sávos/általános) and billing defaults in Beállítások, multiple billing
 accounts + accountant invite/roles, Adatexport, bulk upload from a
 one-row-per-document CSV/Excel (#85–#93). Still open:
 
-- [ ] **Új számla: partner details visible by default.** In
-      `components/invoices/composer/StepPartner.tsx` the selected partner's
-      details (`showClientDetails`) start collapsed; the owner wants them
-      shown next to the name/tax number by default. ⚠ Check against Dóri's
-      redesign (`docs/design/redesign-2026-11/`) — owner decision on which
-      one wins.
-- [ ] **Új számla: dates and payment details visible by default, not in a
-      collapsible block.** `showDatesPayment` in `StepPartner.tsx` starts
-      collapsed. ⚠ Dóri's redesign shows "Dátumok és fizetés" as a one-line
-      summary with a "Módosítás" button, which contradicts the spec — owner
-      decision needed before building.
+- [x] **Új számla: partner details and dates/payment visible by default** —
+      decided by the owner 2026-11-03: Dóri's redesign wins
+      (`docs/design/redesign-2026-11/`); "Dátumok és fizetés" stays a
+      one-line summary with "Módosítás". Not to be built.
+- [x] **Dashboard "+ Új nyugta" next to "+ Új számla"** — decided by the
+      owner 2026-11-03: Dóri's redesign wins; the page header has no create
+      buttons, and receipts start from the split "+ Új számla ▾" button
+      and the phone "Új" tab.
 - [ ] **Document language de / fr / es for invoices, proformas
       (díjbekérő) and advance invoices (előlegszámla).** `DOCUMENT_LANGUAGES`
       (`lib/companies/billing-settings.ts`) already lists them, but
