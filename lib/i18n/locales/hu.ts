@@ -455,7 +455,7 @@ export default {
       navNotSubmitted: "Nincs beküldve",
     },
     status: {
-      sent: "Kiküldve",
+      sent: "Fizetésre vár",
       draft: "Piszkozat",
       cancelled: "Törölve",
       paid: "Fizetve",
@@ -968,7 +968,7 @@ export default {
     devDiagnostics: "Fejlesztői diagnosztika (demó)",
     legend: {
       paid: "Fizetve",
-      sent: "Kiküldve",
+      sent: "Fizetésre vár",
       outstanding: "Kintlévő",
     },
     table: {

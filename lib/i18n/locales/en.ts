@@ -454,7 +454,7 @@ export default {
       navNotSubmitted: "Not submitted",
     },
     status: {
-      sent: "Sent",
+      sent: "Awaiting payment",
       draft: "Draft",
       cancelled: "Cancelled",
       paid: "Paid",
@@ -969,7 +969,7 @@ export default {
     devDiagnostics: "Developer diagnostics (demo)",
     legend: {
       paid: "Paid",
-      sent: "Sent",
+      sent: "Awaiting payment",
       outstanding: "Outstanding",
     },
     table: {
