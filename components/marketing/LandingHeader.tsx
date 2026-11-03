@@ -1,18 +1,25 @@
 // components/marketing/LandingHeader.tsx
-// Floating landing header: transparent over the hero, solid after scroll / menu open.
+// The public header (SPEC §10.4): 64px, links + Bejelentkezés + Kezdés on
+// desktop, logo + a menu button that opens a bottom sheet on phones. Over the
+// landing hero it is a transparent overlay (white text on the navy band) and
+// turns solid (surface + bottom line) once the page scrolls. Pages without a
+// navy hero on top (blog, legal, receipt check) pass `forceSolid`: the bar then
+// sits in the page flow, solid from the start.
 import * as React from "react";
 import { Platform } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Menu, X } from "lucide-react-native";
+import { Menu } from "lucide-react-native";
 import { BrandLogo } from "@/components/marketing/BrandLogo";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
-import { landingColors } from "@/components/marketing/landing-theme";
+import { landingLayout } from "@/components/marketing/landing-theme";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Sheet } from "@/components/ui/sheet";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { useIconColors } from "@/lib/theme/icon-colors";
 
 export type LandingSectionId = "product" | "capabilities" | "workflow" | "insights";
 
@@ -24,17 +31,12 @@ type LandingHeaderProps = {
   onPrimaryAction: () => void;
   onOpenBlog: () => void;
   /**
-   * Keep the pill chrome solid instead of transparent-over-hero. Screens with
-   * no dark hero behind the header (e.g. the blog) need this so header text
+   * Solid, in-flow bar instead of the transparent overlay. Screens with no
+   * navy hero behind the header (the blog, legal pages) need this so the bar
    * stays legible at scroll position 0.
    */
   forceSolid?: boolean;
 };
-
-/** @deprecated Prefer BrandLogo — alias kept for existing section imports. */
-export function BrandMark({ dark = false }: { dark?: boolean }) {
-  return <BrandLogo tone={dark ? "onLight" : "onDark"} height={36} />;
-}
 
 export function LandingHeader({
   isDesktop,
@@ -46,8 +48,9 @@ export function LandingHeader({
   forceSolid = false,
 }: LandingHeaderProps) {
   const { t } = useTranslation();
+  const icons = useIconColors();
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const [solid, setSolid] = React.useState(false);
+  const [scrolled, setScrolled] = React.useState(false);
   const navItems: Array<[LandingSectionId, string]> = [
     ["product", t("landing.nav.product")],
     ["capabilities", t("landing.nav.capabilities")],
@@ -59,223 +62,192 @@ export function LandingHeader({
       return;
     }
     const onScroll = () => {
-      setSolid(window.scrollY > 18);
+      setScrolled(window.scrollY > 8);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Lock background scroll while the fullscreen mobile menu is open so the
-  // page behind it can't be dragged around underneath the overlay.
+  // A resize to the desktop layout must not leave a sheet open behind it.
   React.useEffect(() => {
-    if (Platform.OS !== "web" || typeof document === "undefined") {
-      return;
-    }
-    if (!menuOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [menuOpen]);
+    if (isDesktop) setMenuOpen(false);
+  }, [isDesktop]);
+
+  const solid = forceSolid || scrolled;
+  const overHero = !solid;
+  const ctaLabel = isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted");
 
   function navigate(section: LandingSectionId) {
     setMenuOpen(false);
     onNavigate(section);
   }
 
-  const chromeSolid = forceSolid || solid || menuOpen;
+  function closeThen(action: () => void) {
+    setMenuOpen(false);
+    action();
+  }
+
+  const linkText = overHero
+    ? "text-navy-ink web:hover:text-white"
+    : "text-ink web:hover:text-primary";
+  const linkClass =
+    "min-h-10 justify-center rounded-control px-1 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary";
+
+  const barClass = [
+    "z-50 h-16 w-full justify-center border-b web:transition-[background-color,border-color] web:duration-150 motion-reduce:web:transition-none",
+    forceSolid ? "" : "web:fixed web:inset-x-0 web:top-0",
+    solid
+      ? "border-line bg-surface"
+      : "border-transparent bg-navy web:bg-transparent",
+    overHero ? "on-navy" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <>
-      <Box
-        testID="landing-header"
-        className={
-          !isDesktop && menuOpen
-            ? // Flush with the fullscreen menu below it while open — no
-              // floating pill (rounded corners/border/top margin) sitting on
-              // top, so header + menu read as one continuous surface.
-              "z-50 w-full border-transparent bg-secondary px-3 py-2 web:fixed web:left-0 web:top-0"
-            : `z-50 px-3 py-2 web:fixed web:left-1/2 web:top-3 web:w-[min(1180px,calc(100%-24px))] web:-translate-x-1/2 web:rounded-2xl web:border web:transition-[background-color,border-color,box-shadow,backdrop-filter] web:duration-200 md:px-5 ${
-                chromeSolid
-                  ? "border-white/12 bg-secondary/90 web:shadow-lg web:backdrop-blur-md"
-                  : "border-transparent bg-transparent"
-              }`
-        }
-      >
-        <HStack className="mx-auto w-full max-w-[1280px] items-center justify-between">
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={t("landing.nav.home")}
-          onPress={() => navigate("product")}
-          className="rounded-lg web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
-          testID="landing-brand-logo"
-        >
-          <BrandLogo tone="onDark" height={46} />
-        </Pressable>
+      <Box testID="landing-header" className={barClass}>
+        <HStack className={`${landingLayout.container} h-16 items-center justify-between`}>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={t("landing.nav.home")}
+            onPress={() => navigate("product")}
+            className="rounded-control web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+            testID="landing-brand-logo"
+          >
+            <BrandLogo tone={overHero ? "onDark" : "onLight"} height={36} />
+          </Pressable>
 
-        {isDesktop ? (
-          <HStack space="xl" className="items-center">
-            {navItems.map(([section, label]) => (
-              <Pressable
-                key={section}
-                accessibilityRole="link"
-                onPress={() => navigate(section)}
-                className="rounded-md px-1 py-2 web:transition-colors web:hover:opacity-80 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
-              >
-                <Text size="sm" className="font-medium text-[#e4e9f4]">
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
-            <Pressable
-              accessibilityRole="link"
-              onPress={onOpenBlog}
-              className="rounded-md px-1 py-2 web:transition-colors web:hover:opacity-80 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
-              testID="landing-nav-blog"
-            >
-              <Text size="sm" className="font-medium text-[#e4e9f4]">
-                {t("landing.nav.blog")}
-              </Text>
-            </Pressable>
-          </HStack>
-        ) : null}
-
-        <HStack className="items-center gap-2.5">
-          {/*
-            Mobile keeps the top bar to just brand + hamburger — the CTA and
-            language switch live inside the fullscreen menu instead, not
-            crowded up here.
-          */}
           {isDesktop ? (
-            <>
+            <HStack className="items-center gap-7">
+              {navItems.map(([section, label]) => (
+                <Pressable
+                  key={section}
+                  accessibilityRole="link"
+                  onPress={() => navigate(section)}
+                  className={linkClass}
+                  testID={`landing-nav-${section}`}
+                >
+                  <Text className={`text-sm font-medium ${linkText}`}>{label}</Text>
+                </Pressable>
+              ))}
+              <Pressable
+                accessibilityRole="link"
+                onPress={onOpenBlog}
+                className={linkClass}
+                testID="landing-nav-blog"
+              >
+                <Text className={`text-sm font-medium ${linkText}`}>{t("landing.nav.blog")}</Text>
+              </Pressable>
+            </HStack>
+          ) : null}
+
+          {isDesktop ? (
+            <HStack className="items-center gap-2">
               {!isSignedIn ? (
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  className="min-h-11"
+                  variant="tertiary"
+                  size="md"
+                  className={overHero ? "data-[hover=true]:bg-white/10 data-[active=true]:bg-white/10" : ""}
                   onPress={onLogin}
                   testID="landing-login"
                 >
-                  <ButtonText className="text-white">{t("auth.signIn")}</ButtonText>
+                  <ButtonText className={overHero ? "text-white" : ""}>{t("auth.signIn")}</ButtonText>
                 </Button>
               ) : null}
               <Button
-                size="sm"
-                className="min-h-11"
-                accessibilityLabel={isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
+                size="md"
+                accessibilityLabel={ctaLabel}
                 testID="landing-header-cta"
                 onPress={onPrimaryAction}
               >
-                <ButtonText>
-                  {isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
-                </ButtonText>
+                <ButtonText>{ctaLabel}</ButtonText>
               </Button>
-              <LanguageSwitcher tone="onDark" testID="landing-language-switcher" />
-            </>
+              <Box className="ml-1 w-[128px]">
+                <LanguageSwitcher
+                  tone={overHero ? "onDark" : "onLight"}
+                  testID="landing-language-switcher"
+                  className="w-full"
+                />
+              </Box>
+            </HStack>
           ) : (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={menuOpen ? t("landing.nav.closeMenu") : t("landing.nav.openMenu")}
               accessibilityState={{ expanded: menuOpen }}
               onPress={() => setMenuOpen((current) => !current)}
-              className="h-11 w-11 items-center justify-center rounded-lg border border-white/20 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+              className={`h-10 w-10 items-center justify-center rounded-control border web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary ${
+                overHero ? "border-white/[0.28]" : "border-line-strong"
+              }`}
               testID="landing-menu-toggle"
             >
-              {menuOpen ? (
-                <X size={20} color={landingColors.white} />
-              ) : (
-                <Menu size={20} color={landingColors.white} />
-              )}
+              <Menu size={20} color={overHero ? icons.onNavyActive : icons.foreground} />
             </Pressable>
           )}
         </HStack>
-      </HStack>
       </Box>
 
-      {/*
-        Rendered as a SIBLING of the pill above, not nested inside it: the
-        pill has a `translate-x-1/2` transform, which on web establishes a
-        new containing block for any `position: fixed` descendant — a fixed
-        overlay nested inside it would be clipped to the pill's own small
-        box instead of covering the viewport. Sitting outside it, this menu
-        is a true fullsccreen overlay. z-40 keeps it below the z-50 pill, so
-        the brand mark and the (still-visible) close/X toggle stay on top.
-      */}
-      {!isDesktop && menuOpen ? (
-        <Box
+      {!isDesktop ? (
+        <Sheet
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          title={t("landing.hero.brand")}
+          closeLabel={t("landing.nav.closeMenu")}
+          presentation="sheet"
           testID="landing-mobile-menu"
-          className="fixed inset-0 z-40 flex-col justify-end bg-secondary px-6 pb-8"
         >
-          <VStack space="sm" className="mx-auto w-full max-w-[480px]">
+          <VStack className="pb-2">
             {navItems.map(([section, label]) => (
               <Pressable
                 key={section}
                 accessibilityRole="link"
                 onPress={() => navigate(section)}
-                className="min-h-14 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+                className="min-h-[52px] justify-center border-b border-line px-1 web:hover:bg-wash2 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+                testID={`landing-mobile-link-${section}`}
               >
-                <Text size="xl" className="font-medium text-white">
-                  {label}
-                </Text>
+                <Text className="text-base font-medium text-ink">{label}</Text>
               </Pressable>
             ))}
             <Pressable
               accessibilityRole="link"
-              onPress={() => {
-                setMenuOpen(false);
-                onOpenBlog();
-              }}
-              className="min-h-14 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+              onPress={() => closeThen(onOpenBlog)}
+              className="min-h-[52px] justify-center border-b border-line px-1 web:hover:bg-wash2 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
               testID="landing-mobile-blog"
             >
-              <Text size="xl" className="font-medium text-white">
-                {t("landing.nav.blog")}
-              </Text>
+              <Text className="text-base font-medium text-ink">{t("landing.nav.blog")}</Text>
             </Pressable>
-            {!isSignedIn ? (
-              <Pressable
-                accessibilityRole="link"
-                onPress={() => {
-                  setMenuOpen(false);
-                  onLogin();
-                }}
-                className="min-h-14 justify-center rounded-lg px-3 web:hover:bg-white/10 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
-              >
-                <Text size="xl" className="font-medium text-white">
-                  {t("auth.signIn")}
-                </Text>
-              </Pressable>
-            ) : null}
 
-            {/* CTA + language switch live here instead of the top bar, which
-                on mobile stays down to just brand + hamburger. Same row —
-                CTA takes the remaining width, the switcher stays minimal. */}
-            <HStack space="sm" className="mt-4 items-center border-t border-white/10 pt-6">
+            <VStack className="gap-3 pt-5">
+              {!isSignedIn ? (
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="w-full"
+                  onPress={() => closeThen(onLogin)}
+                  testID="landing-mobile-login"
+                >
+                  <ButtonText>{t("auth.signIn")}</ButtonText>
+                </Button>
+              ) : null}
               <Button
                 size="lg"
-                className="min-h-14 flex-1"
-                accessibilityLabel={isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
+                className="w-full"
+                accessibilityLabel={ctaLabel}
                 testID="landing-mobile-cta"
-                onPress={() => {
-                  setMenuOpen(false);
-                  onPrimaryAction();
-                }}
+                onPress={() => closeThen(onPrimaryAction)}
               >
-                <ButtonText>
-                  {isSignedIn ? t("landing.goToDashboard") : t("landing.getStarted")}
-                </ButtonText>
+                <ButtonText>{ctaLabel}</ButtonText>
               </Button>
               <LanguageSwitcher
-                tone="onDark"
+                tone="onLight"
                 testID="landing-mobile-language-switcher"
+                className="w-full"
               />
-            </HStack>
+            </VStack>
           </VStack>
-        </Box>
+        </Sheet>
       ) : null}
     </>
   );

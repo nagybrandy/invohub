@@ -20,15 +20,18 @@ import {
   LandingHeader,
   type LandingSectionId,
 } from "@/components/marketing/LandingHeader";
+import { LANDING_DESKTOP_MIN } from "@/components/marketing/landing-theme";
 import { SeoHead } from "@/components/marketing/SeoHead";
 import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
+import { useHydrated } from "@/lib/useHydrated";
 import {
   buildOrganizationJsonLd,
   buildPageSeo,
   buildSoftwareApplicationJsonLd,
 } from "@/lib/seo";
 
+// 64px sticky header + a little air above the section heading (native scroll).
 const LANDING_HEADER_OFFSET = 76;
 const LANDING_SCROLL_CLASS = "landing-document-scroll";
 
@@ -38,7 +41,10 @@ export default function Landing() {
   const scrollRef = React.useRef<ScrollView>(null);
   const sectionOffsets = React.useRef<Partial<Record<LandingSectionId, number>>>({});
   const [cookiePreferenceRequest, setCookiePreferenceRequest] = React.useState(0);
-  const isDesktop = width >= 768;
+  // The static render has no window width (0): wait for hydration before
+  // choosing the desktop markup so server and client start from the same HTML.
+  const hydrated = useHydrated();
+  const isDesktop = hydrated && width >= LANDING_DESKTOP_MIN;
   const isSignedIn = Boolean(session);
 
   const seo = buildPageSeo({
@@ -170,7 +176,7 @@ export default function Landing() {
           seo={seo}
           jsonLd={[buildOrganizationJsonLd(), buildSoftwareApplicationJsonLd()]}
         />
-        <Box className="min-h-screen w-full max-w-full overflow-x-hidden bg-background" testID="landing-page">
+        <Box className="min-h-screen w-full max-w-full overflow-x-hidden bg-canvas" testID="landing-page">
           {sections}
           <CookieConsent
             reopenRequest={cookiePreferenceRequest}
@@ -182,7 +188,7 @@ export default function Landing() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={["top"]}>
       <SeoHead
         seo={seo}
         jsonLd={[buildOrganizationJsonLd(), buildSoftwareApplicationJsonLd()]}

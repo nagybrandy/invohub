@@ -5,14 +5,13 @@
 import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { AuthCardHeader, AuthLayout, AuthNote } from "@/components/auth/AuthLayout";
+import { FormField } from "@/components/layout/FormField";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
-import { FormControl, FormControlLabel, FormControlLabelText } from "@/components/ui/form-control";
-import { Heading } from "@/components/ui/heading";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { authClient } from "@/lib/auth-client";
 import { validateNewPassword } from "@/lib/auth-password-rules";
 import { routes } from "@/lib/navigation";
@@ -51,64 +50,84 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <ScreenLayout width="form" header={<Heading size="2xl">{t("auth.reset.title")}</Heading>}>
-      <VStack space="md">
+    <AuthLayout>
+      <VStack space="lg">
+        <AuthCardHeader
+          title={t("auth.reset.title")}
+          subtitle={done || invalidLink ? undefined : t("auth.reset.subtitle")}
+        />
         {done ? (
           <>
-            <Text size="sm" className="text-foreground" testID="reset-password-done">
+            <AuthNote tone="ok" testID="reset-password-done">
               {t("auth.reset.done")}
-            </Text>
-            <Button onPress={() => router.replace(routes.login)} testID="reset-password-to-login">
+            </AuthNote>
+            <Button size="lg" onPress={() => router.replace(routes.login)} testID="reset-password-to-login">
               <ButtonText>{t("auth.signIn")}</ButtonText>
             </Button>
           </>
         ) : invalidLink ? (
           <>
-            <Text size="sm" className="text-destructive" testID="reset-password-invalid">
+            <AuthNote tone="err" testID="reset-password-invalid">
               {t("auth.reset.invalidLink")}
-            </Text>
-            <Button variant="outline" onPress={() => router.replace(routes.forgotPassword)}>
+            </AuthNote>
+            <Button
+              size="lg"
+              variant="secondary"
+              onPress={() => router.replace(routes.forgotPassword)}
+              testID="reset-password-request-new"
+            >
               <ButtonText>{t("auth.reset.requestTitle")}</ButtonText>
             </Button>
           </>
         ) : (
-          <>
-            <Text size="sm" className="text-muted-foreground">
-              {t("auth.reset.subtitle")}
-            </Text>
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("auth.reset.newPassword")}</FormControlLabelText>
-              </FormControlLabel>
+          <VStack space="md">
+            <FormField label={t("auth.reset.newPassword")}>
               <Input>
-                <InputField value={password} onChangeText={setPassword} secureTextEntry testID="reset-password-new" />
+                <InputField
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  testID="reset-password-new"
+                />
               </Input>
-            </FormControl>
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("auth.reset.confirmPassword")}</FormControlLabelText>
-              </FormControlLabel>
+            </FormField>
+            <FormField label={t("auth.reset.confirmPassword")}>
               <Input>
-                <InputField value={confirm} onChangeText={setConfirm} secureTextEntry testID="reset-password-confirm" />
+                <InputField
+                  value={confirm}
+                  onChangeText={setConfirm}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  testID="reset-password-confirm"
+                />
               </Input>
-            </FormControl>
+            </FormField>
             {error ? (
-              <Text size="sm" className="text-destructive">
+              <AuthNote tone="err" testID="reset-password-error">
                 {error}
-              </Text>
+              </AuthNote>
             ) : null}
-            <Button onPress={() => void handleSubmit()} disabled={saving} testID="reset-password-submit">
+            <Button
+              size="lg"
+              onPress={() => void handleSubmit()}
+              disabled={saving}
+              testID="reset-password-submit"
+            >
               {saving ? <ButtonSpinner /> : null}
               <ButtonText>{t("auth.reset.action")}</ButtonText>
             </Button>
-          </>
+          </VStack>
         )}
-        <Pressable onPress={() => router.push(routes.login)} className="self-start py-2">
-          <Text size="sm" className="text-primary">
-            {t("auth.reset.backToLogin")}
-          </Text>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => router.push(routes.login)}
+          className="min-h-10 items-center justify-center rounded-control"
+          testID="auth-back-to-login"
+        >
+          <Text className="text-sm font-medium text-primary">{t("auth.reset.backToLogin")}</Text>
         </Pressable>
       </VStack>
-    </ScreenLayout>
+    </AuthLayout>
   );
 }

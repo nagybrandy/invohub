@@ -1,24 +1,15 @@
 // components/marketing/LandingSections.tsx
-// Premium landing sections covering positioning, capabilities, workflow, roadmap, and conversion.
+// The landing page sections (SPEC §10.4), top to bottom: hero (full-bleed
+// navy), transition, capabilities, workflow, insights, final call-to-action
+// (navy card), footer. Colours come from the theme tokens; the copy is the
+// existing landing.* keys, nothing new is claimed.
 import * as React from "react";
+import { Platform, useWindowDimensions } from "react-native";
 import type { LayoutChangeEvent } from "react-native";
 import { useTranslation } from "react-i18next";
-import {
-  ArrowRight,
-  BellRing,
-  BookOpen,
-  Check,
-  ChevronRight,
-  FileOutput,
-  FileText,
-  Mail,
-  ReceiptText,
-  Send,
-  Users,
-} from "lucide-react-native";
+import { BellRing, Check, FileText, Mail, ReceiptText, Users } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -26,11 +17,22 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { BrandLogo } from "@/components/marketing/BrandLogo";
 import { BrandTexture } from "@/components/marketing/BrandTexture";
+import { formatBlogDate } from "@/components/marketing/blog-format";
 import { type LandingSectionId } from "@/components/marketing/LandingHeader";
 import { ProductShowcase } from "@/components/marketing/ProductShowcase";
-import { landingColors, landingDisplayType } from "@/components/marketing/landing-theme";
+import { ShowcasePill } from "@/components/marketing/ShowcasePill";
+import { SAMPLE_INVOICES } from "@/components/marketing/sample-data";
+import {
+  landingColumns,
+  landingLayout,
+  landingType,
+  type LandingColumns,
+} from "@/components/marketing/landing-theme";
 import { listBlogPosts } from "@/lib/blog";
 import { routes } from "@/lib/navigation";
+import { useIconColors } from "@/lib/theme/icon-colors";
+import { LAYOUT } from "@/lib/theme/layout";
+import { type } from "@/lib/ui/type";
 
 type SectionLayoutHandler = (section: LandingSectionId, event: LayoutChangeEvent) => void;
 
@@ -45,6 +47,33 @@ type LandingHeroProps = LandingActionProps & {
   onOpenBlog: () => void;
 };
 
+const isWeb = Platform.OS === "web";
+
+function SectionHeader({
+  eyebrow,
+  title,
+  lead,
+  onNavy = false,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  lead?: string;
+  onNavy?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <VStack className="min-w-0 max-w-[680px] gap-3">
+      <Text className={onNavy ? landingType.eyebrowOnNavy : landingType.eyebrow}>{eyebrow}</Text>
+      <Heading size="3xl" className={onNavy ? landingType.h2OnNavy : landingType.h2}>
+        {title}
+      </Heading>
+      {lead ? <Text className={`${landingType.lead} max-w-[62ch]`}>{lead}</Text> : null}
+      {children}
+    </VStack>
+  );
+}
+
 export function LandingHero({
   isDesktop,
   isSignedIn,
@@ -53,122 +82,104 @@ export function LandingHero({
   onOpenBlog,
 }: LandingHeroProps) {
   const { t } = useTranslation();
+  const icons = useIconColors();
+  const { width } = useWindowDimensions();
+  const compactShowcase = width <= LAYOUT.phoneMax;
+  const ctaLabel = isSignedIn ? t("landing.goToDashboard") : t("landing.getStartedFree");
+  // On web the header is a fixed overlay on top of the band, so the band
+  // clears its 64px; on native the header sits above it in the flow.
+  const topPadding = isDesktop
+    ? isWeb
+      ? "pt-[136px]"
+      : "pt-14"
+    : isWeb
+      ? "pt-[96px]"
+      : "pt-10";
 
   return (
-    <Box className="relative overflow-hidden bg-secondary px-4 pb-16 pt-28 md:px-8 md:pb-28 md:pt-36">
-      <Box className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(100,149,237,0.28),transparent_42%),radial-gradient(circle_at_88%_12%,rgba(217,231,255,0.16),transparent_36%),linear-gradient(160deg,#111f4a_0%,#1f305e_58%,#111f4a_100%)]" />
-      <Box className="pointer-events-none absolute -right-10 top-4 h-72 w-72 rounded-full bg-primary/25 blur-3xl web:animate-pulse md:h-[28rem] md:w-[28rem]" />
-      <Box className="pointer-events-none absolute -left-8 bottom-0 h-56 w-56 rounded-full bg-[#6495ed]/15 blur-2xl" />
-      {/* A large, low-opacity mark — desktop only, parked behind the product
-          showcase on the right so it never sits under the headline/body copy
-          on the left (the thing an earlier pass here was rejected for). */}
+    <Box
+      testID="landing-hero"
+      className={`on-navy relative overflow-hidden bg-navy ${topPadding} pb-12 tab:pb-[88px]`}
+    >
       {isDesktop ? (
         <BrandTexture
           variant="mark"
           tone="onDark"
           size={460}
           rotate={12}
-          opacity={0.07}
+          opacity={0.06}
           className="-right-24 -top-16"
           testID="landing-hero-texture"
         />
       ) : null}
       <Box
-        className={`relative z-[1] mx-auto w-full max-w-[1280px] gap-10 ${
-          isDesktop ? "flex-row items-center" : ""
+        className={`${landingLayout.container} relative z-[1] gap-10 ${
+          isDesktop ? "flex-row items-center gap-14" : ""
         }`}
       >
-        <VStack space="xl" className={`min-w-0 ${isDesktop ? "basis-[42%] flex-shrink" : ""}`}>
-          <VStack space="sm">
-            <Box testID="landing-hero-brand">
-              <Text className="font-heading text-3xl font-bold tracking-tight text-white md:text-4xl">
-                {t("landing.hero.brand")}
-              </Text>
-            </Box>
-            <HStack space="sm" className="items-center">
-              <Box className="h-px w-10 bg-primary" />
-              <Text className={`${landingDisplayType.kicker} text-[#b9c9e8]`}>
-                {t("landing.hero.eyebrow")}
-              </Text>
-            </HStack>
-          </VStack>
-          <VStack space="lg">
-            <Heading
-              className={`font-heading font-bold leading-[1.02] tracking-[-1.5px] text-white ${
-                isDesktop ? landingDisplayType.heroDesktop : landingDisplayType.heroMobile
-              }`}
-            >
-              {t("landing.hero.title")}
-            </Heading>
-            <Text
-              className={`max-w-[570px] font-light leading-7 text-[#c8d2e6] ${
-                isDesktop ? "text-lg" : "text-base"
-              }`}
-            >
-              {t("landing.hero.subtitle")}
-            </Text>
-          </VStack>
-          <Box className="gap-3 md:flex-row md:flex-wrap">
+        <VStack className={`min-w-0 gap-6 ${isDesktop ? "flex-1 basis-0" : ""}`}>
+          <Box
+            testID="landing-hero-brand"
+            className="self-start rounded-full bg-white/10 px-3.5 py-1.5"
+          >
+            <Text className="text-[13px] font-semibold text-white">{t("landing.hero.eyebrow")}</Text>
+          </Box>
+          <Heading size="4xl" className={`${landingType.heroTitle} max-w-[560px]`}>
+            {t("landing.hero.title")}
+          </Heading>
+          <Text className="max-w-[52ch] text-base leading-7 text-navy-ink tab:text-lg">
+            {t("landing.hero.subtitle")}
+          </Text>
+          <Box className="gap-3 tab:flex-row tab:flex-wrap tab:items-center">
             <Button
               size="lg"
-              className="w-full web:transition-transform web:duration-200 web:hover:scale-[1.02] md:w-auto"
-              accessibilityLabel={
-                isSignedIn ? t("landing.goToDashboard") : t("landing.getStartedFree")
-              }
+              className="w-full tab:w-auto"
+              accessibilityLabel={ctaLabel}
               testID="landing-hero-cta"
               onPress={onPrimaryAction}
             >
-              <ButtonText>
-                {isSignedIn ? t("landing.goToDashboard") : t("landing.getStartedFree")}
-              </ButtonText>
-              <ArrowRight size={18} color={landingColors.white} />
+              <ButtonText>{ctaLabel}</ButtonText>
             </Button>
             <Button
               size="lg"
-              variant="outline"
-              className="w-full border-white/30 bg-transparent md:w-auto"
+              variant="secondary"
+              className="w-full border-white/[0.28] bg-transparent data-[hover=true]:bg-white/10 data-[active=true]:bg-white/10 tab:w-auto"
               onPress={onProductTour}
               testID="landing-product-tour"
             >
               <ButtonText className="text-white">{t("landing.hero.productTour")}</ButtonText>
-              <ChevronRight size={18} color={landingColors.white} />
             </Button>
             <Button
               size="lg"
-              variant="link"
-              className="w-full md:w-auto"
+              variant="tertiary"
+              className="w-full data-[hover=true]:bg-white/10 data-[active=true]:bg-white/10 tab:w-auto"
               onPress={onOpenBlog}
               testID="landing-hero-blog"
             >
-              <ButtonText className="text-[#d9e7ff]">{t("landing.hero.readBlog")}</ButtonText>
-              <BookOpen size={16} color={landingColors.paleBlue} />
+              <ButtonText className="text-white">{t("landing.hero.readBlog")}</ButtonText>
             </Button>
           </Box>
-          <HStack space="sm" className="items-start">
-            <Check size={16} color={landingColors.cornflower} />
-            <Text size="xs" className="max-w-[470px] leading-5 text-[#aebbd3]">
+          <HStack className="items-start gap-2">
+            <Box className="pt-0.5">
+              <Check size={16} color={icons.onNavy} />
+            </Box>
+            <Text className="min-w-0 max-w-[52ch] flex-1 text-sm leading-5 text-navy-ink">
               {t("landing.hero.reassurance")}
             </Text>
           </HStack>
         </VStack>
-        <VStack space="lg" className={`min-w-0 ${isDesktop ? "flex-1" : "w-full"}`}>
-          {isDesktop ? <ProductShowcase compact={false} /> : null}
-        </VStack>
-      </Box>
-      {!isDesktop ? (
-        <Box className="relative z-[1] mx-auto mt-10 w-full max-w-[1280px]">
-          <ProductShowcase compact />
+        <Box className={`min-w-0 ${isDesktop ? "flex-1 basis-0" : "w-full"}`}>
+          <ProductShowcase compact={compactShowcase} />
         </Box>
-      ) : null}
+      </Box>
     </Box>
   );
 }
 
 export function ProductTransition({
-  isDesktop,
   onLayout,
 }: {
-  isDesktop: boolean;
+  isDesktop?: boolean;
   onLayout: SectionLayoutHandler;
 }) {
   const { t } = useTranslation();
@@ -177,34 +188,60 @@ export function ProductTransition({
     <Box
       onLayout={(event) => onLayout("product", event)}
       testID="landing-section-product"
-      className="bg-background px-4 py-16 md:px-8 md:py-28"
+      className={`${landingLayout.anchor} bg-canvas pb-10 pt-14 tab:pb-14 tab:pt-[88px]`}
     >
-      <Box
-        className={`mx-auto w-full max-w-[1120px] gap-10 ${
-          isDesktop ? "flex-row items-start justify-between" : ""
-        }`}
-      >
-        <VStack className={isDesktop ? "w-[45%]" : ""} space="md">
-          <Text className="text-xs font-semibold uppercase tracking-[2px] text-primary">
-            {t("landing.transition.eyebrow")}
+      <VStack className={`${landingLayout.container} gap-6`}>
+        <SectionHeader
+          eyebrow={t("landing.transition.eyebrow")}
+          title={t("landing.transition.title")}
+          lead={t("landing.transition.description")}
+        />
+        <Box className="max-w-[760px] rounded-card border-l-[3px] border-primary bg-surface p-5 shadow-card tab:p-6">
+          <Text className="text-[17px] font-medium leading-7 text-ink tab:text-lg">
+            {t("landing.transition.statement")}
           </Text>
-          <Heading className="text-3xl leading-tight tracking-tight text-secondary md:text-4xl">
-            {t("landing.transition.title")}
-          </Heading>
-        </VStack>
-        <VStack className={isDesktop ? "w-[46%]" : ""} space="lg">
-          <Text className="text-base font-light leading-7 text-muted-foreground md:text-lg">
-            {t("landing.transition.description")}
-          </Text>
-          <Box className="border-l-2 border-primary pl-5">
-            <Text className="font-medium leading-7 text-secondary">
-              {t("landing.transition.statement")}
-            </Text>
-          </Box>
-        </VStack>
-      </Box>
+        </Box>
+      </VStack>
     </Box>
   );
+}
+
+type CapabilityKey = "invoice" | "delivery" | "records" | "reminder" | "receipt";
+
+const CAPABILITY_ORDER: readonly CapabilityKey[] = [
+  "invoice",
+  "delivery",
+  "records",
+  "reminder",
+  "receipt",
+];
+
+/**
+ * Rows of the capability grid. Three columns: the invoice card spans two, so
+ * the first row is [invoice (2), delivery (1)] and the rest sit three to a
+ * row; two columns: the invoice card takes a full row; one column: stacked.
+ */
+export function capabilityRows(
+  columns: LandingColumns,
+): Array<Array<{ key: CapabilityKey; span: number }>> {
+  const [invoice, ...rest] = CAPABILITY_ORDER;
+  if (columns === 3) {
+    return [
+      [
+        { key: invoice, span: 2 },
+        { key: rest[0], span: 1 },
+      ],
+      rest.slice(1).map((key) => ({ key, span: 1 })),
+    ];
+  }
+  if (columns === 2) {
+    return [
+      [{ key: invoice, span: 2 }],
+      rest.slice(0, 2).map((key) => ({ key, span: 1 })),
+      rest.slice(2).map((key) => ({ key, span: 1 })),
+    ];
+  }
+  return CAPABILITY_ORDER.map((key) => [{ key, span: 1 }]);
 }
 
 const capabilityIcons = {
@@ -216,88 +253,80 @@ const capabilityIcons = {
 } as const;
 
 export function CapabilityBento({
-  isDesktop,
   onLayout,
 }: {
-  isDesktop: boolean;
+  isDesktop?: boolean;
   onLayout: SectionLayoutHandler;
 }) {
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  const rows = capabilityRows(landingColumns(width));
 
   return (
     <Box
       onLayout={(event) => onLayout("capabilities", event)}
       testID="landing-section-capabilities"
-      className="overflow-x-hidden bg-[#edf2fa] px-4 py-16 md:px-8 md:py-24"
+      className={`${landingLayout.anchor} overflow-x-hidden bg-canvas py-10 tab:py-14`}
     >
-      <Box className="mx-auto w-full max-w-[1120px] min-w-0">
-        <VStack space="md" className="mb-10 max-w-[690px] md:mb-14">
-          <Text className={`${landingDisplayType.kicker} text-primary`}>
-            {t("landing.capabilities.eyebrow")}
-          </Text>
-          <Heading className={`${landingDisplayType.section} font-heading leading-tight tracking-tight text-secondary`}>
-            {t("landing.capabilities.title")}
-          </Heading>
-          <Text className="font-light leading-7 text-muted-foreground">
-            {t("landing.capabilities.subtitle")}
-          </Text>
-        </VStack>
-
-        <Box className={`min-w-0 ${isDesktop ? "flex-row gap-4" : "gap-4"}`}>
-          <CapabilityCard
-            icon={capabilityIcons.invoice}
-            title={t("landing.capabilities.invoice.title")}
-            description={t("landing.capabilities.invoice.description")}
-            className={isDesktop ? "min-h-[320px] min-w-0 flex-[1.4]" : ""}
-            featured
-          >
-            <Box className="mt-5 overflow-hidden rounded-2xl border border-white/15 bg-white/10">
-              <HStack className="items-center justify-between border-b border-white/10 px-4 py-3">
-                <Text size="xs" className="font-medium text-white">
-                  {t("landing.capabilities.invoice.preview")}
-                </Text>
-                <Text size="xs" className="text-[#b9c9e8]">248 920 Ft</Text>
-              </HStack>
-              <HStack className="items-center justify-between px-4 py-3">
-                <Text size="xs" className="text-[#dbe4f4]">Minta Stúdió Kft.</Text>
-                <Box className="rounded-lg bg-[#e7f6ec] px-2 py-1">
-                  <Text className="text-[10px] font-semibold text-[#166534]">
-                    {t("landing.product.paid")}
-                  </Text>
-                </Box>
-              </HStack>
+      <VStack className={`${landingLayout.container} gap-8 tab:gap-10`}>
+        <SectionHeader
+          eyebrow={t("landing.capabilities.eyebrow")}
+          title={t("landing.capabilities.title")}
+          lead={t("landing.capabilities.subtitle")}
+        />
+        <VStack className="min-w-0 gap-4" testID="landing-capability-grid">
+          {rows.map((row) => (
+            <Box key={row.map((cell) => cell.key).join("-")} className="min-w-0 gap-4 tab:flex-row">
+              {row.map(({ key, span }) => (
+                <CapabilityCard
+                  key={key}
+                  capability={key}
+                  title={t(`landing.capabilities.${key}.title`)}
+                  description={t(`landing.capabilities.${key}.description`)}
+                  span={span}
+                >
+                  {key === "invoice" ? <InvoiceIllustration /> : null}
+                </CapabilityCard>
+              ))}
             </Box>
-          </CapabilityCard>
+          ))}
+        </VStack>
+      </VStack>
+    </Box>
+  );
+}
 
-          <VStack className={isDesktop ? "min-w-0 flex-1" : ""} space="md">
-            <CapabilityCard
-              icon={capabilityIcons.delivery}
-              title={t("landing.capabilities.delivery.title")}
-              description={t("landing.capabilities.delivery.description")}
-              className="min-w-0 flex-1"
-            />
-            <CapabilityCard
-              icon={capabilityIcons.records}
-              title={t("landing.capabilities.records.title")}
-              description={t("landing.capabilities.records.description")}
-              className="min-w-0 flex-1"
-            />
-          </VStack>
-        </Box>
+/** Static invoice card of the first capability, with the sample-data label. */
+function InvoiceIllustration() {
+  const { t } = useTranslation();
+  const sample = SAMPLE_INVOICES[0];
 
-        <Box className={`mt-4 min-w-0 gap-4 ${isDesktop ? "flex-row" : ""}`}>
-          <CapabilityCard
-            icon={capabilityIcons.reminder}
-            title={t("landing.capabilities.reminder.title")}
-            description={t("landing.capabilities.reminder.description")}
-            className="min-w-0 flex-1"
-          />
-          <CapabilityCard
-            icon={capabilityIcons.receipt}
-            title={t("landing.capabilities.receipt.title")}
-            description={t("landing.capabilities.receipt.description")}
-            className={isDesktop ? "min-w-0 flex-[1.4]" : "min-w-0"}
-          />
+  return (
+    <Box
+      testID="landing-invoice-illustration"
+      accessibilityRole="image"
+      accessibilityLabel={`${t("landing.capabilities.invoice.preview")} · ${t("landing.product.sampleData")}`}
+      className="mt-5 overflow-hidden rounded-control border border-line bg-wash2"
+    >
+      <Box
+        aria-hidden={true}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <HStack className="items-center justify-between gap-3 px-4 py-3">
+          <Text className="min-w-0 flex-shrink text-[13px] font-semibold text-ink" numberOfLines={1}>
+            {t("landing.capabilities.invoice.preview")}
+          </Text>
+          <Text className={`text-[13px] font-bold text-ink ${type.money}`}>{sample.amount}</Text>
+        </HStack>
+        <HStack className="items-center justify-between gap-3 border-t border-line px-4 py-3">
+          <Text className="min-w-0 flex-shrink text-[13px] text-muted-ink" numberOfLines={1}>
+            {sample.client}
+          </Text>
+          <ShowcasePill status={sample.status} />
+        </HStack>
+        <Box className="border-t border-line px-4 py-2">
+          <Text className="text-[11px] text-muted-ink">{t("landing.product.sampleData")}</Text>
         </Box>
       </Box>
     </Box>
@@ -305,60 +334,39 @@ export function CapabilityBento({
 }
 
 function CapabilityCard({
-  icon: Icon,
+  capability,
   title,
   description,
-  className,
-  featured = false,
+  span,
   children,
 }: {
-  icon: typeof FileText;
+  capability: CapabilityKey;
   title: string;
   description: string;
-  className?: string;
-  featured?: boolean;
+  span: number;
   children?: React.ReactNode;
 }) {
+  const icons = useIconColors();
+  const Icon = capabilityIcons[capability];
+
   return (
-    <Card
-      className={`relative max-w-full overflow-hidden rounded-2xl border-[#dce3ef] p-5 shadow-none web:transition-[transform,box-shadow,border-color] web:duration-200 motion-reduce:web:transition-none web:hover:-translate-y-0.5 web:hover:border-primary/40 web:hover:shadow-lg md:p-7 ${
-        featured ? "bg-secondary" : "bg-white"
-      } ${className ?? ""}`}
+    <Box
+      testID={`landing-capability-${capability}`}
+      className={`min-w-0 rounded-card bg-surface p-[22px] shadow-card ${
+        span === 2 ? "tab:flex-[2] tab:basis-0" : "tab:flex-1 tab:basis-0"
+      }`}
     >
-      {featured ? (
-        <BrandTexture
-          variant="mark"
-          tone="onDark"
-          size={220}
-          rotate={-14}
-          opacity={0.08}
-          className="-bottom-14 -right-14"
-          testID="landing-capability-card-texture"
-        />
-      ) : null}
-      <VStack space="md">
-        <Box
-          className={`h-11 w-11 items-center justify-center rounded-xl ${
-            featured ? "bg-white/10" : "bg-primary/10"
-          }`}
-        >
-          <Icon
-            size={20}
-            color={featured ? landingColors.paleBlue : landingColors.cornflower}
-          />
+      <VStack className="gap-3">
+        <Box className="h-9 w-9 items-center justify-center rounded-[9px] bg-primary-wash">
+          <Icon size={18} color={icons.primary} />
         </Box>
-        <Heading size="lg" className={featured ? "text-white" : "text-secondary"}>
+        <Heading size="md" className={landingType.cardTitle}>
           {title}
         </Heading>
-        <Text
-          size="sm"
-          className={`font-light leading-6 ${featured ? "text-[#c8d2e6]" : "text-muted-foreground"}`}
-        >
-          {description}
-        </Text>
+        <Text className={landingType.cardBody}>{description}</Text>
       </VStack>
       {children}
-    </Card>
+    </Box>
   );
 }
 
@@ -371,57 +379,46 @@ export function WorkflowSection({
 }) {
   const { t } = useTranslation();
   const steps = [
-    [BookOpen, "landing.workflow.step1.title", "landing.workflow.step1.description"],
-    [FileOutput, "landing.workflow.step2.title", "landing.workflow.step2.description"],
-    [Send, "landing.workflow.step3.title", "landing.workflow.step3.description"],
+    ["landing.workflow.step1.title", "landing.workflow.step1.description"],
+    ["landing.workflow.step2.title", "landing.workflow.step2.description"],
+    ["landing.workflow.step3.title", "landing.workflow.step3.description"],
   ] as const;
 
   return (
     <Box
       onLayout={(event) => onLayout("workflow", event)}
       testID="landing-section-workflow"
-      className="bg-background px-4 py-16 md:px-8 md:py-28"
+      className={`${landingLayout.anchor} bg-canvas py-10 tab:py-14`}
     >
-      <Box className="mx-auto w-full max-w-[1120px]">
-        <Box className={`gap-10 ${isDesktop ? "flex-row" : ""}`}>
-          <VStack className={isDesktop ? "w-[34%]" : ""} space="md">
-            <Text className="text-xs font-semibold uppercase tracking-[2px] text-primary">
-              {t("landing.workflow.eyebrow")}
-            </Text>
-            <Heading className="text-3xl leading-tight tracking-tight text-secondary md:text-4xl">
-              {t("landing.workflow.title")}
-            </Heading>
-            <Text className="font-light leading-7 text-muted-foreground">
-              {t("landing.workflow.subtitle")}
-            </Text>
-          </VStack>
-          <VStack className={isDesktop ? "flex-1" : ""}>
-            {steps.map(([Icon, titleKey, descriptionKey], index) => (
-              <HStack key={titleKey} className="relative gap-4 pb-8 last:pb-0 md:gap-6">
-                <VStack className="items-center">
-                  <Box className="h-12 w-12 items-center justify-center rounded-xl bg-secondary">
-                    <Icon size={20} color={landingColors.paleBlue} />
-                  </Box>
-                  {index < steps.length - 1 ? (
-                    <Box className="mt-2 min-h-10 w-px flex-1 bg-primary/35" />
-                  ) : null}
-                </VStack>
-                <VStack className="flex-1 pt-1" space="xs">
-                  <Text className="text-xs font-semibold tracking-widest text-primary">
-                    0{index + 1}
-                  </Text>
-                  <Heading size="lg" className="text-secondary">
-                    {t(titleKey)}
-                  </Heading>
-                  <Text size="sm" className="max-w-[620px] font-light leading-6 text-muted-foreground">
-                    {t(descriptionKey)}
-                  </Text>
-                </VStack>
+      <VStack className={`${landingLayout.container} gap-8 tab:gap-10`}>
+        <SectionHeader
+          eyebrow={t("landing.workflow.eyebrow")}
+          title={t("landing.workflow.title")}
+          lead={t("landing.workflow.subtitle")}
+        />
+        <Box className={`min-w-0 gap-4 ${isDesktop ? "flex-row" : ""}`}>
+          {steps.map(([titleKey, descriptionKey], index) => (
+            <Box
+              key={titleKey}
+              testID={`landing-workflow-step-${index + 1}`}
+              className={`min-w-0 rounded-card bg-surface p-[22px] shadow-card ${
+                isDesktop ? "flex-1 basis-0" : ""
+              }`}
+            >
+              <HStack className="mb-4 items-center gap-3">
+                <Box className="h-[30px] w-[30px] items-center justify-center rounded-full bg-neutral-wash">
+                  <Text className="text-sm font-bold text-muted-ink">{index + 1}</Text>
+                </Box>
+                {isDesktop && index < steps.length - 1 ? (
+                  <Box className="h-px flex-1 bg-line-strong" />
+                ) : null}
               </HStack>
-            ))}
-          </VStack>
+              <Text className="text-[15px] font-semibold leading-[1.3] text-ink">{t(titleKey)}</Text>
+              <Text className={`${landingType.cardBody} mt-1.5`}>{t(descriptionKey)}</Text>
+            </Box>
+          ))}
         </Box>
-      </Box>
+      </VStack>
     </Box>
   );
 }
@@ -437,63 +434,56 @@ export function BlogInsightsSection({
   onOpenBlog: () => void;
   onOpenPost: (slug: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const posts = listBlogPosts().slice(0, 3);
 
   return (
     <Box
       onLayout={(event) => onLayout("insights", event)}
       testID="landing-section-insights"
-      className="bg-[#edf2fa] px-4 py-16 md:px-8 md:py-24"
+      className={`${landingLayout.anchor} bg-canvas py-10 tab:py-14`}
     >
-      <Box className="mx-auto w-full max-w-[1120px]">
-        <Box className={`mb-10 gap-6 ${isDesktop ? "flex-row items-end justify-between" : ""}`}>
-          <VStack className="max-w-[640px]" space="md">
-            <Text className={`${landingDisplayType.kicker} text-primary`}>
-              {t("landing.insights.eyebrow")}
-            </Text>
-            <Heading className={`${landingDisplayType.section} font-heading leading-tight tracking-tight text-secondary`}>
-              {t("landing.insights.title")}
-            </Heading>
-            <Text className="font-light leading-7 text-muted-foreground">
-              {t("landing.insights.subtitle")}
-            </Text>
-          </VStack>
+      <VStack className={`${landingLayout.container} gap-8 tab:gap-10`}>
+        <Box className={`gap-4 ${isDesktop ? "flex-row items-end justify-between" : ""}`}>
+          <SectionHeader
+            eyebrow={t("landing.insights.eyebrow")}
+            title={t("landing.insights.title")}
+            lead={t("landing.insights.subtitle")}
+          />
           <Button
-            variant="outline"
-            className="self-start border-secondary/20"
+            variant="tertiary"
+            className="self-start"
             onPress={onOpenBlog}
             testID="landing-insights-all"
           >
-            <ButtonText className="text-secondary">{t("landing.insights.viewAll")}</ButtonText>
-            <ArrowRight size={16} color={landingColors.navy} />
+            <ButtonText className="text-primary">{t("landing.insights.viewAll")}</ButtonText>
           </Button>
         </Box>
 
-        <Box className={`gap-4 ${isDesktop ? "flex-row" : ""}`}>
+        <Box className={`min-w-0 gap-4 ${isDesktop ? "flex-row" : ""}`}>
           {posts.map((post) => (
             <Pressable
               key={post.slug}
               accessibilityRole="link"
               onPress={() => onOpenPost(post.slug)}
-              className="min-w-0 flex-1 rounded-marketing border border-[#dce3ef] bg-white p-5 web:transition-[transform,box-shadow] web:duration-200 web:hover:-translate-y-0.5 web:hover:shadow-lg md:p-6"
+              className={`min-w-0 rounded-card bg-surface p-5 shadow-card web:transition-shadow web:duration-150 web:hover:shadow-menu web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary ${
+                isDesktop ? "flex-1 basis-0" : ""
+              }`}
               testID={`landing-insight-${post.slug}`}
             >
-              <VStack space="sm">
-                <Text size="xs" className="font-semibold uppercase tracking-wider text-primary">
-                  {post.tags[0]}
-                </Text>
-                <Heading size="md" className="text-secondary">
+              <VStack className="gap-2">
+                <Heading size="md" className={landingType.cardTitle}>
                   {post.title}
                 </Heading>
-                <Text size="sm" className="font-light leading-6 text-muted-foreground">
-                  {post.description}
+                <Text className={landingType.cardBody}>{post.description}</Text>
+                <Text className="pt-1 text-xs text-muted-ink">
+                  {formatBlogDate(post.publishedAt, i18n.language)}
                 </Text>
               </VStack>
             </Pressable>
           ))}
         </Box>
-      </Box>
+      </VStack>
     </Box>
   );
 }
@@ -508,46 +498,52 @@ export function FinalCta({
   const { t } = useTranslation();
 
   return (
-    <Box className="bg-background px-4 py-16 md:px-8 md:py-24">
-      <Box className="relative mx-auto w-full max-w-[1120px] overflow-hidden rounded-[24px] bg-secondary p-6 md:p-12">
-        <Box className="pointer-events-none absolute -right-8 top-0 h-40 w-40 rounded-full bg-primary/25 blur-2xl" />
-        <BrandTexture
-          variant="mark"
-          tone="onDark"
-          size={320}
-          rotate={-16}
-          opacity={0.07}
-          className="-bottom-28 -right-20"
-          testID="landing-final-cta-texture"
-        />
-        <Box className="relative gap-8 md:flex-row md:items-end md:justify-between">
-          <VStack className="max-w-[680px]" space="md">
-            <Text className="text-xs font-semibold uppercase tracking-[2px] text-primary">
-              {t("landing.finalCta.eyebrow")}
-            </Text>
-            <Heading className="text-3xl leading-tight tracking-tight text-white md:text-4xl">
-              {t("landing.finalCta.title")}
-            </Heading>
-            <Text className="font-light leading-7 text-[#c8d2e6]">
-              {t("landing.finalCta.description")}
-            </Text>
-          </VStack>
-          <Button
-            size="lg"
-            className="w-full web:transition-transform web:duration-200 web:hover:scale-[1.02] md:w-auto"
-            onPress={onPrimaryAction}
-            testID="landing-final-cta"
-          >
-            <ButtonText>
-              {isSignedIn ? t("landing.goToDashboard") : t("landing.getStartedFree")}
-            </ButtonText>
-            <ArrowRight size={18} color={landingColors.white} />
-          </Button>
+    <Box className="bg-canvas pb-10 pt-4 tab:pb-14">
+      <Box className={landingLayout.container}>
+        <Box
+          testID="landing-final-cta-card"
+          className="on-navy relative overflow-hidden rounded-dialog bg-navy p-7 tab:p-12"
+        >
+          <BrandTexture
+            variant="mark"
+            tone="onDark"
+            size={320}
+            rotate={-16}
+            opacity={0.06}
+            className="-bottom-28 -right-20"
+            testID="landing-final-cta-texture"
+          />
+          <Box className="relative gap-7 tab:flex-row tab:items-end tab:justify-between">
+            <VStack className="min-w-0 max-w-[640px] gap-3">
+              <Text className={landingType.eyebrowOnNavy}>{t("landing.finalCta.eyebrow")}</Text>
+              <Heading size="3xl" className={landingType.h2OnNavy}>
+                {t("landing.finalCta.title")}
+              </Heading>
+              <Text className="text-base leading-6 text-navy-ink">
+                {t("landing.finalCta.description")}
+              </Text>
+            </VStack>
+            <Button
+              size="lg"
+              className="w-full tab:w-auto"
+              onPress={onPrimaryAction}
+              testID="landing-final-cta"
+            >
+              <ButtonText>
+                {isSignedIn ? t("landing.goToDashboard") : t("landing.getStartedFree")}
+              </ButtonText>
+            </Button>
+          </Box>
         </Box>
       </Box>
     </Box>
   );
 }
+
+export type FooterRoute = (typeof routes)[keyof Pick<
+  typeof routes,
+  "terms" | "privacy" | "cookies" | "imprint" | "blog"
+>];
 
 export function LandingFooter({
   onNavigateRoute,
@@ -555,12 +551,7 @@ export function LandingFooter({
   onOpenBlog,
   onOpenCookiePreferences,
 }: {
-  onNavigateRoute: (
-    route: (typeof routes)[keyof Pick<
-      typeof routes,
-      "terms" | "privacy" | "cookies" | "imprint" | "blog"
-    >],
-  ) => void;
+  onNavigateRoute: (route: FooterRoute) => void;
   onLogin: () => void;
   onOpenBlog: () => void;
   onOpenCookiePreferences: () => void;
@@ -574,60 +565,62 @@ export function LandingFooter({
   ] as const;
 
   return (
-    <Box
-      className="border-t border-white/10 bg-secondary px-4 py-12 md:px-8"
-      testID="landing-footer"
-    >
-      <Box className="mx-auto w-full max-w-[1120px]">
-        <Box className="gap-8 md:flex-row md:justify-between">
-          <VStack className="max-w-[330px]" space="md">
-            <BrandLogo tone="onDark" height={36} withMark testID="landing-footer-logo" />
-            <Text size="sm" className="font-light leading-6 text-[#aebbd3]">
+    <Box className="border-t border-line bg-surface pb-8 pt-12" testID="landing-footer">
+      <Box className={landingLayout.container}>
+        <Box className="gap-8 tab:flex-row tab:gap-10">
+          <VStack className="min-w-0 gap-3 tab:max-w-[300px] tab:flex-[1.4] tab:basis-0">
+            <BrandLogo tone="onLight" height={36} testID="landing-footer-logo" />
+            <Text className="text-sm leading-[22px] text-muted-ink">
               {t("landing.footer.description")}
             </Text>
           </VStack>
-          <Box className="gap-8 sm:flex-row">
-            <VStack space="sm">
-              <Text size="xs" className="font-semibold uppercase tracking-wider text-[#8899ba]">
-                {t("landing.footer.product")}
-              </Text>
-              <FooterLink label={t("landing.footer.login")} onPress={onLogin} />
+          <FooterColumn title={t("landing.footer.product")}>
+            <FooterLink
+              label={t("landing.footer.login")}
+              onPress={onLogin}
+              testID="landing-footer-login"
+            />
+          </FooterColumn>
+          <FooterColumn title={t("landing.footer.resources")}>
+            <FooterLink
+              label={t("landing.footer.blog")}
+              onPress={onOpenBlog}
+              testID="landing-footer-blog"
+            />
+          </FooterColumn>
+          <FooterColumn title={t("landing.footer.legal")}>
+            {legalLinks.map(([route, labelKey]) => (
               <FooterLink
-                label={t("landing.footer.cookiePreferences")}
-                onPress={onOpenCookiePreferences}
-                testID="footer-cookie-preferences"
+                key={String(route)}
+                label={t(labelKey)}
+                onPress={() => onNavigateRoute(route)}
               />
-            </VStack>
-            <VStack space="sm">
-              <Text size="xs" className="font-semibold uppercase tracking-wider text-[#8899ba]">
-                {t("landing.footer.resources")}
-              </Text>
-              <FooterLink
-                label={t("landing.footer.blog")}
-                onPress={onOpenBlog}
-                testID="landing-footer-blog"
-              />
-            </VStack>
-            <VStack space="sm">
-              <Text size="xs" className="font-semibold uppercase tracking-wider text-[#8899ba]">
-                {t("landing.footer.legal")}
-              </Text>
-              {legalLinks.map(([route, labelKey]) => (
-                <FooterLink
-                  key={String(route)}
-                  label={t(labelKey)}
-                  onPress={() => onNavigateRoute(route)}
-                />
-              ))}
-            </VStack>
-          </Box>
+            ))}
+            <FooterLink
+              label={t("landing.footer.cookiePreferences")}
+              onPress={onOpenCookiePreferences}
+              testID="footer-cookie-preferences"
+            />
+          </FooterColumn>
         </Box>
-        <Box className="my-8 h-px bg-white/10" />
-        <Text size="xs" className="text-[#8899ba]">
-          {t("landing.footer.copyright", { year: new Date().getFullYear() })}
-        </Text>
+        <Box className="mt-8 border-t border-line pt-6">
+          <Text className="text-[13px] text-muted-ink">
+            {t("landing.footer.copyright", { year: new Date().getFullYear() })}
+          </Text>
+        </Box>
       </Box>
     </Box>
+  );
+}
+
+function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <VStack className="min-w-0 gap-1 tab:flex-1 tab:basis-0">
+      <Text className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+        {title}
+      </Text>
+      {children}
+    </VStack>
   );
 }
 
@@ -645,11 +638,9 @@ function FooterLink({
       accessibilityRole="link"
       onPress={onPress}
       testID={testID}
-      className="min-h-8 justify-center rounded-md web:transition-opacity web:hover:opacity-75 web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+      className="min-h-10 justify-center self-start rounded-control web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
     >
-      <Text size="sm" className="text-[#dce4f2]">
-        {label}
-      </Text>
+      <Text className="text-sm text-ink web:hover:text-primary">{label}</Text>
     </Pressable>
   );
 }
