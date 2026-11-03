@@ -1977,6 +1977,55 @@ Remaining for the launch gate:
       HUF-only adoertek on foreign-currency invoices, exempt rows at
       adokulcs 0, no EV nyilvántartási szám) needs owner / tax-professional
       sign-off before merge.
+### Owner spec 2026-10-21 — remaining items (checked against main 2026-11-03)
+
+Positioning: a simple, easy-to-use invoicer whose edge is expat-friendly
+operation; no future features in marketing (bevallás, adótervezés, bank
+matching, M2M). Every point of the spec was checked against `origin/main`
+(c7af2c4). Already shipped: "+ Új nyugta" next to "+ Új számla" on the
+dashboard, net/gross unit price, line-item remark, big "Kiállítás" CTA,
+every currency with a current MNB rate (HUF/EUR/USD/GBP first) with the
+MNB rate auto-filled, invoice prefix, remembered partners/products with
+suggestions, receipt with a system-assigned strict number and no customer
+name, receipt currency/language/VAT like the invoice, tax profile
+(KATA/átalányadó/VSZJA/TAO/KIVA, ÁFA AAM/havi/negyedéves/éves, HIPA
+sávos/általános) and billing defaults in Beállítások, multiple billing
+accounts + accountant invite/roles, Adatexport, bulk upload from a
+one-row-per-document CSV/Excel (#85–#93). Still open:
+
+- [ ] **Új számla: partner details visible by default.** In
+      `components/invoices/composer/StepPartner.tsx` the selected partner's
+      details (`showClientDetails`) start collapsed; the owner wants them
+      shown next to the name/tax number by default. ⚠ Check against Dóri's
+      redesign (`docs/design/redesign-2026-11/`) — owner decision on which
+      one wins.
+- [ ] **Új számla: dates and payment details visible by default, not in a
+      collapsible block.** `showDatesPayment` in `StepPartner.tsx` starts
+      collapsed. ⚠ Dóri's redesign shows "Dátumok és fizetés" as a one-line
+      summary with a "Módosítás" button, which contradicts the spec — owner
+      decision needed before building.
+- [ ] **Document language de / fr / es for invoices, proformas
+      (díjbekérő) and advance invoices (előlegszámla).** `DOCUMENT_LANGUAGES`
+      (`lib/companies/billing-settings.ts`) already lists them, but
+      `toDocumentLocale` (`lib/invoices/document-labels.ts`) falls back to
+      English, so a German/French/Spanish invoice currently prints in
+      English. Needs de/fr/es document label sets (PDF + HTML + e-mail).
+      LEGAL-GATED: VAT-exemption/reverse-charge wording in a foreign language
+      needs owner sign-off (the English wording is also still pending).
+- [ ] **BLOCKED — VAT rates taken from the Számlázz.hu settings, including
+      OSS rates.** `VAT_RATES` (`lib/invoices/vat.ts`) only has 0/5/18/27.
+      Needs the owner's Számlázz.hu VAT list with sources; never hardcode an
+      unverified rate. TAX-GATED, needs sign-off.
+- [ ] **BLOCKED — receipts submitted to NAV via API in production.** The
+      eNyugta flow runs in demo/test mode (`lib/nav-receipt/`); there is no
+      verified NAV production eRECEIPT host, so production stays refused
+      (`production_not_supported`). NAV-PRODUCTION-GATED.
+- [ ] **Landing (and the app UI) in German, French and Spanish** — after
+      hu + en (the owner said hu + en is enough for the first round). Every
+      new locale needs a `lib/i18n/locales/<lang>.ts` with key parity and
+      the language picker extended; landing copy still has no
+      future-feature claims.
+
 ### Research refill 2026-09-21 (market/NAV research, product strategist)
 
 - [~] needs sign-off (PR) — **Teljesítés dátuma is not a real field — NAV
