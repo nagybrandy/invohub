@@ -182,17 +182,17 @@ export default function NewReceiptScreen() {
       <FormScreen header={<Heading size="2xl">{t("receipts.new")}</Heading>}>
         <Card className="items-center p-6">
           <VStack space="md" className="w-full items-center">
-            <Text className="text-center font-semibold text-foreground">
+            <Text className="text-center font-semibold text-ink">
               {created.receiptNumber}
             </Text>
-            <Text className="text-center text-lg font-bold text-foreground">
+            <Text className="text-center text-lg font-bold text-ink">
               {formatCurrency(created.totalAmount, created.currency)}
             </Text>
             <QRCode value={created.qrUrl} size={200} />
-            <Text size="xs" className="text-center text-muted-foreground">
+            <Text size="xs" className="text-center text-muted-ink">
               {t("receipts.qrHint")}
             </Text>
-            <Text size="xs" selectable className="text-center font-mono text-muted-foreground">
+            <Text size="xs" selectable className="text-center font-mono text-muted-ink">
               {created.qrUrl}
             </Text>
             <HStack space="sm" className="flex-wrap justify-center">

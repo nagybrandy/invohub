@@ -47,7 +47,7 @@ export function ScreenLayout({
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["left", "right"]}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={["left", "right"]}>
       {scroll ? (
         // Without this, a focused field low in a form (Recipient/Dates
         // cards, notes textarea) can end up hidden behind the on-screen

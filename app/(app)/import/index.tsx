@@ -51,7 +51,7 @@ export default function ImportScreen() {
   return (
     <ScreenLayout header={<Heading size="2xl">{t("import.title")}</Heading>}>
       <VStack space="md">
-        <Text size="sm" className="text-muted-foreground">
+        <Text size="sm" className="text-muted-ink">
           {t("import.description")}
         </Text>
         <Card className="p-4">

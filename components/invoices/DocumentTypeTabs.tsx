@@ -30,7 +30,7 @@ export function DocumentTypeTabs({ selected, onChange, disabled }: Props) {
   const { t } = useTranslation();
 
   return (
-    <Box className="flex-row flex-wrap rounded-lg border border-border bg-card p-1 md:flex-nowrap">
+    <Box className="flex-row flex-wrap rounded-lg border border-border bg-surface p-1 md:flex-nowrap">
       {DOCUMENT_TYPE_KEYS.map((dt) => (
         <Pressable
           key={dt.value}
@@ -46,7 +46,7 @@ export function DocumentTypeTabs({ selected, onChange, disabled }: Props) {
             className={`text-sm font-medium ${
               selected === dt.value
                 ? "text-primary-foreground"
-                : "text-foreground"
+                : "text-ink"
             }`}
           >
             {t(dt.i18nKey)}

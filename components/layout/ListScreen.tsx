@@ -62,7 +62,7 @@ export function ListScreen<T>({
       data={data}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
-      className="flex-1 bg-background"
+      className="flex-1 bg-canvas"
       contentContainerClassName="gap-3 px-4 pb-10 pt-5 md:px-10 md:pt-8"
       refreshControl={
         onRefresh ? (
