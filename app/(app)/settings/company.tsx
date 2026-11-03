@@ -47,20 +47,26 @@ export default function CompanySettingsScreen() {
   const { company, loading, save, lookup } = useCompany();
   const keys = settingsItemKeys("company");
 
+  // Keyed on the field values, not the company object identity, so a hook that
+  // hands back a fresh object per render cannot loop the sync effect below.
+  const savedKey = company
+    ? JSON.stringify([
+        company.name,
+        company.taxNumber ?? "",
+        company.address ?? "",
+        company.city ?? "",
+        company.zipCode ?? "",
+        company.bankAccount ?? "",
+        company.vatExempt ?? false,
+      ])
+    : "";
   const saved = React.useMemo<CompanyForm>(
-    () =>
-      company
-        ? {
-            name: company.name,
-            taxNumber: company.taxNumber ?? "",
-            address: company.address ?? "",
-            city: company.city ?? "",
-            zipCode: company.zipCode ?? "",
-            bankAccount: company.bankAccount ?? "",
-            vatExempt: company.vatExempt ?? false,
-          }
-        : EMPTY_FORM,
-    [company]
+    () => {
+      if (!savedKey) return EMPTY_FORM;
+      const [name, taxNumber, address, city, zipCode, bankAccount, vatExempt] = JSON.parse(savedKey);
+      return { name, taxNumber, address, city, zipCode, bankAccount, vatExempt };
+    },
+    [savedKey]
   );
   const [form, setForm] = React.useState<CompanyForm>(EMPTY_FORM);
   const [error, setError] = React.useState<string | null>(null);
