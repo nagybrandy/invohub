@@ -153,8 +153,11 @@ export function createNavRealClient(environment: Exclude<NavEnvironment, "demo">
       if (!valid) return { valid: false };
 
       const addressBlock = extractBlock(text, "taxpayerAddressList") ?? text;
+      const taxDetail = extractBlock(text, "taxNumberDetail");
       return {
         valid: true,
+        vatCode: (taxDetail && extractTag(taxDetail, "vatCode")) || undefined,
+        countyCode: (taxDetail && extractTag(taxDetail, "countyCode")) || undefined,
         name: extractTag(text, "taxpayerName") ?? undefined,
         city: extractTag(addressBlock, "city") ?? undefined,
         zipCode: extractTag(addressBlock, "postalCode") ?? undefined,

@@ -1,5 +1,5 @@
 {
-  "id": "a56b6f45-9219-4931-913c-6b90afd3b56c",
+  "id": "2ea4b4ff-1343-4b68-bce1-b1438aa739cb",
   "prevId": "2e46595c-5ffa-41e9-9a74-1b3624baa993",
   "version": "7",
   "dialect": "postgresql",
@@ -606,6 +606,69 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.company_directory": {
+      "name": "company_directory",
+      "schema": "",
+      "columns": {
+        "tax_number_base": {
+          "name": "tax_number_base",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tax_number": {
+          "name": "tax_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "zip_code": {
+          "name": "zip_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'HU'"
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1294,12 +1357,6 @@
         "converted_from_invoice_id": {
           "name": "converted_from_invoice_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pdf_template_snapshot": {
-          "name": "pdf_template_snapshot",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

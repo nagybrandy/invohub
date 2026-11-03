@@ -1,3 +1,4 @@
+jest.mock("@/lib/company/lookup-server", () => ({ lookupCompanyCached: jest.fn() }));
 import { looksLikeTaxNumber, parseOpenCorporatesResults, searchHungarianCompanies } from "@/lib/company/search";
 
 describe("looksLikeTaxNumber", () => {
