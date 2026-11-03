@@ -15,14 +15,14 @@ import { webDomProps } from "@/components/ui/web-dom-props";
 import {
   POPOVER_PANEL_CLASS,
   type AnchoredPopoverProps,
-} from "@/components/layout/AnchoredPopover";
+} from "@/components/layout/menu-shared";
 
 const { createPortal } = require("react-dom") as {
   createPortal: (children: React.ReactNode, container: Element) => React.ReactPortal;
 };
 
 export type { AnchoredPopoverProps };
-export { POPOVER_PANEL_CLASS, MENU_PANEL_CLASS } from "@/components/layout/AnchoredPopover";
+export { POPOVER_PANEL_CLASS, MENU_PANEL_CLASS } from "@/components/layout/menu-shared";
 
 const GAP = 6;
 const MARGIN = 8;

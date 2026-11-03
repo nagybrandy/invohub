@@ -1130,3 +1130,101 @@ own numbered list is in the structured hand-off and repeated here.
 6. Discount, recurring invoices, order number, partner defaults from the
    last invoice, logo/font/layout invoice customisation: product decisions
    needed before any of them is built (also in the designer's brief).
+
+## 16. Foundation API (what the five tracks build on)
+
+Written by the foundation branch (`ux/redesign-foundation`). Import paths use
+the `@/` alias. "Web twin" = a `*.web.tsx` next to the native file; Metro picks
+it on web, so a `.web` file must never import runtime values from its native
+twin (shared constants live in a neutral file, e.g. `components/layout/menu-shared.ts`).
+
+### 16.1 Tokens, theme, fonts
+
+| What | Where | Notes |
+|---|---|---|
+| Palette (hex, light + dark) | `lib/theme/tokens.ts` `designPalette` | the only place colour values live |
+| Generated CSS | `lib/theme/theme-css.ts` `buildThemeCss()` -> `global.css` between the `theme-css:start/end` markers | regenerate with `UPDATE_THEME_CSS=1 npx jest lib/theme/theme-css.test.ts`; the test fails if they drift |
+| CSS variables | hex design vars (`--canvas`, `--surface`, `--ink`, ... except `--primary`/`--muted`, which stay RGB triplets), an `-rgb` triplet twin of every design token (`--ok-rgb`), and the Gluestack names (`--background`, `--card`, `--primary` ...) | the browser serialises the hex values in lower case (`#f6f6f8`) because the CSS pipeline minifies colours |
+| Tailwind | `tailwind.config.js` | colours `canvas surface line line-strong ink muted-ink faint primary-press primary-ink primary-wash primary-line ok(-wash) warn(-wash) err(-wash,-line) neutral-wash wash2 navy navy-ink seg-*`; radii `rounded-card(12) control(8) menu(12) dialog(16) sheet(18) pill(6)`; shadows `shadow-card/menu/create/panel/dialog/sheet/tooltip/tabbar`; screens `phone:` (max 700), `tab:` (min 701), `wide:` (min 1100) |
+| Icon colours | `lib/theme/icon-colors.ts` `useIconColors()` | adds `ok warn faint onNavy onNavyActive` |
+| Theme choice | `lib/useColorScheme.tsx` `useColorScheme().setTheme("light" / "dark" / "system")` | explicit choice sets `<html data-theme>`, `system` removes it; a localStorage mirror (`invohub.theme-preference`) lets the inline boot script avoid a flash |
+| Fonts | `global.css` `@font-face` (self-hosted variable woff2 in `public/fonts`, mirrored in `assets/fonts`, licence `OFL-StackSans.txt`); native `lib/ui/use-app-fonts.native.ts`; `lib/ui/fonts.ts` `nativeFontFamily` / `weightFromClassName` | `Text` / `Heading` map the weight class to the static family on native only |
+| Type presets | `lib/ui/type.ts` `type.pageTitle .lead .sectionTitle .itemTitle .body .meta .micro .heroNumber .kpiNumber .money` | use these instead of inventing sizes |
+| Focus ring, reduced motion | `global.css` | `.on-navy` flips the ring to white; `.focus-ring-host` marks a wrapper that draws the ring for the input inside it |
+| Breakpoints | `lib/theme/layout.ts` (`phoneMax 700`, `wideMin 1100`, `listCardsMax 820`, `settingsTwoColumnMin 640`, `previewBesideMin 760`, `tabBarHeight 64`, `breakpointForWidth`), `lib/useIsDesktop.ts` (`useIsDesktop()` = width >= 701, `useBreakpoint()`) | |
+| Container width | `lib/ui/use-measured-width.ts` `useMeasuredWidth()` returns `{ width, measured, onLayout }` | `width` is 0 until measured |
+| `ScreenLayout` widths | `components/layout/ScreenLayout.tsx` `width="content"` (1160), `"settings"` (1120), `"composer"` (1240), `"form"`, `"full"` | page gutters 16 (24 from 701) |
+
+### 16.2 UI components
+
+| Component | Import | Props / behaviour |
+|---|---|---|
+| `Button`, `ButtonText`, `ButtonIcon`, `ButtonSpinner` | `@/components/ui/button` | `variant`: `primary` `secondary` `tertiary` `danger` `dangerSolid` (old `default/outline/link/ghost/destructive` still map); `size`: `sm` (34, 40 on phones), `md`/default (40), `form` (42), `lg` (46), `icon`. `buttonStyle`, `resolveButtonVariant` exported |
+| `Input`, `InputField`, `InputSlot`, `InputIcon` | `@/components/ui/input` | 42px, token border / focus / invalid / disabled; `INPUT_HEIGHT_PX` |
+| `Textarea` | `@/components/ui/textarea` | min 90px, same states |
+| `Select` | `@/components/ui/select` | `{ value, onChange, options: [{ value, label, disabled? }], placeholder?, disabled?, invalid?, accessibilityLabel (required), tone?: "default" or "onNavy" }`; web = native `<select>`, native = option sheet |
+| `FormField` | `@/components/layout/FormField` | label 600, `hint` / `error` 13px under the field |
+| `SegmentedControl` | `@/components/ui/segmented-control` | `{ options, value, onChange, size?: "md" or "sm", fullWidth?, outlined?, accessibilityLabel? }`; radiogroup, arrow / Home / End keys, roving tabindex; `nextSegmentIndex` exported |
+| `ChoicePill` | `@/components/ui/choice-pill` | new `variant="filter"` (sheet status chips, pressed = primary-ink) and `"quick"` (composer chips, pressed = primary wash); `choicePillTextClass(variant, selected)`; 44px floor kept |
+| `Switch` | `@/components/ui/switch` | 44x26, knob 20 |
+| `Card` | `@/components/ui/card` | radius 12, surface, `shadow-card`, 22/20 padding |
+| `InvoiceStatusChip` | `@/components/invoices/InvoiceStatusChip` | the one status pill; colours from `lib/invoices/status-visuals.ts` (paid ok, overdue err, sent / unpaid primary wash, partly paid warn, draft / proforma / cancelled neutral). Labels unchanged (`invoices.status.*`, see 16.5) |
+| `NavStateIcon` (= `NavDot`) | `@/components/invoices/NavStateIcon` | `{ status: NavListStatus, reason?, testID?, onPress? }`: failed = outlined red triangle button + tooltip with `reason`; done = green tick (55%); inProgress = muted clock; none / notSubmitted = empty |
+| `Tooltip` | `@/components/ui/tooltip` | `{ content, children }` one pressable child; web: hover + focus, portal, `role="tooltip"`, Esc; native: long-press |
+| `Sheet` | `@/components/ui/sheet` | `{ open, onClose, title?, accessibilityLabel?, footer?, presentation?: "auto" / "sheet" / "dialog", maxWidth?, topOffset?, hideHeader?, testID }`; bottom sheet <= 700, dialog (max 460) above; scrim / Esc / close; web: focus trap + restore, aria-modal, labelled |
+| `ConfirmDialog` | `@/components/ui/confirm-dialog` | `{ open, title, message?, confirmLabel, cancelLabel, destructive?, icon?, busy?, onConfirm, onCancel }`; Mégse has initial focus; `confirmAsync` (`@/lib/ui/confirm`) keeps its API and renders this on web |
+| `OverflowMenu` | `@/components/layout/OverflowMenu` | same props; `MAX_MENU_ITEMS = 5` (dev warning above), `MoreVertical` trigger 34x34, rows with Esc / arrow keys / focus return on web; shared look in `menu-shared.ts` |
+| `AnchoredPopover` | `@/components/layout/AnchoredPopover` | new `placement="above"`, `panelClassName` (`MENU_PANEL_CLASS`), `role`, `anchorClassName`, `onEscape` |
+| `useMenuKeyboard` | `@/components/ui/menu/use-menu-keyboard` | focus the first `role="menuitem"` on mount + ArrowUp / Down / Home / End |
+| `Breadcrumb` | `@/components/layout/Breadcrumb` | trail, or a "‹ Parent" link at <= 700; `parentBreadcrumb()` |
+| `PageHeader` | `@/components/layout/PageHeader` | breadcrumb above the title, `type.pageTitle`, `type.lead`; unchanged props |
+| `StatCard`, `Section`, `StateView` / `EmptyState`, `ListFooterStats` | `@/components/layout/*` | token look (card shadow, `text-ok` / `text-err` tones) |
+| `DataTable` | `@/components/layout/DataTable` | wash header, 56px rows, hover wash, only numeric cells bold; with `renderMobile` it switches to cards when its own measured width is <= 820 |
+| `LanguageSwitcher` | `@/components/i18n/LanguageSwitcher` | dropdown (Magyar, English); `tone="onDark"` for navy panels; default `className="w-[160px]"`; `testID` is the select's |
+| `ThemeToggle` | `@/components/navigation/ThemeToggle` | not in the chrome any more; still writes explicit light / dark |
+
+### 16.3 Shell
+
+| Piece | File | Notes |
+|---|---|---|
+| `AppShell` | `components/navigation/AppShell.tsx` | sidebar shell from 701, phone shell up to 700; owns the account menu data, the logout confirm and the notification panel open state. `NotificationBanner` is not rendered any more |
+| `AppSidebar` | `AppSidebar.tsx` | 248 / 72, navy; props `collapsed onToggleCollapsed onNavigate onNewInvoice onNewReceipt onNewPartner accountMenu` |
+| `useSidebarCollapsed(width)` | `useSidebarCollapsed.ts` | default collapsed 701-1099, expanded from 1100; stored choice (`invohub.sidebar.collapsed`) wins |
+| `NewCreateButton` | `NewCreateButton.tsx` | split button + menu (Új számla / Új nyugta / Új partner); `collapsed` |
+| `AccountMenu` | `AccountMenu.tsx` | `{ variant: "sidebar" or "header", collapsed?, user, company, accounts, onSwitch(id or null), onManage, onEditCompany, onSignOut }`; popover above the footer on desktop, sheet on phones; `account-avatar.ts` holds the deterministic avatar fills |
+| `LogoutConfirm`, `useLogoutConfirm(signOut)` | `LogoutConfirm.tsx` | "Kijelentkezel?"; the settings track reuses it for the phone start page's logout row |
+| `AppTopStrip`, `NotificationBell` | `AppTopStrip.tsx`, `NotificationBell.tsx` | search + bell only; bell badge = real unread count |
+| `GlobalSearchField` | `GlobalSearchField.tsx` | owns the query; renders `components/search/GlobalSearchResults`, a STUB returning null: the home track implements `{ query, onClose, variant: "popover" or "panel" }` |
+| `MobileAppHeader`, `MobileTabBar`, `NewSheet`, `MoreSheet` | same folder | tab grid 1 / 1 / 1.45 / 1 / 1; `MOBILE_TAB_NAV` items have `action: "new"` or `"more"` instead of an href |
+| Routes | `lib/navigation.ts` | `routes.settingsAppearance`, `routes.settingsNav` (pages are the settings track's; nothing links to them yet) |
+| Breadcrumb helper | `lib/app-navigation.ts` `getBreadcrumb(pathname, t, { currentLabel?, includeHome? })` | trail for subpages, `undefined` for top-level screens; `SETTINGS_SUBPAGES` includes appearance and NAV |
+
+### 16.4 i18n
+
+New namespaces `shell.*` and `ui.*` (after `nav`), new `nav.*` keys
+(`newPartner newShort settingsAppearance settingsNav primaryNav secondaryNav
+breadcrumb.*`); `nav.dashboard` is now "Főoldal" / "Home". Empty track
+namespaces exist in both files: `lists` (after `invoices`), `composer` (after
+`receipts`), `home` (after `dashboard`), `settingsPages` (after `settings`),
+`globalSearch` (after `notifications`), `publicSite` (after `landing`).
+`userMenu.*` is no longer used by the shell (left in place; delete it when
+nothing else needs it).
+
+### 16.5 Decisions and deviations
+
+- The 44px tap-target floor was dropped from `Button` / `Input` in favour of the
+  design heights (34 / 40 / 42 / 46; `sm` is 40 on phones). `ChoicePill` and the
+  44px icon boxes keep it.
+- `Sheet.web`, `ConfirmDialog.web`, `Tooltip.web` and `AnchoredPopover.web` are
+  plain DOM (portals) so they can trap focus and be tested with jsdom.
+- Account avatars: active = `bg-primary`; the others get `bg-ok`, `bg-warn`,
+  `bg-navy` or `bg-primary-press` by a hash of the account id.
+- `Text.web` turns `numberOfLines` into `truncate` / `line-clamp-N`.
+- The sidebar logo tile is a plain `bg-primary` rounded square (the prototype's
+  gradient needs a hard-coded hex).
+- Status pill labels are the app's existing ones (`invoices.status.sent` =
+  "Kiküldve"); the prototype says "Fizetésre vár" for sent / unpaid. The lists
+  track and the owner decide whether to relabel.
+- The native (iOS / Android) bundle could not be verified here: `expo export
+  --platform ios` already fails before this change on `lib/id.ts` importing
+  `crypto` (unrelated). Fonts, theme and shell were verified on web only.

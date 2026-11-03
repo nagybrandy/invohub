@@ -33,4 +33,5 @@ it("uses the design tokens for border, surface, focus, invalid and disabled stat
     expect(cls).toContain(c);
   }
   expect(cls).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+  expect(cls).toContain("focus-ring-host");
 });

@@ -12,16 +12,16 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import {
+  MAX_MENU_ITEMS,
+  MENU_ITEM_CLASS,
+  MENU_TRIGGER_CLASS,
+  warnIfTooManyItems,
+  type OverflowMenuItem,
+} from "@/components/layout/menu-shared";
 
-export const MAX_MENU_ITEMS = 5;
-
-export type OverflowMenuItem = {
-  label: string;
-  onPress: () => void;
-  icon?: React.ComponentType<{ size?: number; color?: string }>;
-  destructive?: boolean;
-  disabled?: boolean;
-};
+export { MAX_MENU_ITEMS, MENU_ITEM_CLASS, MENU_TRIGGER_CLASS, warnIfTooManyItems };
+export type { OverflowMenuItem };
 
 type OverflowMenuProps = {
   items: OverflowMenuItem[];
@@ -29,20 +29,6 @@ type OverflowMenuProps = {
   label?: string;
   align?: "left" | "right";
 };
-
-/** Warns (development only) when a menu is given more than the design allows. */
-export function warnIfTooManyItems(count: number): void {
-  if (count > MAX_MENU_ITEMS && process.env.NODE_ENV !== "production") {
-    console.warn(
-      `[OverflowMenu] ${count} actions given; the design allows at most ${MAX_MENU_ITEMS}. Move the rest to the detail page.`,
-    );
-  }
-}
-
-export const MENU_TRIGGER_CLASS =
-  "h-[34px] w-[34px] phone:h-10 phone:w-10 items-center justify-center rounded-control data-[hover=true]:bg-neutral-wash";
-export const MENU_ITEM_CLASS =
-  "min-h-11 flex-row items-center gap-3.5 rounded-control px-3.5 py-3 data-[hover=true]:bg-neutral-wash";
 
 export function OverflowMenu({ items, label = "More actions", align = "right" }: OverflowMenuProps) {
   const [open, setOpen] = React.useState(false);

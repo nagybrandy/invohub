@@ -28,7 +28,7 @@ import {
   MENU_TRIGGER_CLASS,
   warnIfTooManyItems,
   type OverflowMenuItem,
-} from "@/components/layout/OverflowMenu";
+} from "@/components/layout/menu-shared";
 
 // No @types/react-dom in this project — cast the import instead of adding a
 // new type dependency for one function.
@@ -37,7 +37,7 @@ const { createPortal } = require("react-dom") as {
 };
 
 export type { OverflowMenuItem };
-export { MAX_MENU_ITEMS } from "@/components/layout/OverflowMenu";
+export { MAX_MENU_ITEMS } from "@/components/layout/menu-shared";
 
 type OverflowMenuProps = {
   items: OverflowMenuItem[];

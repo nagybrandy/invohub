@@ -60,6 +60,17 @@ describe("Text numeric prop (web)", () => {
     expect(host.props.className).toContain("tabular-nums");
   });
 
+  it("turns numberOfLines into truncation classes instead of a DOM attribute", () => {
+    const one = renderWeb({ numberOfLines: 1, children: "Nagyon hosszú cégnév Kft." });
+    const host = one.root.findByType("span" as unknown as React.ComponentType);
+    expect(host.props.className).toContain("truncate");
+    expect(host.props.numberOfLines).toBeUndefined();
+    const two = renderWeb({ numberOfLines: 2, children: "x" });
+    expect(two.root.findByType("span" as unknown as React.ComponentType).props.className).toContain("line-clamp-2");
+    const none = renderWeb({ children: "x" });
+    expect(none.root.findByType("span" as unknown as React.ComponentType).props.className).not.toContain("truncate");
+  });
+
   it("keeps the caller's className alongside tabular-nums", () => {
     const tree = renderWeb({ numeric: true, className: "font-semibold", children: "571 500 Ft" });
     const host = tree.root.findByType("span" as unknown as React.ComponentType);

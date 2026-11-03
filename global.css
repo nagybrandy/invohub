@@ -416,6 +416,14 @@
     border-color: rgb(var(--primary));
   }
 
+  /* Wrapped fields (components/ui/input, textarea, the global search) draw
+     their ring on the box around the input; the bare input inside must not
+     draw a second one. */
+  .focus-ring-host input:focus-visible,
+  .focus-ring-host textarea:focus-visible {
+    outline: none;
+  }
+
   /* The navy sidebar (and anything else with .on-navy) rings in white. */
   .on-navy :focus-visible {
     outline-color: #ffffff;

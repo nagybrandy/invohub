@@ -40,7 +40,7 @@ cssInterop(UIIcon, {
 // `h-*` still wins, which stays greppable in a diff.
 export const INPUT_HEIGHT_PX = 42;
 const inputStyleVariants = tva({
-  base: `h-[42px] w-full flex-row items-center rounded-control border border-line-strong bg-surface transition-[color,border-color] overflow-hidden data-[focus=true]:border-primary data-[focus=true]:web:outline data-[focus=true]:web:outline-2 data-[focus=true]:web:outline-primary data-[invalid=true]:border-err data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:bg-wash2 px-3 gap-2`,
+  base: `focus-ring-host h-[42px] w-full flex-row items-center rounded-control border border-line-strong bg-surface transition-[color,border-color] overflow-hidden data-[focus=true]:border-primary data-[focus=true]:web:outline data-[focus=true]:web:outline-2 data-[focus=true]:web:outline-primary data-[invalid=true]:border-err data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:bg-wash2 px-3 gap-2`,
 });
 // tva()'s returned function destructures its argument directly, so calling
 // it with zero arguments throws instead of resolving to the base string

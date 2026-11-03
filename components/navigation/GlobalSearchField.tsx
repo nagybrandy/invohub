@@ -49,7 +49,7 @@ export function GlobalSearchField({
     >
       <Box
         // The ring sits on the field box (the DOM input inside has no outline).
-        className={`flex-row items-center gap-2 rounded-control border border-line-strong bg-surface pl-2.5 pr-2 web:focus-within:border-primary web:focus-within:outline web:focus-within:outline-2 web:focus-within:outline-primary ${
+        className={`focus-ring-host flex-row items-center gap-2 rounded-control border border-line-strong bg-surface pl-2.5 pr-2 web:focus-within:border-primary web:focus-within:outline web:focus-within:outline-2 web:focus-within:outline-primary ${
           phone ? "h-10" : "h-9"
         }`}
       >

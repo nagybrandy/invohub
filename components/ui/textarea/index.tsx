@@ -20,7 +20,7 @@ const UITextarea = createTextarea({
 // Redesign 2026-11 (tokens.md §6.3): min-height 90px, 8px radius, line-strong
 // border on the surface colour; focus = primary border + 2px outline.
 const textareaStyle = tva({
-  base: 'w-full min-h-[90px] border border-line-strong bg-surface rounded-control data-[focus=true]:border-primary data-[focus=true]:web:outline data-[focus=true]:web:outline-2 data-[focus=true]:web:outline-primary data-[invalid=true]:border-err data-[disabled=true]:bg-wash2',
+  base: 'focus-ring-host w-full min-h-[90px] border border-line-strong bg-surface rounded-control data-[focus=true]:border-primary data-[focus=true]:web:outline data-[focus=true]:web:outline-2 data-[focus=true]:web:outline-primary data-[invalid=true]:border-err data-[disabled=true]:bg-wash2',
 
   variants: {
     variant: {

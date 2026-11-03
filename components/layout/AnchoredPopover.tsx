@@ -7,33 +7,14 @@
 import * as React from "react";
 import { Dimensions, Modal, Pressable as RNPressable, View } from "react-native";
 import { Box } from "@/components/ui/box";
+import {
+  MENU_PANEL_CLASS,
+  POPOVER_PANEL_CLASS,
+  type AnchoredPopoverProps,
+} from "@/components/layout/menu-shared";
 
-export type AnchoredPopoverProps = {
-  open: boolean;
-  onClose: () => void;
-  /** The trigger; rendered by the popover so it can be measured. */
-  anchor: React.ReactNode;
-  children: React.ReactNode;
-  align?: "left" | "right";
-  /** Panel width in px. */
-  width?: number;
-  testID?: string;
-  /** Open below (default) or above the anchor (the sidebar account menu opens upward). */
-  placement?: "below" | "above";
-  /** Replaces the default panel look (form popovers: padded card) e.g. for menus. */
-  panelClassName?: string;
-  /** Classes of the wrapper around the anchor (web: `inline-flex`; pass `flex w-full` to stretch a full-width trigger). */
-  anchorClassName?: string;
-  /** Accessible role of the panel: `dialog` (default) or `menu`. */
-  role?: "dialog" | "menu";
-  /** Called when Escape closed the popover (web), so the caller can refocus its trigger. */
-  onEscape?: () => void;
-};
-
-/** Default panel look: a padded raised card. Menus pass their own (MENU_PANEL_CLASS). */
-export const POPOVER_PANEL_CLASS = "rounded-menu border border-line-strong bg-surface p-4 shadow-menu";
-/** Menu panel look (tokens.md §6.14): 12px radius, 6px padding, line-strong border. */
-export const MENU_PANEL_CLASS = "rounded-menu border border-line-strong bg-surface p-1.5 shadow-menu";
+export type { AnchoredPopoverProps };
+export { POPOVER_PANEL_CLASS, MENU_PANEL_CLASS };
 
 const GAP = 6;
 const MARGIN = 8;
