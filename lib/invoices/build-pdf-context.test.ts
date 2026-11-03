@@ -5,6 +5,7 @@ jest.mock("@/lib/companies/service", () => ({
 
 jest.mock("@/lib/invoices/pdf-template/service", () => ({
   getPdfTemplate: jest.fn(),
+  getLegacyAppearance: jest.fn(),
   getInvoicePdfTemplateSnapshot: jest.fn(),
 }));
 
@@ -18,13 +19,19 @@ jest.mock("@/lib/invoices/service", () => ({
 
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { buildInvoicePdfContext } from "@/lib/invoices/build-pdf-context";
-import { getInvoicePdfTemplateSnapshot, getPdfTemplate } from "@/lib/invoices/pdf-template/service";
+import {
+  getInvoicePdfTemplateSnapshot,
+  getLegacyAppearance,
+  getPdfTemplate,
+} from "@/lib/invoices/pdf-template/service";
+import { DEFAULT_PDF_TEMPLATE, LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 import { getClientById } from "@/lib/clients/service";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
 const mockTemplate = getPdfTemplate as jest.MockedFunction<typeof getPdfTemplate>;
+const mockLegacy = getLegacyAppearance as jest.MockedFunction<typeof getLegacyAppearance>;
 const mockSnapshot = getInvoicePdfTemplateSnapshot as jest.MockedFunction<typeof getInvoicePdfTemplateSnapshot>;
 const mockClient = getClientById as jest.MockedFunction<typeof getClientById>;
 
@@ -40,15 +47,12 @@ describe("buildInvoicePdfContext", () => {
       updatedAt: "",
     });
     mockTemplate.mockResolvedValue({
-      titleText: "SZÁMLA",
+      ...DEFAULT_PDF_TEMPLATE,
       accentColor: "#000000",
-      showCompanyBlock: true,
-      showBankDetails: true,
-      showClientTaxNumber: true,
       footerText: "",
       notesLabel: "Notes",
-      fontScale: "medium",
     });
+    mockLegacy.mockResolvedValue({ ...LEGACY_PDF_TEMPLATE, accentColor: "#000000", notesLabel: "Notes" });
     mockSnapshot.mockResolvedValue(null);
   });
 
@@ -163,6 +167,13 @@ describe("buildInvoicePdfContext", () => {
   });
 
   describe("appearance (PDF template) of an issued invoice", () => {
+    const LEGACY_LAYOUT = {
+      layout: "legacy" as const,
+      fontStyle: "invohub" as const,
+      logoMode: "monogram" as const,
+      logoSize: "M" as const,
+      logoPosition: "left" as const,
+    };
     const ISSUED_LOOK = {
       titleText: "RÉGI SZÁMLA",
       accentColor: "#ff0000",
@@ -172,6 +183,7 @@ describe("buildInvoicePdfContext", () => {
       footerText: "Kiállításkori lábléc",
       notesLabel: "Megj.",
       fontScale: "large" as const,
+      ...LEGACY_LAYOUT,
     };
 
     it("renders an issued invoice with the appearance frozen at issue time, not the user's current template", async () => {
@@ -181,15 +193,27 @@ describe("buildInvoicePdfContext", () => {
       expect(ctx.template).toEqual(ISSUED_LOOK);
     });
 
-    it("falls back to the current template for an issued invoice that has no snapshot", async () => {
+    it("renders an issued invoice that has no snapshot with the LEGACY appearance, never the live paper template", async () => {
       const ctx = await buildInvoicePdfContext("u1", makeInvoice({ status: "paid" }));
-      expect(ctx.template?.titleText).toBe("SZÁMLA");
+      expect(mockLegacy).toHaveBeenCalledWith("u1");
+      expect(mockTemplate).not.toHaveBeenCalled();
+      expect(ctx.template?.layout).toBe("legacy");
+      expect(ctx.template).toEqual(await mockLegacy.mock.results[0]!.value);
     });
 
-    it("renders a draft with the current template and never looks up a snapshot", async () => {
+    it("keeps a new-shape snapshot as it is", async () => {
+      const newLook = { ...DEFAULT_PDF_TEMPLATE, layout: "band" as const };
+      mockSnapshot.mockResolvedValue(newLook);
+      const ctx = await buildInvoicePdfContext("u1", makeInvoice({ status: "sent" }));
+      expect(ctx.template).toEqual(newLook);
+      expect(mockLegacy).not.toHaveBeenCalled();
+    });
+
+    it("renders a draft with the live template (Dóri's design) and never looks up a snapshot", async () => {
       const ctx = await buildInvoicePdfContext("u1", makeInvoice({ status: "draft", invoiceNumber: "" }));
       expect(mockSnapshot).not.toHaveBeenCalled();
-      expect(ctx.template?.titleText).toBe("SZÁMLA");
+      expect(mockLegacy).not.toHaveBeenCalled();
+      expect(ctx.template?.layout).toBe("frame");
     });
   });
 });

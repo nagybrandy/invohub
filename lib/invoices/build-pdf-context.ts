@@ -4,7 +4,11 @@ import { getClientById } from "@/lib/clients/service";
 import { getCompanyByUserId } from "@/lib/companies/service";
 import type { InvoicePdfBuyer, InvoicePdfCompany, InvoicePdfContext } from "@/lib/invoices/generate-pdf";
 import { buildSamplePreviewInvoice } from "@/lib/invoices/pdf-template/sample-invoice";
-import { getInvoicePdfTemplateSnapshot, getPdfTemplate } from "@/lib/invoices/pdf-template/service";
+import {
+  getInvoicePdfTemplateSnapshot,
+  getLegacyAppearance,
+  getPdfTemplate,
+} from "@/lib/invoices/pdf-template/service";
 import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { hasInvoiceNumber, type Invoice } from "@/lib/invoices/types";
@@ -69,12 +73,17 @@ async function loadBuyer(userId: string, invoice: Invoice): Promise<InvoicePdfBu
 }
 
 // An issued document keeps the appearance it was issued with (frozen by
-// upsertInvoice when it got its number); only drafts — and invoices issued
-// before snapshots existed — follow the live template.
+// upsertInvoice when it got its number). Only drafts follow the live template
+// (and so Dóri's design for a user without a saved one). An invoice issued
+// before snapshots existed was always drawn by the legacy renderer: it keeps
+// following the user's stored colours/toggles (until they change the template
+// and the freeze step pins them), but always on the legacy layout, for users
+// with and without a stored row alike.
 async function loadTemplate(userId: string, invoice: Invoice): Promise<InvoicePdfTemplate> {
   if (invoice.status !== "draft" && hasInvoiceNumber(invoice)) {
     const snapshot = await getInvoicePdfTemplateSnapshot(userId, invoice.id);
     if (snapshot) return snapshot;
+    return getLegacyAppearance(userId);
   }
   return getPdfTemplate(userId);
 }

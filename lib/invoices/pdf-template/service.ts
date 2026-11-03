@@ -7,6 +7,14 @@ import { invoice, invoicePdfTemplate } from "@/db/schema";
 import { createId } from "@/lib/id";
 import {
   DEFAULT_PDF_TEMPLATE,
+  LEGACY_PDF_TEMPLATE,
+  PDF_FONT_SCALES,
+  PDF_FONT_STYLES,
+  PDF_LAYOUTS,
+  PDF_LOGO_MODES,
+  PDF_LOGO_POSITIONS,
+  PDF_LOGO_SIZES,
+  defaultsForLayout,
   mergePdfTemplate,
   normalizeHexColor,
   parsePdfTemplateSnapshot,
@@ -16,21 +24,57 @@ import type {
   InvoicePdfTemplateInput,
 } from "@/lib/invoices/pdf-template/types";
 
+function oneOf<T extends string>(allowed: readonly T[], value: unknown, fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
 function mapRow(row: typeof invoicePdfTemplate.$inferSelect): InvoicePdfTemplate {
-  return mergePdfTemplate({
-    titleText: row.titleText,
-    // Normalized again at read time, not just on write (upsertPdfTemplate
-    // below) — the render path's safety must not depend on every past and
-    // future write path having validated it (a legacy row, a direct DB
-    // edit, a future write path that forgets to call normalizeHexColor).
-    accentColor: normalizeHexColor(row.accentColor),
-    showCompanyBlock: row.showCompanyBlock,
-    showBankDetails: row.showBankDetails,
-    showClientTaxNumber: row.showClientTaxNumber,
-    footerText: row.footerText ?? DEFAULT_PDF_TEMPLATE.footerText,
-    notesLabel: row.notesLabel,
-    fontScale: row.fontScale as InvoicePdfTemplate["fontScale"],
-  });
+  // An unknown layout reads as legacy (never as a new design): the stored row
+  // is what an unsnapshotted issued invoice may still be drawn from.
+  const layout = oneOf(PDF_LAYOUTS, row.layout, LEGACY_PDF_TEMPLATE.layout);
+  const defaults = defaultsForLayout(layout);
+  return mergePdfTemplate(
+    {
+      titleText: row.titleText,
+      // Normalized again at read time, not just on write (upsertPdfTemplate
+      // below) — the render path's safety must not depend on every past and
+      // future write path having validated it (a legacy row, a direct DB
+      // edit, a future write path that forgets to call normalizeHexColor).
+      accentColor: normalizeHexColor(row.accentColor, defaults.accentColor),
+      showCompanyBlock: row.showCompanyBlock,
+      showBankDetails: row.showBankDetails,
+      showClientTaxNumber: row.showClientTaxNumber,
+      footerText: row.footerText ?? defaults.footerText,
+      notesLabel: row.notesLabel,
+      fontScale: oneOf(PDF_FONT_SCALES, row.fontScale, defaults.fontScale),
+      layout,
+      fontStyle: oneOf(PDF_FONT_STYLES, row.fontStyle, defaults.fontStyle),
+      logoMode: oneOf(PDF_LOGO_MODES, row.logoMode, defaults.logoMode),
+      logoSize: oneOf(PDF_LOGO_SIZES, row.logoSize, defaults.logoSize),
+      logoPosition: oneOf(PDF_LOGO_POSITIONS, row.logoPosition, defaults.logoPosition),
+    },
+    defaults
+  );
+}
+
+/**
+ * The look an issued invoice WITHOUT a snapshot has always been drawn with:
+ * the user's stored template (or the frozen legacy values for a user without
+ * a row) rendered by the legacy renderer. Never the new-user defaults and
+ * never a paper layout — everything issued before snapshots existed was
+ * drawn by the legacy code.
+ */
+function legacyAppearanceOf(row: typeof invoicePdfTemplate.$inferSelect | undefined): InvoicePdfTemplate {
+  return { ...(row ? mapRow(row) : LEGACY_PDF_TEMPLATE), layout: "legacy" };
+}
+
+export async function getLegacyAppearance(userId: string): Promise<InvoicePdfTemplate> {
+  const [row] = await db
+    .select()
+    .from(invoicePdfTemplate)
+    .where(eq(invoicePdfTemplate.userId, userId))
+    .limit(1);
+  return legacyAppearanceOf(row);
 }
 
 export async function getPdfTemplate(userId: string): Promise<InvoicePdfTemplate> {
@@ -63,9 +107,10 @@ export async function getInvoicePdfTemplateSnapshot(
 
 /**
  * Issued invoices without a snapshot (issued before snapshots existed) render
- * with the live template, so before it changes, freeze the look they have had
- * so far onto them — a template change then only affects invoices issued from
- * now on. Idempotent: once set, a snapshot is never overwritten.
+ * with the live template (getLegacyAppearance), so before it changes, freeze
+ * the look they have had so far onto them — a template change then only
+ * affects invoices issued from now on. `current` must be the LEGACY
+ * appearance. Idempotent: once set, a snapshot is never overwritten.
  */
 async function freezeAppearanceOfUnsnapshottedInvoices(
   userId: string,
@@ -88,15 +133,6 @@ export async function upsertPdfTemplate(
   userId: string,
   input: InvoicePdfTemplateInput
 ): Promise<InvoicePdfTemplate> {
-  const merged = mergePdfTemplate(input);
-  const normalized: InvoicePdfTemplate = {
-    ...merged,
-    titleText: merged.titleText.trim() || DEFAULT_PDF_TEMPLATE.titleText,
-    accentColor: normalizeHexColor(merged.accentColor),
-    footerText: merged.footerText.trim(),
-    notesLabel: merged.notesLabel.trim() || DEFAULT_PDF_TEMPLATE.notesLabel,
-  };
-
   const now = new Date();
   const [existing] = await db
     .select()
@@ -104,25 +140,42 @@ export async function upsertPdfTemplate(
     .where(eq(invoicePdfTemplate.userId, userId))
     .limit(1);
 
-  await freezeAppearanceOfUnsnapshottedInvoices(
-    userId,
-    existing ? mapRow(existing) : { ...DEFAULT_PDF_TEMPLATE }
-  );
+  // Merge onto what the user has stored, not onto the new-user defaults: a
+  // PATCH that omits `layout` (any older client) must not silently move a
+  // legacy row to the new design.
+  const base = existing ? mapRow(existing) : DEFAULT_PDF_TEMPLATE;
+  const merged = mergePdfTemplate(input, base);
+  const defaults = defaultsForLayout(merged.layout);
+  const normalized: InvoicePdfTemplate = {
+    ...merged,
+    titleText: merged.titleText.trim() || defaults.titleText,
+    accentColor: normalizeHexColor(merged.accentColor, defaults.accentColor),
+    footerText: merged.footerText.trim(),
+    notesLabel: merged.notesLabel.trim() || defaults.notesLabel,
+  };
+
+  await freezeAppearanceOfUnsnapshottedInvoices(userId, legacyAppearanceOf(existing));
+
+  const columns = {
+    titleText: normalized.titleText,
+    accentColor: normalized.accentColor,
+    showCompanyBlock: normalized.showCompanyBlock,
+    showBankDetails: normalized.showBankDetails,
+    showClientTaxNumber: normalized.showClientTaxNumber,
+    footerText: normalized.footerText,
+    notesLabel: normalized.notesLabel,
+    fontScale: normalized.fontScale,
+    layout: normalized.layout,
+    fontStyle: normalized.fontStyle,
+    logoMode: normalized.logoMode,
+    logoSize: normalized.logoSize,
+    logoPosition: normalized.logoPosition,
+  };
 
   if (existing) {
     const [row] = await db
       .update(invoicePdfTemplate)
-      .set({
-        titleText: normalized.titleText,
-        accentColor: normalized.accentColor,
-        showCompanyBlock: normalized.showCompanyBlock,
-        showBankDetails: normalized.showBankDetails,
-        showClientTaxNumber: normalized.showClientTaxNumber,
-        footerText: normalized.footerText,
-        notesLabel: normalized.notesLabel,
-        fontScale: normalized.fontScale,
-        updatedAt: now,
-      })
+      .set({ ...columns, updatedAt: now })
       .where(eq(invoicePdfTemplate.id, existing.id))
       .returning();
     return mapRow(row);
@@ -133,14 +186,7 @@ export async function upsertPdfTemplate(
     .values({
       id: createId(),
       userId,
-      titleText: normalized.titleText,
-      accentColor: normalized.accentColor,
-      showCompanyBlock: normalized.showCompanyBlock,
-      showBankDetails: normalized.showBankDetails,
-      showClientTaxNumber: normalized.showClientTaxNumber,
-      footerText: normalized.footerText,
-      notesLabel: normalized.notesLabel,
-      fontScale: normalized.fontScale,
+      ...columns,
       createdAt: now,
       updatedAt: now,
     })

@@ -13,9 +13,10 @@ jest.mock("@/lib/id", () => ({
 
 import { db } from "@/db";
 import { invoice, invoicePdfTemplate } from "@/db/schema";
-import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
+import { DEFAULT_PDF_TEMPLATE, LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 import {
   getInvoicePdfTemplateSnapshot,
+  getLegacyAppearance,
   getPdfTemplate,
   upsertPdfTemplate,
 } from "@/lib/invoices/pdf-template/service";
@@ -35,6 +36,18 @@ function chain(rows: unknown[]) {
     })),
   };
 }
+
+const STORED_ROW = {
+  id: "tpl-1",
+  titleText: "RÉGI SZÁMLA",
+  accentColor: "#112233",
+  showCompanyBlock: true,
+  showBankDetails: false,
+  showClientTaxNumber: true,
+  footerText: "Régi lábléc",
+  notesLabel: "Megjegyzés",
+  fontScale: "small",
+};
 
 describe("getPdfTemplate", () => {
   beforeEach(() => {
@@ -89,21 +102,58 @@ describe("getPdfTemplate", () => {
     );
 
     const template = await getPdfTemplate("user-1");
-    expect(template.accentColor).toBe(DEFAULT_PDF_TEMPLATE.accentColor);
+    // A row without a layout column value is a pre-redesign row: legacy colour fallback.
+    expect(template.accentColor).toBe(LEGACY_PDF_TEMPLATE.accentColor);
+  });
+
+  it("reads the five paper columns", async () => {
+    mockDb.select.mockReturnValue(
+      chain([
+        {
+          ...STORED_ROW,
+          accentColor: "#E8590C",
+          layout: "band",
+          fontStyle: "classic",
+          logoMode: "own",
+          logoSize: "L",
+          logoPosition: "right",
+        },
+      ])
+    );
+    expect(await getPdfTemplate("user-1")).toMatchObject({
+      layout: "band",
+      fontStyle: "classic",
+      logoMode: "own",
+      logoSize: "L",
+      logoPosition: "right",
+      accentColor: "#E8590C",
+    });
+  });
+
+  it("maps a pre-redesign row (column defaults) to the legacy layout, and unknown values to legacy-safe ones", async () => {
+    mockDb.select.mockReturnValue(
+      chain([{ ...STORED_ROW, layout: "legacy", fontStyle: "invohub", logoMode: "monogram", logoSize: "M", logoPosition: "left" }])
+    );
+    expect((await getPdfTemplate("user-1")).layout).toBe("legacy");
+
+    mockDb.select.mockReturnValue(
+      chain([{ ...STORED_ROW, layout: "hologram", fontStyle: "comic", logoMode: "x", logoSize: "XL", logoPosition: "up" }])
+    );
+    expect(await getPdfTemplate("user-1")).toMatchObject({
+      layout: "legacy",
+      fontStyle: "invohub",
+      logoMode: "monogram",
+      logoSize: "M",
+      logoPosition: "left",
+    });
+  });
+
+  it("normalizes a bad accent on a new-layout row to Dóri's blue, not the legacy cornflower", async () => {
+    mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, accentColor: "nope", layout: "frame" }]));
+    expect((await getPdfTemplate("user-1")).accentColor).toBe(DEFAULT_PDF_TEMPLATE.accentColor);
   });
 });
 
-const STORED_ROW = {
-  id: "tpl-1",
-  titleText: "RÉGI SZÁMLA",
-  accentColor: "#112233",
-  showCompanyBlock: true,
-  showBankDetails: false,
-  showClientTaxNumber: true,
-  footerText: "Régi lábléc",
-  notesLabel: "Megjegyzés",
-  fontScale: "small",
-};
 
 /** Bound parameter values of a drizzle SQL condition (user id, status, …). */
 function sqlParams(node: unknown, out: unknown[] = [], seen = new Set<unknown>()): unknown[] {
@@ -210,13 +260,28 @@ describe("upsertPdfTemplate", () => {
         footerText: "Régi lábléc",
         notesLabel: "Megjegyzés",
         fontScale: "small",
+        layout: "legacy",
+        fontStyle: "invohub",
+        logoMode: "monogram",
+        logoSize: "M",
+        logoPosition: "left",
       },
     });
     // Only this user's issued (non-draft) documents.
     expect(updates[0].params).toEqual(expect.arrayContaining(["user-1", "draft"]));
   });
 
-  it("freezes the built-in default appearance when the user never saved a template before", async () => {
+  it("freezes the LEGACY appearance (never a paper layout) even when the stored row is already a new design", async () => {
+    const updates = recordUpdates({ ...STORED_ROW, layout: "frame" });
+    mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, layout: "frame", fontStyle: "round", accentColor: "#3F6BC4" }]));
+
+    await upsertPdfTemplate("user-1", { titleText: "X" });
+
+    expect(updates[0].table).toBe(invoice);
+    expect(updates[0].values.pdfTemplateSnapshot).toMatchObject({ layout: "legacy", accentColor: "#3F6BC4" });
+  });
+
+  it("freezes the frozen legacy values (not Dóri's defaults) when the user never saved a template before", async () => {
     const updates = recordUpdates(undefined);
     mockDb.select.mockReturnValue(chain([]));
     mockDb.insert.mockReturnValue({
@@ -227,6 +292,87 @@ describe("upsertPdfTemplate", () => {
 
     expect(updates).toHaveLength(1);
     expect(updates[0].table).toBe(invoice);
-    expect(updates[0].values).toEqual({ pdfTemplateSnapshot: DEFAULT_PDF_TEMPLATE });
+    expect(updates[0].values).toEqual({ pdfTemplateSnapshot: LEGACY_PDF_TEMPLATE });
+  });
+
+  it("gives a user without a row Dóri's design for the row it inserts, with all five paper columns written", async () => {
+    recordUpdates(undefined);
+    mockDb.select.mockReturnValue(chain([]));
+    const values = jest.fn(() => ({ returning: jest.fn().mockResolvedValue([{ ...STORED_ROW }]) }));
+    mockDb.insert.mockReturnValue({ values });
+
+    await upsertPdfTemplate("user-1", {});
+
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: "frame",
+        fontStyle: "invohub",
+        logoMode: "monogram",
+        logoSize: "M",
+        logoPosition: "left",
+        accentColor: "#3F6BC4",
+        footerText: "Köszönjük a bizalmát!",
+      })
+    );
+  });
+
+  it("merges the input onto the STORED row: a PATCH without layout keeps a legacy row legacy", async () => {
+    const updates = recordUpdates({ ...STORED_ROW });
+    mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, layout: "legacy" }]));
+
+    const result = await upsertPdfTemplate("user-1", { titleText: "ÚJ" });
+
+    const rowUpdate = updates.find((u) => u.table === invoicePdfTemplate)!;
+    expect(rowUpdate.values).toMatchObject({
+      titleText: "ÚJ",
+      accentColor: "#112233",
+      layout: "legacy",
+      fontStyle: "invohub",
+      logoMode: "monogram",
+      logoSize: "M",
+      logoPosition: "left",
+    });
+    expect(result.layout).toBe("legacy");
+  });
+
+  it("writes an explicit layout choice and all five paper columns on update", async () => {
+    const updates = recordUpdates({ ...STORED_ROW });
+    mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, layout: "legacy" }]));
+
+    await upsertPdfTemplate("user-1", {
+      layout: "band",
+      fontStyle: "round",
+      logoMode: "none",
+      logoSize: "S",
+      logoPosition: "right",
+    });
+
+    expect(updates.find((u) => u.table === invoicePdfTemplate)!.values).toMatchObject({
+      layout: "band",
+      fontStyle: "round",
+      logoMode: "none",
+      logoSize: "S",
+      logoPosition: "right",
+    });
+  });
+});
+
+describe("getLegacyAppearance", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("is the frozen legacy template for a user without a row", async () => {
+    mockDb.select.mockReturnValue(chain([]));
+    expect(await getLegacyAppearance("user-1")).toEqual(LEGACY_PDF_TEMPLATE);
+  });
+
+  it("is the stored row's values with the layout forced to legacy", async () => {
+    mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, layout: "frame", accentColor: "#3F6BC4" }]));
+    expect(await getLegacyAppearance("user-1")).toMatchObject({
+      layout: "legacy",
+      accentColor: "#3F6BC4",
+      titleText: "RÉGI SZÁMLA",
+    });
   });
 });

@@ -311,6 +311,34 @@ describe("legacy invoice renderer (no-restyle golden hashes)", () => {
     }
   );
 
+  // After the paper redesign the stored shape carries layout "legacy" plus the
+  // new (ignored) fields: it must hit the very same bytes as the old shape.
+  it.each(FIXTURES.map((f) => [f.name, f] as const))(
+    "%s: a template with layout 'legacy' and the new fields renders the same bytes as one without a layout key",
+    async (_name, fixture) => {
+      const ctx = fixture.ctx();
+      const withLayout = {
+        ...ctx,
+        template: {
+          ...ctx.template!,
+          layout: "legacy" as const,
+          fontStyle: "round" as const,
+          logoMode: "none" as const,
+          logoSize: "L" as const,
+          logoPosition: "right" as const,
+        },
+      };
+      expect(await renderHash(withLayout)).toBe(golden[fixture.name]);
+    }
+  );
+
+  it("renders a context without any template as the legacy look", async () => {
+    const { template: _template, ...noTemplate } = FIXTURES[0]!.ctx();
+    expect(await renderHash(noTemplate)).not.toBe("");
+    const withLegacyDefaults = { ...noTemplate, template: { ...OLD_TEMPLATE } };
+    expect(await renderHash(noTemplate)).toBe(await renderHash(withLegacyDefaults));
+  });
+
   it("is deterministic (two renders of the same input are identical)", async () => {
     const a = await renderHash(FIXTURES[0]!.ctx());
     const b = await renderHash(FIXTURES[0]!.ctx());
