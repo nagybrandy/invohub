@@ -1,19 +1,24 @@
 // app/(app)/settings/reminders.tsx
+// Kiküldés és emlékeztetők: who an invoice e-mail goes to by default (the
+// company's invoiceEmailTo / invoiceEmailCc, moved here from the company page)
+// and the overdue-invoice reminder schedule (GET/POST /api/reminders).
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Heading } from "@/components/ui/heading";
-import {
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
-} from "@/components/ui/form-control";
 import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
-import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { FormField } from "@/components/layout/FormField";
+import { SaveBar } from "@/components/settings/SaveBar";
+import {
+  SettingsNote,
+  SettingsPage,
+  SettingsSection,
+  SettingsSheet,
+} from "@/components/settings/SettingsSheet";
+import { useCompany } from "@/hooks/useCompany";
 import { apiFetch } from "@/lib/api/client";
+import { settingsItemKeys } from "@/lib/settings-navigation";
+import { type } from "@/lib/ui/type";
 
 type Schedule = {
   id: string;
@@ -24,12 +29,17 @@ type Schedule = {
 
 export default function RemindersSettingsScreen() {
   const { t } = useTranslation();
+  const { company, save: saveCompany } = useCompany();
+  const keys = settingsItemKeys("reminders");
   const [schedule, setSchedule] = React.useState<Schedule | null>(null);
   const [intervalDays, setIntervalDays] = React.useState("7");
   const [maxReminders, setMaxReminders] = React.useState("3");
+  const [invoiceEmailTo, setInvoiceEmailTo] = React.useState("");
+  const [invoiceEmailCc, setInvoiceEmailCc] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [running, setRunning] = React.useState(false);
-  const [message, setMessage] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
+  const [message, setMessage] = React.useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   React.useEffect(() => {
     void apiFetch<{ schedules: Schedule[] }>("/api/reminders")
@@ -44,18 +54,60 @@ export default function RemindersSettingsScreen() {
       .finally(() => setLoading(false));
   }, []);
 
+  const savedTo = company?.invoiceEmailTo ?? "";
+  const savedCc = company?.invoiceEmailCc ?? "";
+  React.useEffect(() => {
+    if (company) {
+      setInvoiceEmailTo(company.invoiceEmailTo ?? "");
+      setInvoiceEmailCc(company.invoiceEmailCc ?? "");
+    }
+  }, [company]);
+
+  const savedInterval = String(schedule?.intervalDays ?? 7);
+  const savedMax = String(schedule?.maxReminders ?? 3);
+  const scheduleDirty = intervalDays !== savedInterval || maxReminders !== savedMax;
+  const emailsDirty = Boolean(company) && (invoiceEmailTo !== savedTo || invoiceEmailCc !== savedCc);
+  const dirty = scheduleDirty || emailsDirty;
+
   async function handleSave() {
-    const data = await apiFetch<{ schedule: Schedule }>("/api/reminders", {
-      method: "POST",
-      body: JSON.stringify({
-        id: schedule?.id,
-        intervalDays: Number(intervalDays) || 7,
-        maxReminders: Number(maxReminders) || 3,
-        enabled: true,
-      }),
-    });
-    setSchedule(data.schedule);
-    setMessage(t("reminders.scheduleSaved"));
+    setSaving(true);
+    setMessage(null);
+    try {
+      if (emailsDirty && company) {
+        await saveCompany({
+          name: company.name,
+          invoiceEmailTo: invoiceEmailTo.trim() || undefined,
+          invoiceEmailCc: invoiceEmailCc.trim() || undefined,
+        });
+      }
+      if (scheduleDirty) {
+        const data = await apiFetch<{ schedule: Schedule }>("/api/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            id: schedule?.id,
+            intervalDays: Number(intervalDays) || 7,
+            maxReminders: Number(maxReminders) || 3,
+            enabled: true,
+          }),
+        });
+        setSchedule(data.schedule);
+        setIntervalDays(String(data.schedule.intervalDays));
+        setMaxReminders(String(data.schedule.maxReminders));
+      }
+      setMessage({ kind: "ok", text: t(scheduleDirty ? "reminders.scheduleSaved" : "settingsPages.reminders.saved") });
+    } catch (e) {
+      setMessage({ kind: "error", text: e instanceof Error && e.message ? e.message : t("settingsPages.reminders.saveFailed") });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleDiscard() {
+    setIntervalDays(savedInterval);
+    setMaxReminders(savedMax);
+    setInvoiceEmailTo(savedTo);
+    setInvoiceEmailCc(savedCc);
+    setMessage(null);
   }
 
   async function handleRunNow() {
@@ -66,60 +118,113 @@ export default function RemindersSettingsScreen() {
         "/api/reminders/run",
         { method: "POST" }
       );
-      setMessage(t("reminders.runResult", { processed: result.processed, sent: result.sent }));
+      setMessage({ kind: "ok", text: t("reminders.runResult", { processed: result.processed, sent: result.sent }) });
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : t("reminders.runFailed"));
+      setMessage({ kind: "error", text: e instanceof Error ? e.message : t("reminders.runFailed") });
     } finally {
       setRunning(false);
     }
   }
 
+  const days = Number(intervalDays) || 7;
+  const max = Number(maxReminders) || 3;
+
   return (
-    <ScreenLayout header={<Heading size="2xl">{t("reminders.title")}</Heading>}>
-      <VStack space="md">
-        <Text size="sm" className="text-muted-foreground">
-          {t("reminders.subtitle")}
-        </Text>
-        {loading ? (
-          <Text>{t("common.loading")}</Text>
-        ) : (
-          <Card className="p-4">
-            <VStack space="md">
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("reminders.intervalDays")}</FormControlLabelText>
-                </FormControlLabel>
-                <Input>
-                  <InputField
-                    value={intervalDays}
-                    onChangeText={setIntervalDays}
-                    keyboardType="number-pad"
-                  />
-                </Input>
-              </FormControl>
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("reminders.maxReminders")}</FormControlLabelText>
-                </FormControlLabel>
-                <Input>
-                  <InputField
-                    value={maxReminders}
-                    onChangeText={setMaxReminders}
-                    keyboardType="number-pad"
-                  />
-                </Input>
-              </FormControl>
-              <Button onPress={handleSave}>
-                <ButtonText>{t("reminders.saveSchedule")}</ButtonText>
-              </Button>
-              <Button variant="outline" onPress={handleRunNow} disabled={running}>
-                <ButtonText>{t("reminders.runNow")}</ButtonText>
-              </Button>
-            </VStack>
-          </Card>
-        )}
-        {message ? <Text size="sm">{message}</Text> : null}
-      </VStack>
-    </ScreenLayout>
+    <SettingsPage title={t(keys.title)} lead={t(keys.lead)} testID="settings-reminders">
+      {loading ? (
+        <Text className={type.meta}>{t("common.loading")}</Text>
+      ) : (
+        <SettingsSheet>
+          <SettingsSection
+            title={t("settingsPages.reminders.recipientsTitle")}
+            hint={t("settingsPages.reminders.recipientsHint")}
+            testID="reminders-recipients"
+          >
+            <FormField label={t("settings.companySettings.sendTo")}>
+              <Input>
+                <InputField
+                  testID="reminders-email-to"
+                  accessibilityLabel={t("settings.companySettings.sendTo")}
+                  value={invoiceEmailTo}
+                  onChangeText={setInvoiceEmailTo}
+                  placeholder="billing@client.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                />
+              </Input>
+            </FormField>
+            <FormField label={t("settings.companySettings.cc")} hint={t("settingsPages.reminders.ccHint")}>
+              <Input>
+                <InputField
+                  testID="reminders-email-cc"
+                  accessibilityLabel={t("settings.companySettings.cc")}
+                  value={invoiceEmailCc}
+                  onChangeText={setInvoiceEmailCc}
+                  placeholder="accounting@client.com, ceo@client.com"
+                  autoCapitalize="none"
+                />
+              </Input>
+            </FormField>
+          </SettingsSection>
+
+          <SettingsSection
+            title={t("settingsPages.reminders.scheduleTitle")}
+            hint={t("settingsPages.reminders.scheduleHint")}
+            testID="reminders-schedule"
+          >
+            <SettingsNote tone="info" testID="reminders-summary">
+              {t("settingsPages.reminders.summary", { days, max })}
+            </SettingsNote>
+            <FormField label={t("reminders.intervalDays")} hint={t("settingsPages.reminders.intervalHint")}>
+              <Input>
+                <InputField
+                  testID="reminders-interval"
+                  accessibilityLabel={t("reminders.intervalDays")}
+                  value={intervalDays}
+                  onChangeText={setIntervalDays}
+                  keyboardType="number-pad"
+                />
+              </Input>
+            </FormField>
+            <FormField label={t("reminders.maxReminders")} hint={t("settingsPages.reminders.maxHint")}>
+              <Input>
+                <InputField
+                  testID="reminders-max"
+                  accessibilityLabel={t("reminders.maxReminders")}
+                  value={maxReminders}
+                  onChangeText={setMaxReminders}
+                  keyboardType="number-pad"
+                />
+              </Input>
+            </FormField>
+            <Button
+              variant="secondary"
+              onPress={() => void handleRunNow()}
+              disabled={running}
+              testID="reminders-run-now"
+              className="self-start"
+            >
+              <ButtonText>{t("reminders.runNow")}</ButtonText>
+            </Button>
+          </SettingsSection>
+        </SettingsSheet>
+      )}
+
+      {message ? (
+        <SettingsNote tone={message.kind === "ok" ? "ok" : "err"} testID="reminders-message">
+          {message.text}
+        </SettingsNote>
+      ) : null}
+
+      <SaveBar
+        visible={dirty || saving}
+        saving={saving}
+        onSave={() => void handleSave()}
+        onDiscard={handleDiscard}
+        saveLabel={t("reminders.saveSchedule")}
+        saveTestID="reminders-save"
+      />
+    </SettingsPage>
   );
 }

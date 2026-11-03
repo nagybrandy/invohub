@@ -1,28 +1,37 @@
 // app/(app)/settings/access.tsx
 // Számlázófiókok és hozzáférés: switch between billing accounts, create a new
 // one, and — for the account you are in — invite an accountant or colleague,
-// change roles, withdraw access.
+// change roles, withdraw access. The logout row closes the page.
 import * as React from "react";
 import { Platform } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Heading } from "@/components/ui/heading";
-import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
+import { Select } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
-import { ScreenLayout } from "@/components/layout/ScreenLayout";
+import { FormField } from "@/components/layout/FormField";
+import { AccountAvatar } from "@/components/navigation/AccountAvatar";
+import { LogoutRow } from "@/components/settings/LogoutRow";
 import { OptionChips } from "@/components/settings/OptionChips";
+import {
+  SettingsNote,
+  SettingsPage,
+  SettingsSection,
+  SettingsSheet,
+} from "@/components/settings/SettingsSheet";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { settingsItemKeys } from "@/lib/settings-navigation";
 import { confirmAsync } from "@/lib/ui/confirm";
+import { type } from "@/lib/ui/type";
 import { INVITABLE_ROLES, canManageAccess, type InvitableRole } from "@/lib/workspaces/permissions";
 import type { InviteSummary, MemberRow } from "@/lib/workspaces/service";
 
 export default function AccessSettingsScreen() {
   const { t } = useTranslation();
+  const keys = settingsItemKeys("access");
   const workspaces = useWorkspaces();
   const { accounts, active, role, loading } = workspaces;
 
@@ -155,149 +164,213 @@ export default function AccessSettingsScreen() {
   const roleOptions = INVITABLE_ROLES.map((value) => ({ value, label: t(`accounts.roles.${value}`) }));
 
   return (
-    <ScreenLayout header={<Heading size="2xl">{t("accounts.pageTitle")}</Heading>}>
-      <VStack space="lg">
-        <Text size="sm" className="text-muted-foreground">{t("accounts.pageSubtitle")}</Text>
-
-        <Card className="p-4" testID="accounts-list">
-          <VStack space="md">
-            <Heading size="md">{t("accounts.yourAccounts")}</Heading>
-            {accounts.map((account) => (
-              <HStack key={account.id} className="items-center justify-between gap-3 border-b border-subtle pb-2">
-                <VStack className="flex-1">
-                  <Text className="font-medium text-foreground">{account.name}</Text>
-                  <Text size="xs" className="text-muted-foreground">
+    <SettingsPage title={t(keys.title)} lead={t(keys.lead)} testID="settings-access">
+      <SettingsSheet>
+        <SettingsSection
+          title={t("accounts.yourAccounts")}
+          hint={t("settingsPages.access.accountsHint")}
+          testID="accounts-list"
+        >
+          <Box className="overflow-hidden rounded-card border border-line">
+            {accounts.map((account, index) => (
+              <Box
+                key={account.id}
+                className={`min-h-[62px] flex-row items-center gap-3 px-3.5 py-2.5 ${index > 0 ? "border-t border-line" : ""}`}
+              >
+                <AccountAvatar id={account.id} name={account.name} active={account.id === active?.id} size={36} />
+                <Box className="min-w-0 flex-1">
+                  <Text numberOfLines={1} className="text-sm font-semibold text-ink">
+                    {account.name}
+                  </Text>
+                  <Text numberOfLines={1} className="text-[13px] text-muted-ink">
                     {account.isOwn ? t("accounts.own") : t(`accounts.roles.${account.role}`)}
                   </Text>
-                </VStack>
+                </Box>
                 {account.id === active?.id ? (
-                  <Text size="xs" className="font-semibold text-primary">{t("accounts.current")}</Text>
+                  <Text className="rounded-pill bg-ok-wash px-2.5 py-1 text-xs font-bold text-ok">{t("accounts.current")}</Text>
                 ) : (
-                  <Button size="sm" variant="outline" onPress={() => workspaces.switchTo(account.isOwn ? null : account.id)} testID={`account-switch-${account.id}`}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => workspaces.switchTo(account.isOwn ? null : account.id)}
+                    testID={`account-switch-${account.id}`}
+                  >
                     <ButtonText>{t("accounts.switchTo")}</ButtonText>
                   </Button>
                 )}
                 {!account.isOwn && account.role !== "owner" ? (
-                  <Pressable onPress={() => void handleLeave(account.id)} accessibilityRole="button">
-                    <Text size="xs" className="text-destructive">{t("accounts.leave")}</Text>
+                  <Pressable
+                    onPress={() => void handleLeave(account.id)}
+                    accessibilityRole="button"
+                    className="min-h-10 justify-center px-1"
+                  >
+                    <Text className="text-[13px] font-semibold text-err">{t("accounts.leave")}</Text>
                   </Pressable>
                 ) : null}
-              </HStack>
+              </Box>
             ))}
+          </Box>
+        </SettingsSection>
 
-            <VStack space="xs">
-              <Text size="sm" className="font-medium text-foreground">{t("accounts.newAccount")}</Text>
-              <Text size="xs" className="text-muted-foreground">{t("accounts.newAccountHint")}</Text>
-              <HStack space="sm" className="items-center">
-                <Input className="flex-1">
-                  <InputField testID="account-new-name" value={newName} onChangeText={setNewName} placeholder={t("accounts.newAccountPlaceholder")} />
-                </Input>
-                <Button onPress={() => void handleCreate()} disabled={busy || newName.trim().length < 2} testID="account-create">
-                  <ButtonText>{t("accounts.create")}</ButtonText>
-                </Button>
-              </HStack>
-            </VStack>
-          </VStack>
-        </Card>
+        <SettingsSection title={t("accounts.newAccount")} hint={t("accounts.newAccountHint")}>
+          <Box className="flex-row gap-2">
+            <Input className="min-w-0 flex-1">
+              <InputField
+                testID="account-new-name"
+                accessibilityLabel={t("accounts.newAccount")}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder={t("accounts.newAccountPlaceholder")}
+              />
+            </Input>
+            <Button
+              size="form"
+              onPress={() => void handleCreate()}
+              disabled={busy || newName.trim().length < 2}
+              testID="account-create"
+            >
+              <ButtonText>{t("accounts.create")}</ButtonText>
+            </Button>
+          </Box>
+        </SettingsSection>
 
         {active ? (
-          <Card className="p-4" testID="accounts-access">
-            <VStack space="md">
-              <VStack space="xs">
-                <Heading size="md">{t("accounts.accessTitle", { name: active.name })}</Heading>
-                <Text size="xs" className="text-muted-foreground">{t("accounts.accessHint")}</Text>
-              </VStack>
+          <SettingsSection
+            title={t("accounts.accessTitle", { name: active.name })}
+            hint={t("accounts.accessHint")}
+            testID="accounts-access"
+          >
+            {!mayManage ? (
+              <Text className={type.meta}>{t("accounts.noManage", { role: t(`accounts.roles.${role}`) })}</Text>
+            ) : (
+              <>
+                <Box className="overflow-hidden rounded-card border border-line">
+                  {members.map((member, index) => (
+                    <Box
+                      key={member.accessId}
+                      className={`flex-row flex-wrap items-center gap-3 px-3.5 py-2.5 ${index > 0 ? "border-t border-line" : ""}`}
+                    >
+                      <AccountAvatar id={member.accessId} name={member.name} round size={36} />
+                      <Box className="min-w-[160px] flex-1">
+                        <Text numberOfLines={1} className="text-sm font-semibold text-ink">
+                          {member.name}
+                          {member.isYou ? ` (${t("accounts.you")})` : ""}
+                        </Text>
+                        <Text numberOfLines={1} className="text-[13px] text-muted-ink">
+                          {member.email}
+                        </Text>
+                      </Box>
+                      {member.role === "owner" ? (
+                        <Text className="rounded-pill bg-neutral-wash px-2.5 py-1 text-xs font-bold text-muted-ink">
+                          {t("accounts.roles.owner")}
+                        </Text>
+                      ) : (
+                        <Box className="flex-row flex-wrap items-center gap-2">
+                          <OptionChips
+                            testIDPrefix={`member-role-${member.accessId}`}
+                            value={member.role as InvitableRole}
+                            onChange={(next) => next && void handleRole(member, next)}
+                            options={roleOptions}
+                          />
+                          <Pressable
+                            onPress={() => void handleRemove(member)}
+                            accessibilityRole="button"
+                            testID={`member-remove-${member.accessId}`}
+                            className="min-h-10 justify-center px-1"
+                          >
+                            <Text className="text-[13px] font-semibold text-err">{t("accounts.remove")}</Text>
+                          </Pressable>
+                        </Box>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
 
-              {!mayManage ? (
-                <Text size="sm" className="text-muted-foreground">{t("accounts.noManage", { role: t(`accounts.roles.${role}`) })}</Text>
-              ) : (
-                <>
-                  <VStack space="xs">
-                    {members.map((member) => (
-                      <HStack key={member.accessId} className="flex-wrap items-center justify-between gap-2 border-b border-subtle pb-2">
-                        <VStack className="min-w-[180px] flex-1">
-                          <Text className="text-foreground">
-                            {member.name}
-                            {member.isYou ? ` (${t("accounts.you")})` : ""}
-                          </Text>
-                          <Text size="xs" className="text-muted-foreground">{member.email}</Text>
-                        </VStack>
-                        {member.role === "owner" ? (
-                          <Text size="sm" className="text-muted-foreground">{t("accounts.roles.owner")}</Text>
-                        ) : (
-                          <HStack space="sm" className="items-center">
-                            <OptionChips
-                              testIDPrefix={`member-role-${member.accessId}`}
-                              value={member.role as InvitableRole}
-                              onChange={(next) => next && void handleRole(member, next)}
-                              options={roleOptions}
-                            />
-                            <Pressable onPress={() => void handleRemove(member)} accessibilityRole="button" testID={`member-remove-${member.accessId}`}>
-                              <Text size="xs" className="text-destructive">{t("accounts.remove")}</Text>
-                            </Pressable>
-                          </HStack>
-                        )}
-                      </HStack>
+                {invites.length > 0 ? (
+                  <Box className="gap-2">
+                    <Text className={type.itemTitle}>{t("accounts.pendingInvites")}</Text>
+                    {invites.map((invite) => (
+                      <Box key={invite.id} className="flex-row items-center justify-between gap-2">
+                        <Text className="min-w-0 flex-1 text-sm text-ink">
+                          {invite.email} · {t(`accounts.roles.${invite.role}`)}
+                        </Text>
+                        <Pressable
+                          onPress={() => void handleRevoke(invite)}
+                          accessibilityRole="button"
+                          className="min-h-10 justify-center px-1"
+                        >
+                          <Text className="text-[13px] font-semibold text-err">{t("accounts.revoke")}</Text>
+                        </Pressable>
+                      </Box>
                     ))}
-                  </VStack>
-
-                  {invites.length > 0 ? (
-                    <VStack space="xs">
-                      <Text size="sm" className="font-medium text-foreground">{t("accounts.pendingInvites")}</Text>
-                      {invites.map((invite) => (
-                        <HStack key={invite.id} className="items-center justify-between gap-2">
-                          <Text size="sm" className="flex-1 text-foreground">
-                            {invite.email} · {t(`accounts.roles.${invite.role}`)}
-                          </Text>
-                          <Pressable onPress={() => void handleRevoke(invite)} accessibilityRole="button">
-                            <Text size="xs" className="text-destructive">{t("accounts.revoke")}</Text>
-                          </Pressable>
-                        </HStack>
-                      ))}
-                    </VStack>
-                  ) : null}
-
-                  <VStack space="sm">
-                    <Text size="sm" className="font-medium text-foreground">{t("accounts.invite")}</Text>
-                    <Input>
-                      <InputField
-                        testID="invite-email"
-                        value={inviteEmail}
-                        onChangeText={setInviteEmail}
-                        placeholder={t("accounts.invitePlaceholder")}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                      />
-                    </Input>
-                    <OptionChips testIDPrefix="invite-role" value={inviteRole} onChange={(r) => r && setInviteRole(r)} options={roleOptions} />
-                    <Text size="xs" className="text-muted-foreground">{t(`accounts.roleHint.${inviteRole}`)}</Text>
-                    <Button onPress={() => void handleInvite()} disabled={busy || !inviteEmail.includes("@")} testID="invite-send">
-                      <ButtonText>{t("accounts.sendInvite")}</ButtonText>
-                    </Button>
-                    {lastInviteUrl ? (
-                      <VStack space="xs">
-                        <Text size="xs" className="text-muted-foreground">{t("accounts.inviteLink")}</Text>
-                        <Text size="xs" selectable className="font-mono text-foreground" testID="invite-url">{lastInviteUrl}</Text>
-                        {Platform.OS === "web" ? (
-                          <Pressable onPress={() => void navigator.clipboard?.writeText(lastInviteUrl)} accessibilityRole="button">
-                            <Text size="xs" className="font-medium text-primary">{t("accounts.copyLink")}</Text>
-                          </Pressable>
-                        ) : null}
-                      </VStack>
-                    ) : null}
-                  </VStack>
-                </>
-              )}
-            </VStack>
-          </Card>
+                  </Box>
+                ) : null}
+              </>
+            )}
+          </SettingsSection>
         ) : null}
 
-        {message ? (
-          <Text size="sm" className={message.kind === "ok" ? "text-green-600" : "text-destructive"} testID="accounts-message">
-            {message.text}
-          </Text>
+        {active && mayManage ? (
+          <SettingsSection
+            title={t("accounts.invite")}
+            hint={t("settingsPages.access.inviteHint")}
+            testID="accounts-invite"
+          >
+            <FormField label={t("settingsPages.access.emailLabel")}>
+              <Input>
+                <InputField
+                  testID="invite-email"
+                  accessibilityLabel={t("settingsPages.access.emailLabel")}
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  placeholder={t("accounts.invitePlaceholder")}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </Input>
+            </FormField>
+            <FormField label={t("settingsPages.access.roleLabel")} hint={t(`accounts.roleHint.${inviteRole}`)}>
+              <Select<InvitableRole>
+                testID="invite-role"
+                accessibilityLabel={t("settingsPages.access.roleLabel")}
+                value={inviteRole}
+                options={roleOptions}
+                onChange={setInviteRole}
+              />
+            </FormField>
+            <Box className="flex-row">
+              <Button onPress={() => void handleInvite()} disabled={busy || !inviteEmail.includes("@")} testID="invite-send">
+                <ButtonText>{t("accounts.sendInvite")}</ButtonText>
+              </Button>
+            </Box>
+            {lastInviteUrl ? (
+              <Box className="gap-1">
+                <Text className={type.meta}>{t("accounts.inviteLink")}</Text>
+                <Text selectable className="font-mono text-xs text-ink" testID="invite-url">
+                  {lastInviteUrl}
+                </Text>
+                {Platform.OS === "web" ? (
+                  <Pressable
+                    onPress={() => void navigator.clipboard?.writeText(lastInviteUrl)}
+                    accessibilityRole="button"
+                    className="min-h-10 justify-center self-start"
+                  >
+                    <Text className="text-[13px] font-semibold text-primary">{t("accounts.copyLink")}</Text>
+                  </Pressable>
+                ) : null}
+              </Box>
+            ) : null}
+          </SettingsSection>
         ) : null}
-      </VStack>
-    </ScreenLayout>
+      </SettingsSheet>
+
+      {message ? (
+        <SettingsNote tone={message.kind === "ok" ? "ok" : "err"} testID="accounts-message">
+          {message.text}
+        </SettingsNote>
+      ) : null}
+
+      <LogoutRow />
+    </SettingsPage>
   );
 }

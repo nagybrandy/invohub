@@ -1,6 +1,7 @@
 // components/settings/OptionChips.tsx
 // A row of mutually exclusive chips for a settings choice. Pressing the
 // selected chip again clears it (for optional settings such as the tax mode).
+// Look: the filter chip (tokens.md §6.4): selected = primary wash + primary-ink.
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -33,11 +34,11 @@ export function OptionChips<T extends string | number>({
             accessibilityRole="button"
             accessibilityState={{ selected }}
             testID={`${testIDPrefix}-${String(option.value)}`}
-            className={`mb-2 items-center justify-center rounded-lg border px-4 py-2 ${TAP_TARGET_MIN_H} ${
-              selected ? "border-primary bg-primary/10" : "border-border bg-card"
+            className={`mb-2 items-center justify-center rounded-full border px-4 py-2 ${TAP_TARGET_MIN_H} ${
+              selected ? "border-primary-line bg-primary-wash" : "border-line-strong bg-surface data-[hover=true]:bg-wash2"
             }`}
           >
-            <Text size="sm" className={selected ? "font-semibold text-primary" : "text-foreground"}>
+            <Text size="sm" className={selected ? "font-semibold text-primary-ink" : "text-ink"}>
               {option.label}
             </Text>
           </Pressable>

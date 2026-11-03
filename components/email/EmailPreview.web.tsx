@@ -1,7 +1,9 @@
 // components/email/EmailPreview.web.tsx
 // The mail as the recipient sees it: subject line, then the HTML body in a
 // sandboxed frame (no scripts, no navigation) with the sample data filled in.
+// The frame is a mail document, white in both themes.
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
 import { buildPreviewDocument, SAMPLE_VARIABLES } from "@/lib/email/templates/editor";
@@ -11,20 +13,21 @@ import type { EmailPreviewProps } from "@/components/email/EmailPreview";
 export type { EmailPreviewProps };
 
 export function EmailPreview({ subject, bodyHtml, testID = "email-preview" }: EmailPreviewProps) {
+  const { t } = useTranslation();
   return (
-    <Box className="overflow-hidden rounded-lg border border-subtle bg-surface" testID={testID}>
-      <Box className="border-b border-subtle px-4 py-3">
-        <Text size="xs" className="text-muted-foreground">Tárgy</Text>
-        <Text className="font-semibold text-foreground" testID="email-preview-subject">
+    <Box className="overflow-hidden rounded-control border border-line bg-surface" testID={testID}>
+      <Box className="border-b border-line bg-wash2 px-4 py-3">
+        <Text className="text-xs text-muted-ink">{t("emailEditor.subject")}</Text>
+        <Text className="text-sm font-bold text-ink" testID="email-preview-subject">
           {renderTemplate(subject, SAMPLE_VARIABLES)}
         </Text>
       </Box>
       <iframe
-        title="email-preview"
+        title={t("emailEditor.preview")}
         sandbox=""
         srcDoc={buildPreviewDocument(bodyHtml)}
         data-testid="email-preview-frame"
-        style={{ width: "100%", height: 420, border: 0, background: "#fff" }}
+        className="block h-[380px] w-full border-0 bg-white"
       />
     </Box>
   );
