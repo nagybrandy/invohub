@@ -38,9 +38,6 @@ jest.mock("@/lib/useIsDesktop", () => ({
 jest.mock("@/components/invoices/InvoicePdfPreview", () => ({
   InvoicePdfPreview: () => null,
 }));
-jest.mock("@/components/invoices/composer/ComposerPreviewButton", () => ({
-  ComposerPreviewButton: () => null,
-}));
 
 const mockConfirmAsync = jest.fn();
 jest.mock("@/lib/ui/confirm", () => ({
@@ -82,8 +79,10 @@ jest.mock("@/hooks/useProducts", () => ({
   useProducts: () => ({ products: [] }),
 }));
 
+const mockAddOrUpdate = jest.fn();
+let mockInvoices: unknown[] = [];
 jest.mock("@/hooks/useInvoices", () => ({
-  useInvoices: () => ({ addOrUpdate: jest.fn() }),
+  useInvoices: () => ({ addOrUpdate: mockAddOrUpdate, invoices: mockInvoices }),
 }));
 
 const mockUi = require("@/__tests__/mocks/gluestack-ui");
@@ -296,46 +295,153 @@ describe("InvoiceComposer — company profile gate on finalize (new document)", 
   });
 });
 
-describe("InvoiceComposer — the stepper refuses to skip a required field", () => {
+
+describe("InvoiceComposer — one scrolling page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCompany = COMPLETE_COMPANY;
-    mockUseIsDesktop.mockReturnValue(false);
+    mockInvoices = [];
   });
 
-  function stepLabels(tree: TestRenderer.ReactTestRenderer) {
+  function texts(tree: TestRenderer.ReactTestRenderer) {
     return tree.root
       .findAll((n) => typeof n.props?.children === "string")
       .map((n) => n.props.children as string);
   }
 
-  it("stays on the partner step when Tovább is pressed with no partner (mobile)", async () => {
+  it.each([true, false])("renders every section on one page, with no stepper (desktop=%s)", async (desktop) => {
+    mockUseIsDesktop.mockReturnValue(desktop);
     const tree = await renderComposer({ mode: "create" });
-    const [primary] = findByTestID(tree, "composer-mobile-primary-action");
 
-    await act(async () => {
-      primary.props.onPress?.();
-      await Promise.resolve();
-    });
-
-    // still on the partner step: its section is up, the items one is not
-    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
-    expect(findByTestID(tree, "composer-section-items")).toHaveLength(0);
-    expect(stepLabels(tree)).toContain("invoices.errors.clientRequired");
+    for (const id of [
+      "composer-type-switch",
+      "composer-section-partner",
+      "composer-section-dates",
+      "composer-section-items",
+      "composer-section-dispatch",
+      "composer-more-settings",
+      "composer-bottom-bar",
+    ]) {
+      expect(findByTestID(tree, id).length).toBeGreaterThan(0);
+    }
+    expect(findByTestID(tree, "composer-stepper")).toHaveLength(0);
+    expect(findByTestID(tree, "composer-desktop-next")).toHaveLength(0);
+    expect(findByTestID(tree, "composer-mobile-primary-action")).toHaveLength(0);
   });
 
-  it("keeps a draft-save action on the last step (mobile)", async () => {
-    const invoice = makeInvoice({ id: "inv-1", status: "draft", invoiceNumber: "" });
-    const tree = await renderComposer({ mode: "edit", invoice });
+  it("puts the sections in reading order", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    const order = [
+      "composer-action-bar",
+      "composer-type-switch",
+      "composer-section-partner",
+      "composer-section-dates",
+      "composer-section-items",
+      "composer-section-dispatch",
+      "composer-more-settings",
+      "composer-bottom-bar",
+    ];
+    const json = JSON.stringify(tree.toJSON());
+    const positions = order.map((id) => json.indexOf(`"testID":"${id}"`));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
 
-    // walk to the review step through the stepper, not the primary button
-    const composer = tree.root.findAllByProps({ testID: "composer-stepper-review" })[0];
-    await act(async () => {
-      composer?.props?.onPress?.();
-      await Promise.resolve();
+  it("titles a new document 'Új bizonylat kiállítása' and a draft edit 'Piszkozat szerkesztése'", async () => {
+    const created = await renderComposer({ mode: "create" });
+    expect(texts(created)).toContain("invoices.newDocument");
+    const edited = await renderComposer({
+      mode: "edit",
+      invoice: makeInvoice({ id: "d1", status: "draft", invoiceNumber: "" }),
     });
+    expect(texts(edited)).toContain("composer.editTitle");
+  });
 
-    expect(findByTestID(tree, "composer-mobile-save-draft").length).toBeGreaterThan(0);
+  it("opens with the preview closed and the type switch showing the three existing types", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    expect(findByTestID(tree, "composer-live-preview")).toHaveLength(0);
+    expect(findByTestID(tree, "composer-side-preview")).toHaveLength(0);
+    expect(findByTestID(tree, "composer-open-preview").length).toBeGreaterThan(0);
+    for (const type of ["invoice", "proforma", "advance"]) {
+      expect(findByTestID(tree, `composer-type-${type}`).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps 'További beállítások' closed by default and shows only language and notes when opened", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    expect(findByTestID(tree, "composer-notes")).toHaveLength(0);
+    const [toggle] = findByTestID(tree, "composer-more-settings-toggle");
+    expect(toggle.props["aria-expanded"]).toBe(false);
+
+    await act(async () => {
+      toggle.props.onPress?.();
+    });
+    expect(findByTestID(tree, "composer-notes").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-language").length).toBeGreaterThan(0);
+    // fields the schema does not have must not appear
+    const all = JSON.stringify(tree.toJSON()).toLowerCase();
+    for (const forbidden of ["megrendel", "kedvezm", "ismétlődő", "recurring", "discount", "purchaseorder"]) {
+      expect(all).not.toContain(forbidden);
+    }
+  });
+
+  it("keeps the dates card closed by default and opens it with aria-expanded", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    expect(findByTestID(tree, "composer-terms-edit")).toHaveLength(0);
+    const [toggle] = findByTestID(tree, "composer-terms-toggle");
+    expect(toggle.props["aria-expanded"]).toBe(false);
+    await act(async () => {
+      toggle.props.onPress?.();
+    });
+    expect(findByTestID(tree, "composer-terms-edit").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-fulfillment-chips").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-deadline-chips").length).toBeGreaterThan(0);
+  });
+
+  it("offers the copy-from-invoice link when creating, not when editing a draft", async () => {
+    const created = await renderComposer({ mode: "create" });
+    expect(findByTestID(created, "composer-copy-from").length).toBeGreaterThan(0);
+    const edited = await renderComposer({
+      mode: "edit",
+      invoice: makeInvoice({ id: "d1", status: "draft", invoiceNumber: "" }),
+    });
+    expect(findByTestID(edited, "composer-copy-from")).toHaveLength(0);
+  });
+
+  it("shows the NAV note unchanged for a számla and not for a díjbekérő", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    expect(texts(tree)).toContain("invoices.fields.navSubmitHint");
+    const [proforma] = findByTestID(tree, "composer-type-proforma");
+    await act(async () => {
+      proforma.props.onPress?.();
+    });
+    expect(texts(tree)).not.toContain("invoices.fields.navSubmitHint");
+  });
+});
+
+describe("InvoiceComposer — type switch", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCompany = COMPLETE_COMPANY;
+    mockInvoices = [];
+  });
+
+  it("lets a draft's type change", async () => {
+    const tree = await renderComposer({
+      mode: "edit",
+      invoice: makeInvoice({ id: "inv-d", status: "draft", invoiceNumber: "", documentType: "invoice" }),
+    });
+    const radios = tree.root.findAll((n) => n.props.accessibilityRole === "radio" || n.props.role === "radio");
+    expect(radios.length).toBeGreaterThan(0);
+    expect(radios.every((radio) => !radio.props.disabled)).toBe(true);
+  });
+
+  it("is not rendered on the read-only (finalized) branch, where the type cannot change", async () => {
+    const tree = await renderComposer({
+      mode: "edit",
+      invoice: makeInvoice({ id: "inv-1", status: "sent", documentType: "invoice" }),
+    });
+    expect(findByTestID(tree, "composer-type-switch")).toHaveLength(0);
   });
 });
 
@@ -343,93 +449,116 @@ describe("InvoiceComposer — finalize is one click, sending is the secondary op
   beforeEach(() => {
     jest.clearAllMocks();
     mockCompany = COMPLETE_COMPANY;
-    mockUseIsDesktop.mockReturnValue(true);
-    mockApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/invoices") return { invoice: makeInvoice({ id: "inv-9", invoiceNumber: "INV-1" }) };
-      return {};
-    });
+    mockInvoices = [];
+    mockApiFetch.mockImplementation(async () => ({}));
   });
 
-  it("finalizes straight from the primary button, without opening the menu first", async () => {
+  it("offers Piszkozat mentése and the finalize split button in the bottom bar", async () => {
     const tree = await renderComposer({ mode: "create" });
+    expect(findByTestID(tree, "composer-save-draft").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-action-finalize").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-finalize-menu-trigger").length).toBeGreaterThan(0);
+  });
 
+  it("opens the 'finalize and send' menu from the chevron only", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    expect(findByTestID(tree, "composer-action-finalize-send")).toHaveLength(0);
+    const [trigger] = findByTestID(tree, "composer-finalize-menu-trigger");
+    await act(async () => {
+      trigger.props.onPress?.();
+    });
+    expect(findByTestID(tree, "composer-action-finalize-send").length).toBeGreaterThan(0);
+  });
+
+  it("reports a missing partner in the bottom bar when finalize is pressed", async () => {
+    const tree = await renderComposer({ mode: "create" });
     const [finalize] = findByTestID(tree, "composer-action-finalize");
-    expect(finalize).toBeDefined();
-
     await act(async () => {
       finalize.props.onPress?.();
       await Promise.resolve();
     });
-
-    // it tried to save — the partner guard is what stops it here, proving the
-    // press reached save() rather than a menu toggle
-    expect(findByTestID(tree, "composer-finalize-menu-trigger").length).toBeGreaterThan(0);
+    expect(findByTestID(tree, "composer-bottom-error").length).toBeGreaterThan(0);
+    expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
-  // A draft made by "Számla készítése ebből" (díjbekérő → számla) or saved
-  // earlier opens in edit mode — it used to offer only "Változások mentése",
-  // so such a draft could never be issued, nor turned into an előlegszámla.
-  it("offers the finalize button when editing a draft, and lets its type change", async () => {
+  it("offers the finalize button when editing a draft", async () => {
     const tree = await renderComposer({
       mode: "edit",
       invoice: makeInvoice({ id: "inv-d", status: "draft", invoiceNumber: "", documentType: "invoice" }),
     });
     expect(findByTestID(tree, "composer-action-finalize").length).toBeGreaterThan(0);
-    const tabs = tree.root.findAll((n) => n.props.accessibilityRole === "tab");
-    expect(tabs.length).toBeGreaterThan(0);
-    expect(tabs.every((tab) => !tab.props.disabled)).toBe(true);
-  });
-
-  it("closes the desktop page with a big issue button at the bottom, wired to finalize", async () => {
-    const tree = await renderComposer({ mode: "create" });
-    const [bottom] = findByTestID(tree, "composer-bottom-finalize");
-    expect(bottom).toBeDefined();
-    expect(bottom.props.disabled).toBeFalsy();
   });
 
   it("disables the primary finalize button too when the company profile is incomplete", async () => {
     mockCompany = { id: "c1", userId: "u1", name: "Acme Kft.", createdAt: "", updatedAt: "" };
     const tree = await renderComposer({ mode: "create" });
-
     const [finalize] = findByTestID(tree, "composer-action-finalize");
     expect(finalize.props.disabled).toBe(true);
   });
 });
 
-describe("InvoiceComposer — desktop shows the whole document on one page", () => {
+describe("InvoiceComposer — saving a draft sends the same request body as before the redesign", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCompany = COMPLETE_COMPANY;
+    mockInvoices = [];
   });
 
-  it("renders partner, items and dispatch together on desktop, with no step buttons", async () => {
-    mockUseIsDesktop.mockReturnValue(true);
-    const tree = await renderComposer({ mode: "create" });
+  it("passes the invoice payload built from the form to addOrUpdate, as status 'draft'", async () => {
+    const invoice = makeInvoice({
+      id: "inv-d",
+      status: "draft",
+      invoiceNumber: "",
+      documentType: "invoice",
+      clientName: "Zöld Energia Zrt.",
+      clientTaxNumber: "23456789-2-13",
+      clientZipCode: "6720",
+      clientCity: "Szeged",
+      clientAddress: "Fő utca 22.",
+      clientCountry: "Magyarország",
+      issueDate: "2026-11-03",
+      fulfillmentDate: "2026-11-03",
+      dueDate: "2026-11-11",
+      paymentMethod: "transfer",
+      language: "hu",
+      notes: "Köszönjük",
+      lineItems: [
+        { id: "l1", description: "Oktatás", quantity: 1, unitPrice: 150000, vatRate: 27, vatCategory: "normal", unit: "nap" },
+      ],
+    });
+    mockAddOrUpdate.mockResolvedValue(invoice);
+    const tree = await renderComposer({ mode: "edit", invoice });
 
-    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
-    expect(findByTestID(tree, "composer-section-items").length).toBeGreaterThan(0);
-    expect(findByTestID(tree, "composer-section-dispatch").length).toBeGreaterThan(0);
-    expect(findByTestID(tree, "composer-desktop-next")).toHaveLength(0);
-  });
+    const [saveDraft] = findByTestID(tree, "composer-save-draft");
+    await act(async () => {
+      saveDraft.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
-  it("drops the duplicate review summaries — the sections above are already editable", async () => {
-    mockUseIsDesktop.mockReturnValue(true);
-    const tree = await renderComposer({ mode: "create" });
-
-    const texts = tree.root
-      .findAll((n) => typeof n.props?.children === "string")
-      .map((n) => n.props.children as string);
-
-    expect(texts).toContain("invoices.composer.dispatchTitle");
-    expect(texts).not.toContain("invoices.composer.reviewPartner");
-  });
-
-  it("keeps the one-step-at-a-time wizard on mobile", async () => {
-    mockUseIsDesktop.mockReturnValue(false);
-    const tree = await renderComposer({ mode: "create" });
-
-    expect(findByTestID(tree, "composer-section-partner").length).toBeGreaterThan(0);
-    expect(findByTestID(tree, "composer-section-items")).toHaveLength(0);
-    expect(findByTestID(tree, "composer-mobile-primary-action").length).toBeGreaterThan(0);
+    expect(mockAddOrUpdate).toHaveBeenCalledTimes(1);
+    const payload = mockAddOrUpdate.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      id: "inv-d",
+      invoiceNumber: "",
+      documentType: "invoice",
+      clientName: "Zöld Energia Zrt.",
+      clientTaxNumber: "23456789-2-13",
+      clientZipCode: "6720",
+      clientCity: "Szeged",
+      clientAddress: "Fő utca 22.",
+      clientCountry: "Magyarország",
+      issueDate: "2026-11-03",
+      fulfillmentDate: "2026-11-03",
+      dueDate: "2026-11-11",
+      status: "draft",
+      currency: "HUF",
+      notes: "Köszönjük",
+      paymentMethod: "transfer",
+      language: "hu",
+    });
+    expect(payload.lineItems).toEqual(invoice.lineItems);
+    // nothing about sending or NAV is called for a draft
+    expect(mockApiFetch).not.toHaveBeenCalled();
   });
 });

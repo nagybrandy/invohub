@@ -21,6 +21,7 @@ import {
   validateLineItemsStep,
   validatePartnerStep,
 } from "@/components/invoices/composer/composer-logic";
+import { recentInvoicesForCopy } from "@/components/invoices/composer/composer-view";
 import { useClients } from "@/hooks/useClients";
 import { useCompany } from "@/hooks/useCompany";
 import { useInvoices } from "@/hooks/useInvoices";
@@ -101,7 +102,10 @@ export function useInvoiceComposer({
   const { clients, refresh: refreshClients } = useClients();
   const { products, refresh: refreshProducts } = useProducts();
   const { company, loading: companyLoading } = useCompany();
-  const { addOrUpdate } = useInvoices();
+  const { addOrUpdate, invoices: allInvoices } = useInvoices();
+  // "Másolás korábbi számlából" (presentation only): the newest invoices the
+  // list the composer already loads. Nothing about saving reads this.
+  const recentInvoices = React.useMemo(() => recentInvoicesForCopy(allInvoices), [allInvoices]);
 
   // Finalizing (assigning a real invoice number) is refused server-side
   // when the seller's own profile is missing mandatory fields
@@ -835,6 +839,9 @@ export function useInvoiceComposer({
       markDirty();
     },
     canEnableEmailOnSend: canEnableEmailOnSend(clientEmail),
+
+    /** The newest invoices, for the copy-from-invoice popover (create mode). */
+    recentInvoices,
 
     // Preview
     draftInvoice,

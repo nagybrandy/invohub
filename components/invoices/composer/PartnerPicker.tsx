@@ -1,18 +1,22 @@
 // components/invoices/composer/PartnerPicker.tsx
-// Single required field of step 1: an autocomplete over ALL saved partners
-// (INV-18 — the old 8-chip cap is gone), with a "+ Új partner" inline add
-// row at the bottom of the results so adding one never leaves the form.
+// The one required field of the document: an autocomplete over ALL saved
+// partners (INV-18 — no chip cap), restyled in the 2026-11 redesign (SPEC §8.3,
+// tokens.md §6.18): a 42px field, a popover list with the typed match in
+// bold and the city on the right, the Hungarian company search below the
+// saved partners, and a "+ Új partner: „…"" row that takes the typed text as
+// the new partner's name (the rest is typed into the partner details card).
+// Keyboard: ArrowDown / ArrowUp move through the list, Enter picks, Escape closes.
 import * as React from "react";
-import { Plus, Search } from "lucide-react-native";
-import { HStack } from "@/components/ui/hstack";
+import { Search } from "lucide-react-native";
+import { Box } from "@/components/ui/box";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
+import { highlightParts } from "@/components/invoices/composer/composer-view";
 import type { Client } from "@/lib/clients/service";
 import type { CompanySearchResult } from "@/lib/company/search";
-import { LISTBOX_ROLE, TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 import { useIconColors } from "@/lib/theme/icon-colors";
+import { LISTBOX_ROLE } from "@/lib/ui/tap-target";
 
 const MAX_RESULTS = 8;
 
@@ -24,6 +28,11 @@ function matchesQuery(client: Client, query: string): boolean {
     (client.taxNumber ?? "").toLowerCase().includes(q)
   );
 }
+
+type Entry =
+  | { kind: "client"; key: string; client: Client }
+  | { kind: "company"; key: string; company: CompanySearchResult }
+  | { kind: "new"; key: string };
 
 export function PartnerPicker({
   inputRef,
@@ -62,13 +71,8 @@ export function PartnerPicker({
 }) {
   const icons = useIconColors();
   const [focused, setFocused] = React.useState(false);
-  const [creating, setCreating] = React.useState(false);
-  const [newName, setNewName] = React.useState("");
-  const [newEmail, setNewEmail] = React.useState("");
-  const [newTaxNumber, setNewTaxNumber] = React.useState("");
-  const [newZip, setNewZip] = React.useState("");
-  const [newCity, setNewCity] = React.useState("");
-  const [newAddress, setNewAddress] = React.useState("");
+  const [active, setActive] = React.useState(-1);
+  const query = value.trim();
 
   const results = React.useMemo(
     () => clients.filter((client) => matchesQuery(client, value)).slice(0, MAX_RESULTS),
@@ -81,220 +85,188 @@ export function PartnerPicker({
     return companyResults.filter((c) => !savedTax.has((c.taxNumber ?? "").replace(/\D/g, "").slice(0, 8)) || !c.taxNumber);
   }, [clients, companyResults]);
 
-  const showResults = focused && value.trim().length > 0;
-  const showRecent = focused && value.trim().length === 0 && recentClients.length > 0;
+  const showResults = focused && query.length > 0;
+  const showRecent = focused && query.length === 0 && recentClients.length > 0;
+  const open = showResults || showRecent;
 
-  async function submitNewClient() {
-    if (!newName.trim()) return;
-    await onCreateNew({
-      name: newName.trim(),
-      email: newEmail.trim(),
-      taxNumber: newTaxNumber.trim(),
-      zip: newZip.trim(),
-      city: newCity.trim(),
-      address: newAddress.trim(),
-    });
-    setNewName("");
-    setNewEmail("");
-    setNewTaxNumber("");
-    setNewZip("");
-    setNewCity("");
-    setNewAddress("");
-    setCreating(false);
+  const entries = React.useMemo<Entry[]>(() => {
+    if (showRecent) return recentClients.map((client) => ({ kind: "client", key: `c-${client.id}`, client }));
+    if (!showResults) return [];
+    return [
+      ...results.map((client): Entry => ({ kind: "client", key: `c-${client.id}`, client })),
+      ...(onSelectCompany
+        ? newCompanies.map(
+            (company): Entry => ({
+              kind: "company",
+              key: `k-${company.taxNumber}|${company.registrationNumber ?? ""}|${company.name}`,
+              company,
+            })
+          )
+        : []),
+      { kind: "new", key: "new" },
+    ];
+  }, [showRecent, showResults, recentClients, results, newCompanies, onSelectCompany]);
+
+  React.useEffect(() => {
+    setActive(-1);
+  }, [value, focused]);
+
+  function pick(entry: Entry) {
+    if (entry.kind === "client") onSelect(entry.client);
+    else if (entry.kind === "company") onSelectCompany?.(entry.company);
+    else void onCreateNew({ name: query, email: "", taxNumber: "", zip: "", city: "", address: "" });
+    setFocused(false);
   }
 
+  function handleKeyPress(event: { nativeEvent?: { key?: string }; preventDefault?: () => void }) {
+    const key = event.nativeEvent?.key;
+    if (!open || !key) return;
+    if (key === "ArrowDown") {
+      event.preventDefault?.();
+      setActive((current) => (entries.length === 0 ? -1 : (current + 1) % entries.length));
+    } else if (key === "ArrowUp") {
+      event.preventDefault?.();
+      setActive((current) => (entries.length === 0 ? -1 : (current <= 0 ? entries.length : current) - 1));
+    } else if (key === "Enter" && active >= 0 && entries[active]) {
+      event.preventDefault?.();
+      pick(entries[active]);
+    } else if (key === "Escape") {
+      setFocused(false);
+    }
+  }
+
+  const rowClass = (index: number) =>
+    `min-h-11 flex-row items-center gap-2 rounded-control px-2.5 py-2 data-[hover=true]:bg-neutral-wash ${
+      active === index ? "bg-neutral-wash" : ""
+    }`;
+
+  const clientRows = (list: Client[], offset: number) =>
+    list.map((client, i) => {
+      const parts = highlightParts(client.name, query);
+      return (
+        <Pressable
+          key={client.id}
+          nativeID={`composer-partner-option-${offset + i}`}
+          onPress={() => onSelect(client)}
+          role="option"
+          aria-selected={active === offset + i}
+          accessibilityRole="button"
+          accessibilityLabel={client.name}
+          testID={`composer-partner-option-${client.id}`}
+          className={rowClass(offset + i)}
+        >
+          <Box className="min-w-0 flex-1">
+            <Text className="text-sm text-ink">
+              {parts.before}
+              {parts.match ? <Text className="text-sm font-bold text-ink">{parts.match}</Text> : null}
+              {parts.after}
+            </Text>
+            {client.taxNumber ? <Text className="text-xs text-muted-ink">{client.taxNumber}</Text> : null}
+          </Box>
+          {client.city ? <Text className="shrink-0 text-xs text-muted-ink">{client.city}</Text> : null}
+        </Pressable>
+      );
+    });
+
   return (
-    <VStack space="xs">
+    <Box className="relative z-30" testID="composer-partner-picker">
       <Input data-invalid={Boolean(error)}>
         <InputField
           ref={inputRef as never}
           testID="composer-partner-search"
+          accessibilityLabel={t("invoices.fields.partnerNameOrTax")}
           placeholder={t("invoices.composer.partnerSearchPlaceholder")}
           value={value}
           onChangeText={onChangeText}
           role="combobox"
-          aria-expanded={showResults}
+          aria-expanded={open}
           aria-controls="composer-partner-results"
+          aria-activedescendant={active >= 0 ? `composer-partner-option-${active}` : undefined}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 120)}
-          className="font-light"
+          onKeyPress={handleKeyPress}
         />
       </Input>
       {error ? (
-        <Text size="xs" className="text-destructive">
+        <Text accessibilityRole="alert" className="mt-1 text-[13px] font-semibold text-err">
           {error}
         </Text>
       ) : null}
 
-      {showRecent ? (
-        <VStack space="xs">
-          <Text size="xs" className="font-light text-muted-foreground">
-            {t("invoices.composer.recentPartners")}
-          </Text>
-          <HStack space="xs" className="flex-wrap">
-            {recentClients.map((client) => (
-              <Pressable
-                key={client.id}
-                onPress={() => onSelect(client)}
-                accessibilityRole="button"
-                accessibilityLabel={client.name}
-                className={`items-center justify-center rounded-full border border-border bg-background px-3 py-1.5 ${TAP_TARGET_MIN_H}`}
-              >
-                <Text size="xs" className="font-light text-foreground">
-                  {client.name}
-                </Text>
-              </Pressable>
-            ))}
-          </HStack>
-        </VStack>
-      ) : null}
-
-      {showResults ? (
-        <VStack
+      {open ? (
+        <Box
           nativeID="composer-partner-results"
           role={LISTBOX_ROLE}
           accessibilityRole="list"
-          className="rounded-lg border border-border bg-card"
-          space="xs"
+          className="absolute left-0 right-0 top-[46px] z-40 overflow-hidden rounded-menu border border-line-strong bg-surface p-1.5 shadow-menu"
+          testID="composer-partner-results"
         >
-          {results.length > 0 ? (
-            results.map((client) => (
-              <Pressable
-                key={client.id}
-                onPress={() => onSelect(client)}
-                role="option"
-                aria-selected={false}
-                accessibilityRole="button"
-                accessibilityLabel={client.name}
-                className={`flex-row items-center gap-2 border-b border-subtle px-3 py-2 last:border-b-0 ${TAP_TARGET_MIN_H}`}
-              >
-                <Search size={14} color={icons.muted} />
-                <VStack className="flex-1">
-                  <Text size="sm" className="text-foreground">
-                    {client.name}
+          {showRecent ? (
+            <>
+              <Text className="px-2.5 pb-1 pt-1 text-xs font-semibold text-muted-ink">
+                {t("invoices.composer.recentPartners")}
+              </Text>
+              {clientRows(recentClients, 0)}
+            </>
+          ) : (
+            <>
+              {results.length > 0 ? (
+                clientRows(results, 0)
+              ) : (
+                <Text className="px-2.5 py-2 text-sm text-muted-ink">{t("invoices.composer.noPartnerResults")}</Text>
+              )}
+
+              {onSelectCompany && (companyLoading || newCompanies.length > 0) ? (
+                <Box className="mt-1 border-t border-line pt-1" testID="composer-company-results">
+                  <Text className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-[0.06em] text-muted-ink">
+                    {t("invoices.composer.hungarianCompanies")}
                   </Text>
-                  {client.taxNumber ? (
-                    <Text size="2xs" className="text-muted-foreground">
-                      {client.taxNumber}
-                    </Text>
+                  {newCompanies.map((company, i) => {
+                    const index = results.length + i;
+                    return (
+                      <Pressable
+                        key={`${company.taxNumber}|${company.registrationNumber ?? ""}|${company.name}`}
+                        nativeID={`composer-partner-option-${index}`}
+                        onPress={() => onSelectCompany(company)}
+                        role="option"
+                        aria-selected={active === index}
+                        accessibilityRole="button"
+                        accessibilityLabel={company.name}
+                        className={rowClass(index)}
+                      >
+                        <Search size={14} color={icons.muted} />
+                        <Box className="min-w-0 flex-1">
+                          <Text className="text-sm text-ink">{company.name}</Text>
+                          <Text className="text-xs text-muted-ink">
+                            {[company.taxNumber || t("invoices.composer.companyTaxNumberMissing"), company.zipCode, company.city]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </Text>
+                        </Box>
+                      </Pressable>
+                    );
+                  })}
+                  {companyLoading && newCompanies.length === 0 ? (
+                    <Text className="px-2.5 py-2 text-sm text-muted-ink">{t("invoices.composer.companySearching")}</Text>
                   ) : null}
-                </VStack>
-              </Pressable>
-            ))
-          ) : (
-            <Text size="sm" className="px-3 py-2 text-muted-foreground">
-              {t("invoices.composer.noPartnerResults")}
-            </Text>
-          )}
-
-          {onSelectCompany && (companyLoading || newCompanies.length > 0) ? (
-            <VStack className="border-t border-subtle" testID="composer-company-results">
-              <Text size="2xs" className="px-3 pt-2 font-medium uppercase tracking-wide text-muted-foreground">
-                {t("invoices.composer.hungarianCompanies")}
-              </Text>
-              {newCompanies.map((company) => (
-                <Pressable
-                  key={`${company.taxNumber}|${company.registrationNumber ?? ""}|${company.name}`}
-                  onPress={() => onSelectCompany(company)}
-                  role="option"
-                  aria-selected={false}
-                  accessibilityRole="button"
-                  accessibilityLabel={company.name}
-                  className={`flex-row items-center gap-2 border-b border-subtle px-3 py-2 last:border-b-0 ${TAP_TARGET_MIN_H}`}
-                >
-                  <Search size={14} color={icons.muted} />
-                  <VStack className="flex-1">
-                    <Text size="sm" className="text-foreground">
-                      {company.name}
-                    </Text>
-                    <Text size="2xs" className="text-muted-foreground">
-                      {[company.taxNumber || t("invoices.composer.companyTaxNumberMissing"), company.zipCode, company.city]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </Text>
-                  </VStack>
-                </Pressable>
-              ))}
-              {companyLoading && newCompanies.length === 0 ? (
-                <Text size="sm" className="px-3 py-2 text-muted-foreground">
-                  {t("invoices.composer.companySearching")}
-                </Text>
+                </Box>
               ) : null}
-            </VStack>
-          ) : null}
 
-          {creating ? (
-            <VStack space="xs" className="border-t border-subtle p-3">
-              <Input>
-                <InputField
-                  placeholder={t("invoices.composer.newPartnerName")}
-                  value={newName}
-                  onChangeText={setNewName}
-                />
-              </Input>
-              <Input>
-                <InputField
-                  placeholder={t("invoices.composer.newPartnerEmail")}
-                  value={newEmail}
-                  onChangeText={setNewEmail}
-                  keyboardType="email-address"
-                />
-              </Input>
-              <Input>
-                <InputField
-                  placeholder={t("invoices.composer.newPartnerTaxNumber")}
-                  value={newTaxNumber}
-                  onChangeText={setNewTaxNumber}
-                />
-              </Input>
-              <HStack space="xs">
-                <Input className="w-[90px]">
-                  <InputField
-                    placeholder={t("invoices.fields.zipCode")}
-                    value={newZip}
-                    onChangeText={setNewZip}
-                    testID="composer-new-partner-zip"
-                  />
-                </Input>
-                <Input className="flex-1">
-                  <InputField
-                    placeholder={t("invoices.fields.city")}
-                    value={newCity}
-                    onChangeText={setNewCity}
-                    testID="composer-new-partner-city"
-                  />
-                </Input>
-              </HStack>
-              <Input>
-                <InputField
-                  placeholder={t("invoices.fields.address")}
-                  value={newAddress}
-                  onChangeText={setNewAddress}
-                  testID="composer-new-partner-address"
-                />
-              </Input>
               <Pressable
-                onPress={() => void submitNewClient()}
-                className="items-center rounded-md bg-primary px-3 py-2"
+                nativeID={`composer-partner-option-${entries.length - 1}`}
+                onPress={() => pick({ kind: "new", key: "new" })}
+                role="option"
+                aria-selected={active === entries.length - 1}
+                accessibilityRole="button"
+                testID="composer-partner-new"
+                className={`mt-1 border-t border-line ${rowClass(entries.length - 1)}`}
               >
-                <Text size="sm" className="font-medium text-primary-foreground">
-                  {t("invoices.composer.addPartnerConfirm")}
-                </Text>
+                <Text className="text-sm font-semibold text-primary">{t("composer.partnerNew", { name: query })}</Text>
               </Pressable>
-            </VStack>
-          ) : (
-            <Pressable
-              onPress={() => setCreating(true)}
-              className="flex-row items-center gap-2 border-t border-subtle px-3 py-2"
-            >
-              <Plus size={14} color={icons.primary} />
-              <Text size="sm" className="font-medium text-primary">
-                {t("invoices.composer.addPartner")}
-              </Text>
-            </Pressable>
+            </>
           )}
-        </VStack>
+        </Box>
       ) : null}
-    </VStack>
+    </Box>
   );
 }

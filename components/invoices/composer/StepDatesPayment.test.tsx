@@ -1,13 +1,13 @@
-// components/invoices/composer/StepPartner.test.tsx
+// components/invoices/composer/StepDatesPayment.test.tsx
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { StepPartner } from "@/components/invoices/composer/StepPartner";
+import { StepDatesPayment } from "@/components/invoices/composer/StepDatesPayment";
 import type { InvoiceComposerState } from "@/components/invoices/composer/useInvoiceComposer";
 
-// StepPartner imports DEADLINE_QUICK_DAYS (a real value, not just the
+// StepDatesPayment imports DEADLINE_QUICK_DAYS (a real value, not just the
 // InvoiceComposerState type) from useInvoiceComposer.ts, which in turn
 // imports expo-router/react-i18next at module scope — mock both so
-// requiring StepPartner doesn't pull in expo-router's native module graph.
+// requiring StepDatesPayment doesn't pull in expo-router's native module graph.
 jest.mock("expo-router", () => ({
   router: { replace: jest.fn(), push: jest.fn() },
 }));
@@ -26,8 +26,8 @@ jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-u
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/switch", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/invoices/composer/PartnerPicker", () => ({
-  PartnerPicker: () => null,
+jest.mock("@/components/settings/CurrencyPicker", () => ({
+  CurrencyPicker: () => null,
 }));
 jest.mock("@/components/invoices/composer/DateInput", () => ({
   DateInput: () => null,
@@ -114,7 +114,7 @@ function baseComposerProps(
 // production composer hook (useInvoiceComposer) also owns for real:
 // focusField, showDatesPayment, and clearFocusField's effect on
 // focusField. This lets the test drive the exact "failed save sets
-// focusField, StepPartner reacts" sequence without re-implementing the
+// focusField, StepDatesPayment reacts" sequence without re-implementing the
 // whole hook.
 let driveFocusField: (field: string | null) => void = () => {};
 
@@ -124,7 +124,7 @@ function Harness() {
   driveFocusField = setFocusField;
 
   return (
-    <StepPartner
+    <StepDatesPayment
       {...baseComposerProps({
         focusField,
         clearFocusField: () => setFocusField(null),
@@ -135,94 +135,55 @@ function Harness() {
   );
 }
 
-describe("StepPartner — deadline/payment-method/currency pills (AC6)", () => {
-  function renderExpanded(overrides: Partial<InvoiceComposerState> = {}) {
+describe("StepDatesPayment — summary card and quick chips", () => {
+  function render(overrides: Partial<InvoiceComposerState> = {}) {
     let tree: TestRenderer.ReactTestRenderer;
     act(() => {
-      tree = TestRenderer.create(
-        <StepPartner {...baseComposerProps({ showDatesPayment: true, ...overrides })} />
-      );
+      tree = TestRenderer.create(<StepDatesPayment {...baseComposerProps(overrides)} />);
     });
     return tree!;
   }
 
-  // Finds the deepest onPress-bearing node whose own text content matches
-  // — that is the rendered Pressable actually carrying the computed
-  // className, not a ChoicePill wrapper fiber (which has no className of
-  // its own when the caller relies on ChoicePill's internal default) and
-  // not an unrelated pressable elsewhere in the step (e.g. the accordion
-  // toggle) that happens to also carry onPress + className.
-  function pillWithText(tree: TestRenderer.ReactTestRenderer, text: string) {
-    return tree.root
-      .findAll(
-        (n) =>
-          typeof n.props?.onPress === "function" &&
-          typeof n.props?.className === "string" &&
-          n.findAll((c) => String(c.props?.children ?? "").includes(text)).length > 0
-      )
-      .pop();
+  function open(tree: TestRenderer.ReactTestRenderer) {
+    const toggle = tree.root.findByProps({ testID: "composer-terms-toggle" });
+    act(() => {
+      toggle.props.onPress();
+    });
   }
 
-  it("renders the deadline quick-pick, payment-method, and currency pills at >=44px", () => {
-    const tree = renderExpanded();
-    const targets = [
-      "8",
-      "15",
-      "30",
-      "invoices.paymentMethods.transfer",
-      "invoices.paymentMethods.cash",
-      "invoices.paymentMethods.card",
-      "invoices.paymentMethods.other",
-      "HUF",
-      "EUR",
-    ];
-    for (const text of targets) {
-      const pill = pillWithText(tree, text);
-      expect(pill).toBeDefined();
-      expect(String(pill!.props.className)).toContain("min-h-11");
-    }
+  it("is closed by default and the Módosítás toggle exposes aria-expanded", () => {
+    const tree = render();
+    expect(() => tree.root.findByProps({ testID: "composer-due-date" })).toThrow();
+    const toggle = tree.root.findByProps({ testID: "composer-terms-toggle" });
+    expect(toggle.props["aria-expanded"]).toBe(false);
+    open(tree);
+    expect(tree.root.findByProps({ testID: "composer-terms-toggle" }).props["aria-expanded"]).toBe(true);
+    expect(() => tree.root.findByProps({ testID: "composer-due-date" })).not.toThrow();
   });
 
-  it("calls setDeadlineDays(30) when the 30-day quick-pick pill is pressed", () => {
+  it("calls setDeadlineDays(30) when the 30-day quick chip is pressed", () => {
     const setDeadlineDays = jest.fn();
-    const tree = renderExpanded({ setDeadlineDays });
-    const pill = tree.root
-      .findAll((n) => typeof n.props?.onPress === "function")
-      .find((n) => n.findAll((c) => String(c.props?.children ?? "").includes("30")).length > 0);
+    const tree = render({ setDeadlineDays });
+    open(tree);
     act(() => {
-      pill?.props.onPress?.();
+      tree.root.findByProps({ testID: "composer-deadline-30" }).props.onPress();
     });
     expect(setDeadlineDays).toHaveBeenCalledWith(30);
   });
 
-  it("calls setPaymentMethod when a payment-method pill is pressed", () => {
-    const setPaymentMethod = jest.fn();
-    const tree = renderExpanded({ setPaymentMethod });
-    const pill = tree.root
-      .findAll((n) => typeof n.props?.onPress === "function")
-      .find((n) =>
-        n.findAll((c) => c.props?.children === "invoices.paymentMethods.cash").length > 0
-      );
+  it("sets the fulfilment date from the Ma chip", () => {
+    const setFulfillmentDate = jest.fn();
+    const tree = render({ setFulfillmentDate });
+    open(tree);
     act(() => {
-      pill?.props.onPress?.();
+      tree.root.findByProps({ testID: "composer-chip-today" }).props.onPress();
     });
-    expect(setPaymentMethod).toHaveBeenCalledWith("cash");
-  });
-
-  it("calls setCurrency when a currency pill is pressed", () => {
-    const setCurrency = jest.fn();
-    const tree = renderExpanded({ setCurrency, currency: "HUF" });
-    const pill = tree.root
-      .findAll((n) => typeof n.props?.onPress === "function")
-      .find((n) => n.findAll((c) => c.props?.children === "EUR").length > 0);
-    act(() => {
-      pill?.props.onPress?.();
-    });
-    expect(setCurrency).toHaveBeenCalledWith("EUR");
+    expect(setFulfillmentDate).toHaveBeenCalledTimes(1);
+    expect(setFulfillmentDate.mock.calls[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
-describe("StepPartner — exchangeRate focusField", () => {
+describe("StepDatesPayment — exchangeRate focusField", () => {
   beforeEach(() => {
     mockFocus.mockClear();
   });
@@ -261,15 +222,18 @@ describe("StepPartner — exchangeRate focusField", () => {
   });
 });
 
-describe("StepPartner — exchange rate caption/loading/error states", () => {
+describe("StepDatesPayment — exchange rate caption/loading/error states", () => {
   function renderExpanded(overrides: Partial<InvoiceComposerState> = {}) {
     let tree: TestRenderer.ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(
-        <StepPartner
-          {...baseComposerProps({ showDatesPayment: true, currency: "EUR", ...overrides })}
+        <StepDatesPayment
+          {...baseComposerProps({ currency: "EUR", ...overrides })}
         />
       );
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "composer-terms-toggle" }).props.onPress();
     });
     return tree!;
   }

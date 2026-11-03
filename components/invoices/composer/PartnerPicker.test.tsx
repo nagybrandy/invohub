@@ -91,85 +91,82 @@ describe("PartnerPicker (INV-18)", () => {
       input.props.onFocus?.();
     });
 
-    const pressable = tree.root
-      .findAll((node) => typeof node.props?.onPress === "function")
-      .find((node) => node.findAll((c) => c.props?.children === "Partner 12 Kft.").length > 0);
-    expect(pressable).toBeTruthy();
+    const option = findByTestId(tree.root, "composer-partner-option-client-12");
+    expect(option).toBeTruthy();
 
     act(() => {
-      pressable?.props.onPress?.();
+      option.props.onPress?.();
     });
     expect(onSelect).toHaveBeenCalledWith(clients[11]);
   });
 
-  it("shows an inline add-partner row instead of navigating away", () => {
-    const { tree } = render({ clients: makeClients(2), value: "new co" });
+  it("offers '+ Új partner: „…”' as the last row and takes the typed text as the new partner's name", async () => {
+    const { tree, onCreateNew } = render({ clients: makeClients(2), value: "new co" });
     const input = findByTestId(tree.root, "composer-partner-search");
     act(() => {
       input.props.onFocus?.();
     });
 
-    const addTrigger = tree.root
-      .findAll((node) => typeof node.props?.onPress === "function")
-      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartner").length > 0);
-    expect(addTrigger).toBeTruthy();
-
-    act(() => {
-      addTrigger?.props.onPress?.();
-    });
-
-    expect(
-      tree.root.findAll((node) => node.props?.placeholder === "invoices.composer.newPartnerName").length
-    ).toBeGreaterThan(0);
-  });
-
-  it("submits name, email, taxNumber and the address fields together (Áfa tv. 169. § e)", async () => {
-    const { tree, onCreateNew } = render({ clients: makeClients(1), value: "new co" });
-    const input = findByTestId(tree.root, "composer-partner-search");
-    act(() => {
-      input.props.onFocus?.();
-    });
-
-    const addTrigger = tree.root
-      .findAll((node) => typeof node.props?.onPress === "function")
-      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartner").length > 0);
-    act(() => {
-      addTrigger?.props.onPress?.();
-    });
-
-    function setField(testID: string, text: string) {
-      const field = findByTestId(tree.root, testID);
-      act(() => {
-        field.props.onChangeText?.(text);
-      });
-    }
-
-    setField("composer-new-partner-zip", "1011");
-    setField("composer-new-partner-city", "Budapest");
-    setField("composer-new-partner-address", "Fő utca 1.");
-
-    const confirm = tree.root
-      .findAll((node) => typeof node.props?.onPress === "function")
-      .find((node) => node.findAll((c) => c.props?.children === "invoices.composer.addPartnerConfirm").length > 0);
-
-    // The name field is required to submit — fill it via its placeholder.
-    const nameField = tree.root.findAll((node) => node.props?.placeholder === "invoices.composer.newPartnerName")[0];
-    act(() => {
-      nameField.props.onChangeText?.("New Co Kft.");
-    });
+    const addRow = findByTestId(tree.root, "composer-partner-new");
+    expect(addRow).toBeTruthy();
+    expect(JSON.stringify(tree.toJSON())).toContain("composer.partnerNew");
 
     await act(async () => {
-      await confirm?.props.onPress?.();
+      await addRow.props.onPress?.();
     });
 
+    // the rest (e-mail, tax number, address) is typed into the partner details card
     expect(onCreateNew).toHaveBeenCalledWith({
-      name: "New Co Kft.",
+      name: "new co",
       email: "",
       taxNumber: "",
-      zip: "1011",
-      city: "Budapest",
-      address: "Fő utca 1.",
+      zip: "",
+      city: "",
+      address: "",
     });
+  });
+
+  it("highlights the typed match in bold inside the partner's name", () => {
+    const clients: Client[] = [
+      { id: "z1", userId: "u", name: "Zöld Energia Zrt.", taxNumber: "23456789-2-13", city: "Szeged", createdAt: "", updatedAt: "" },
+    ];
+    const { tree } = render({ clients, value: "zö" });
+    act(() => {
+      findByTestId(tree.root, "composer-partner-search").props.onFocus?.();
+    });
+    const bold = tree.root.findAll(
+      (n) => typeof n.props?.className === "string" && n.props.className.includes("font-bold") && n.props.children === "Zö"
+    );
+    expect(bold.length).toBeGreaterThan(0);
+    // the city sits at the right of the row
+    expect(JSON.stringify(tree.toJSON())).toContain("Szeged");
+  });
+
+  it("moves through the list with the arrow keys and picks with Enter; Escape closes it", () => {
+    const clients = makeClients(3);
+    const { tree, onSelect } = render({ clients, value: "Partner" });
+    const input = findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input.props.onFocus?.();
+    });
+
+    const press = (key: string) =>
+      act(() => {
+        findByTestId(tree.root, "composer-partner-search").props.onKeyPress?.({ nativeEvent: { key }, preventDefault: jest.fn() });
+      });
+
+    press("ArrowDown");
+    press("ArrowDown");
+    expect(findByTestId(tree.root, "composer-partner-search").props["aria-activedescendant"]).toBe("composer-partner-option-1");
+    press("Enter");
+    expect(onSelect).toHaveBeenCalledWith(clients[1]);
+
+    // reopened by focusing again, then closed with Escape
+    act(() => {
+      findByTestId(tree.root, "composer-partner-search").props.onFocus?.();
+    });
+    press("Escape");
+    expect(findByTestId(tree.root, "composer-partner-search").props["aria-expanded"]).toBe(false);
   });
 
   it("shows recent partners as chips when the field is empty and focused", () => {

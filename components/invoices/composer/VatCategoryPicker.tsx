@@ -1,92 +1,66 @@
 // components/invoices/composer/VatCategoryPicker.tsx
-// INV-7: 2 common VAT categories up front, the other 5 behind a "Speciális
-// adózás" expander instead of 7 chips fighting for space in every row.
-//
-// Every choice here — common categories, VAT-rate pills, and the advanced
-// categories — is a compliance-relevant tap (AAM vs. 27% on the wrong
-// line), so each renders through ChoicePill instead of an ad-hoc Pressable
-// to guarantee the 44px tap-target floor (tap-targets-44px slice).
+// The ÁFA cell of a line item: ONE select (redesign 2026-11, tokens.md §6.18)
+// instead of the category pills + rate pills + "Speciális adózás" expander of
+// INV-7. The list offers the taxed rates (27 / 18 / 5 / 0 %) first, then the
+// special categories (AAM, TAM, ...) by their full NAV names; the closed field
+// stays short ("27%", "AAM"). The categories and their tax meaning are
+// unchanged (lib/invoices/vat.ts) — only the control is.
 import * as React from "react";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
-import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
-import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
+import { ItemSelect } from "@/components/invoices/composer/ItemSelect";
+import { parseVatSelectValue, vatSelectValue } from "@/components/invoices/composer/composer-view";
 import { ADVANCED_VAT_CATEGORIES, COMMON_VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 import type { VatCategory, VatRate } from "@/lib/invoices/types";
-import { useIconColors } from "@/lib/theme/icon-colors";
-import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+
+/** Taxed rates, highest first, as they read in an invoice dropdown. */
+const RATE_OPTIONS_DESC: VatRate[] = [...VAT_RATES].sort((a, b) => b - a);
+
+/** The exempt / special categories, the common one (AAM) first. */
+const SPECIAL_CATEGORIES: VatCategory[] = [...COMMON_VAT_CATEGORIES, ...ADVANCED_VAT_CATEGORIES].filter(
+  (category) => category !== "normal"
+);
 
 export function VatCategoryPicker({
   category,
   rate,
-  onChangeCategory,
-  onChangeRate,
+  onChange,
   t,
+  testID,
+  className,
 }: {
   category: VatCategory;
   rate: VatRate;
-  onChangeCategory: (category: VatCategory) => void;
-  onChangeRate: (rate: VatRate) => void;
+  onChange: (next: { category: VatCategory; rate: VatRate }) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
+  testID?: string;
+  className?: string;
 }) {
-  const icons = useIconColors();
-  const [expanded, setExpanded] = React.useState(ADVANCED_VAT_CATEGORIES.includes(category));
+  const options = React.useMemo(
+    () => [
+      ...RATE_OPTIONS_DESC.map((r) => ({ value: vatSelectValue("normal", r), label: `${r}%` })),
+      ...SPECIAL_CATEGORIES.map((c) => ({ value: vatSelectValue(c, 0), label: t(`invoices.vat.category.${c}`) })),
+    ],
+    [t]
+  );
+
+  const current = vatSelectValue(category, rate);
+  const display = category === "normal" ? `${rate}%` : category;
 
   return (
-    <VStack space="xs">
-      <ChoicePillGroup>
-        {COMMON_VAT_CATEGORIES.map((option) => (
-          <ChoicePill key={option} selected={category === option} onPress={() => onChangeCategory(option)}>
-            <Text size="xs" className={category === option ? "font-medium text-primary" : "text-foreground"}>
-              {t(`invoices.vat.category.${option}`)}
-            </Text>
-          </ChoicePill>
-        ))}
-      </ChoicePillGroup>
-
-      {category === "normal" ? (
-        <ChoicePillGroup>
-          {VAT_RATES.map((r) => (
-            <ChoicePill
-              key={r}
-              selected={rate === r}
-              onPress={() => onChangeRate(r)}
-              accessibilityLabel={t("invoices.vat.rateA11y", { rate: r })}
-            >
-              <Text size="2xs" className={rate === r ? "font-medium text-primary" : "text-muted-foreground"}>
-                {r}%
-              </Text>
-            </ChoicePill>
-          ))}
-        </ChoicePillGroup>
-      ) : null}
-
-      <Pressable
-        onPress={() => setExpanded((v) => !v)}
-        className={`flex-row items-center gap-1 ${TAP_TARGET_MIN_H}`}
-      >
-        <Text size="xs" className="text-muted-foreground underline">
-          {t("invoices.vat.advancedToggle")}
-        </Text>
-        {expanded ? (
-          <ChevronUp size={12} color={icons.muted} />
-        ) : (
-          <ChevronDown size={12} color={icons.muted} />
-        )}
-      </Pressable>
-
-      {expanded ? (
-        <VStack space="xs" className="rounded-md border border-border bg-muted/30 p-2">
-          {ADVANCED_VAT_CATEGORIES.map((option) => (
-            <ChoicePill key={option} selected={category === option} onPress={() => onChangeCategory(option)}>
-              <Text size="xs" className={category === option ? "font-medium text-primary" : "text-foreground"}>
-                {t(`invoices.vat.category.${option}`)}
-              </Text>
-            </ChoicePill>
-          ))}
-        </VStack>
-      ) : null}
-    </VStack>
+    <ItemSelect
+      value={current}
+      display={display}
+      options={options}
+      accessibilityLabel={t("invoices.vat.categoryLabel")}
+      testID={testID}
+      className={className}
+      onChange={(value) => {
+        const next = parseVatSelectValue(value);
+        if (next.category === "normal") {
+          onChange({ category: "normal", rate: (next.rate ?? 27) as VatRate });
+        } else {
+          onChange({ category: next.category as VatCategory, rate: 0 });
+        }
+      }}
+    />
   );
 }
