@@ -1198,6 +1198,8 @@ export default {
       title: "PDF megjelenés",
       description:
         "Testreszabhatod a generált számla PDF-ek kinézetét. Az előnézet minta adatokat és a cégprofilodat használja.",
+      issuedKeepLook:
+        "A már kiállított számlák megtartják a kiállításkori kinézetüket — a módosítás csak az ezután kiállított számlákra vonatkozik.",
       documentTitle: "Dokumentum címe",
       accentColor: "Kiemelő szín",
       fontSize: "Betűméret",

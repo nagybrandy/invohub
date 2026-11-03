@@ -5,6 +5,7 @@ jest.mock("@/lib/companies/service", () => ({
 
 jest.mock("@/lib/invoices/pdf-template/service", () => ({
   getPdfTemplate: jest.fn(),
+  getInvoicePdfTemplateSnapshot: jest.fn(),
 }));
 
 jest.mock("@/lib/clients/service", () => ({
@@ -17,13 +18,14 @@ jest.mock("@/lib/invoices/service", () => ({
 
 import { getCompanyByUserId } from "@/lib/companies/service";
 import { buildInvoicePdfContext } from "@/lib/invoices/build-pdf-context";
-import { getPdfTemplate } from "@/lib/invoices/pdf-template/service";
+import { getInvoicePdfTemplateSnapshot, getPdfTemplate } from "@/lib/invoices/pdf-template/service";
 import { getClientById } from "@/lib/clients/service";
 import { getInvoiceById } from "@/lib/invoices/service";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
 const mockCompany = getCompanyByUserId as jest.MockedFunction<typeof getCompanyByUserId>;
 const mockTemplate = getPdfTemplate as jest.MockedFunction<typeof getPdfTemplate>;
+const mockSnapshot = getInvoicePdfTemplateSnapshot as jest.MockedFunction<typeof getInvoicePdfTemplateSnapshot>;
 const mockClient = getClientById as jest.MockedFunction<typeof getClientById>;
 
 describe("buildInvoicePdfContext", () => {
@@ -47,6 +49,7 @@ describe("buildInvoicePdfContext", () => {
       notesLabel: "Notes",
       fontScale: "medium",
     });
+    mockSnapshot.mockResolvedValue(null);
   });
 
   it("loads company and template for invoice pdf", async () => {
@@ -157,5 +160,36 @@ describe("buildInvoicePdfContext", () => {
     const ctx = await buildInvoicePdfContext("u1", makeInvoice({ documentType: "invoice" }));
     expect(ctx.referencedInvoiceNumber).toBeUndefined();
     expect(getInvoiceById).not.toHaveBeenCalled();
+  });
+
+  describe("appearance (PDF template) of an issued invoice", () => {
+    const ISSUED_LOOK = {
+      titleText: "RÉGI SZÁMLA",
+      accentColor: "#ff0000",
+      showCompanyBlock: false,
+      showBankDetails: false,
+      showClientTaxNumber: false,
+      footerText: "Kiállításkori lábléc",
+      notesLabel: "Megj.",
+      fontScale: "large" as const,
+    };
+
+    it("renders an issued invoice with the appearance frozen at issue time, not the user's current template", async () => {
+      mockSnapshot.mockResolvedValue(ISSUED_LOOK);
+      const ctx = await buildInvoicePdfContext("u1", makeInvoice({ id: "inv-9", status: "unpaid" }));
+      expect(mockSnapshot).toHaveBeenCalledWith("u1", "inv-9");
+      expect(ctx.template).toEqual(ISSUED_LOOK);
+    });
+
+    it("falls back to the current template for an issued invoice that has no snapshot", async () => {
+      const ctx = await buildInvoicePdfContext("u1", makeInvoice({ status: "paid" }));
+      expect(ctx.template?.titleText).toBe("SZÁMLA");
+    });
+
+    it("renders a draft with the current template and never looks up a snapshot", async () => {
+      const ctx = await buildInvoicePdfContext("u1", makeInvoice({ status: "draft", invoiceNumber: "" }));
+      expect(mockSnapshot).not.toHaveBeenCalled();
+      expect(ctx.template?.titleText).toBe("SZÁMLA");
+    });
   });
 });

@@ -1199,6 +1199,8 @@ export default {
       title: "PDF appearance",
       description:
         "Customize how generated invoice PDFs look. Preview uses sample data and your company profile.",
+      issuedKeepLook:
+        "Invoices you have already issued keep the look they were issued with — changes apply only to invoices issued from now on.",
       documentTitle: "Document title",
       accentColor: "Accent color",
       fontSize: "Font size",

@@ -4,6 +4,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -273,6 +274,16 @@ export const invoice = pgTable(
       (): AnyPgColumn => invoice.id,
       { onDelete: "set null" }
     ),
+    /**
+     * PDF appearance (invoice_pdf_template fields) SNAPSHOT as of issuance —
+     * written once, in the transaction that assigns the invoice number, so
+     * changing the template later never restyles a document already sent.
+     * Never written by mapInvoiceToDb, so later saves can't clear it. NULL on
+     * drafts and on invoices issued before this column existed; those render
+     * with the live template, which upsertPdfTemplate freezes onto them just
+     * before it changes (lib/invoices/pdf-template/service.ts).
+     */
+    pdfTemplateSnapshot: jsonb("pdf_template_snapshot"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

@@ -47,6 +47,34 @@ export function normalizeHexColor(color: string): string {
   return DEFAULT_PDF_TEMPLATE.accentColor;
 }
 
+/**
+ * Reads an invoice's stored appearance snapshot (invoice.pdf_template_snapshot,
+ * untyped JSON) back into a template. null when there is none. Only the known
+ * fields of the right type are kept — anything else falls back to the default
+ * — and the colour is normalized, for the same reason getPdfTemplate
+ * re-normalizes its row: render safety must not depend on what is stored.
+ */
+export function parsePdfTemplateSnapshot(value: unknown): InvoicePdfTemplate | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const text = (key: "titleText" | "footerText" | "notesLabel") =>
+    typeof raw[key] === "string" ? (raw[key] as string) : DEFAULT_PDF_TEMPLATE[key];
+  const flag = (key: "showCompanyBlock" | "showBankDetails" | "showClientTaxNumber") =>
+    typeof raw[key] === "boolean" ? (raw[key] as boolean) : DEFAULT_PDF_TEMPLATE[key];
+  return {
+    titleText: text("titleText"),
+    accentColor: normalizeHexColor(typeof raw.accentColor === "string" ? raw.accentColor : ""),
+    showCompanyBlock: flag("showCompanyBlock"),
+    showBankDetails: flag("showBankDetails"),
+    showClientTaxNumber: flag("showClientTaxNumber"),
+    footerText: text("footerText"),
+    notesLabel: text("notesLabel"),
+    fontScale: PDF_FONT_SCALES.includes(raw.fontScale as PdfFontScale)
+      ? (raw.fontScale as PdfFontScale)
+      : DEFAULT_PDF_TEMPLATE.fontScale,
+  };
+}
+
 const ENGLISH_DEFAULTS = {
   titleText: "INVOICE",
   footerText: "Thank you for your business!",

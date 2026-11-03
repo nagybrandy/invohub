@@ -92,6 +92,13 @@
       "when": 1792582915914,
       "tag": "0012_workspaces-and-access",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792657024136,
+      "tag": "0013_invoice-pdf-template-snapshot",
+      "breakpoints": true
     }
   ]
 }

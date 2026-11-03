@@ -12,8 +12,13 @@ jest.mock("@/lib/id", () => ({
 }));
 
 import { db } from "@/db";
+import { invoice, invoicePdfTemplate } from "@/db/schema";
 import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
-import { getPdfTemplate, upsertPdfTemplate } from "@/lib/invoices/pdf-template/service";
+import {
+  getInvoicePdfTemplateSnapshot,
+  getPdfTemplate,
+  upsertPdfTemplate,
+} from "@/lib/invoices/pdf-template/service";
 
 const mockDb = db as unknown as {
   select: jest.Mock;
@@ -88,8 +93,81 @@ describe("getPdfTemplate", () => {
   });
 });
 
+const STORED_ROW = {
+  id: "tpl-1",
+  titleText: "RÉGI SZÁMLA",
+  accentColor: "#112233",
+  showCompanyBlock: true,
+  showBankDetails: false,
+  showClientTaxNumber: true,
+  footerText: "Régi lábléc",
+  notesLabel: "Megjegyzés",
+  fontScale: "small",
+};
+
+/** Bound parameter values of a drizzle SQL condition (user id, status, …). */
+function sqlParams(node: unknown, out: unknown[] = [], seen = new Set<unknown>()): unknown[] {
+  if (!node || typeof node !== "object" || seen.has(node)) return out;
+  seen.add(node);
+  if (Array.isArray(node)) {
+    node.forEach((n) => sqlParams(n, out, seen));
+    return out;
+  }
+  const obj = node as Record<string, unknown>;
+  if (obj.constructor?.name === "Param") out.push(obj.value);
+  if (Array.isArray(obj.queryChunks)) sqlParams(obj.queryChunks, out, seen);
+  return out;
+}
+
+/** Records every db.update(table).set(values).where(cond) call, in order. */
+function recordUpdates(returningRow: unknown) {
+  const calls: Array<{ table: unknown; values: Record<string, unknown>; params: unknown[] }> = [];
+  mockDb.update.mockImplementation((table: unknown) => ({
+    set: jest.fn((values: Record<string, unknown>) => {
+      const call = { table, values, params: [] as unknown[] };
+      calls.push(call);
+      const where = jest.fn((cond: unknown) => {
+        call.params = sqlParams(cond);
+        const done = Promise.resolve(undefined);
+        return Object.assign(done, { returning: jest.fn().mockResolvedValue([returningRow]) });
+      });
+      return { where };
+    }),
+  }));
+  return calls;
+}
+
+describe("getInvoicePdfTemplateSnapshot", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("returns the appearance frozen on the invoice when it was issued", async () => {
+    mockDb.select.mockReturnValue(
+      chain([{ pdfTemplateSnapshot: { ...STORED_ROW, id: undefined, titleText: "KIÁLLÍTÁSKORI" } }])
+    );
+    const snapshot = await getInvoicePdfTemplateSnapshot("user-1", "inv-1");
+    expect(snapshot?.titleText).toBe("KIÁLLÍTÁSKORI");
+    expect(snapshot?.fontScale).toBe("small");
+    expect(snapshot).not.toHaveProperty("id");
+  });
+
+  it("returns null for an invoice without a snapshot, or an id that isn't the user's", async () => {
+    mockDb.select.mockReturnValue(chain([{ pdfTemplateSnapshot: null }]));
+    expect(await getInvoicePdfTemplateSnapshot("user-1", "inv-1")).toBeNull();
+
+    mockDb.select.mockReturnValue(chain([]));
+    expect(await getInvoicePdfTemplateSnapshot("user-1", "someone-elses")).toBeNull();
+  });
+});
+
 describe("upsertPdfTemplate", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("inserts when no existing template", async () => {
+    recordUpdates(undefined);
     mockDb.select.mockReturnValue(chain([]));
     mockDb.insert.mockReturnValue({
       values: jest.fn(() => ({
@@ -111,5 +189,44 @@ describe("upsertPdfTemplate", () => {
     const template = await upsertPdfTemplate("user-1", { titleText: "INVOICE" });
     expect(template.titleText).toBe("INVOICE");
     expect(mockDb.insert).toHaveBeenCalled();
+  });
+
+  it("freezes the PREVIOUS appearance onto already-issued invoices that have no snapshot yet, before overwriting it", async () => {
+    // Invoices issued before per-invoice snapshots existed render with the
+    // live template — changing it must not restyle them retroactively.
+    const updates = recordUpdates({ ...STORED_ROW, titleText: "ÚJ SZÁMLA" });
+    mockDb.select.mockReturnValue(chain([STORED_ROW]));
+
+    await upsertPdfTemplate("user-1", { ...STORED_ROW, titleText: "ÚJ SZÁMLA" });
+
+    expect(updates.map((u) => u.table)).toEqual([invoice, invoicePdfTemplate]);
+    expect(updates[0].values).toEqual({
+      pdfTemplateSnapshot: {
+        titleText: "RÉGI SZÁMLA",
+        accentColor: "#112233",
+        showCompanyBlock: true,
+        showBankDetails: false,
+        showClientTaxNumber: true,
+        footerText: "Régi lábléc",
+        notesLabel: "Megjegyzés",
+        fontScale: "small",
+      },
+    });
+    // Only this user's issued (non-draft) documents.
+    expect(updates[0].params).toEqual(expect.arrayContaining(["user-1", "draft"]));
+  });
+
+  it("freezes the built-in default appearance when the user never saved a template before", async () => {
+    const updates = recordUpdates(undefined);
+    mockDb.select.mockReturnValue(chain([]));
+    mockDb.insert.mockReturnValue({
+      values: jest.fn(() => ({ returning: jest.fn().mockResolvedValue([{ ...STORED_ROW }]) })),
+    });
+
+    await upsertPdfTemplate("user-1", { accentColor: "#000000" });
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].table).toBe(invoice);
+    expect(updates[0].values).toEqual({ pdfTemplateSnapshot: DEFAULT_PDF_TEMPLATE });
   });
 });
