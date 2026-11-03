@@ -13,6 +13,7 @@
 //   - lib/invoices/paper/render-paper.ts: Dóri's paper (Letisztult / Sávos /
 //     Keretes), one parametrised renderer.
 import { LEGACY_PDF_TEMPLATE, mergePdfTemplate } from "@/lib/invoices/pdf-template/defaults";
+import { renderPaperPdf } from "@/lib/invoices/paper/render-paper";
 import { renderLegacyPdf } from "@/lib/invoices/pdf-legacy";
 import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
 import type { Invoice } from "@/lib/invoices/types";
@@ -68,5 +69,6 @@ export function resolvePdfTemplate(template: InvoicePdfTemplate | undefined): In
 
 export async function generateInvoicePdf(ctx: InvoicePdfContext): Promise<Buffer> {
   const template = resolvePdfTemplate(ctx.template);
-  return renderLegacyPdf({ ...ctx, template });
+  if (template.layout === "legacy") return renderLegacyPdf({ ...ctx, template });
+  return renderPaperPdf({ ...ctx, template });
 }
