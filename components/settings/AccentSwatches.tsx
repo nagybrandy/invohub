@@ -7,8 +7,8 @@ import * as React from "react";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 
-/** First entry is the app's default accent (lib/invoices/pdf-template/defaults.ts). */
-export const PDF_ACCENT_PRESETS = ["#6495ed", "#3F6BC4", "#1B7A4F", "#C2410C", "#212325"] as const;
+/** Dóri's brand swatches; the first is the default accent (DEFAULT_PDF_TEMPLATE). */
+export const PDF_ACCENT_PRESETS = ["#3F6BC4", "#16803C", "#E8590C", "#212325"] as const;
 
 export function sameColor(a: string | undefined | null, b: string | undefined | null): boolean {
   return (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
