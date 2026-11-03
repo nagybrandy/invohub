@@ -6,13 +6,10 @@
 import * as React from "react";
 import { useLocalSearchParams, router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { AuthCardHeader, AuthLayout, AuthNote } from "@/components/auth/AuthLayout";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { Box } from "@/components/ui/box";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
@@ -62,39 +59,50 @@ export default function InviteScreen() {
   }, [inviteToken, session, isPending]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <Box className="flex-1 items-center justify-center px-6 py-8">
-        <Card className="w-full max-w-md p-6">
-          <VStack space="md">
-            <Heading size="lg">{t("invite.title")}</Heading>
-            {state.kind === "loading" ? <Text className="text-muted-foreground">{t("common.loading")}</Text> : null}
-            {state.kind === "needLogin" ? (
-              <>
-                <Text className="text-foreground">{t("invite.needLogin")}</Text>
-                <Button onPress={() => router.replace(routes.login)} testID="invite-login">
-                  <ButtonText>{t("auth.signIn")}</ButtonText>
-                </Button>
-              </>
-            ) : null}
-            {state.kind === "accepted" ? (
-              <>
-                <Text className="text-foreground" testID="invite-accepted">{t("invite.accepted", { name: state.name })}</Text>
-                <Button onPress={() => window.location.assign("/dashboard")} testID="invite-open">
-                  <ButtonText>{t("invite.open")}</ButtonText>
-                </Button>
-              </>
-            ) : null}
-            {state.kind === "error" ? (
-              <>
-                <Text className="text-destructive" testID="invite-error">{t(`invite.errors.${state.code}`, { defaultValue: t("invite.errors.failed") })}</Text>
-                <Button variant="outline" onPress={() => router.replace(routes.dashboard)}>
-                  <ButtonText>{t("invite.toApp")}</ButtonText>
-                </Button>
-              </>
-            ) : null}
-          </VStack>
-        </Card>
-      </Box>
-    </SafeAreaView>
+    <AuthLayout>
+      <VStack space="lg">
+        <AuthCardHeader title={t("invite.title")} />
+        {state.kind === "loading" ? (
+          <Text className="text-sm text-muted-ink" testID="invite-loading">
+            {t("common.loading")}
+          </Text>
+        ) : null}
+        {state.kind === "needLogin" ? (
+          <>
+            <AuthNote tone="info" testID="invite-need-login">
+              {t("invite.needLogin")}
+            </AuthNote>
+            <Button size="lg" onPress={() => router.replace(routes.login)} testID="invite-login">
+              <ButtonText>{t("auth.signIn")}</ButtonText>
+            </Button>
+          </>
+        ) : null}
+        {state.kind === "accepted" ? (
+          <>
+            <AuthNote tone="ok" testID="invite-accepted">
+              {t("invite.accepted", { name: state.name })}
+            </AuthNote>
+            <Button size="lg" onPress={() => window.location.assign("/dashboard")} testID="invite-open">
+              <ButtonText>{t("invite.open")}</ButtonText>
+            </Button>
+          </>
+        ) : null}
+        {state.kind === "error" ? (
+          <>
+            <AuthNote tone="err" testID="invite-error">
+              {t(`invite.errors.${state.code}`, { defaultValue: t("invite.errors.failed") })}
+            </AuthNote>
+            <Button
+              size="lg"
+              variant="secondary"
+              onPress={() => router.replace(routes.dashboard)}
+              testID="invite-to-app"
+            >
+              <ButtonText>{t("invite.toApp")}</ButtonText>
+            </Button>
+          </>
+        ) : null}
+      </VStack>
+    </AuthLayout>
   );
 }

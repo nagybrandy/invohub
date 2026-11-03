@@ -141,8 +141,7 @@ export default {
     welcomeBack: "Welcome back",
     createAccount: "Create account",
     signInSubtitle: "Sign in to your InvoHub account.",
-    signUpSubtitle:
-      "InvoHub for Hungarian invoicing, NAV compliance, and bookkeeping.",
+    signUpSubtitle: "InvoHub for Hungarian invoicing and NAV compliance.",
     name: "Name",
     email: "Email",
     emailPlaceholder: "you@example.com",
@@ -1464,8 +1463,6 @@ export default {
       readBlog: "Read the blog",
       reassurance:
         "Invoicing in Hungarian and English, NAV-compliant — for Hungarian and international customers alike.",
-      infographicAlt:
-        "Infographic showing invoice creation, PDF email delivery, and payment tracking in InvoHub",
     },
     insights: {
       eyebrow: "Guides",
@@ -1503,8 +1500,6 @@ export default {
       title: "One system for the work around every document",
       subtitle:
         "The capabilities share one data set and a consistent interaction model.",
-      infographicAlt:
-        "Infographic of the InvoHub workflow from paper invoice to digital dashboard and bank matching steps",
       invoice: {
         title: "Invoice creation, clear from end to end",
         description:
@@ -1575,7 +1570,13 @@ export default {
       copyright: "© {{year}} InvoHub. All rights reserved.",
     },
   },
-  publicSite: {},
+  publicSite: {
+    notFound: {
+      title: "This page could not be found.",
+      home: "Back to the home page",
+      invoices: "Go to invoices",
+    },
+  },
   blog: {
     eyebrow: "InvoHub blog",
     indexTitle: "Precise guides for Hungarian invoicing",

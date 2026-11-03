@@ -46,19 +46,18 @@ function expectedShapes(variant: BrandMarkVariant) {
 }
 
 describe("BrandLogo", () => {
-  it("renders the wordmark without the mark by default", async () => {
+  it("renders the brand tile with the mark and the wordmark by default", async () => {
     const tree = await render(<BrandLogo tone="onDark" />);
     expect(tree.root.findByProps({ testID: "brand-logo" })).toBeTruthy();
-    expect(tree.root.findByProps({ children: "Invo" })).toBeTruthy();
-    expect(tree.root.findByProps({ children: "Hub" })).toBeTruthy();
-    expect(tree.root.findAllByProps({ testID: "brand-logo-mark" })).toHaveLength(0);
+    expect(tree.root.findByProps({ children: "InvoHub" })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: "brand-logo-mark" })).toBeTruthy();
     await unmount(tree);
   });
 
-  it("pairs the wordmark with the SVG mark when asked", async () => {
-    const tree = await render(<BrandLogo tone="onDark" withMark />);
-    expect(tree.root.findByProps({ testID: "brand-logo-mark" })).toBeTruthy();
-    expect(tree.root.findByProps({ children: "Invo" })).toBeTruthy();
+  it("can render the wordmark alone", async () => {
+    const tree = await render(<BrandLogo tone="onDark" withMark={false} />);
+    expect(tree.root.findByProps({ children: "InvoHub" })).toBeTruthy();
+    expect(tree.root.findAllByProps({ testID: "brand-logo-mark" })).toHaveLength(0);
     await unmount(tree);
   });
 

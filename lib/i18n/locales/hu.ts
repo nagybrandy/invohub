@@ -206,8 +206,7 @@ export default {
     welcomeBack: "Üdv újra!",
     createAccount: "Fiók létrehozása",
     signInSubtitle: "Jelentkezz be az InvoHub fiókodba.",
-    signUpSubtitle:
-      "InvoHub a magyar számlázáshoz, NAV megfelelőséghez és könyveléshez.",
+    signUpSubtitle: "InvoHub a magyar számlázáshoz és NAV megfelelőséghez.",
     name: "Név",
     email: "E-mail cím",
     emailPlaceholder: "te@pelda.hu",
@@ -1462,8 +1461,6 @@ export default {
       readBlog: "Olvasd a blogot",
       reassurance:
         "Számlázás magyarul és angolul, NAV-megfelelően — magyar és külföldi ügyfelekkel is.",
-      infographicAlt:
-        "Infografika a számlakészítésről, PDF e-mail küldésről és a fizetések követéséről az InvoHubban",
     },
     insights: {
       eyebrow: "Tudásanyag",
@@ -1501,8 +1498,6 @@ export default {
       title: "Egy rendszer a bizonylat körüli teljes munkához",
       subtitle:
         "A funkciók ugyanarra az adatkészletre és egységes kezelési logikára épülnek.",
-      infographicAlt:
-        "Infografika a papíralapú számlától a digitális irányítópultig és a banki egyeztetés lépéseiig",
       invoice: {
         title: "Számlakészítés, végig átláthatóan",
         description:
@@ -1573,7 +1568,13 @@ export default {
       copyright: "© {{year}} InvoHub. Minden jog fenntartva.",
     },
   },
-  publicSite: {},
+  publicSite: {
+    notFound: {
+      title: "Ez az oldal nem található.",
+      home: "Vissza a főoldalra",
+      invoices: "Ugrás a számlákhoz",
+    },
+  },
   blog: {
     eyebrow: "InvoHub blog",
     indexTitle: "Pontos útmutatók a magyar számlázáshoz",

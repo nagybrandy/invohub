@@ -4,10 +4,9 @@ import * as React from "react";
 import { ActivityIndicator } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { CheckCircle2, XCircle } from "lucide-react-native";
+import { PublicPage, proseStyles } from "@/components/marketing/PublicPage";
 import { Box } from "@/components/ui/box";
-import { Card } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
@@ -59,43 +58,43 @@ export default function PublicReceiptViewScreen() {
   const tr = (key: string) => (lng ? t(key, { lng }) : t(key));
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <Box className="flex-1 items-center justify-center px-6 py-8">
-        <VStack space="lg" className="w-full max-w-md">
-          <VStack space="xs" className="items-center">
-            <Box className="h-14 w-14 items-center justify-center rounded-2xl bg-primary">
-              <Text className="text-xl font-bold text-primary-foreground">IH</Text>
+    <PublicPage testID="receipt-verify-page">
+      <Box className="mx-auto w-full max-w-[520px] px-4 py-10 tab:px-6 tab:py-14">
+        <VStack className="gap-6">
+          <VStack className="items-center gap-2">
+            <Box className="h-12 w-12 items-center justify-center rounded-card bg-navy">
+              <Text className="font-heading text-base font-bold text-white">IH</Text>
             </Box>
-            <Heading size="xl" className="text-center text-foreground">
+            <Heading size="xl" className={`text-center ${proseStyles.h2}`}>
               {tr("receipts.verify.title")}
             </Heading>
-            <Text size="sm" className="text-center text-muted-foreground">
+            <Text className="text-center text-sm text-muted-ink">
               {tr("receipts.verify.subtitle")}
             </Text>
           </VStack>
 
-          {loading ? (
-            <ActivityIndicator />
-          ) : null}
+          {loading ? <ActivityIndicator /> : null}
 
           {!loading && error ? (
-            <Card className="border-destructive/30 bg-destructive/5 p-6">
-              <VStack space="md" className="items-center">
-                <XCircle size={40} color={icons.muted} />
-                <Text className="text-center font-semibold text-destructive">{error}</Text>
+            <Box className="rounded-card bg-err-wash p-6" accessibilityRole="alert">
+              <VStack className="items-center gap-3">
+                <XCircle size={36} color={icons.destructive} />
+                <Text className="text-center text-sm font-semibold text-err">{error}</Text>
               </VStack>
-            </Card>
+            </Box>
           ) : null}
 
           {!loading && receipt ? (
-            <Card className="p-6">
-              <VStack space="md">
-                <HStack space="sm" className="items-center justify-center">
-                  <CheckCircle2 size={22} color={icons.primary} />
-                  <Text className="font-semibold text-primary">{tr("receipts.verify.verified")}</Text>
+            <Box className="rounded-card bg-surface p-6 shadow-card">
+              <VStack className="gap-4">
+                <HStack className="items-center justify-center gap-2 rounded-control bg-ok-wash px-3 py-2">
+                  <CheckCircle2 size={20} color={icons.ok} />
+                  <Text className="text-sm font-semibold text-ok">
+                    {tr("receipts.verify.verified")}
+                  </Text>
                 </HStack>
 
-                <VStack space="sm">
+                <VStack className="gap-3">
                   <Row label={tr("receipts.verify.receiptNumber")} value={receipt.receiptNumber} />
                   <Row label={tr("receipts.verify.issuer")} value={receipt.issuerName} />
                   {receipt.clientName ? (
@@ -112,11 +111,11 @@ export default function PublicReceiptViewScreen() {
                   />
                 </VStack>
               </VStack>
-            </Card>
+            </Box>
           ) : null}
         </VStack>
       </Box>
-    </SafeAreaView>
+    </PublicPage>
   );
 }
 
@@ -131,12 +130,9 @@ function Row({
 }) {
   return (
     <HStack className="items-start justify-between gap-4">
-      <Text size="sm" className="text-muted-foreground">
-        {label}
-      </Text>
+      <Text className="text-sm text-muted-ink">{label}</Text>
       <Text
-        size="sm"
-        className={`max-w-[60%] text-right ${emphasize ? "text-lg font-bold text-foreground" : "text-foreground"}`}
+        className={`max-w-[60%] text-right ${emphasize ? "font-heading text-lg font-bold text-ink" : "text-sm text-ink"}`}
       >
         {value}
       </Text>

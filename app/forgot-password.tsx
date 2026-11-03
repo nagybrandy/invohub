@@ -6,14 +6,13 @@ import * as React from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { AuthCardHeader, AuthLayout, AuthNote } from "@/components/auth/AuthLayout";
+import { FormField } from "@/components/layout/FormField";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
-import { FormControl, FormControlLabel, FormControlLabelText } from "@/components/ui/form-control";
-import { Heading } from "@/components/ui/heading";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { ScreenLayout } from "@/components/layout/ScreenLayout";
 import { authClient } from "@/lib/auth-client";
 import { getAuthBaseUrl } from "@/lib/auth-url";
 import { routes } from "@/lib/navigation";
@@ -49,49 +48,56 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <ScreenLayout width="form" header={<Heading size="2xl">{t("auth.reset.requestTitle")}</Heading>}>
-      <VStack space="md">
-        <Text size="sm" className="text-muted-foreground">
-          {t("auth.reset.requestSubtitle")}
-        </Text>
+    <AuthLayout>
+      <VStack space="lg">
+        <AuthCardHeader
+          title={t("auth.reset.requestTitle")}
+          subtitle={t("auth.reset.requestSubtitle")}
+        />
         {sent ? (
-          <Text size="sm" className="text-foreground" testID="forgot-password-sent">
+          <AuthNote tone="ok" testID="forgot-password-sent">
             {t("auth.reset.requestSent")}
-          </Text>
+          </AuthNote>
         ) : (
-          <>
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("auth.email")}</FormControlLabelText>
-              </FormControlLabel>
+          <VStack space="md">
+            <FormField label={t("auth.email")}>
               <Input>
                 <InputField
                   value={email}
                   onChangeText={setEmail}
                   placeholder={t("auth.emailPlaceholder")}
                   autoCapitalize="none"
+                  autoComplete="email"
                   keyboardType="email-address"
                   testID="forgot-password-email"
                 />
               </Input>
-            </FormControl>
+            </FormField>
             {error ? (
-              <Text size="sm" className="text-destructive">
+              <AuthNote tone="err" testID="forgot-password-error">
                 {error}
-              </Text>
+              </AuthNote>
             ) : null}
-            <Button onPress={() => void handleSubmit()} disabled={sending || !email.trim()} testID="forgot-password-submit">
+            <Button
+              size="lg"
+              onPress={() => void handleSubmit()}
+              disabled={sending || !email.trim()}
+              testID="forgot-password-submit"
+            >
               {sending ? <ButtonSpinner /> : null}
               <ButtonText>{t("auth.reset.requestAction")}</ButtonText>
             </Button>
-          </>
+          </VStack>
         )}
-        <Pressable onPress={() => router.push(routes.login)} className="self-start py-2">
-          <Text size="sm" className="text-primary">
-            {t("auth.reset.backToLogin")}
-          </Text>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => router.push(routes.login)}
+          className="min-h-10 items-center justify-center rounded-control"
+          testID="auth-back-to-login"
+        >
+          <Text className="text-sm font-medium text-primary">{t("auth.reset.backToLogin")}</Text>
         </Pressable>
       </VStack>
-    </ScreenLayout>
+    </AuthLayout>
   );
 }

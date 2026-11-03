@@ -1,24 +1,15 @@
 // app/login.tsx
-// Auth screen: navy marketing shell, Ranade wordmark, HU/EN switcher, sign-in/up form.
+// Auth screen: AuthLayout (navy hero panel / stacked), segmented sign-in / sign-up card.
 import * as React from "react";
-import { ScrollView, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { BrandLogo } from "@/components/marketing/BrandLogo";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { AuthCardHeader, AuthLayout, AuthNote } from "@/components/auth/AuthLayout";
+import { FormField } from "@/components/layout/FormField";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
-} from "@/components/ui/form-control";
-import { Heading } from "@/components/ui/heading";
-import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { apiFetch } from "@/lib/api/client";
@@ -27,16 +18,9 @@ import { isCompanyProfileComplete } from "@/lib/companies/completeness";
 import type { PublicCompany } from "@/lib/companies/public-company";
 import { routes } from "@/lib/navigation";
 import { SIGNUP_ROLES, type SignupRole } from "@/lib/user-roles";
-import { useHydrated } from "@/lib/useHydrated";
 
 export default function Login() {
   const { t } = useTranslation();
-  const { width } = useWindowDimensions();
-  // Viewport-dependent markup only after hydration: the server renders with
-  // width 0 (the mobile layout), and a desktop client must start from the
-  // same HTML or React discards the pre-rendered page (error #418).
-  const hydrated = useHydrated();
-  const isDesktop = hydrated && width >= 900;
   const [mode, setMode] = React.useState<"signin" | "signup">("signin");
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -86,197 +70,143 @@ export default function Login() {
     }
   }
 
-  const form = (
-    <VStack space="lg" className="w-full">
-      <VStack space="xs">
-        <Heading size="xl" className="font-heading text-foreground">
-          {isSignup ? t("auth.createAccount") : t("auth.welcomeBack")}
-        </Heading>
-        <Text size="sm" className="font-light text-muted-foreground">
-          {isSignup ? t("auth.signUpSubtitle") : t("auth.signInSubtitle")}
-        </Text>
-      </VStack>
+  function switchMode(next: "signin" | "signup") {
+    if (next === mode) return;
+    setError(null);
+    setMode(next);
+  }
 
-      <VStack space="md">
-        {isSignup ? (
-          <>
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("auth.name")}</FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField
-                  accessibilityLabel={t("auth.name")}
-                  placeholder={t("auth.namePlaceholder")}
-                  autoCapitalize="words"
-                  value={name}
-                  onChangeText={setName}
-                  className="font-light"
-                />
-              </Input>
-            </FormControl>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("auth.accountType")}</FormControlLabelText>
-              </FormControlLabel>
-              <Box className="flex-row gap-2" testID="signup-role-picker">
-                {SIGNUP_ROLES.map((role) => (
-                  <Pressable
-                    key={role}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: signupRole === role }}
-                    onPress={() => setSignupRole(role)}
-                    testID={`signup-role-${role}`}
-                    className={`flex-1 rounded-lg border p-3 ${
-                      signupRole === role
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-transparent"
-                    }`}
-                  >
-                    <Text
-                      className={`font-medium ${
-                        signupRole === role ? "text-primary" : "text-foreground"
-                      }`}
-                    >
-                      {t(`roles.${role}`)}
-                    </Text>
-                    <Text size="xs" className="mt-1 font-light text-muted-foreground">
-                      {t(`roles.${role}Hint`)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </Box>
-            </FormControl>
-          </>
-        ) : null}
-
-        <FormControl>
-          <FormControlLabel>
-            <FormControlLabelText>{t("auth.email")}</FormControlLabelText>
-          </FormControlLabel>
-          <Input>
-            <InputField
-              accessibilityLabel={t("auth.email")}
-              placeholder={t("auth.emailPlaceholder")}
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-              className="font-light"
-            />
-          </Input>
-        </FormControl>
-
-        <FormControl>
-          <FormControlLabel>
-            <FormControlLabelText>{t("auth.password")}</FormControlLabelText>
-          </FormControlLabel>
-          <Input>
-            <InputField
-              accessibilityLabel={t("auth.password")}
-              placeholder="••••••••"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              className="font-light"
-            />
-          </Input>
-        </FormControl>
-
-        {!isSignup ? (
-          <Pressable onPress={() => router.push(routes.forgotPassword)} className="self-start py-1" testID="login-forgot-password">
-            <Text size="sm" className="text-primary">
-              {t("auth.forgotPassword")}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {error ? (
-          <Text size="sm" className="text-destructive">
-            {error}
-          </Text>
-        ) : null}
-
-        <Button onPress={handleSubmit} disabled={loading} size="lg">
-          {loading ? (
-            <ButtonSpinner />
-          ) : (
-            <ButtonText>{isSignup ? t("auth.signUp") : t("auth.signIn")}</ButtonText>
-          )}
-        </Button>
-      </VStack>
-
-      <Pressable
-        onPress={() => {
-          setError(null);
-          setMode(isSignup ? "signin" : "signup");
-        }}
-        className="items-center py-1"
-      >
-        <Text size="sm" className="text-primary">
-          {isSignup ? t("auth.alreadyHaveAccount") : t("auth.noAccount")}
-        </Text>
-      </Pressable>
-    </VStack>
-  );
-
-  // bg-secondary (token --secondary, #111f4a) — not a hardcoded #0b1533,
-  // which diverged from docs/brand.md's single documented navy and from
-  // DesktopTopBar's bg-[#111f4a].
   return (
-    <SafeAreaView className="flex-1 bg-secondary" edges={["top", "bottom"]}>
-      <Box className="absolute right-4 top-4 z-10 md:right-8 md:top-6">
-        <LanguageSwitcher tone={isDesktop ? "onLight" : "onDark"} />
-      </Box>
+    <AuthLayout>
+      <VStack className="w-full gap-6">
+        <SegmentedControl
+          fullWidth
+          outlined
+          value={mode}
+          onChange={switchMode}
+          accessibilityLabel={`${t("auth.signIn")} / ${t("auth.signUp")}`}
+          testID="login-mode"
+          options={[
+            { value: "signin", label: t("auth.signIn"), testID: "login-mode-signin" },
+            { value: "signup", label: t("auth.signUp"), testID: "login-mode-signup" },
+          ]}
+        />
 
-      {isDesktop ? (
-        <HStack className="min-h-full flex-1">
-          <Box className="flex-1 justify-between px-12 py-14">
-            <Pressable onPress={() => router.push(routes.home)}>
-              <BrandLogo tone="onDark" height={36} />
+        <AuthCardHeader
+          title={isSignup ? t("auth.createAccount") : t("auth.welcomeBack")}
+          subtitle={isSignup ? t("auth.signUpSubtitle") : t("auth.signInSubtitle")}
+        />
+
+        <VStack space="md">
+          {isSignup ? (
+            <>
+              <FormField label={t("auth.name")}>
+                <Input>
+                  <InputField
+                    accessibilityLabel={t("auth.name")}
+                    placeholder={t("auth.namePlaceholder")}
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </Input>
+              </FormField>
+
+              <FormField label={t("auth.accountType")}>
+                <Box className="flex-row gap-2" testID="signup-role-picker" accessibilityRole="radiogroup">
+                  {SIGNUP_ROLES.map((role) => {
+                    const selected = signupRole === role;
+                    return (
+                      <Pressable
+                        key={role}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected, checked: selected }}
+                        onPress={() => setSignupRole(role)}
+                        testID={`signup-role-${role}`}
+                        className={`min-w-0 flex-1 rounded-control border p-3 ${
+                          selected
+                            ? "border-primary bg-primary-wash"
+                            : "border-line-strong bg-surface web:hover:bg-neutral-wash"
+                        }`}
+                      >
+                        <Text
+                          className={`text-sm font-semibold ${
+                            selected ? "text-primary-ink" : "text-ink"
+                          }`}
+                        >
+                          {t(`roles.${role}`)}
+                        </Text>
+                        <Text className="mt-1 text-xs text-muted-ink">
+                          {t(`roles.${role}Hint`)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </Box>
+              </FormField>
+            </>
+          ) : null}
+
+          <FormField label={t("auth.email")}>
+            <Input>
+              <InputField
+                accessibilityLabel={t("auth.email")}
+                placeholder={t("auth.emailPlaceholder")}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </Input>
+          </FormField>
+
+          <FormField label={t("auth.password")}>
+            <Input>
+              <InputField
+                accessibilityLabel={t("auth.password")}
+                placeholder="••••••••"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+            </Input>
+          </FormField>
+
+          {!isSignup ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => router.push(routes.forgotPassword)}
+              className="min-h-8 items-end justify-center self-end rounded-control"
+              testID="login-forgot-password"
+            >
+              <Text className="text-sm font-medium text-primary">{t("auth.forgotPassword")}</Text>
             </Pressable>
-            <VStack space="md" className="max-w-md">
-              <Text className="font-heading text-4xl font-bold leading-tight tracking-tight text-white">
-                {t("auth.heroTitle")}
-              </Text>
-              <Text className="text-base font-light leading-relaxed text-white/70">
-                {t("auth.heroSubtitle")}
-              </Text>
-            </VStack>
-            <Text size="xs" className="text-white/60">
-              {t("auth.evPriorityNote")}
-            </Text>
-          </Box>
-          <Box className="w-full max-w-xl justify-center bg-background px-10 py-12">
-            <Card className="border-0 bg-transparent p-0 shadow-none">{form}</Card>
-            <Pressable onPress={() => router.push(routes.home)} className="mt-6 py-2">
-              <Text size="sm" className="text-muted-foreground">
-                {t("auth.backToHome")}
-              </Text>
-            </Pressable>
-          </Box>
-        </HStack>
-      ) : (
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="flex-grow justify-center px-5 py-10"
-          keyboardShouldPersistTaps="handled"
+          ) : null}
+
+          {error ? <AuthNote tone="err" testID="login-error">{error}</AuthNote> : null}
+
+          <Button onPress={handleSubmit} disabled={loading} size="lg" testID="login-submit">
+            {loading ? (
+              <ButtonSpinner />
+            ) : (
+              <ButtonText>{isSignup ? t("auth.signUp") : t("auth.signIn")}</ButtonText>
+            )}
+          </Button>
+        </VStack>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => switchMode(isSignup ? "signin" : "signup")}
+          className="min-h-10 items-center justify-center rounded-control"
+          testID="login-switch-mode"
         >
-          <VStack space="lg" className="mx-auto w-full max-w-md">
-            <Pressable onPress={() => router.push(routes.home)} className="self-start">
-              <BrandLogo tone="onDark" height={32} />
-            </Pressable>
-            <Card className="rounded-2xl border-border/60 p-6">{form}</Card>
-            <Pressable onPress={() => router.push(routes.home)} className="items-center py-2">
-              <Text size="sm" className="text-white/60">
-                {t("auth.backToHome")}
-              </Text>
-            </Pressable>
-          </VStack>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+          <Text className="text-sm font-medium text-primary">
+            {isSignup ? t("auth.alreadyHaveAccount") : t("auth.noAccount")}
+          </Text>
+        </Pressable>
+      </VStack>
+    </AuthLayout>
   );
 }

@@ -1,177 +1,142 @@
 // components/marketing/ProductShowcase.tsx
-// Layered product preview showing the current dashboard-to-payment workflow.
+// A miniature of the new app for the landing hero (SPEC §10.5): a card with a
+// tiny navy sidebar strip, a KPI strip and three table rows with status pills.
+// Everything in it is sample data and says so (`landing.product.sampleData`);
+// the whole illustration is one image for assistive technology.
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import {
-  BellRing,
-  Check,
-  ChevronRight,
-  FileText,
-  LayoutDashboard,
-  Send,
-  Users,
-} from "lucide-react-native";
+import { FileText, LayoutDashboard, Send, Users } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { landingColors } from "@/components/marketing/landing-theme";
+import { ShowcasePill } from "@/components/marketing/ShowcasePill";
+import { SAMPLE_INVOICES, SAMPLE_KPIS } from "@/components/marketing/sample-data";
+import { useIconColors } from "@/lib/theme/icon-colors";
+import { type } from "@/lib/ui/type";
 
 type ProductShowcaseProps = {
+  /** Phone form: no sidebar strip. */
   compact: boolean;
 };
 
 export function ProductShowcase({ compact }: ProductShowcaseProps) {
   const { t } = useTranslation();
-  const invoices = [
-    {
-      id: "INV-2026-0142",
-      client: "Minta Stúdió Kft.",
-      amount: "248 920 Ft",
-      state: t("landing.product.paid"),
-      paid: true,
-    },
-    {
-      id: "INV-2026-0141",
-      client: "Kék Duna Bt.",
-      amount: "86 400 Ft",
-      state: t("landing.product.sent"),
-      paid: false,
-    },
-    {
-      id: "INV-2026-0140",
-      client: "Northwind Kft.",
-      amount: "174 600 Ft",
-      state: t("landing.product.draft"),
-      paid: false,
-    },
+  const icons = useIconColors();
+
+  const kpis = [
+    { key: "period", label: t("landing.product.currentPeriod"), value: SAMPLE_KPIS.period },
+    { key: "paid", label: t("landing.product.paid"), value: SAMPLE_KPIS.paid },
+    { key: "sent", label: t("landing.product.sent"), value: SAMPLE_KPIS.sent },
   ];
 
   return (
     <Box
-      className="relative w-full min-w-0 pb-5 pt-2 md:pb-8"
       testID="landing-product-showcase"
+      accessibilityRole="image"
+      accessibilityLabel={`${t("landing.product.workspace")} · ${t("landing.product.sampleData")}`}
+      className="w-full min-w-0"
     >
-      <Box className="absolute bottom-0 left-2 right-2 top-8 rounded-[24px] bg-primary/20 md:left-5 md:right-0" />
-      <Box className="relative max-w-full overflow-hidden rounded-[24px] border border-white/15 bg-[#f7f9fc] shadow-2xl">
-        <HStack className="items-center justify-between bg-[#1f305e] px-4 py-3 md:px-5">
-          <HStack space="sm" className="items-center">
-            <Box className="h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-              <LayoutDashboard size={16} color={landingColors.paleBlue} />
-            </Box>
-            <VStack>
-              <Text size="xs" className="font-semibold text-white">
-                {t("landing.product.workspace")}
-              </Text>
-              <Text className="text-[10px] text-[#b9c6df]">
+      <Box
+        testID="showcase-content"
+        aria-hidden={true}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        className="max-w-full flex-row overflow-hidden rounded-card border border-line bg-surface shadow-dialog"
+      >
+        {!compact ? (
+          <VStack
+            testID="showcase-sidebar"
+            className="w-[52px] items-center gap-2 bg-navy py-3"
+          >
+            <Box className="mb-2 h-[22px] w-[22px] rounded-[6px] bg-primary" />
+            {[LayoutDashboard, FileText, Users].map((Icon, index) => (
+              <Box
+                key={index}
+                className={`h-8 w-8 items-center justify-center rounded-control ${
+                  index === 0 ? "bg-white/10" : ""
+                }`}
+              >
+                <Icon size={15} color={index === 0 ? icons.onNavyActive : icons.onNavy} />
+              </Box>
+            ))}
+          </VStack>
+        ) : null}
+
+        <VStack className="min-w-0 flex-1 gap-3 p-3 tab:p-4">
+          <HStack className="items-center justify-between gap-2">
+            <Text className="min-w-0 flex-shrink text-[13px] font-semibold text-ink" numberOfLines={1}>
+              {t("landing.product.workspace")}
+            </Text>
+            <Box className="flex-shrink-0 rounded-full bg-neutral-wash px-2.5 py-0.5">
+              <Text className="text-[11px] font-medium text-muted-ink">
                 {t("landing.product.sampleData")}
               </Text>
-            </VStack>
+            </Box>
           </HStack>
-          <Box className="h-8 w-8 items-center justify-center rounded-full bg-white/10">
-            <BellRing size={14} color={landingColors.white} />
-          </Box>
-        </HStack>
 
-        <Box className={`${compact ? "" : "flex-row"} min-w-0`}>
-          {!compact ? (
-            <VStack className="w-[144px] bg-[#edf2fa] p-3" space="xs">
-              {[
-                [LayoutDashboard, t("landing.product.overview")],
-                [FileText, t("landing.product.invoices")],
-                [Users, t("landing.product.clients")],
-              ].map(([Icon, label], index) => (
-                <HStack
-                  key={String(label)}
-                  space="sm"
-                  className={`items-center rounded-lg px-2 py-2 ${
-                    index === 0 ? "bg-white" : ""
-                  }`}
-                >
-                  <Icon
-                    size={14}
-                    color={index === 0 ? landingColors.cornflower : landingColors.muted}
-                  />
-                  <Text className="text-[11px] font-medium text-[#34405a]">{String(label)}</Text>
-                </HStack>
-              ))}
-            </VStack>
-          ) : null}
-
-          <VStack className="min-w-0 flex-1 p-3 md:p-5" space="md">
-            <HStack className="items-end justify-between">
-              <VStack space="xs">
-                <Text className="text-[10px] font-semibold uppercase tracking-widest text-[#697386]">
-                  {t("landing.product.currentPeriod")}
+          <HStack className="gap-2">
+            {kpis.map((kpi) => (
+              <VStack
+                key={kpi.key}
+                className="min-w-0 flex-1 rounded-control border border-line px-2.5 py-2"
+              >
+                <Text className="text-[11px] text-muted-ink" numberOfLines={1}>
+                  {kpi.label}
                 </Text>
-                <Text className="text-xl font-bold tracking-tight text-secondary md:text-2xl">
-                  1 284 500 Ft
+                <Text className={`text-xs font-bold text-ink tab:text-[13px] ${type.money}`}>
+                  {kpi.value}
                 </Text>
               </VStack>
-              <Box className="rounded-lg bg-[#e7f6ec] px-2.5 py-1.5">
-                <HStack space="xs" className="items-center">
-                  <Check size={12} color={landingColors.success} />
-                  <Text className="text-[10px] font-semibold text-[#166534]">
-                    {t("landing.product.upToDate")}
-                  </Text>
-                </HStack>
-              </Box>
+            ))}
+          </HStack>
+
+          <Box className="overflow-hidden rounded-control border border-line">
+            <HStack className="items-center justify-between bg-wash2 px-3 py-2">
+              <Text className="text-xs font-semibold text-muted-ink">
+                {t("landing.product.recent")}
+              </Text>
+              <Text className="text-xs font-medium text-primary">
+                {t("landing.product.allInvoices")}
+              </Text>
             </HStack>
-
-            <Box className="overflow-hidden rounded-2xl border border-[#dfe5ef] bg-white">
-              <HStack className="items-center justify-between border-b border-[#e7ebf2] px-3 py-2.5 md:px-4">
-                <Text size="xs" className="font-semibold text-secondary">
-                  {t("landing.product.recent")}
-                </Text>
-                <Text className="text-[10px] font-medium text-primary">
-                  {t("landing.product.allInvoices")}
-                </Text>
+            {SAMPLE_INVOICES.map((invoice) => (
+              <HStack
+                key={invoice.id}
+                className="items-center gap-3 border-t border-line px-3 py-2.5"
+              >
+                <VStack className="min-w-0 flex-1">
+                  <Text className="text-[13px] text-ink" numberOfLines={1}>
+                    {invoice.id}
+                  </Text>
+                  <Text className="text-xs text-muted-ink" numberOfLines={1}>
+                    {invoice.client}
+                  </Text>
+                </VStack>
+                <VStack className="items-end gap-1">
+                  <Text className={`text-[13px] font-bold text-ink ${type.money}`}>
+                    {invoice.amount}
+                  </Text>
+                  <ShowcasePill status={invoice.status} />
+                </VStack>
               </HStack>
-              {invoices.slice(0, compact ? 2 : 3).map((invoice) => (
-                <HStack
-                  key={invoice.id}
-                  className="items-center border-b border-[#edf0f5] px-3 py-3 last:border-b-0 md:px-4"
-                >
-                  <VStack className="min-w-0 flex-1">
-                    <Text className="text-[11px] font-semibold text-[#27334c]">{invoice.id}</Text>
-                    <Text className="text-[10px] text-[#697386]">
-                      {invoice.client}
-                    </Text>
-                  </VStack>
-                  <VStack className="items-end">
-                    <Text className="text-[11px] font-semibold text-secondary">{invoice.amount}</Text>
-                    <Text
-                      className={`text-[10px] font-medium ${
-                        invoice.paid ? "text-[#15803d]" : "text-[#697386]"
-                      }`}
-                    >
-                      {invoice.state}
-                    </Text>
-                  </VStack>
-                </HStack>
-              ))}
-            </Box>
-          </VStack>
-        </Box>
-      </Box>
+            ))}
+          </Box>
 
-      <Box className="relative -mt-4 ml-4 mr-2 rounded-2xl border border-[#dce3ef] bg-white p-3 shadow-lg md:ml-auto md:mr-5 md:w-[66%] md:p-4">
-        <HStack className="items-center justify-between">
-          <HStack space="sm" className="min-w-0 flex-1 items-center">
-            <Box className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Send size={16} color={landingColors.cornflower} />
+          <HStack className="items-center gap-2.5 rounded-control bg-wash2 px-3 py-2.5">
+            <Box className="h-8 w-8 items-center justify-center rounded-[9px] bg-primary-wash">
+              <Send size={15} color={icons.primary} />
             </Box>
             <VStack className="min-w-0 flex-1">
-              <Text className="text-[11px] font-semibold text-secondary">
+              <Text className="text-xs font-semibold text-ink" numberOfLines={1}>
                 {t("landing.product.deliveryTitle")}
               </Text>
-              <Text className="text-[10px] text-[#697386]">
+              <Text className="text-xs text-muted-ink" numberOfLines={2}>
                 {t("landing.product.deliveryDetail")}
               </Text>
             </VStack>
           </HStack>
-          <ChevronRight size={16} color={landingColors.cornflower} />
-        </HStack>
+        </VStack>
       </Box>
     </Box>
   );

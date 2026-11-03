@@ -37,13 +37,23 @@ jest.mock("@/lib/api/client", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-jest.mock("@/components/marketing/BrandLogo", () => ({
-  BrandLogo: () => null,
-}));
-
-jest.mock("@/components/i18n/LanguageSwitcher", () => ({
-  LanguageSwitcher: () => null,
-}));
+// The layout shell has its own tests (components/auth/AuthLayout.test.tsx);
+// here it only passes the card content through.
+jest.mock("@/components/auth/AuthLayout", () => {
+  const { View, Text } = require("react-native");
+  return {
+    AuthLayout: ({ children }: { children?: React.ReactNode }) => <View testID="auth-layout">{children}</View>,
+    AuthCardHeader: ({ title, subtitle }: { title: string; subtitle?: string }) => (
+      <View>
+        <Text>{title}</Text>
+        <Text>{subtitle}</Text>
+      </View>
+    ),
+    AuthNote: ({ children, testID }: { children?: React.ReactNode; testID?: string }) => (
+      <Text testID={testID}>{children}</Text>
+    ),
+  };
+});
 
 const mockUi = require("@/__tests__/mocks/gluestack-ui");
 jest.mock("@/components/ui/box", () => mockUi);
@@ -53,6 +63,36 @@ jest.mock("@/components/ui/card", () => mockUi);
 jest.mock("@/components/ui/text", () => mockUi);
 jest.mock("@/components/ui/pressable", () => mockUi);
 jest.mock("@/components/ui/heading", () => ({ Heading: mockUi.Text }));
+jest.mock("@/components/layout/FormField", () => ({
+  FormField: ({ children }: { children?: React.ReactNode }) => children ?? null,
+}));
+jest.mock("@/components/ui/segmented-control", () => ({
+  SegmentedControl: ({
+    options,
+    value,
+    onChange,
+  }: {
+    options: Array<{ value: string; label: string; testID?: string }>;
+    value: string;
+    onChange: (value: string) => void;
+  }) => {
+    const { Pressable, Text } = require("react-native");
+    return (
+      <>
+        {options.map((option) => (
+          <Pressable
+            key={option.value}
+            testID={option.testID}
+            accessibilityState={{ selected: option.value === value }}
+            onPress={() => onChange(option.value)}
+          >
+            <Text>{option.label}</Text>
+          </Pressable>
+        ))}
+      </>
+    );
+  },
+}));
 jest.mock("@/components/ui/button", () => ({
   Button: mockUi.Pressable,
   ButtonText: mockUi.Text,
@@ -65,11 +105,6 @@ jest.mock("@/components/ui/input", () => {
     InputField: (props: Record<string, unknown>) => <TextInput {...props} />,
   };
 });
-jest.mock("@/components/ui/form-control", () => ({
-  FormControl: mockUi.View,
-  FormControlLabel: mockUi.View,
-  FormControlLabelText: mockUi.Text,
-}));
 
 async function renderLogin() {
   const Login = require("@/app/login").default;
@@ -81,14 +116,16 @@ async function renderLogin() {
   return tree!;
 }
 
-function findPressableWithText(root: TestRenderer.ReactTestInstance, text: string) {
-  return root
-    .findAll((node) => typeof node.props?.onPress === "function")
-    .find((node) => node.findAll((child) => child.props?.children === text).length > 0);
+function byTestId(root: TestRenderer.ReactTestInstance, testID: string) {
+  return root.findAll((node) => node.props?.testID === testID && typeof node.props?.onPress === "function")[0];
+}
+
+function allText(tree: TestRenderer.ReactTestRenderer) {
+  return JSON.stringify(tree.toJSON());
 }
 
 async function submit(tree: TestRenderer.ReactTestRenderer) {
-  const submitButton = findPressableWithText(tree.root, "auth.signIn");
+  const submitButton = byTestId(tree.root, "login-submit");
   await act(async () => {
     submitButton?.props.onPress?.();
     await Promise.resolve();
@@ -158,6 +195,60 @@ describe("Login — post-auth company-profile redirect", () => {
     await submit(tree);
 
     expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+
+describe("Login — layout and mode switch", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("renders inside the auth layout with the sign-in copy and the forgot-password link", async () => {
+    const tree = await renderLogin();
+    expect(tree.root.findAllByProps({ testID: "auth-layout" }).length).toBeGreaterThan(0);
+    const text = allText(tree);
+    expect(text).toContain("auth.welcomeBack");
+    expect(text).toContain("auth.signInSubtitle");
+    expect(text).toContain("login-forgot-password");
+    expect(text).not.toContain("signup-role-picker");
+  });
+
+  it("switches to the sign-up form from the segmented control and from the link under the button", async () => {
+    const tree = await renderLogin();
+    await act(async () => {
+      byTestId(tree.root, "login-mode-signup").props.onPress();
+    });
+    let text = allText(tree);
+    expect(text).toContain("auth.createAccount");
+    expect(text).toContain("signup-role-picker");
+    expect(text).not.toContain("login-forgot-password");
+
+    await act(async () => {
+      byTestId(tree.root, "login-switch-mode").props.onPress();
+    });
+    text = allText(tree);
+    expect(text).toContain("auth.welcomeBack");
+  });
+
+  it("sends the chosen account type with a sign-up and shows the error note on failure", async () => {
+    mockSignUpEmail.mockResolvedValue({ error: { message: "Email taken" } });
+    const tree = await renderLogin();
+    await act(async () => {
+      byTestId(tree.root, "login-mode-signup").props.onPress();
+    });
+    await act(async () => {
+      byTestId(tree.root, "signup-role-accountant").props.onPress();
+    });
+    await act(async () => {
+      byTestId(tree.root, "login-submit").props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockSignUpEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ signupRole: "accountant" }),
+    );
+    expect(allText(tree)).toContain("Email taken");
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });
