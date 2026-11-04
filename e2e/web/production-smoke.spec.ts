@@ -18,7 +18,6 @@ test.describe("Production smoke", () => {
   });
 
   test("entry javascript bundle loads", async ({ request }) => {
-    // The homepage is static HTML, so probe an application route for the bundle.
     const appRoute = await request.get("/login");
     expect(appRoute.ok()).toBeTruthy();
 
@@ -52,19 +51,16 @@ test.describe("Production smoke", () => {
       await essentialOnly.click();
     }
 
-    // The hero CTA is the one link that stays visible at every breakpoint.
-    await page
-      .getByTestId("marketing-hero")
-      .getByRole("link", { name: "Ingyenes regisztráció" })
-      .click();
+    // The hero CTA is the one button that stays visible at every breakpoint.
+    await page.getByTestId("landing-hero-cta").click();
     await expect(page).toHaveURL(/login/);
   });
 
-  test("home page serves the static marketing site", async ({ page }) => {
+  test("home page serves the redesigned app landing", async ({ page }) => {
     const response = await page.goto("/");
     expect(response?.ok()).toBeTruthy();
-    await expect(page.getByTestId("marketing-page")).toBeVisible();
-    await expect(page.getByTestId("marketing-hero")).toBeVisible();
+    await expect(page.getByTestId("landing-page")).toBeVisible();
+    await expect(page.getByTestId("landing-hero")).toBeVisible();
   });
 
   test("login page loads", async ({ page }) => {

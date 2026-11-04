@@ -4,10 +4,12 @@
 /** Directory (relative to the exported client root) holding the static marketing site. */
 export const MARKETING_STATIC_DIR = "marketing";
 
-/** Routes served from hand-authored HTML instead of the Expo Router app. */
-const HTML_ROUTES: Record<string, string> = {
-  "/": "index.html",
-};
+/**
+ * Routes served from hand-authored HTML instead of the Expo Router app.
+ * Empty since the 2026-11 redesign: `/` is the Expo landing (`app/index.tsx`),
+ * which follows Dóri's design; `marketing/` keeps only standalone brand pages.
+ */
+const HTML_ROUTES: Record<string, string> = {};
 
 function normalizePathname(url: string): string {
   const withoutQuery = url.split("?")[0].split("#")[0];

@@ -11,30 +11,18 @@ The server entry applies permanent host redirects before Expo Router handles the
 
 ## Static marketing layer
 
-The public homepage is hand-authored static HTML/CSS in `marketing/`, not an Expo
-Router screen. It is deliberately decoupled from the app stack so marketing layout
-is not constrained by React Native Web.
+Since the 2026-11 redesign the public homepage `/` is the Expo Router landing
+(`app/index.tsx`, Dóri's design), so the marketing pages, sign-in and the app
+share one visual language. `marketing/` still holds standalone brand pages
+(`brand-assets.html`, `brand-directions.html`) and their assets, served under
+`/marketing/*` with a short revalidating cache.
 
 | Concern | Where |
 |---------|-------|
-| Source | `marketing/index.html`, `marketing/assets/*` |
-| Route table | `lib/marketing/static-site.ts` (`/` today) |
+| Source | `marketing/*.html`, `marketing/assets/*` |
+| Route table | `lib/marketing/static-site.ts` (no HTML routes today) |
 | Serving | `api/index.ts` checks the marketing route before the app shell |
 | Build step | `scripts/copy-marketing-site.mjs` copies into `dist/client/marketing` |
-| Local preview | `npm run marketing` (http://localhost:4321) |
-| Tests | `e2e/web/marketing.spec.ts` (`marketing-desktop`, `marketing-mobile`) |
-
-Marketing files are not content-hashed, so they are served with a short
-revalidating cache instead of the immutable policy used for Expo bundles.
-
-Because the Expo dev server does not serve the static site at `/`, the app's
-`app/index.tsx` screen still renders on `localhost:8081` and on native. In
-production `/` always comes from the static site, with the app screen as fallback
-if the marketing build output is missing.
-
-Follow-ups: move `/blog` and the legal pages onto the same static layer for one
-consistent marketing design, then reduce `app/index.tsx` to a slim native welcome
-screen.
 
 ## Vercel and DNS launch checklist
 

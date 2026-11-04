@@ -7,17 +7,10 @@ import {
 } from "@/lib/marketing/static-site";
 
 describe("resolveMarketingHtmlPath", () => {
-  it("serves the static homepage for the site root", () => {
-    expect(resolveMarketingHtmlPath("/")).toBe(`${MARKETING_STATIC_DIR}/index.html`);
-  });
-
-  it("ignores query strings and hashes", () => {
-    expect(resolveMarketingHtmlPath("/?utm_source=hirlevel")).toBe(
-      `${MARKETING_STATIC_DIR}/index.html`,
-    );
-    expect(resolveMarketingHtmlPath("/#termek")).toBe(
-      `${MARKETING_STATIC_DIR}/index.html`,
-    );
+  it("lets the redesigned app landing serve the site root", () => {
+    expect(resolveMarketingHtmlPath("/")).toBeNull();
+    expect(resolveMarketingHtmlPath("/?utm_source=hirlevel")).toBeNull();
+    expect(resolveMarketingHtmlPath("/#termek")).toBeNull();
   });
 
   it("falls through for application routes", () => {
