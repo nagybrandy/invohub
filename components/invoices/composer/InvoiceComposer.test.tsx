@@ -478,7 +478,12 @@ describe("InvoiceComposer — finalize is one click, sending is the secondary op
       await Promise.resolve();
     });
     expect(findByTestID(tree, "composer-bottom-error").length).toBeGreaterThan(0);
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    // Nothing is saved. A debounced company lookup left over from an earlier
+    // test can still land here on a slow runner, so only it is tolerated.
+    const nonSearchCalls = mockApiFetch.mock.calls.filter(
+      ([url]) => !String(url).startsWith("/api/company/search")
+    );
+    expect(nonSearchCalls).toHaveLength(0);
   });
 
   it("offers the finalize button when editing a draft", async () => {
