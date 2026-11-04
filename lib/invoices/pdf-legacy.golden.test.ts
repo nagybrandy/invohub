@@ -11,6 +11,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { generateInvoicePdf, type InvoicePdfContext } from "@/lib/invoices/generate-pdf";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 import type { Invoice } from "@/lib/invoices/types";
@@ -256,9 +257,48 @@ const FIXTURES: Fixture[] = [
   },
 ];
 
+const STREAM = "stream\n";
+const END_STREAM = "\nendstream";
+
+/**
+ * pdfkit deflates every stream, and zlib's compressed bytes differ between
+ * Node versions (local Node 25 vs CI Node 22), so the raw PDF bytes are not
+ * portable. Hash the INFLATED stream content plus the object text, with the
+ * only length-dependent bookkeeping (/Length values, xref offsets) removed.
+ * Everything the renderer draws — text, positions, colours, fonts, images —
+ * still lands in the hash.
+ */
+function normalizePdf(pdf: Buffer): Buffer {
+  const parts: Buffer[] = [];
+  let pos = 0;
+  let searchFrom = 0;
+  for (;;) {
+    const start = pdf.indexOf(STREAM, searchFrom);
+    if (start === -1) break;
+    const dataStart = start + STREAM.length;
+    const end = pdf.indexOf(END_STREAM, dataStart);
+    if (end === -1) break;
+    const head = pdf.subarray(pos, dataStart).toString("latin1").replace(/\/Length \d+/g, "/Length");
+    parts.push(Buffer.from(head, "latin1"));
+    const data = pdf.subarray(dataStart, end);
+    let body: Buffer;
+    try {
+      body = zlib.inflateSync(data);
+    } catch {
+      body = data;
+    }
+    parts.push(body);
+    pos = end;
+    searchFrom = end + END_STREAM.length;
+  }
+  const tail = pdf.subarray(pos).toString("latin1").replace(/xref[\s\S]*$/, "");
+  parts.push(Buffer.from(tail, "latin1"));
+  return Buffer.concat(parts);
+}
+
 async function renderHash(ctx: InvoicePdfContext): Promise<string> {
   const pdf = await generateInvoicePdf(ctx);
-  return crypto.createHash("sha256").update(pdf).digest("hex");
+  return crypto.createHash("sha256").update(normalizePdf(pdf)).digest("hex");
 }
 
 describe("legacy invoice renderer (no-restyle golden hashes)", () => {
