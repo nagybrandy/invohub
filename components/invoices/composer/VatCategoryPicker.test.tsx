@@ -1,104 +1,80 @@
 // components/invoices/composer/VatCategoryPicker.test.tsx
+// The ÁFA cell is ONE select (redesign 2026-11): taxed rates first, then the
+// special categories by their full names; the closed field stays short.
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { VatCategoryPicker } from "@/components/invoices/composer/VatCategoryPicker";
+import { VAT_CATEGORIES, VAT_RATES } from "@/lib/invoices/vat";
 
-jest.mock("@/lib/theme/icon-colors", () => ({
-  useIconColors: () => ({ foreground: "#000", muted: "#666", primary: "#4f46e5" }),
+type SelectProps = {
+  value: string;
+  display?: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  accessibilityLabel: string;
+};
+let lastSelect: SelectProps | null = null;
+jest.mock("@/components/invoices/composer/ItemSelect", () => ({
+  ItemSelect: (props: SelectProps) => {
+    lastSelect = props;
+    return null;
+  },
 }));
-jest.mock("lucide-react-native", () => {
-  const { View } = require("react-native");
-  return new Proxy({}, { get: () => View });
-});
-jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
 
 const t = (key: string) => key;
 
 function render(props: Partial<React.ComponentProps<typeof VatCategoryPicker>> = {}) {
-  const onChangeCategory = props.onChangeCategory ?? jest.fn();
-  const onChangeRate = props.onChangeRate ?? jest.fn();
-  let tree: TestRenderer.ReactTestRenderer;
+  const onChange = props.onChange ?? jest.fn();
   act(() => {
-    tree = TestRenderer.create(
-      <VatCategoryPicker
-        category={props.category ?? "normal"}
-        rate={props.rate ?? 27}
-        onChangeCategory={onChangeCategory}
-        onChangeRate={onChangeRate}
-        t={t}
-      />
+    TestRenderer.create(
+      <VatCategoryPicker category={props.category ?? "normal"} rate={props.rate ?? 27} onChange={onChange} t={t} />
     );
   });
-  return { tree: tree!, onChangeCategory, onChangeRate };
+  return { select: lastSelect!, onChange };
 }
 
-function findPressableWithText(root: TestRenderer.ReactTestInstance, text: string) {
-  return root
-    .findAll((node) => typeof node.props?.onPress === "function")
-    .find((node) => node.findAll((child) => child.props?.children === text).length > 0);
-}
-
-describe("VatCategoryPicker (INV-7)", () => {
-  it("shows exactly the 2 common categories by default", () => {
-    const { tree } = render();
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("invoices.vat.category.normal");
-    expect(json).toContain("invoices.vat.category.AAM");
-    expect(json).not.toContain("invoices.vat.category.TAM");
-    expect(json).not.toContain("invoices.vat.category.FAD");
+describe("VatCategoryPicker", () => {
+  beforeEach(() => {
+    lastSelect = null;
   });
 
-  it("reveals the other 5 categories after expanding 'Speciális adózás'", () => {
-    const { tree } = render();
-    const toggle = findPressableWithText(tree.root, "invoices.vat.advancedToggle");
-    act(() => {
-      toggle?.props.onPress?.();
-    });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("invoices.vat.category.TAM");
-    expect(json).toContain("invoices.vat.category.KBAET");
-    expect(json).toContain("invoices.vat.category.AHK");
-    expect(json).toContain("invoices.vat.category.FAD");
-    expect(json).toContain("invoices.vat.category.ATK");
+  it("offers every taxed rate and every special category, nothing else", () => {
+    const { select } = render();
+    const values = select.options.map((o) => o.value);
+    for (const rate of VAT_RATES) expect(values).toContain(`normal:${rate}`);
+    for (const category of VAT_CATEGORIES.filter((c) => c !== "normal")) expect(values).toContain(category);
+    expect(values).toHaveLength(VAT_RATES.length + VAT_CATEGORIES.length - 1);
   });
 
-  it("calls onChangeCategory when AAM is picked", () => {
-    const { tree, onChangeCategory } = render();
-    const aam = findPressableWithText(tree.root, "invoices.vat.category.AAM");
-    act(() => {
-      aam?.props.onPress?.();
-    });
-    expect(onChangeCategory).toHaveBeenCalledWith("AAM");
+  it("lists the rates first (highest to lowest), then the categories with their full existing names", () => {
+    const { select } = render();
+    expect(select.options.slice(0, 4).map((o) => o.label)).toEqual(["27%", "18%", "5%", "0%"]);
+    expect(select.options.find((o) => o.value === "AAM")?.label).toBe("invoices.vat.category.AAM");
+    expect(select.options.find((o) => o.value === "FAD")?.label).toBe("invoices.vat.category.FAD");
   });
 
-  it("shows a rate row only for the normal category", () => {
-    const normal = render({ category: "normal" });
-    expect(JSON.stringify(normal.tree.toJSON())).toContain('"27"');
-
-    const aam = render({ category: "AAM" });
-    expect(JSON.stringify(aam.tree.toJSON())).not.toContain('"27"');
+  it("keeps the closed field short: the rate for a taxed line, the code for a special one", () => {
+    expect(render({ category: "normal", rate: 18 }).select.display).toBe("18%");
+    expect(render({ category: "AAM", rate: 0 }).select.display).toBe("AAM");
   });
 
-  it("renders every choice — common categories, rate pills, advanced toggle, and advanced categories — as a >=44px target (AC5)", () => {
-    const { tree } = render();
-    const toggle = findPressableWithText(tree.root, "invoices.vat.advancedToggle");
-    act(() => {
-      toggle?.props.onPress?.();
-    });
-    // Filter to nodes that actually carry a computed className (the
-    // rendered Pressable and its host descendants) rather than every
-    // onPress-bearing fiber — a ChoicePill wrapper's OWN fiber reflects
-    // exactly what its caller passed, which may have no className prop at
-    // all when the caller relies on ChoicePill's internal default.
-    const pills = tree.root.findAll(
-      (n) => typeof n.props?.onPress === "function" && typeof n.props?.className === "string"
-    );
-    expect(pills.length).toBeGreaterThan(0);
-    for (const pill of pills) {
-      expect(String(pill.props.className)).toContain("min-h-11");
-    }
+  it("selects the current treatment and labels itself 'ÁFA kezelés'", () => {
+    const taxed = render({ category: "normal", rate: 5 }).select;
+    expect(taxed.value).toBe("normal:5");
+    expect(taxed.accessibilityLabel).toBe("invoices.vat.categoryLabel");
+    expect(render({ category: "TAM", rate: 0 }).select.value).toBe("TAM");
+  });
+
+  it("reports a rate pick as one change: category normal with that rate", () => {
+    const { select, onChange } = render({ category: "AAM", rate: 0 });
+    act(() => select.onChange("normal:18"));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ category: "normal", rate: 18 });
+  });
+
+  it("reports a special category pick as category with a 0% rate", () => {
+    const { select, onChange } = render({ category: "normal", rate: 27 });
+    act(() => select.onChange("AAM"));
+    expect(onChange).toHaveBeenCalledWith({ category: "AAM", rate: 0 });
   });
 });

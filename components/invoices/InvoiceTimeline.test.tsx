@@ -103,7 +103,7 @@ describe("timelineSteps", () => {
   it("does not draw the line into a cancellation as progress", () => {
     const tree = renderTimeline({ invoice: makeInvoice({ status: "cancelled" }) });
     expect(tree.root.findByProps({ testID: "invoice-timeline-line-in-cancelled" }).props.className).toContain(
-      "bg-border"
+      "bg-line-strong"
     );
   });
 });
@@ -121,12 +121,12 @@ describe("InvoiceTimeline", () => {
   it("colors an overdue due step as destructive, and a healthy current one as primary", () => {
     const overdue = renderTimeline({ invoice: makeInvoice({ status: "sent", dueDate: "2026-08-01" }) });
     expect(overdue.root.findByProps({ testID: "invoice-timeline-dot-due" }).props.className).toContain(
-      "border-destructive"
+      "border-err"
     );
     const healthy = renderTimeline({ invoice: makeInvoice({ status: "sent", dueDate: "2026-12-31" }) });
     const dot = healthy.root.findByProps({ testID: "invoice-timeline-dot-due" }).props.className;
     expect(dot).toContain("border-primary");
-    expect(dot).not.toContain("destructive");
+    expect(dot).not.toContain("border-err");
   });
 
   it("draws the connector into the current step as reached, and past it as not yet", () => {
@@ -135,7 +135,7 @@ describe("InvoiceTimeline", () => {
     expect(tree.root.findByProps({ testID: "invoice-timeline-line-out-sent" }).props.className).toContain(
       "bg-primary"
     );
-    expect(tree.root.findByProps({ testID: "invoice-timeline-line-in-paid" }).props.className).toContain("bg-border");
+    expect(tree.root.findByProps({ testID: "invoice-timeline-line-in-paid" }).props.className).toContain("bg-line-strong");
   });
 
   it("leaves the outer ends of the first and last steps without a line", () => {
@@ -186,7 +186,7 @@ describe("InvoiceTimeline", () => {
         nav: { status: "error", label: "Sikertelen beküldés", transactionId: null },
       }).toJSON()
     );
-    expect(json).toContain("text-destructive");
+    expect(json).toContain("text-err");
   });
 
   it("stacks the steps vertically when the card is phone-narrow", () => {
@@ -200,7 +200,7 @@ describe("InvoiceTimeline", () => {
     expect(() => tree.root.findByProps({ testID: "invoice-timeline-steps" })).toThrow();
     // Connector below "sent" leads into the current due step → reached.
     expect(tree.root.findByProps({ testID: "invoice-timeline-vline-sent" }).props.className).toContain("bg-primary");
-    expect(tree.root.findByProps({ testID: "invoice-timeline-vline-due" }).props.className).toContain("bg-border");
+    expect(tree.root.findByProps({ testID: "invoice-timeline-vline-due" }).props.className).toContain("bg-line-strong");
     // No dangling line under the last step.
     expect(() => tree.root.findByProps({ testID: "invoice-timeline-vline-paid" })).toThrow();
   });

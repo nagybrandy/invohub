@@ -2,19 +2,49 @@
 import { STATUS_VISUALS, isOverdue, overdueDays } from "@/lib/invoices/status-visuals";
 import { makeInvoice } from "@/__tests__/fixtures/invoices";
 
-describe("STATUS_VISUALS", () => {
-  it("is the only status whose chip color is the green/#15803d family for paid", () => {
-    expect(STATUS_VISUALS.paid.text).toContain("15803d");
-    expect(STATUS_VISUALS.paid.chip).toContain("15803d");
+describe("STATUS_VISUALS (tokens.md §6.4)", () => {
+  it("paid is the green ok pair", () => {
+    expect(STATUS_VISUALS.paid.chip).toBe("bg-ok-wash");
+    expect(STATUS_VISUALS.paid.text).toBe("text-ok");
   });
 
-  it("never uses the green family for any other status", () => {
+  it("only paid uses the ok colours", () => {
     for (const [status, visual] of Object.entries(STATUS_VISUALS)) {
       if (status === "paid") continue;
-      expect(visual.chip).not.toContain("15803d");
-      expect(visual.text).not.toContain("15803d");
+      expect(visual.chip).not.toContain("ok");
+      expect(visual.text).not.toContain("ok");
       expect(visual.chip.toLowerCase()).not.toContain("green");
-      expect(visual.text.toLowerCase()).not.toContain("green");
+    }
+  });
+
+  it("overdue is the only red status", () => {
+    expect(STATUS_VISUALS.overdue.chip).toBe("bg-err-wash");
+    expect(STATUS_VISUALS.overdue.text).toBe("text-err");
+    for (const [status, visual] of Object.entries(STATUS_VISUALS)) {
+      if (status === "overdue") continue;
+      expect(visual.text).not.toContain("err");
+    }
+  });
+
+  it("waiting statuses (sent, unpaid) are the primary wash; partly paid is warn", () => {
+    for (const status of ["sent", "unpaid"] as const) {
+      expect(STATUS_VISUALS[status].chip).toBe("bg-primary-wash");
+      expect(STATUS_VISUALS[status].text).toBe("text-primary-ink");
+    }
+    expect(STATUS_VISUALS.partially_paid.chip).toBe("bg-warn-wash");
+    expect(STATUS_VISUALS.partially_paid.text).toBe("text-warn");
+  });
+
+  it("draft, proforma and cancelled share the neutral wash", () => {
+    for (const status of ["draft", "proforma", "cancelled"] as const) {
+      expect(STATUS_VISUALS[status].chip).toBe("bg-neutral-wash");
+      expect(STATUS_VISUALS[status].text).toBe("text-muted-ink");
+    }
+  });
+
+  it("uses token classes only (no hard-coded hex)", () => {
+    for (const visual of Object.values(STATUS_VISUALS)) {
+      expect(`${visual.chip} ${visual.text} ${visual.border}`).not.toMatch(/#[0-9a-fA-F]{3,6}/);
     }
   });
 

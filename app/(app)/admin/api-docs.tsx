@@ -83,14 +83,14 @@ export default function AdminApiDocsScreen() {
           <VStack space="sm">
             <HStack space="sm" className="items-center">
               <FileText size={20} color={icons.primary} />
-              <Text className="font-semibold text-foreground">
+              <Text className="font-semibold text-ink">
                 {t("admin.apiDocsShareHint")}
               </Text>
             </HStack>
-            <Text size="sm" className="text-muted-foreground">
+            <Text size="sm" className="text-muted-ink">
               {t("admin.apiDocsShareBody", { baseUrl })}
             </Text>
-            <Text size="xs" className="font-mono text-muted-foreground">
+            <Text size="xs" className="font-mono text-muted-ink">
               docs/external-api.md
             </Text>
           </VStack>
@@ -126,7 +126,7 @@ export default function AdminApiDocsScreen() {
         </HStack>
 
         {loading && !doc ? (
-          <Text className="text-muted-foreground">{t("common.loading")}</Text>
+          <Text className="text-muted-ink">{t("common.loading")}</Text>
         ) : null}
 
         {error ? (
@@ -145,7 +145,7 @@ export default function AdminApiDocsScreen() {
             >
               <Text
                 size="sm"
-                className="font-mono leading-relaxed text-foreground"
+                className="font-mono leading-relaxed text-ink"
                 selectable
               >
                 {doc.content}

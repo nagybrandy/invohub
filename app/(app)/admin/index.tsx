@@ -90,7 +90,7 @@ function AdminPanelContent() {
     >
       <VStack space="lg">
         {loading && !data ? (
-          <Text className="text-muted-foreground">{t("common.loading")}</Text>
+          <Text className="text-muted-ink">{t("common.loading")}</Text>
         ) : null}
 
         {data ? (
@@ -107,11 +107,11 @@ function AdminPanelContent() {
               <VStack space="sm">
                 <HStack space="sm" className="items-center">
                   <FileText size={20} color={icons.primary} />
-                  <Text className="font-semibold text-foreground">
+                  <Text className="font-semibold text-ink">
                     {t("admin.apiDocsOpen")}
                   </Text>
                 </HStack>
-                <Text size="sm" className="text-muted-foreground">
+                <Text size="sm" className="text-muted-ink">
                   {t("admin.apiDocsOpenHint")}
                 </Text>
                 <Button onPress={() => router.push(routes.adminApiDocs)}>
@@ -123,9 +123,9 @@ function AdminPanelContent() {
             <VStack space="sm">
               <HStack space="sm" className="items-center">
                 <Shield size={20} color={icons.accent} />
-                <Text className="font-semibold text-foreground">{t("admin.users")}</Text>
+                <Text className="font-semibold text-ink">{t("admin.users")}</Text>
               </HStack>
-              <Text size="sm" className="text-muted-foreground">
+              <Text size="sm" className="text-muted-ink">
                 {t("admin.usersHint")}
               </Text>
 
@@ -134,12 +134,12 @@ function AdminPanelContent() {
                   <VStack space="sm">
                     <HStack className="items-start justify-between gap-2">
                       <VStack className="flex-1">
-                        <Text className="font-semibold text-foreground">{user.name}</Text>
-                        <Text size="sm" className="text-muted-foreground">
+                        <Text className="font-semibold text-ink">{user.name}</Text>
+                        <Text size="sm" className="text-muted-ink">
                           {user.email}
                         </Text>
                         {user.companyName ? (
-                          <Text size="xs" className="text-muted-foreground">
+                          <Text size="xs" className="text-muted-ink">
                             {user.companyName}
                           </Text>
                         ) : null}

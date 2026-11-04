@@ -51,6 +51,11 @@ module.exports = {
     "app/api/**/*.{ts,tsx}",
     "!**/*.d.ts",
     "!**/node_modules/**",
+    // The theme boot script is shipped as `fn.toString()` and run inline
+    // before hydration; coverage instrumentation would inject `cov_*`
+    // counters that do not exist in that standalone scope (CI runs
+    // `--coverage`, so the stringified script threw there).
+    "!components/ui/gluestack-ui-provider/script.ts",
   ],
   coverageDirectory: "coverage",
   coverageReporters: ["text", "lcov", "html"],

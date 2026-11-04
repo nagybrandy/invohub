@@ -190,7 +190,7 @@ export default function DataExportScreen() {
           <VStack space="md">
             <Heading size="md">{t("exportData.filters")}</Heading>
             <VStack space="xs">
-              <Text size="sm" className="font-medium text-foreground">{t("exportData.search")}</Text>
+              <Text size="sm" className="font-medium text-ink">{t("exportData.search")}</Text>
               <Input>
                 <InputField
                   testID="export-search"
@@ -203,18 +203,18 @@ export default function DataExportScreen() {
             {hasDateFilter ? (
               <HStack space="md" className="flex-wrap">
                 <VStack className="min-w-[160px] flex-1" space="xs">
-                  <Text size="sm" className="font-medium text-foreground">{t("exportData.from")}</Text>
+                  <Text size="sm" className="font-medium text-ink">{t("exportData.from")}</Text>
                   <DateInput value={filters.from ?? ""} onChangeText={(from) => set({ from })} testID="export-from" />
                 </VStack>
                 <VStack className="min-w-[160px] flex-1" space="xs">
-                  <Text size="sm" className="font-medium text-foreground">{t("exportData.to")}</Text>
+                  <Text size="sm" className="font-medium text-ink">{t("exportData.to")}</Text>
                   <DateInput value={filters.to ?? ""} onChangeText={(to) => set({ to })} testID="export-to" />
                 </VStack>
               </HStack>
             ) : null}
             {dataset === "invoices" ? (
               <VStack space="xs">
-                <Text size="sm" className="font-medium text-foreground">{t("exportData.status")}</Text>
+                <Text size="sm" className="font-medium text-ink">{t("exportData.status")}</Text>
                 <OptionChips
                   testIDPrefix="export-status"
                   value={filters.status ?? "all"}
@@ -231,16 +231,16 @@ export default function DataExportScreen() {
 
         <Card className="p-4">
           <VStack space="sm">
-            <Text className="font-semibold text-foreground" testID="export-count">
+            <Text className="font-semibold text-ink" testID="export-count">
               {loading ? t("common.loading") : t("exportData.rows", { count: rows.length })}
             </Text>
             {grossText ? (
-              <Text size="sm" className="text-muted-foreground">
+              <Text size="sm" className="text-muted-ink">
                 {t("exportData.grossTotal")}: {grossText}
               </Text>
             ) : null}
             {invoicesTruncated && dataset === "invoices" ? (
-              <Text size="xs" className="text-muted-foreground">{t("invoices.list.exportCsvTruncated", { cap: EXPORT_ROW_CAP })}</Text>
+              <Text size="xs" className="text-muted-ink">{t("invoices.list.exportCsvTruncated", { cap: EXPORT_ROW_CAP })}</Text>
             ) : null}
             {invoicesError && dataset === "invoices" ? (
               <Text size="sm" className="text-destructive">{t("invoices.list.exportCsvFailed")}</Text>
@@ -249,7 +249,7 @@ export default function DataExportScreen() {
               <ButtonText>{t("exportData.download")}</ButtonText>
             </Button>
             {message ? (
-              <Text size="sm" className="text-muted-foreground" testID="export-message">
+              <Text size="sm" className="text-muted-ink" testID="export-message">
                 {message}
               </Text>
             ) : null}

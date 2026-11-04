@@ -45,15 +45,36 @@ describe("useSidebarCollapsed", () => {
     delete (globalThis.window as any).localStorage;
   });
 
-  it("collapses by default between 1024 and 1279px and expands at 1280px+", () => {
-    const { ref: narrow, tree: narrowTree } = renderHook(1100);
-    expect(narrow.current?.collapsed).toBe(true);
-    act(() => narrowTree.unmount());
+  it("collapses by default between 701 and 1099px (the 72px rail) and expands from 1100px", () => {
+    for (const width of [701, 820, 1099]) {
+      (globalThis as any).localStorage.clear();
+      const { ref, tree } = renderHook(width);
+      expect(ref.current?.collapsed).toBe(true);
+      act(() => tree.unmount());
+    }
 
-    (globalThis as any).localStorage.clear();
-    const { ref: wide, tree: wideTree } = renderHook(1400);
-    expect(wide.current?.collapsed).toBe(false);
-    act(() => wideTree.unmount());
+    for (const width of [1100, 1440]) {
+      (globalThis as any).localStorage.clear();
+      const { ref, tree } = renderHook(width);
+      expect(ref.current?.collapsed).toBe(false);
+      act(() => tree.unmount());
+    }
+  });
+
+  it("re-derives the default when the window is resized and nothing was chosen", () => {
+    const ref: { current: ReturnType<typeof useSidebarCollapsed> | null } = { current: null };
+    function HookHost({ width }: { width: number }) {
+      ref.current = useSidebarCollapsed(width);
+      return null;
+    }
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(<HookHost width={1440} />);
+    });
+    expect(ref.current?.collapsed).toBe(false);
+    act(() => tree.update(<HookHost width={820} />));
+    expect(ref.current?.collapsed).toBe(true);
+    act(() => tree.unmount());
   });
 
   it("toggles the collapsed state", () => {
@@ -78,13 +99,13 @@ describe("useSidebarCollapsed", () => {
   });
 
   it("keeps the explicit choice even when the width-based default would differ", () => {
-    const { ref, tree } = renderHook(1100);
+    const { ref, tree } = renderHook(820);
     expect(ref.current?.collapsed).toBe(true);
     act(() => ref.current?.toggleCollapsed());
     expect(ref.current?.collapsed).toBe(false);
     act(() => tree.unmount());
 
-    const { ref: remounted, tree: remountedTree } = renderHook(1100);
+    const { ref: remounted, tree: remountedTree } = renderHook(820);
     expect(remounted.current?.collapsed).toBe(false);
     act(() => remountedTree.unmount());
   });

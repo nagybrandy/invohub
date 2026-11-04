@@ -2,8 +2,10 @@
 import {
   ADMIN_NAV,
   DASHBOARD_FEATURE_NAV,
+  getBreadcrumb,
   getDashboardFeatures,
   getMobileMoreNav,
+  getSettingsBreadcrumbLabelKey,
   getPageTitleLabelKey,
   getSidebarSecondaryNav,
   isNavActive,
@@ -55,21 +57,25 @@ describe("SIDEBAR_SECONDARY_NAV / getSidebarSecondaryNav", () => {
 });
 
 describe("MOBILE_TAB_NAV", () => {
-  it("puts EV daily work first with new invoice in the center and 'Továbbiak' last", () => {
+  it("is Főoldal, Számlák, Új (centre), Partnerek, Továbbiak (SPEC §5.4)", () => {
     expect(MOBILE_TAB_NAV.map((item) => item.href ?? null)).toEqual([
-      routes.invoices,
-      routes.clients,
-      routes.newInvoice,
       routes.dashboard,
+      routes.invoices,
+      null,
+      routes.clients,
       null,
     ]);
     expect(MOBILE_TAB_NAV.map((item) => item.labelKey)).toEqual([
-      "nav.invoices",
-      "nav.partners",
-      "nav.newInvoice",
       "nav.dashboard",
+      "nav.invoices",
+      "nav.newShort",
+      "nav.partners",
       "nav.more",
     ]);
+  });
+
+  it("the centre Új tab and Továbbiak open sheets instead of navigating", () => {
+    expect(MOBILE_TAB_NAV.map((item) => item.action ?? null)).toEqual([null, null, "new", null, "more"]);
   });
 
   it("has exactly 5 tabs", () => {
@@ -197,5 +203,70 @@ describe("ADMIN_NAV", () => {
 describe("e-mail editor page title", () => {
   it("maps /email-editor to its nav label", () => {
     expect(getPageTitleLabelKey("/email-editor")).toBe("nav.emailEditor");
+  });
+});
+
+describe("settings subpages", () => {
+  it("knows the appearance and NAV pages the settings track will create", () => {
+    expect(getSettingsBreadcrumbLabelKey("/settings/appearance")).toBe("nav.settingsAppearance");
+    expect(getSettingsBreadcrumbLabelKey("/settings/nav")).toBe("nav.settingsNav");
+    expect(getSettingsBreadcrumbLabelKey("/settings")).toBeUndefined();
+  });
+});
+
+describe("getBreadcrumb", () => {
+  const t = (key: string) => key;
+  const labels = (pathname: string, options?: Parameters<typeof getBreadcrumb>[2]) =>
+    getBreadcrumb(pathname, t, options)?.map((item) => item.label);
+
+  it("has no trail on top-level screens", () => {
+    for (const path of ["/dashboard", "/invoices", "/receipts", "/clients", "/products", "/settings", "/export", "/bulk", "/email-editor", "/admin"]) {
+      expect(getBreadcrumb(path, t)).toBeUndefined();
+    }
+  });
+
+  it("builds the new-record trails", () => {
+    expect(labels("/invoices/new")).toEqual(["nav.invoices", "nav.breadcrumb.new"]);
+    expect(labels("/receipts/new")).toEqual(["nav.receipts", "nav.breadcrumb.new"]);
+    expect(labels("/clients/new")).toEqual(["nav.partners", "nav.breadcrumb.new"]);
+  });
+
+  it("builds detail and edit trails, linking every ancestor", () => {
+    expect(labels("/invoices/abc")).toEqual(["nav.invoices", "nav.breadcrumb.invoice"]);
+    expect(labels("/receipts/abc")).toEqual(["nav.receipts", "nav.breadcrumb.receipt"]);
+    const edit = getBreadcrumb("/invoices/abc/edit", t)!;
+    expect(edit.map((i) => i.label)).toEqual(["nav.invoices", "nav.breadcrumb.invoice", "nav.breadcrumb.edit"]);
+    expect(edit[0].href).toBe(routes.invoices);
+    expect(edit[1].href).toBe("/invoices/abc");
+    expect(edit[2].href).toBeUndefined();
+  });
+
+  it("partners and products have no detail page: their edit page is the record", () => {
+    expect(labels("/clients/c1/edit")).toEqual(["nav.partners", "nav.breadcrumb.partner"]);
+    expect(labels("/products/p1/edit")).toEqual(["nav.products", "nav.breadcrumb.product"]);
+  });
+
+  it("settings subpages hang under Beállítások", () => {
+    const trail = getBreadcrumb("/settings/company", t)!;
+    expect(trail.map((i) => i.label)).toEqual(["nav.settings", "settings.company"]);
+    expect(trail[0].href).toBe(routes.settings);
+    expect(labels("/settings/appearance")).toEqual(["nav.settings", "nav.settingsAppearance"]);
+    expect(labels("/settings/nav")).toEqual(["nav.settings", "nav.settingsNav"]);
+    expect(labels("/settings/api-keys")).toEqual(["nav.settings", "settings.apiKeys"]);
+  });
+
+  it("lets the screen name the current record and optionally prepend Főoldal", () => {
+    expect(labels("/invoices/abc", { currentLabel: "INV-2026-0042" })).toEqual(["nav.invoices", "INV-2026-0042"]);
+    expect(labels("/invoices/new", { includeHome: true, currentLabel: "Új számla" })).toEqual([
+      "nav.dashboard",
+      "nav.invoices",
+      "Új számla",
+    ]);
+    expect(getBreadcrumb("/invoices/new", t, { includeHome: true })![0].href).toBe(routes.dashboard);
+  });
+
+  it("ignores a trailing slash and unknown routes", () => {
+    expect(labels("/invoices/new/")).toEqual(["nav.invoices", "nav.breadcrumb.new"]);
+    expect(getBreadcrumb("/onboarding", t)).toBeUndefined();
   });
 });

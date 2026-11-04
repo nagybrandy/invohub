@@ -100,7 +100,7 @@ describe("InvoiceCard", () => {
     const destructiveDescendants = deleteItem.findAll(
       (node) =>
         typeof node.props?.className === "string" &&
-        node.props.className.includes("text-destructive")
+        node.props.className.includes("text-err")
     );
     expect(destructiveDescendants.length).toBeGreaterThan(0);
 

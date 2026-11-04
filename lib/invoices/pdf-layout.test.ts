@@ -17,7 +17,7 @@ import {
   tableColumns,
   tint,
 } from "@/lib/invoices/pdf-layout";
-import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
+import { LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 
 // A permissive stub doc supporting every pdfkit call the new pdf-layout.ts
 // helpers issue, with recording arrays so tests can assert on what was
@@ -239,7 +239,7 @@ describe("tint (AC1)", () => {
   });
 
   it("falls back to the default accent for malformed input", () => {
-    expect(tint("not-a-color", 0.5)).toBe(tint(DEFAULT_PDF_TEMPLATE.accentColor, 0.5));
+    expect(tint("not-a-color", 0.5)).toBe(tint(LEGACY_PDF_TEMPLATE.accentColor, 0.5));
   });
 });
 

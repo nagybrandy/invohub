@@ -8,6 +8,7 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: jest.fn(() => ({ id: "inv-test-1" })),
   useGlobalSearchParams: jest.fn(() => ({ id: "inv-test-1" })),
   usePathname: jest.fn(() => "/dashboard"),
+  Redirect: () => null,
 }));
 
 jest.mock("react-i18next", () => ({

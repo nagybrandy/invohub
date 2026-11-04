@@ -22,7 +22,7 @@ export function RequireRole({
 
   if (isPending) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View className="flex-1 items-center justify-center bg-canvas">
         <ActivityIndicator />
       </View>
     );

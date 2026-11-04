@@ -28,7 +28,7 @@ export function DangerZone({ title, description, children }: DangerZoneProps) {
   return (
     <Box
       testID="danger-zone"
-      className="rounded-xl border border-destructive/40 bg-card p-4"
+      className="rounded-xl border border-destructive/40 bg-surface p-4"
     >
       <Pressable
         testID="danger-zone-toggle"
@@ -44,7 +44,7 @@ export function DangerZone({ title, description, children }: DangerZoneProps) {
               <Text size="sm" className="font-medium text-destructive">
                 {title}
               </Text>
-              <Text size="xs" className="text-muted-foreground">
+              <Text size="xs" className="text-muted-ink">
                 {description}
               </Text>
             </VStack>

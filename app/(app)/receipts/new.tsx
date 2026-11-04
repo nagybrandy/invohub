@@ -4,22 +4,21 @@ import { isCurrencyCode } from "@/lib/currency/currencies";
 import * as React from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
-import { Trash2, Plus } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
-} from "@/components/ui/form-control";
 import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
-import { Input, InputField } from "@/components/ui/input";
-import { Pressable } from "@/components/ui/pressable";
+import { Box } from "@/components/ui/box";
+import { Select } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { FormScreen } from "@/components/layout/FormScreen";
+import { FormField } from "@/components/layout/FormField";
+import { ComposerBottomBar } from "@/components/invoices/composer/ComposerBottomBar";
+import { ComposerPage } from "@/components/invoices/composer/ComposerPage";
+import { ComposerSection } from "@/components/invoices/composer/ComposerSection";
+import { ReceiptItems } from "@/components/invoices/composer/ReceiptItems";
 import { apiFetch } from "@/lib/api/client";
 import { useCompany } from "@/hooks/useCompany";
 import type { DocumentLanguage } from "@/lib/companies/billing-settings";
@@ -32,12 +31,10 @@ import {
 } from "@/lib/receipts/calculations";
 import type { ReceiptRecord } from "@/lib/receipts/service";
 import {
-  HU_VAT_RATES,
   RECEIPT_PAYMENT_METHODS,
   type ReceiptCurrency,
   type ReceiptPaymentMethod,
 } from "@/lib/receipts/types";
-import { useIconColors } from "@/lib/theme/icon-colors";
 import QRCode from "react-native-qrcode-svg";
 
 type DraftLineItem = ReceiptLineItemCalcInput & { id: string };
@@ -65,7 +62,6 @@ type EntryMode = "simple" | "detailed";
 
 export default function NewReceiptScreen() {
   const { t } = useTranslation();
-  const icons = useIconColors();
 
   const { company } = useCompany();
   const [currency, setCurrency] = React.useState<ReceiptCurrency>("HUF");
@@ -186,17 +182,17 @@ export default function NewReceiptScreen() {
       <FormScreen header={<Heading size="2xl">{t("receipts.new")}</Heading>}>
         <Card className="items-center p-6">
           <VStack space="md" className="w-full items-center">
-            <Text className="text-center font-semibold text-foreground">
+            <Text className="text-center font-semibold text-ink">
               {created.receiptNumber}
             </Text>
-            <Text className="text-center text-lg font-bold text-foreground">
+            <Text className="text-center text-lg font-bold text-ink">
               {formatCurrency(created.totalAmount, created.currency)}
             </Text>
             <QRCode value={created.qrUrl} size={200} />
-            <Text size="xs" className="text-center text-muted-foreground">
+            <Text size="xs" className="text-center text-muted-ink">
               {t("receipts.qrHint")}
             </Text>
-            <Text size="xs" selectable className="text-center font-mono text-muted-foreground">
+            <Text size="xs" selectable className="text-center font-mono text-muted-ink">
               {created.qrUrl}
             </Text>
             <HStack space="sm" className="flex-wrap justify-center">
@@ -216,267 +212,88 @@ export default function NewReceiptScreen() {
     );
   }
 
+  const detailed = entryMode === "detailed";
+  const simpleAmount = Number(totalAmount.replace(",", "."));
+  const bottomGross = detailed ? totals.grossTotal : Number.isFinite(simpleAmount) ? simpleAmount : 0;
+
   return (
-    <FormScreen header={<Heading size="2xl">{t("receipts.new")}</Heading>}>
-      <VStack space="md">
-        <Card className="p-4">
-          <VStack space="md">
-            <Heading size="md">{t("receipts.details")}</Heading>
+    <ComposerPage
+      breadcrumb={[
+        { label: t("invoices.breadcrumbs.home"), href: routes.dashboard },
+        { label: t("nav.receipts"), href: routes.receipts },
+        { label: t("receipts.new") },
+      ]}
+      title={t("composer.newReceiptTitle")}
+      bottomBar={
+        <ComposerBottomBar
+          net={detailed ? totals.netTotal : undefined}
+          gross={bottomGross}
+          currency={currency}
+          netLabel={t("receipts.netTotal")}
+          grossLabel={t("receipts.grossTotal")}
+          error={error ?? undefined}
+        >
+          <Button
+            size="form"
+            className="phone:flex-1"
+            onPress={() => void handleCreate()}
+            disabled={saving}
+            testID="receipt-create"
+          >
+            <ButtonText>{saving ? t("common.loading") : t("receipts.create")}</ButtonText>
+          </Button>
+        </ComposerBottomBar>
+      }
+    >
+      <ComposerSection title={t("composer.receiptDetailsTitle")} first testID="composer-section-receipt-details">
+        <Text className="mb-4 text-sm text-muted-ink" testID="receipt-number-auto-hint">
+          {t("receipts.numberAutoHint")}
+        </Text>
+        <Box className="flex-row flex-wrap gap-4">
+          <FormField label={t("receipts.paymentMethod")} className="min-w-[220px] flex-1">
+            <Select
+              value={paymentMethod}
+              onChange={(value) => setPaymentMethod(value as ReceiptPaymentMethod)}
+              options={RECEIPT_PAYMENT_METHODS.map((method) => ({
+                value: method,
+                label: t(PAYMENT_METHOD_LABEL_KEYS[method]),
+              }))}
+              accessibilityLabel={t("receipts.paymentMethod")}
+              testID="receipt-payment-method"
+            />
+          </FormField>
+          <FormField label={t("receipts.language")} className="min-w-[220px] flex-1">
+            <Select
+              value={language}
+              onChange={(value) => setLanguage(value as DocumentLanguage)}
+              options={(["hu", "en"] as const).map((value) => ({ value, label: t(`billing.languages.${value}`) }))}
+              accessibilityLabel={t("receipts.language")}
+              testID="receipt-language"
+            />
+          </FormField>
+          <FormField label={t("receipts.currency")} className="w-full">
+            <CurrencyPicker
+              value={currency}
+              onChange={(value) => value && setCurrency(value)}
+              testIDPrefix="receipt-currency"
+            />
+          </FormField>
+        </Box>
+      </ComposerSection>
 
-            <Text size="sm" className="text-muted-foreground" testID="receipt-number-auto-hint">
-              {t("receipts.numberAutoHint")}
-            </Text>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("receipts.currency")}</FormControlLabelText>
-              </FormControlLabel>
-              <CurrencyPicker value={currency} onChange={(value) => value && setCurrency(value)} testIDPrefix="receipt-currency" />
-            </FormControl>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("receipts.language")}</FormControlLabelText>
-              </FormControlLabel>
-              <HStack space="sm">
-                {(["hu", "en"] as const).map((value) => (
-                  <Pressable
-                    key={value}
-                    onPress={() => setLanguage(value)}
-                    testID={`receipt-language-${value}`}
-                    className={`rounded-md border px-4 py-2 ${
-                      language === value ? "border-primary bg-primary/10" : "border-border bg-background"
-                    }`}
-                  >
-                    <Text size="sm">{t(`billing.languages.${value}`)}</Text>
-                  </Pressable>
-                ))}
-              </HStack>
-            </FormControl>
-
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>{t("receipts.paymentMethod")}</FormControlLabelText>
-              </FormControlLabel>
-              <HStack space="sm" className="flex-wrap">
-                {RECEIPT_PAYMENT_METHODS.map((method) => (
-                  <Pressable
-                    key={method}
-                    onPress={() => setPaymentMethod(method)}
-                    className={`rounded-md border px-3 py-2 ${
-                      paymentMethod === method
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-background"
-                    }`}
-                  >
-                    <Text size="sm">{t(PAYMENT_METHOD_LABEL_KEYS[method])}</Text>
-                  </Pressable>
-                ))}
-              </HStack>
-            </FormControl>
-          </VStack>
-        </Card>
-
-        <Card className="p-4">
-          <VStack space="md">
-            <HStack className="items-center justify-between">
-              <Heading size="md">{t("receipts.lineItems")}</Heading>
-              <HStack space="xs">
-                <Pressable
-                  onPress={() => setEntryMode("simple")}
-                  className={`rounded-md border px-3 py-1.5 ${
-                    entryMode === "simple"
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-background"
-                  }`}
-                >
-                  <Text size="xs">{t("receipts.simpleMode")}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setEntryMode("detailed")}
-                  className={`rounded-md border px-3 py-1.5 ${
-                    entryMode === "detailed"
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-background"
-                  }`}
-                >
-                  <Text size="xs">{t("receipts.detailedMode")}</Text>
-                </Pressable>
-              </HStack>
-            </HStack>
-
-            {entryMode === "simple" ? (
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("receipts.amount")}</FormControlLabelText>
-                </FormControlLabel>
-                <Input>
-                  <InputField
-                    placeholder="0"
-                    value={totalAmount}
-                    onChangeText={setTotalAmount}
-                    keyboardType="decimal-pad"
-                  />
-                </Input>
-              </FormControl>
-            ) : (
-              <>
-                {lineItems.map((item, index) => (
-                  <VStack
-                    key={item.id}
-                    space="sm"
-                    className="rounded-lg border border-border p-3"
-                  >
-                    <HStack className="items-center justify-between">
-                      <Text className="font-medium text-foreground">
-                        {t("receipts.item", { index: index + 1 })}
-                      </Text>
-                      {lineItems.length > 1 ? (
-                        <Pressable onPress={() => removeItem(item.id)} className="p-1">
-                          <Trash2 size={18} color={icons.muted} />
-                        </Pressable>
-                      ) : null}
-                    </HStack>
-
-                    <FormControl>
-                      <FormControlLabel>
-                        <FormControlLabelText>{t("invoices.lineItemEditor.description")}</FormControlLabelText>
-                      </FormControlLabel>
-                      <Input>
-                        <InputField
-                          placeholder={t("receipts.productPlaceholder")}
-                          value={item.description}
-                          onChangeText={(v) => updateItem(item.id, { description: v })}
-                        />
-                      </Input>
-                    </FormControl>
-
-                    <HStack space="sm" className="flex-wrap">
-                      <FormControl className="min-w-[100px] flex-1">
-                        <FormControlLabel>
-                          <FormControlLabelText>{t("receipts.netPrice")}</FormControlLabelText>
-                        </FormControlLabel>
-                        <Input>
-                          <InputField
-                            keyboardType="decimal-pad"
-                            value={String(item.unitPrice)}
-                            onChangeText={(v) =>
-                              updateItem(item.id, {
-                                unitPrice: Math.max(0, Number(v) || 0),
-                              })
-                            }
-                          />
-                        </Input>
-                      </FormControl>
-
-                      <FormControl className="min-w-[70px] flex-1">
-                        <FormControlLabel>
-                          <FormControlLabelText>{t("receipts.quantity")}</FormControlLabelText>
-                        </FormControlLabel>
-                        <Input>
-                          <InputField
-                            keyboardType="decimal-pad"
-                            value={String(item.quantity)}
-                            onChangeText={(v) =>
-                              updateItem(item.id, {
-                                quantity: Math.max(0, Number(v) || 0),
-                              })
-                            }
-                          />
-                        </Input>
-                      </FormControl>
-
-                      <FormControl className="min-w-[60px]">
-                        <FormControlLabel>
-                          <FormControlLabelText>{t("invoices.fields.unit")}</FormControlLabelText>
-                        </FormControlLabel>
-                        <Input>
-                          <InputField
-                            value={item.unit ?? "db"}
-                            onChangeText={(v) => updateItem(item.id, { unit: v })}
-                          />
-                        </Input>
-                      </FormControl>
-                    </HStack>
-
-                    <FormControl>
-                      <FormControlLabel>
-                        <FormControlLabelText>{t("receipts.vatRate")}</FormControlLabelText>
-                      </FormControlLabel>
-                      <HStack space="sm">
-                        {HU_VAT_RATES.map((rate) => (
-                          <Pressable
-                            key={rate}
-                            onPress={() => updateItem(item.id, { vatRate: rate })}
-                            className={`rounded-md border px-3 py-2 ${
-                              item.vatRate === rate
-                                ? "border-primary bg-primary/10"
-                                : "border-border bg-background"
-                            }`}
-                          >
-                            <Text size="sm">{rate}%</Text>
-                          </Pressable>
-                        ))}
-                      </HStack>
-                    </FormControl>
-
-                    <Text size="sm" className="text-muted-foreground">
-                      {t("receipts.lineTotalLabel")}:{" "}
-                      {formatCurrency(
-                        item.quantity * item.unitPrice * (1 + item.vatRate / 100),
-                        currency
-                      )}
-                    </Text>
-                  </VStack>
-                ))}
-
-                <Button variant="outline" onPress={addItem}>
-                  <Plus size={16} color={icons.foreground} />
-                  <ButtonText>{t("receipts.addItem")}</ButtonText>
-                </Button>
-              </>
-            )}
-          </VStack>
-        </Card>
-
-        {entryMode === "detailed" ? (
-          <Card className="p-4">
-            <VStack space="sm">
-              <Heading size="md">{t("receipts.totals")}</Heading>
-              <HStack className="justify-between">
-                <Text className="text-muted-foreground">{t("receipts.netTotal")}</Text>
-                <Text>{formatCurrency(totals.netTotal, currency)}</Text>
-              </HStack>
-              {totals.vatBreakdown.map((entry) => (
-                <HStack key={entry.vatRate} className="justify-between">
-                  <Text className="text-muted-foreground">
-                    {t("receipts.vatRatePercent", { rate: entry.vatRate })}
-                  </Text>
-                  <Text>{formatCurrency(entry.vatAmount, currency)}</Text>
-                </HStack>
-              ))}
-              <HStack className="justify-between border-t border-border pt-2">
-                <Text className="font-semibold">{t("receipts.grossTotal")}</Text>
-                <Text className="font-semibold">
-                  {formatCurrency(totals.grossTotal, currency)}
-                </Text>
-              </HStack>
-            </VStack>
-          </Card>
-        ) : null}
-
-        {error ? (
-          <Text size="sm" className="text-destructive">
-            {error}
-          </Text>
-        ) : null}
-
-        <Button onPress={() => void handleCreate()} disabled={saving}>
-          <ButtonText>
-            {saving ? t("common.loading") : t("receipts.create")}
-          </ButtonText>
-        </Button>
-      </VStack>
-    </FormScreen>
+      <ReceiptItems
+        entryMode={entryMode}
+        onEntryModeChange={setEntryMode}
+        currency={currency}
+        totalAmount={totalAmount}
+        onTotalAmountChange={setTotalAmount}
+        items={lineItems}
+        onUpdate={updateItem}
+        onAdd={addItem}
+        onRemove={removeItem}
+        totals={totals}
+        t={t}
+      />
+    </ComposerPage>
   );
 }

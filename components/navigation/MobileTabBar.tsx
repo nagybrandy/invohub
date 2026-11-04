@@ -1,15 +1,15 @@
 // components/navigation/MobileTabBar.tsx
-// Mobile bottom tab bar: Számlák · Partnerek · (+) · Vezérlőpult · Továbbiak.
-// Extracted from AppShell so it's independently testable. The center "+" is
-// a raised FAB; the last tab has no route — it opens the "Továbbiak" sheet
-// so Nyugták/Termékek/Importálás/Beállítások stay one tap away (N1 mobile fix).
+// Phone bottom tab bar (SPEC §5.4, tokens.md §6.12): Főoldal, Számlák, Új,
+// Partnerek, Továbbiak. A five-column grid `1fr 1fr 1.45fr 1fr 1fr`, so the
+// gaps between the five SHAPES are equal even though the centre "Új" pill
+// (56x32, primary, white "+") is wider than an icon. "Új" opens the Új sheet,
+// "Továbbiak" the more sheet; the other three navigate. Active = primary,
+// others muted; labels 11px 600.
 import { useTranslation } from "react-i18next";
-import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
-import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isNavActive, MOBILE_TAB_NAV, type MobileTabItem } from "@/lib/app-navigation";
 import type { AppRoute } from "@/lib/navigation";
 import { useIconColors } from "@/lib/theme/icon-colors";
@@ -17,75 +17,83 @@ import { useIconColors } from "@/lib/theme/icon-colors";
 export type MobileTabBarProps = {
   pathname: string;
   onNavigate: (href: AppRoute) => void;
+  onOpenNew: () => void;
   onOpenMore: () => void;
+  newOpen?: boolean;
+  moreOpen?: boolean;
 };
 
-export function MobileTabBar({ pathname, onNavigate, onOpenMore }: MobileTabBarProps) {
+/** Column weights of the grid: the centre column is 1.45x so the gaps between shapes match. */
+export const TAB_COLUMN_FLEX = [1, 1, 1.45, 1, 1] as const;
+
+export function MobileTabBar({
+  pathname,
+  onNavigate,
+  onOpenNew,
+  onOpenMore,
+  newOpen = false,
+  moreOpen = false,
+}: MobileTabBarProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const iconColors = useIconColors();
+  const icons = useIconColors();
 
   function press(item: MobileTabItem) {
-    if (item.href) {
-      onNavigate(item.href);
-    } else {
-      onOpenMore();
-    }
+    if (item.href) onNavigate(item.href);
+    else if (item.action === "new") onOpenNew();
+    else onOpenMore();
   }
 
   return (
     <Box
-      className="border-t border-border bg-card"
-      style={{ paddingBottom: Math.max(insets.bottom, 8) }}
+      testID="mobile-tab-bar"
+      role="navigation"
+      aria-label={t("shell.tabs.label")}
+      className="border-t border-line bg-surface px-1 pt-1.5 shadow-tabbar"
+      style={{ paddingBottom: 6 + insets.bottom }}
     >
-      <HStack className="items-end justify-around px-1 pt-2">
-        {MOBILE_TAB_NAV.map((item) => {
-          const isFab = item.labelKey === "nav.newInvoice";
-          const active = item.href ? isNavActive(pathname, item.href as string) : false;
+      <Box className="flex-row">
+        {MOBILE_TAB_NAV.map((item, index) => {
           const Icon = item.icon;
           const label = t(item.labelKey);
-
-          if (isFab) {
-            return (
-              <Box key={item.labelKey} className="flex-1 items-center">
-                <Pressable
-                  onPress={() => press(item)}
-                  accessibilityRole="button"
-                  accessibilityLabel={label}
-                  className="-mt-5 h-[52px] w-[52px] items-center justify-center rounded-full bg-primary shadow-sm"
-                >
-                  <Icon size={24} color="#ffffff" />
-                </Pressable>
-              </Box>
-            );
-          }
-
+          const isNew = item.action === "new";
+          const active = item.href ? isNavActive(pathname, item.href as string) : false;
+          const open = item.action === "new" ? newOpen : item.action === "more" ? moreOpen : false;
+          const tone = isNew || active || open ? "text-primary" : "text-muted-ink";
           return (
-            <Box key={item.labelKey} className="flex-1 items-center">
-              {/* The label used to sit outside the Pressable, leaving a 38x38
-                  icon as the only target — below the 44px floor, and the word
-                  itself did nothing. */}
+            <Box
+              key={item.labelKey}
+              className="items-stretch"
+              style={{ flexGrow: TAB_COLUMN_FLEX[index], flexBasis: 0, minWidth: 0 }}
+            >
               <Pressable
+                testID={isNew ? "tab-new" : `tab-${item.labelKey.replace("nav.", "")}`}
                 onPress={() => press(item)}
-                accessibilityRole="tab"
+                accessibilityRole={item.href ? "link" : "button"}
                 accessibilityLabel={label}
-                accessibilityState={{ selected: active }}
-                className={`w-full items-center justify-center rounded-lg px-2 py-1 ${TAP_TARGET_MIN_H} ${
-                  active ? "bg-primary/15" : ""
-                }`}
+                accessibilityState={item.href ? { selected: active } : { expanded: open }}
+                aria-current={active ? "page" : undefined}
+                aria-haspopup={item.href ? undefined : "dialog"}
+                className="min-h-[52px] items-center justify-center gap-[3px] rounded-[10px] data-[active=true]:bg-neutral-wash"
               >
-                <Icon size={22} color={active ? iconColors.primary : iconColors.muted} />
-                <Text
-                  size="xs"
-                  className={`mt-0.5 text-center ${active ? "font-medium text-primary" : "text-muted-foreground"}`}
-                >
+                {isNew ? (
+                  <Box
+                    testID="tab-new-pill"
+                    className="h-8 w-14 items-center justify-center rounded-2xl bg-primary shadow-sm data-[active=true]:bg-primary-press"
+                  >
+                    <Icon size={20} color={icons.onNavyActive} />
+                  </Box>
+                ) : (
+                  <Icon size={24} color={active || open ? icons.primary : icons.muted} />
+                )}
+                <Text numberOfLines={1} className={`text-[11px] font-semibold ${tone}`}>
                   {label}
                 </Text>
               </Pressable>
             </Box>
           );
         })}
-      </HStack>
+      </Box>
     </Box>
   );
 }

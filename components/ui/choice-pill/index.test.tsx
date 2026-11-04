@@ -2,7 +2,7 @@
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { Text } from "react-native";
-import { ChoicePill } from "@/components/ui/choice-pill";
+import { ChoicePill, choicePillTextClass } from "@/components/ui/choice-pill";
 import { Pressable as MockPressable } from "@/__tests__/mocks/gluestack-ui";
 import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
@@ -96,5 +96,38 @@ describe("ChoicePill selected styling", () => {
     const unselectedClassName = String(pillOf(unselectedTree).props.className);
     expect(unselectedClassName).toContain("border-border");
     expect(unselectedClassName).toContain("bg-background");
+  });
+});
+
+describe("ChoicePill chip variants (tokens.md §6.4)", () => {
+  it("filter: a pill that fills primary-ink when pressed and keeps the 44px floor", () => {
+    const { tree } = render({ variant: "filter", selected: true });
+    const className = String(pillOf(tree).props.className);
+    expect(className).toContain("rounded-full");
+    expect(className).toContain("border-primary-ink bg-primary-ink");
+    expect(className).toContain(TAP_TARGET_MIN_H);
+
+    const { tree: off } = render({ variant: "filter", selected: false });
+    expect(String(pillOf(off).props.className)).toContain("border-line-strong bg-surface");
+  });
+
+  it("quick: a pill with the primary wash when pressed", () => {
+    const { tree } = render({ variant: "quick", selected: true });
+    const className = String(pillOf(tree).props.className);
+    expect(className).toContain("rounded-full");
+    expect(className).toContain("border-primary bg-primary-wash");
+    expect(className).toContain(TAP_TARGET_MIN_H);
+  });
+
+  it("default keeps the existing rounded choice", () => {
+    const { tree } = render({ selected: true });
+    expect(String(pillOf(tree).props.className)).toContain("rounded-lg");
+  });
+
+  it("provides matching label classes per variant", () => {
+    expect(choicePillTextClass("filter", true)).toContain("text-white");
+    expect(choicePillTextClass("filter", false)).toContain("text-ink");
+    expect(choicePillTextClass("quick", true)).toContain("text-primary-ink");
+    expect(choicePillTextClass("default", true)).toContain("text-primary");
   });
 });

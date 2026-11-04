@@ -182,7 +182,7 @@ jest.mock("@/lib/invoices/pdf-document", () => {
 
 import { generateInvoicePdf, invoicePdfFilename } from "@/lib/invoices/generate-pdf";
 import { documentLabels, formatDocumentAmount, isWinAnsiSafe } from "@/lib/invoices/document-labels";
-import { DEFAULT_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
+import { LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 import { documentInk } from "@/lib/invoices/document-ink";
 import { landingColors } from "@/components/marketing/landing-theme";
 import * as pdfFontsModule from "@/lib/invoices/pdf-fonts";
@@ -441,7 +441,7 @@ describe("generateInvoicePdf — InvoHub footer brand mark", () => {
 
     await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
 
-    expect(mockDrawnTexts).toContain(DEFAULT_PDF_TEMPLATE.footerText);
+    expect(mockDrawnTexts).toContain(LEGACY_PDF_TEMPLATE.footerText);
     expect(mockDrawnTexts).toContain(documentLabels().footer);
   });
 
@@ -463,7 +463,7 @@ describe("generateInvoicePdf — InvoHub footer brand mark", () => {
 
     const labels = documentLabels();
     const footerDraws = mockTextCalls.filter(
-      (call) => call.text === labels.footer || call.text === DEFAULT_PDF_TEMPLATE.footerText
+      (call) => call.text === labels.footer || call.text === LEGACY_PDF_TEMPLATE.footerText
     );
     expect(footerDraws.length).toBeGreaterThan(0);
 

@@ -3,11 +3,11 @@
 // it as a conflicting route, so it lives under __tests__/ instead, same as
 // the other app-screen tests in __tests__/screens/.)
 //
-// Covers the dashboard header's primary action: desktop must no longer show
-// the mislabelled "Bejövő számlák" (incoming invoices) button that actually
-// opened the *outgoing* unpaid list (AC1); mobile's "Új számla" button must
-// keep working unchanged (AC2); and the unpaid list must stay reachable at
-// both widths via the "Kintlévőség" KPI card (AC3).
+// Covers the Főoldal header and hero (redesign 2026-11, SPEC §7.1): the old
+// "Bejövő számlák" button stays gone (AC1); the header carries NO create
+// buttons and no quarter switcher at either width (AC2, the sidebar / tab bar
+// own "Új számla" / "Új nyugta"); the to-do summary is real; and the unpaid /
+// overdue lists stay reachable from the Kintlévőség card (AC3).
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 
@@ -19,7 +19,7 @@ jest.mock("expo-router", () => ({
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, opts?: Record<string, unknown>) => (opts ? `${key}:${JSON.stringify(opts)}` : key),
     i18n: { language: "hu", changeLanguage: jest.fn() },
   }),
 }));
@@ -60,11 +60,6 @@ jest.mock("@/lib/api/client", () => ({
   apiFetch: jest.fn().mockResolvedValue({}),
 }));
 
-const mockUseIsDesktop = jest.fn();
-jest.mock("@/lib/useIsDesktop", () => ({
-  useIsDesktop: () => mockUseIsDesktop(),
-}));
-
 jest.mock("@/lib/theme/icon-colors", () => ({
   useIconColors: () => ({
     foreground: "#000",
@@ -74,35 +69,34 @@ jest.mock("@/lib/theme/icon-colors", () => ({
   }),
 }));
 
+const mockDashboard = {
+  summary: {
+    revenue: 0,
+    revenuePaidCount: 0,
+    paidTotal: 0,
+    navFailedCount: 0,
+    outstanding: 1000,
+    overdueTotal: 250,
+    issuedTotal: 0,
+    estimatedVat: 0,
+    overdueCount: 1,
+    oldestOverdueDays: 0,
+    recentInvoices: [] as unknown[],
+  },
+  draftCount: 0,
+  outstandingCount: 4,
+  paidCount: 0,
+  loading: false,
+  error: null,
+  refresh: jest.fn(),
+};
 jest.mock("@/hooks/useDashboardSummary", () => ({
-  useDashboardSummary: () => ({
-    summary: {
-      revenue: 0,
-      revenuePaidCount: 0,
-      paidTotal: 0,
-      outstanding: 0,
-      overdueTotal: 0,
-      issuedTotal: 0,
-      estimatedVat: 0,
-      overdueCount: 0,
-      oldestOverdueDays: 0,
-      recentInvoices: [],
-    },
-    draftCount: 0,
-    outstandingCount: 0,
-    paidCount: 0,
-    loading: false,
-    error: null,
-    refresh: jest.fn(),
-  }),
+  useDashboardSummary: () => mockDashboard,
 }));
 
-// Not mocked, by design: PageHeader and StatCard are what's under test
-// (AC1, AC3).
 jest.mock("@/components/dashboard/M2mDemoCard", () => ({ M2mDemoCard: () => null }));
 jest.mock("@/components/dashboard/NextActionsCard", () => ({ NextActionsCard: () => null }));
-jest.mock("@/components/invoices/InvoiceListTable", () => ({ InvoiceListTable: () => null }));
-jest.mock("@/components/invoices/InvoiceCard", () => ({ InvoiceCard: () => null }));
+jest.mock("@/components/dashboard/RecentInvoices", () => ({ RecentInvoices: () => null }));
 
 jest.mock("@/components/layout/ScreenLayout", () => ({
   ScreenLayout: ({ header, children }: { header?: React.ReactNode; children?: React.ReactNode }) => (
@@ -134,10 +128,8 @@ jest.mock("@/components/ui/heading", () => ({ Heading: mockUi.Heading }));
 // transitive `@/components/ui/button` etc. imports would resolve their mock
 // factories while `mockUi` is still undefined.
 const DashboardScreen = require("@/app/(app)/dashboard/index").default;
-const { StatCard } = require("@/components/layout/StatCard");
 
-function render(isDesktop: boolean) {
-  mockUseIsDesktop.mockReturnValue(isDesktop);
+function render() {
   let renderer!: TestRenderer.ReactTestRenderer;
   act(() => {
     renderer = TestRenderer.create(<DashboardScreen />);
@@ -145,69 +137,120 @@ function render(isDesktop: boolean) {
   return renderer;
 }
 
-describe("dashboard header — incoming-invoices button removal", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+function press(renderer: TestRenderer.ReactTestRenderer, testID: string) {
+  const node = renderer.root.findAll(
+    (n) => n.props.testID === testID && typeof n.props.onPress === "function",
+  )[0];
+  expect(node).toBeTruthy();
+  act(() => {
+    node.props.onPress();
   });
+}
 
-  it("AC1: desktop renders no dashboard-incoming-invoices node and no dashboard.incomingInvoices text", () => {
-    const renderer = render(true);
+function setCounts(counts: { navFailed: number; overdue: number; drafts: number }) {
+  mockDashboard.summary.navFailedCount = counts.navFailed;
+  mockDashboard.summary.overdueCount = counts.overdue;
+  mockDashboard.draftCount = counts.drafts;
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockDashboard.summary.outstanding = 1000;
+  mockDashboard.summary.overdueTotal = 250;
+  mockDashboard.outstandingCount = 4;
+  setCounts({ navFailed: 0, overdue: 1, drafts: 0 });
+});
+
+describe("Főoldal header", () => {
+  it("AC1: renders no dashboard-incoming-invoices node and no dashboard.incomingInvoices text", () => {
+    const renderer = render();
 
     expect(renderer.root.findAllByProps({ testID: "dashboard-incoming-invoices" })).toHaveLength(0);
     expect(() => renderer.root.findByProps({ children: "dashboard.incomingInvoices" })).toThrow();
   });
 
-  it("AC2: mobile renders the dashboard.newInvoice button, and pressing it pushes routes.newInvoice", () => {
-    const renderer = render(false);
+  it("AC2: has no create buttons and no quarter switcher", () => {
+    const renderer = render();
+    const json = JSON.stringify(renderer.toJSON());
 
-    const buttonText = renderer.root.findByProps({ children: "dashboard.newInvoice" });
-    expect(buttonText).toBeTruthy();
+    expect(renderer.root.findAllByProps({ testID: "dashboard-new-invoice" })).toHaveLength(0);
+    expect(renderer.root.findAllByProps({ testID: "dashboard-new-receipt" })).toHaveLength(0);
+    expect(json).not.toContain("dashboard.newInvoice");
+    expect(json).not.toContain("dashboard.newReceipt");
+    // Nothing in the header is interactive (support is unconfigured here), so no
+    // quarter switcher either: the summary API has no period parameter.
+    const header = renderer.root.findByProps({ testID: "dashboard-header" });
+    expect(header.findAll((n) => typeof n.props.onPress === "function")).toHaveLength(0);
+  });
 
-    // Walk up to the nearest ancestor with an onPress (the Button/Pressable).
-    let node: TestRenderer.TestInstance | null = buttonText;
-    while (node && typeof node.props.onPress !== "function") {
-      node = node.parent;
+  it("shows the real to-do summary: cards present and how many are urgent", () => {
+    setCounts({ navFailed: 2, overdue: 5, drafts: 3 });
+    const json = JSON.stringify(render().toJSON());
+    expect(json).toContain('home.summary.todoLead:{\\"count\\":3}');
+    expect(json).toContain('home.summary.todoRest:{\\"urgent\\":1}');
+  });
+
+  it("says everything is done when no card is present", () => {
+    setCounts({ navFailed: 0, overdue: 0, drafts: 0 });
+    const json = JSON.stringify(render().toJSON());
+    expect(json).toContain("home.summary.allDone");
+    expect(json).not.toContain("home.summary.todoLead");
+  });
+
+  it("does not claim anything is done while the numbers are still loading", () => {
+    setCounts({ navFailed: 0, overdue: 0, drafts: 0 });
+    mockDashboard.loading = true;
+    try {
+      const json = JSON.stringify(render().toJSON());
+      expect(json).not.toContain("home.summary.allDone");
+    } finally {
+      mockDashboard.loading = false;
     }
-    expect(node).toBeTruthy();
-    act(() => {
-      node!.props.onPress();
-    });
-
-    expect(mockPush).toHaveBeenCalledWith("/invoices/new");
-  });
-
-  it.each([true, false])("offers 'Új nyugta' next to 'Új számla' and opens the receipt form (desktop=%s)", (isDesktop) => {
-    const renderer = render(isDesktop);
-    expect(renderer.root.findByProps({ children: "dashboard.newInvoice" })).toBeTruthy();
-
-    let node: TestRenderer.TestInstance | null = renderer.root.findByProps({ children: "dashboard.newReceipt" });
-    while (node && typeof node.props.onPress !== "function") node = node.parent;
-    expect(node).toBeTruthy();
-    act(() => {
-      node!.props.onPress();
-    });
-    expect(mockPush).toHaveBeenCalledWith("/receipts/new");
-  });
-
-  it("AC3: pressing the dashboard.kpi.outstanding StatCard pushes the filtered unpaid list (desktop)", () => {
-    const renderer = render(true);
-    assertOutstandingCardNavigates(renderer);
-  });
-
-  it("AC3: pressing the dashboard.kpi.outstanding StatCard pushes the filtered unpaid list (mobile)", () => {
-    const renderer = render(false);
-    assertOutstandingCardNavigates(renderer);
   });
 });
 
-function assertOutstandingCardNavigates(renderer: TestRenderer.ReactTestRenderer) {
-  const cards = renderer.root.findAllByType(StatCard);
-  const outstandingCard = cards.find((c) => c.props.label === "dashboard.kpi.outstanding");
-  expect(outstandingCard).toBeTruthy();
+describe("Főoldal Kintlévőség card", () => {
+  it("AC3: the not-due segment and legend row open the unpaid list, the overdue ones the overdue list", () => {
+    const renderer = render();
 
-  act(() => {
-    outstandingCard!.props.onPress();
+    press(renderer, "dashboard-outstanding-segment-not-due");
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/invoices", params: { status: "unpaid" } });
+    press(renderer, "dashboard-outstanding-legend-not-due");
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/invoices", params: { status: "unpaid" } });
+
+    press(renderer, "dashboard-outstanding-segment-overdue");
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/invoices", params: { status: "overdue" } });
+    press(renderer, "dashboard-outstanding-legend-overdue");
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/invoices", params: { status: "overdue" } });
   });
 
-  expect(mockPush).toHaveBeenCalledWith({ pathname: "/invoices", params: { status: "unpaid" } });
-}
+  it("sizes the bar segments by not-due vs overdue amount", () => {
+    const renderer = render();
+    const grow = (testID: string) =>
+      renderer.root.findAll((n) => n.props.testID === testID && n.props.style)[0].props.style.flexGrow;
+    expect(grow("dashboard-outstanding-segment-not-due")).toBeCloseTo(0.75, 5);
+    expect(grow("dashboard-outstanding-segment-overdue")).toBeCloseTo(0.25, 5);
+  });
+
+  it("shows the unpaid invoice count", () => {
+    const json = JSON.stringify(render().toJSON());
+    expect(json).toContain('home.outstanding.unpaidCount:{\\"count\\":4}');
+  });
+
+  it("draws no segments when nothing is outstanding", () => {
+    mockDashboard.summary.outstanding = 0;
+    mockDashboard.summary.overdueTotal = 0;
+    mockDashboard.outstandingCount = 0;
+    const renderer = render();
+    expect(renderer.root.findAllByProps({ testID: "dashboard-outstanding-segment-not-due" })).toHaveLength(0);
+    expect(renderer.root.findAllByProps({ testID: "dashboard-outstanding-segment-overdue" })).toHaveLength(0);
+  });
+
+  it("renders the two stat cards: payments received and the estimated VAT with its info tooltip", () => {
+    const renderer = render();
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain("home.stats.received");
+    expect(json).toContain("dashboard.kpi.estimatedVat");
+    expect(renderer.root.findAllByProps({ testID: "dashboard-stat-vat-info" }).length).toBeGreaterThan(0);
+  });
+});

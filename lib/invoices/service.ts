@@ -27,6 +27,8 @@ import {
   mapLineItemToDb,
 } from "@/lib/invoices/mappers";
 import { generateNextInvoiceNumber } from "@/lib/invoices/numbering";
+import { getPdfTemplate } from "@/lib/invoices/pdf-template/service";
+import type { InvoicePdfTemplate } from "@/lib/invoices/pdf-template/types";
 import { deriveInvoiceStatusFromPayment } from "@/lib/invoices/payment-status";
 import type { InvoiceListFilters } from "@/lib/invoices/list-query";
 import type {
@@ -352,22 +354,30 @@ async function assertCompanyProfileComplete(userId: string): Promise<NonNullable
 /** The neon-http `db` or a runInTransaction `tx` — both drizzle PgDatabase instances. */
 type InvoiceWriter = Pick<PgDatabase<PgQueryResultHKT, any, any>, "insert" | "update" | "delete">;
 
-/** Writes the invoice row and replaces its line items through `executor`. */
+/**
+ * Writes the invoice row and replaces its line items through `executor`.
+ * `pdfTemplateSnapshot` is passed only by the finalize path; every other save
+ * leaves the column as it is (mapInvoiceToDb never includes it).
+ */
 async function writeInvoiceRows(
   executor: InvoiceWriter,
   userId: string,
   data: Invoice,
   existing: Invoice | null,
-  now: Date
+  now: Date,
+  pdfTemplateSnapshot?: InvoicePdfTemplate
 ): Promise<void> {
-  const row = mapInvoiceToDb(
-    {
-      ...data,
-      createdAt: existing?.createdAt ?? data.createdAt,
-      updatedAt: now.toISOString(),
-    },
-    userId
-  );
+  const row = {
+    ...mapInvoiceToDb(
+      {
+        ...data,
+        createdAt: existing?.createdAt ?? data.createdAt,
+        updatedAt: now.toISOString(),
+      },
+      userId
+    ),
+    ...(pdfTemplateSnapshot ? { pdfTemplateSnapshot } : {}),
+  };
 
   if (existing) {
     await executor
@@ -412,6 +422,8 @@ async function writeInvoiceRows(
  *    invoice with its number and status, and replaces its line items.
  *    Any failure rolls the counter back with everything else — no burnt
  *    number, no numbered invoice without its lines.
+ *    The same write freezes the current PDF appearance onto the document
+ *    (invoice.pdf_template_snapshot), read before the transaction.
  * 3. NAV auto-submit is the callers' job, after this returns (i.e. after
  *    COMMIT) — never inside the transaction.
  *
@@ -433,6 +445,9 @@ export async function upsertInvoice(
       throw new InvoiceAlreadyFinalizedError(existing.invoiceNumber);
     }
     const issuer = await assertCompanyProfileComplete(userId);
+    // The PDF appearance as of issuance is frozen onto the document in the
+    // same write that numbers it, so a later template change never restyles it.
+    const appearance = await getPdfTemplate(userId);
     const year = issueYearOf(data.issueDate);
 
     // --- Atomic: number + invoice row + line items, or nothing. ---
@@ -448,7 +463,7 @@ export async function upsertInvoice(
         }
       }
       const invoiceNumber = await generateNextInvoiceNumber(userId, data.documentType, year, tx, issuer.invoicePrefix);
-      await writeInvoiceRows(tx, userId, { ...data, invoiceNumber }, existing, now);
+      await writeInvoiceRows(tx, userId, { ...data, invoiceNumber }, existing, now, appearance);
     });
   }
 

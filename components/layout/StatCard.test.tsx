@@ -36,19 +36,28 @@ describe("StatCard", () => {
   it("defaults to neutral tone (not green)", () => {
     const tree = render({ label: "Kintlévőség", value: "100 000 Ft" });
     const value = tree.root.findByProps({ children: "100 000 Ft" });
-    expect(value.props.className).not.toMatch(/15803d/);
+    expect(value.props.className).not.toMatch(/text-ok/);
+    expect(value.props.className).toContain("text-ink");
+  });
+
+  it("uses the 20/700 tabular KPI number", () => {
+    const tree = render({ label: "Kintlévőség", value: "100 000 Ft" });
+    const value = tree.root.findByProps({ children: "100 000 Ft" });
+    expect(value.props.className).toContain("text-xl");
+    expect(value.props.className).toContain("font-bold");
+    expect(value.props.className).toContain("tabular-nums");
   });
 
   it("tone=positive renders the approved paid-only green", () => {
     const tree = render({ label: "E havi bevétel", value: "500 000 Ft", tone: "positive" });
     const value = tree.root.findByProps({ children: "500 000 Ft" });
-    expect(value.props.className).toContain("#15803d");
+    expect(value.props.className).toContain("text-ok");
   });
 
   it("tone=critical renders destructive color", () => {
     const tree = render({ label: "Lejárt", value: "50 000 Ft", tone: "critical" });
     const value = tree.root.findByProps({ children: "50 000 Ft" });
-    expect(value.props.className).toContain("text-destructive");
+    expect(value.props.className).toContain("text-err");
   });
 
   it("is pressable and calls onPress", () => {

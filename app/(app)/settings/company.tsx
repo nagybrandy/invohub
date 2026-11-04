@@ -1,139 +1,104 @@
 // app/(app)/settings/company.tsx
+// Céges profil: the company data that appears on every invoice, the bank
+// account and the AAM (alanyi adómentes) switch. The NAV connection moved to
+// /settings/nav and the invoice e-mail recipients to /settings/reminders;
+// every API call here is unchanged (POST /api/companies via useCompany).
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
-import {
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
-} from "@/components/ui/form-control";
-import { Heading } from "@/components/ui/heading";
-import { HStack } from "@/components/ui/hstack";
 import { Input, InputField } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
-import { Badge, BadgeText } from "@/components/ui/badge";
-import { FormScreen } from "@/components/layout/FormScreen";
-import { NavEnvironmentPicker } from "@/components/settings/NavEnvironmentPicker";
+import { FormField } from "@/components/layout/FormField";
+import { SaveBar } from "@/components/settings/SaveBar";
+import {
+  SettingsNote,
+  SettingsPage,
+  SettingsSection,
+  SettingsSheet,
+} from "@/components/settings/SettingsSheet";
 import { useCompany } from "@/hooks/useCompany";
-import { apiFetch, ApiError } from "@/lib/api/client";
-import { navResultI18nKey } from "@/lib/nav/nav-error-i18n";
-import { NAV_API_BASE_URL, type NavEnvironment } from "@/lib/nav/environment";
+import { settingsItemKeys } from "@/lib/settings-navigation";
+import { type } from "@/lib/ui/type";
 
-type NavConfig = { sharedTestAvailable: boolean; productionEnabled: boolean; encryptionConfigured: boolean };
-type NavCheckResult = {
-  ok: boolean;
-  /** Machine-readable outcome; what the UI translates (lib/nav/nav-error-i18n.ts). */
-  code?: string;
-  /** English, for logs and the public API — never rendered here. */
-  message?: string;
-  error?: string;
-  source?: "own" | "shared";
+type CompanyForm = {
+  name: string;
+  taxNumber: string;
+  address: string;
+  city: string;
+  zipCode: string;
+  bankAccount: string;
+  vatExempt: boolean;
+};
+
+const EMPTY_FORM: CompanyForm = {
+  name: "",
+  taxNumber: "",
+  address: "",
+  city: "",
+  zipCode: "",
+  bankAccount: "",
+  vatExempt: false,
 };
 
 export default function CompanySettingsScreen() {
   const { t } = useTranslation();
   const { company, loading, save, lookup } = useCompany();
-  const [name, setName] = React.useState("");
-  const [taxNumber, setTaxNumber] = React.useState("");
-  const [address, setAddress] = React.useState("");
-  const [city, setCity] = React.useState("");
-  const [zipCode, setZipCode] = React.useState("");
-  const [bankAccount, setBankAccount] = React.useState("");
-  const [vatExempt, setVatExempt] = React.useState(false);
-  const [invoiceEmailTo, setInvoiceEmailTo] = React.useState("");
-  const [invoiceEmailCc, setInvoiceEmailCc] = React.useState("");
-  const [navTechnicalUser, setNavTechnicalUser] = React.useState("");
-  const [navTechnicalPassword, setNavTechnicalPassword] = React.useState("");
-  const [navXmlSignKey, setNavXmlSignKey] = React.useState("");
-  const [navXmlChangeKey, setNavXmlChangeKey] = React.useState("");
-  const [navEnvironment, setNavEnvironment] = React.useState<NavEnvironment>("demo");
-  const [showNavSecrets, setShowNavSecrets] = React.useState(false);
+  const keys = settingsItemKeys("company");
+
+  // Keyed on the field values, not the company object identity, so a hook that
+  // hands back a fresh object per render cannot loop the sync effect below.
+  const savedKey = company
+    ? JSON.stringify([
+        company.name,
+        company.taxNumber ?? "",
+        company.address ?? "",
+        company.city ?? "",
+        company.zipCode ?? "",
+        company.bankAccount ?? "",
+        company.vatExempt ?? false,
+      ])
+    : "";
+  const saved = React.useMemo<CompanyForm>(
+    () => {
+      if (!savedKey) return EMPTY_FORM;
+      const [name, taxNumber, address, city, zipCode, bankAccount, vatExempt] = JSON.parse(savedKey);
+      return { name, taxNumber, address, city, zipCode, bankAccount, vatExempt };
+    },
+    [savedKey]
+  );
+  const [form, setForm] = React.useState<CompanyForm>(EMPTY_FORM);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [lookingUp, setLookingUp] = React.useState(false);
-  const [navConfig, setNavConfig] = React.useState<NavConfig | null>(null);
-  const [checkingNav, setCheckingNav] = React.useState(false);
-  const [navCheckResult, setNavCheckResult] = React.useState<NavCheckResult | null>(null);
 
   React.useEffect(() => {
-    apiFetch<NavConfig>("/api/nav/config")
-      .then(setNavConfig)
-      .catch(() => setNavConfig(null));
-  }, []);
+    setForm(saved);
+  }, [saved]);
 
-  async function handleCheckNavConnection() {
-    setCheckingNav(true);
-    setNavCheckResult(null);
-    try {
-      // Tests the values currently typed into the form, not (only) whatever
-      // was last saved — otherwise editing credentials and hitting "Test
-      // connection" silently re-checks the old saved ones.
-      const result = await apiFetch<NavCheckResult>("/api/nav/check", {
-        method: "POST",
-        body: JSON.stringify({
-          navEnvironment,
-          navTechnicalUser: navTechnicalUser.trim() || undefined,
-          navTechnicalPassword: navTechnicalPassword.trim() || undefined,
-          navXmlSignKey: navXmlSignKey.trim() || undefined,
-          navXmlChangeKey: navXmlChangeKey.trim() || undefined,
-          taxNumber: taxNumber.trim() || undefined,
-        }),
-      });
-      setNavCheckResult(result);
-    } catch (e) {
-      setNavCheckResult({ ok: false, code: e instanceof ApiError ? e.code : undefined });
-    } finally {
-      setCheckingNav(false);
-    }
-  }
-
-  // A stale ok/fail result from a previous check must not linger once the
-  // user edits environment or credentials again — otherwise a still-shown
-  // "connection successful" can silently describe values that no longer
-  // match what's in the form.
-  React.useEffect(() => {
-    setNavCheckResult(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navEnvironment, navTechnicalUser, navTechnicalPassword, navXmlSignKey, navXmlChangeKey]);
-
-  React.useEffect(() => {
-    if (company) {
-      setName(company.name);
-      setTaxNumber(company.taxNumber ?? "");
-      setAddress(company.address ?? "");
-      setCity(company.city ?? "");
-      setZipCode(company.zipCode ?? "");
-      setBankAccount(company.bankAccount ?? "");
-      setVatExempt(company.vatExempt ?? false);
-      setInvoiceEmailTo(company.invoiceEmailTo ?? "");
-      setInvoiceEmailCc(company.invoiceEmailCc ?? "");
-      setNavTechnicalUser(company.navTechnicalUser ?? "");
-      // Secret fields are never pre-filled from the server response — GET
-      // /api/companies only ever returns navTechnicalPasswordSet/
-      // navXmlSignKeySet/navXmlChangeKeySet booleans, never the decrypted
-      // value, so the form starts blank and shows an "already set" hint
-      // instead (see the isSet indicators below). Leaving a field blank on
-      // save keeps whatever secret is already stored — see
-      // lib/companies/service.ts's patchSecretField.
-      setNavEnvironment(company.navEnvironment ?? "demo");
-    }
-  }, [company]);
+  const set = <K extends keyof CompanyForm>(key: K, value: CompanyForm[K]) => {
+    setSuccess(null);
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+  const dirty = (Object.keys(saved) as Array<keyof CompanyForm>).some((key) => form[key] !== saved[key]);
 
   async function handleLookup() {
-    if (!taxNumber.trim()) return;
+    if (!form.taxNumber.trim()) return;
     setLookingUp(true);
     setError(null);
     try {
-      const result = await lookup(taxNumber.trim());
+      const result = await lookup(form.taxNumber.trim());
       const data = result.company;
       if (data) {
-        if (data.name) setName(data.name);
-        if (data.address) setAddress(data.address);
-        if (data.city) setCity(data.city);
-        if (data.zipCode) setZipCode(data.zipCode);
+        setForm((prev) => ({
+          ...prev,
+          name: data.name || prev.name,
+          address: data.address || prev.address,
+          city: data.city || prev.city,
+          zipCode: data.zipCode || prev.zipCode,
+        }));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("settings.companySettings.lookupFailed"));
@@ -143,7 +108,7 @@ export default function CompanySettingsScreen() {
   }
 
   async function handleSave() {
-    if (!name.trim()) {
+    if (!form.name.trim()) {
       setError(t("settings.companySettings.nameRequired"));
       return;
     }
@@ -152,23 +117,15 @@ export default function CompanySettingsScreen() {
     setSuccess(null);
     try {
       await save({
-        name: name.trim(),
-        taxNumber: taxNumber.trim() || undefined,
-        address: address.trim() || undefined,
-        city: city.trim() || undefined,
-        zipCode: zipCode.trim() || undefined,
-        bankAccount: bankAccount.trim() || undefined,
-        vatExempt,
-        invoiceEmailTo: invoiceEmailTo.trim() || undefined,
-        invoiceEmailCc: invoiceEmailCc.trim() || undefined,
-        navTechnicalUser: navTechnicalUser.trim() || undefined,
-        navTechnicalPassword: navTechnicalPassword.trim() || undefined,
-        navXmlSignKey: navXmlSignKey.trim() || undefined,
-        navXmlChangeKey: navXmlChangeKey.trim() || undefined,
-        navEnvironment,
+        name: form.name.trim(),
+        taxNumber: form.taxNumber.trim() || undefined,
+        address: form.address.trim() || undefined,
+        city: form.city.trim() || undefined,
+        zipCode: form.zipCode.trim() || undefined,
+        bankAccount: form.bankAccount.trim() || undefined,
+        vatExempt: form.vatExempt,
       });
       setSuccess(t("settings.companySettings.saved"));
-      setNavCheckResult(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("settings.companySettings.saveFailed"));
     } finally {
@@ -176,292 +133,127 @@ export default function CompanySettingsScreen() {
     }
   }
 
-  // Nothing decrypted is ever pre-filled into these fields anymore (see
-  // the company-load effect above), so masking by default and letting the
-  // toggle reveal what's currently being *typed* is safe on every
-  // platform — there's no longer a web-only "never masked" branch here.
-  const maskSecrets = !showNavSecrets;
-
   if (loading && !company) {
     return (
-      <FormScreen header={<Heading size="2xl">{t("settings.companySettings.title")}</Heading>}>
-        <Text>{t("common.loading")}</Text>
-      </FormScreen>
+      <SettingsPage title={t(keys.title)} lead={t(keys.lead)}>
+        <Text className={type.meta}>{t("common.loading")}</Text>
+      </SettingsPage>
     );
   }
 
   return (
-    <FormScreen header={<Heading size="2xl">{t("settings.companySettings.title")}</Heading>}>
-      <VStack space="lg">
-        <Text size="sm" className="text-muted-foreground">
-          {t("settings.companySettings.subtitle")}
-        </Text>
-
-        <VStack space="md">
-          <Text className="font-semibold text-foreground">{t("settings.companySettings.companyDetails")}</Text>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.taxNumber")}</FormControlLabelText>
-            </FormControlLabel>
-            <HStack space="sm">
-              <Input className="flex-1">
+    <SettingsPage title={t(keys.title)} lead={t(keys.lead)} testID="settings-company">
+      <SettingsSheet>
+        <SettingsSection title={t("settingsPages.company.detailsTitle")} hint={t("settingsPages.company.detailsHint")}>
+          <FormField label={t("company.taxNumber")} hint={t("settingsPages.company.taxNumberHint")}>
+            <Box className="flex-row gap-2">
+              <Input className="min-w-0 flex-1">
                 <InputField
-                  value={taxNumber}
-                  onChangeText={setTaxNumber}
+                  testID="company-tax-number"
+                  accessibilityLabel={t("company.taxNumber")}
+                  value={form.taxNumber}
+                  onChangeText={(v) => set("taxNumber", v)}
                   placeholder="12345678-1-23"
                 />
               </Input>
-              <Button variant="outline" onPress={handleLookup} disabled={lookingUp}>
+              <Button
+                variant="secondary"
+                size="form"
+                onPress={() => void handleLookup()}
+                disabled={lookingUp}
+                testID="company-lookup"
+              >
                 <ButtonText>{t("settings.companySettings.lookup")}</ButtonText>
               </Button>
-            </HStack>
-          </FormControl>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.name")}</FormControlLabelText>
-            </FormControlLabel>
-            <Input>
-              <InputField value={name} onChangeText={setName} />
-            </Input>
-          </FormControl>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.address")}</FormControlLabelText>
-            </FormControlLabel>
-            <Input>
-              <InputField value={address} onChangeText={setAddress} />
-            </Input>
-          </FormControl>
-          <HStack space="sm">
-            <FormControl className="flex-1">
-              <FormControlLabel>
-                <FormControlLabelText>{t("company.city")}</FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField value={city} onChangeText={setCity} />
-              </Input>
-            </FormControl>
-            <FormControl className="w-28">
-              <FormControlLabel>
-                <FormControlLabelText>{t("company.zip")}</FormControlLabelText>
-              </FormControlLabel>
-              <Input>
-                <InputField value={zipCode} onChangeText={setZipCode} />
-              </Input>
-            </FormControl>
-          </HStack>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.bankAccount")}</FormControlLabelText>
-            </FormControlLabel>
-            <Input>
-              <InputField value={bankAccount} onChangeText={setBankAccount} />
-            </Input>
-          </FormControl>
-          <HStack className="items-center justify-between">
-            <VStack className="flex-1 pr-3">
-              <Text size="sm" className="font-medium text-foreground">
-                {t("company.vatExempt")}
-              </Text>
-              <Text size="xs" className="font-light text-muted-foreground">
-                {t("company.vatExemptHint")}
-              </Text>
-            </VStack>
-            <Switch value={vatExempt} onValueChange={setVatExempt} />
-          </HStack>
-        </VStack>
-
-        <VStack space="md">
-          <Text className="font-semibold text-foreground">{t("settings.companySettings.invoiceEmails")}</Text>
-          <Text size="sm" className="text-muted-foreground">
-            {t("settings.companySettings.invoiceEmailsDesc")}
-          </Text>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("settings.companySettings.sendTo")}</FormControlLabelText>
-            </FormControlLabel>
+            </Box>
+          </FormField>
+          <FormField label={t("company.name")}>
             <Input>
               <InputField
-                value={invoiceEmailTo}
-                onChangeText={setInvoiceEmailTo}
-                placeholder="billing@client.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
+                testID="company-name"
+                accessibilityLabel={t("company.name")}
+                value={form.name}
+                onChangeText={(v) => set("name", v)}
               />
             </Input>
-          </FormControl>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("settings.companySettings.cc")}</FormControlLabelText>
-            </FormControlLabel>
+          </FormField>
+          <FormField label={t("company.address")}>
             <Input>
               <InputField
-                value={invoiceEmailCc}
-                onChangeText={setInvoiceEmailCc}
-                placeholder="accounting@client.com, ceo@client.com"
-                autoCapitalize="none"
+                testID="company-address"
+                accessibilityLabel={t("company.address")}
+                value={form.address}
+                onChangeText={(v) => set("address", v)}
               />
             </Input>
-          </FormControl>
-        </VStack>
+          </FormField>
+          <Box className="flex-row gap-3">
+            <FormField label={t("company.city")} className="min-w-0 flex-1">
+              <Input>
+                <InputField
+                  testID="company-city"
+                  accessibilityLabel={t("company.city")}
+                  value={form.city}
+                  onChangeText={(v) => set("city", v)}
+                />
+              </Input>
+            </FormField>
+            <FormField label={t("company.zip")} className="w-[120px]">
+              <Input>
+                <InputField
+                  testID="company-zip"
+                  accessibilityLabel={t("company.zip")}
+                  value={form.zipCode}
+                  onChangeText={(v) => set("zipCode", v)}
+                />
+              </Input>
+            </FormField>
+          </Box>
+        </SettingsSection>
 
-        <VStack space="md">
-          <HStack className="items-center justify-between">
-            <HStack space="xs" className="items-center flex-wrap">
-              <Text className="font-semibold text-foreground">{t("company.navTestSection.title")}</Text>
-              {navEnvironment === "demo" ? (
-                <Badge variant="outline" className="border-primary/40">
-                  <BadgeText className="text-[10px] text-primary">
-                    {t("company.navTestSection.demoBadge")}
-                  </BadgeText>
-                </Badge>
-              ) : null}
-            </HStack>
-            {navEnvironment !== "demo" ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onPress={() => setShowNavSecrets((v) => !v)}
-              >
-                <ButtonText>{showNavSecrets ? t("settings.companySettings.hideSecrets") : t("settings.companySettings.showSecrets")}</ButtonText>
-              </Button>
-            ) : null}
-          </HStack>
-          <Text size="sm" className="text-muted-foreground">
-            {t("company.navTestSection.description")}
-          </Text>
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{t("company.navEnvironment")}</FormControlLabelText>
-            </FormControlLabel>
-            <NavEnvironmentPicker
-              value={navEnvironment}
-              onChange={setNavEnvironment}
-              productionEnabled={navConfig?.productionEnabled ?? false}
+        <SettingsSection title={t("settingsPages.company.bankTitle")} hint={t("settingsPages.company.bankHint")}>
+          <FormField label={t("company.bankAccount")}>
+            <Input>
+              <InputField
+                testID="company-bank-account"
+                accessibilityLabel={t("company.bankAccount")}
+                value={form.bankAccount}
+                onChangeText={(v) => set("bankAccount", v)}
+              />
+            </Input>
+          </FormField>
+        </SettingsSection>
+
+        <SettingsSection title={t("settingsPages.company.vatTitle")}>
+          <Box className="flex-row items-center justify-between gap-3">
+            <Box className="min-w-0 flex-1">
+              <Text className={type.itemTitle}>{t("company.vatExempt")}</Text>
+              <Text className={`${type.meta} mt-0.5`}>{t("company.vatExemptHint")}</Text>
+            </Box>
+            <Switch
+              testID="company-vat-exempt"
+              value={form.vatExempt}
+              onValueChange={(v) => set("vatExempt", v)}
+              accessibilityLabel={t("company.vatExempt")}
             />
-            {navEnvironment !== "demo" ? (
-              <Text size="xs" className="mt-2 text-muted-foreground">
-                API: {NAV_API_BASE_URL[navEnvironment]}
-              </Text>
-            ) : null}
-          </FormControl>
+          </Box>
+        </SettingsSection>
+      </SettingsSheet>
 
-          {navEnvironment === "test" && navConfig?.sharedTestAvailable && !navTechnicalUser.trim() ? (
-            <Text size="sm" className="text-muted-foreground">
-              {t("company.navTestSection.sharedAccount")} — {t("company.navTestSection.sharedAccountHint")}
-            </Text>
-          ) : null}
+      {success ? <SettingsNote tone="ok" testID="company-success">{success}</SettingsNote> : null}
+      {error ? <SettingsNote tone="err" testID="company-error">{error}</SettingsNote> : null}
 
-          {navEnvironment !== "demo" ? (
-            <>
-              <Text size="sm" className="font-medium text-foreground">
-                {t("company.navTestSection.ownAccount")}
-              </Text>
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("company.navTechnicalUser")}</FormControlLabelText>
-                </FormControlLabel>
-                <Input>
-                  <InputField
-                    value={navTechnicalUser}
-                    onChangeText={setNavTechnicalUser}
-                    placeholder="nav_technical_user"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </Input>
-              </FormControl>
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("company.navTechnicalPassword")}</FormControlLabelText>
-                </FormControlLabel>
-                <Input>
-                  <InputField
-                    value={navTechnicalPassword}
-                    onChangeText={setNavTechnicalPassword}
-                    placeholder="••••••••"
-                    secureTextEntry={maskSecrets}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </Input>
-                {company?.navTechnicalPasswordSet ? (
-                  <Text size="xs" className="mt-1 text-muted-foreground">
-                    {t("settings.companySettings.secretAlreadySet")}
-                  </Text>
-                ) : null}
-              </FormControl>
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("company.navXmlSignKey")}</FormControlLabelText>
-                </FormControlLabel>
-                <Input>
-                  <InputField
-                    value={navXmlSignKey}
-                    onChangeText={setNavXmlSignKey}
-                    placeholder="••••••••"
-                    secureTextEntry={maskSecrets}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </Input>
-                {company?.navXmlSignKeySet ? (
-                  <Text size="xs" className="mt-1 text-muted-foreground">
-                    {t("settings.companySettings.secretAlreadySet")}
-                  </Text>
-                ) : null}
-              </FormControl>
-              <FormControl>
-                <FormControlLabel>
-                  <FormControlLabelText>{t("company.navXmlChangeKey")}</FormControlLabelText>
-                </FormControlLabel>
-                <Input>
-                  <InputField
-                    value={navXmlChangeKey}
-                    onChangeText={setNavXmlChangeKey}
-                    placeholder="••••••••"
-                    secureTextEntry={maskSecrets}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </Input>
-                {company?.navXmlChangeKeySet ? (
-                  <Text size="xs" className="mt-1 text-muted-foreground">
-                    {t("settings.companySettings.secretAlreadySet")}
-                  </Text>
-                ) : null}
-              </FormControl>
-
-              <HStack space="sm" className="items-center flex-wrap">
-                <Button size="sm" variant="outline" onPress={handleCheckNavConnection} disabled={checkingNav}>
-                  <ButtonText>
-                    {checkingNav ? t("company.navTestSection.checking") : t("company.navTestSection.checkConnection")}
-                  </ButtonText>
-                </Button>
-                {navCheckResult ? (
-                  <Text size="sm" className={navCheckResult.ok ? "text-green-600" : "text-destructive"}>
-                    {t(
-                      navResultI18nKey(
-                        navCheckResult.code,
-                        navCheckResult.ok
-                          ? "company.navTestSection.checkSuccess"
-                          : "company.navTestSection.checkFailed"
-                      )
-                    )}
-                  </Text>
-                ) : null}
-              </HStack>
-            </>
-          ) : null}
-        </VStack>
-
-        {success ? <Text className="text-primary">{success}</Text> : null}
-        {error ? <Text className="text-destructive">{error}</Text> : null}
-        <Button onPress={handleSave} disabled={saving}>
-          <ButtonText>{saving ? t("common.saving") : t("settings.companySettings.save")}</ButtonText>
-        </Button>
-      </VStack>
-    </FormScreen>
+      <SaveBar
+        visible={dirty || saving}
+        saving={saving}
+        onSave={() => void handleSave()}
+        onDiscard={() => {
+          setForm(saved);
+          setError(null);
+        }}
+        saveLabel={t("settings.companySettings.save")}
+        saveTestID="company-save"
+      />
+    </SettingsPage>
   );
 }

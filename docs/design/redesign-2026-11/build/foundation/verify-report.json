@@ -1,0 +1,321 @@
+{
+  "ac2_light": "#f6f6f8",
+  "ac2_dataThemeDark": "#0a0d12",
+  "ac2_noAttrDarkOS": "#0a0d12",
+  "ac2_lightAttrDarkOS": "#f6f6f8",
+  "ac4_fonts": {
+    "text": true,
+    "notch": true,
+    "loaded": [
+      "Stack Sans Text:loaded",
+      "Stack Sans Text:loaded",
+      "Stack Sans Notch:loaded",
+      "Stack Sans Notch:loaded"
+    ]
+  },
+  "ac4_requests": {
+    "googleapis": 0,
+    "ranade": 0,
+    "stackSans": [
+      "stack-sans-text-latin-wght-normal.woff2",
+      "stack-sans-notch-latin-wght-normal.woff2",
+      "stack-sans-text-latin-ext-wght-normal.woff2",
+      "stack-sans-notch-latin-wght-normal.woff2",
+      "stack-sans-text-latin-wght-normal.woff2",
+      "stack-sans-text-latin-ext-wght-normal.woff2",
+      "stack-sans-notch-latin-wght-normal.woff2",
+      "stack-sans-text-latin-wght-normal.woff2",
+      "stack-sans-text-latin-ext-wght-normal.woff2",
+      "stack-sans-notch-latin-ext-wght-normal.woff2"
+    ]
+  },
+  "ac5": {
+    "width": 248,
+    "bg": "rgb(19, 31, 74)",
+    "rows": [
+      "Főoldal",
+      "Számlák",
+      "Nyugták",
+      "Partnerek",
+      "Termékek",
+      "Beállítások",
+      "E-mail szerkesztő",
+      "Adatexport",
+      "Tömeges feltöltés"
+    ],
+    "hasAccount": true,
+    "hasSplit": true,
+    "toggle": true
+  },
+  "ac6": {
+    "height": 56,
+    "placeholder": "Keresés",
+    "buttons": [
+      "Értesítések"
+    ],
+    "text": ""
+  },
+  "ac7_items": [
+    "Új számla",
+    "Új nyugta",
+    "Új partner"
+  ],
+  "ac7_firstFocused": "new-create-invoice",
+  "ac7_afterEsc": {
+    "menuOpen": false,
+    "focused": "new-create-arrow"
+  },
+  "ac7_nav": {
+    "receipt": "/receipts/new",
+    "partner": "/clients/new",
+    "invoice": "/invoices/new",
+    "main": "/invoices/new"
+  },
+  "ac8_menu": {
+    "text": [
+      "Bejelentkezve",
+      "TE",
+      "Teszt Elek EV",
+      "e2e-test@invohub.test",
+      "Cégeid",
+      "TE",
+      "InvoHub Demo Könyvelő Iroda Kft.",
+      "12345678-2-41",
+      "Számlázófiókok kezelése",
+      "Cégadatok szerkesztése",
+      "Kijelentkezés"
+    ],
+    "items": [
+      "account-option-q2XZQQ61Vbipz4I3ZcZCVGgeBZ4FTflO",
+      "account-manage",
+      "account-edit-company",
+      "account-sign-out"
+    ]
+  },
+  "ac8_dialog": {
+    "label": "Kijelentkezel?",
+    "modal": "true",
+    "text": "Kijelentkezel? | Ezen az eszközön kilépsz az InvoHubból. A mentetlen módosítások nem vesznek el. | Mégse | Kijelentkezés",
+    "focused": "logout-confirm-cancel"
+  },
+  "ac8_trap": [
+    true,
+    true,
+    true,
+    true
+  ],
+  "ac8_cancel": {
+    "open": false,
+    "focused": "sidebar-account-button",
+    "url": "/dashboard"
+  },
+  "ac8_esc": {
+    "open": false,
+    "focused": "sidebar-account-button",
+    "url": "/dashboard"
+  },
+  "ac8_scrim": {
+    "open": false,
+    "focused": "sidebar-account-button",
+    "url": "/dashboard"
+  },
+  "ac5_collapsed": 72,
+  "ac5_collapsedAfterReload": 72,
+  "ac5_tooltip": "Számlák",
+  "ac5_expandedAgain": 248,
+  "ac11_tabOrder": [
+    {
+      "id": "sidebar-logo",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-collapse-toggle",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "new-create-main",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "new-create-arrow",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-dashboard",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-invoices",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-receipts",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-partners",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-products",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-settings",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-emailEditor",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-dataExport",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-nav-bulkUpload",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "sidebar-account-button",
+      "outline": "solid 2px rgb(255, 255, 255)"
+    },
+    {
+      "id": "global-search",
+      "outline": "none 3px rgb(33, 35, 37)"
+    },
+    {
+      "id": "notification-bell",
+      "outline": "solid 2px rgb(63, 107, 196)"
+    },
+    {
+      "id": "dashboard-new-receipt",
+      "outline": "solid 2px rgb(63, 107, 196)"
+    },
+    {
+      "id": "dashboard-new-invoice",
+      "outline": "solid 2px rgb(63, 107, 196)"
+    }
+  ],
+  "requestsTotal": 194,
+  "ac3_initial": {
+    "attr": null,
+    "canvas": "#f6f6f8",
+    "mirror": "system"
+  },
+  "ac3_tileFound": 1,
+  "ac3_cycle": [
+    {
+      "attr": null,
+      "canvas": "#f6f6f8",
+      "mirror": "system"
+    },
+    {
+      "attr": null,
+      "canvas": "#f6f6f8",
+      "mirror": "system"
+    },
+    {
+      "attr": null,
+      "canvas": "#f6f6f8",
+      "mirror": "system"
+    }
+  ],
+  "ac5_820": 72,
+  "ac9": {
+    "sidebar": false,
+    "labels": [
+      "Főoldal",
+      "Számlák",
+      "Új",
+      "Partnerek",
+      "Továbbiak"
+    ],
+    "pill": {
+      "w": 56,
+      "h": 32
+    },
+    "gaps": [
+      43.3,
+      42.5,
+      42.5,
+      43.3
+    ],
+    "gapSpread": 0.7999999999999972,
+    "shapes": [
+      {
+        "id": "tab-dashboard",
+        "left": 25.65625,
+        "right": 49.65625,
+        "width": 24,
+        "height": 24
+      },
+      {
+        "id": "tab-invoices",
+        "left": 93,
+        "right": 117,
+        "width": 24,
+        "height": 24
+      },
+      {
+        "id": "tab-new-pill",
+        "left": 159.484375,
+        "right": 215.484375,
+        "width": 56,
+        "height": 32
+      },
+      {
+        "id": "tab-partners",
+        "left": 257.984375,
+        "right": 281.984375,
+        "width": 24,
+        "height": 24
+      },
+      {
+        "id": "tab-more",
+        "left": 325.328125,
+        "right": 349.328125,
+        "width": 24,
+        "height": 24
+      }
+    ]
+  },
+  "ac9_newSheet": "Új létrehozása | Új számla | Új nyugta",
+  "ac9_focusAfterNew": "tab-new",
+  "ac9_more": {
+    "rows": [
+      "more-sheet-close",
+      "more-sheet-receipts",
+      "more-sheet-products",
+      "more-sheet-emailEditor",
+      "more-sheet-dataExport",
+      "more-sheet-bulkUpload",
+      "more-sheet-settings",
+      "more-sheet-sign-out"
+    ],
+    "last": "more-sheet-sign-out"
+  },
+  "ac9_logoutFromMore": "Kijelentkezel? | Ezen az eszközön kilépsz az InvoHubból. A mentetlen módosítások nem vesznek el. | Kijelentkezés | Mégse",
+  "ac9_focusAfterLogoutEsc": "tab-more",
+  "ac10_expanded": {
+    "rootWidth": 351,
+    "focused": true,
+    "close": true
+  },
+  "ac13": {
+    "/dashboard": {
+      "docScrollW": 360,
+      "innerW": 360,
+      "bodyScrollW": 360
+    },
+    "/invoices": {
+      "docScrollW": 360,
+      "innerW": 360,
+      "bodyScrollW": 360
+    }
+  },
+  "ac11_reducedMotion": {
+    "transitionDuration": "0s",
+    "property": "none"
+  }
+}

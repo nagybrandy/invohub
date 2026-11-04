@@ -1,11 +1,12 @@
 // components/invoices/InvoiceFilterChips.tsx
-// Invoice-list status filter chips (extracted from app/(app)/invoices/index.tsx
-// so the list screen renders a component, not an inline FILTERS.map). Pure
+// Invoice-list status chips, redesign 2026-11: the filter-sheet chips
+// (tokens.md §6.4: pill, count in muted after the label, pressed = primary-ink
+// fill with white text). Also the home of the list's filter constants. Pure
 // presentational — no hooks — so it can be unit-tested without mocking
 // useInvoiceStatusCounts.
 import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
-import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
+import { ChoicePill, ChoicePillGroup, choicePillTextClass } from "@/components/ui/choice-pill";
 import { STATUS_I18N_KEY } from "@/lib/invoices/status-i18n";
 import type { InvoiceStatus } from "@/lib/invoices/types";
 
@@ -51,19 +52,20 @@ export function InvoiceFilterChips({
   const filterCount = (f: InvoiceStatus | "all") => (f === "all" ? allCount : counts[f] ?? 0);
 
   return (
-    <ChoicePillGroup>
+    <ChoicePillGroup accessibilityLabel={t("invoices.list.columnStatus")}>
       {INVOICE_FILTERS.map((f) => {
-        const selected = filter === f;
+        const selected = filter === f && !navFailedSelected;
         return (
           <ChoicePill
             key={f}
             testID={`invoice-filter-${f}`}
+            variant="filter"
             selected={selected}
             onPress={() => onSelect(f)}
-            className="rounded-full"
           >
-            <Text size="xs" className={selected ? "font-medium text-primary" : "text-foreground"}>
-              {t("invoices.list.filterCount", { label: filterLabel(f), count: filterCount(f) })}
+            <Text className={choicePillTextClass("filter", selected)}>{filterLabel(f)}</Text>
+            <Text numeric className={`ml-1 text-sm ${selected ? "font-semibold text-white" : "text-muted-ink"}`}>
+              {filterCount(f)}
             </Text>
           </ChoicePill>
         );
@@ -74,12 +76,15 @@ export function InvoiceFilterChips({
         // by accident.
         <ChoicePill
           testID="invoice-filter-navFailed"
+          variant="filter"
           selected={navFailedSelected}
           onPress={() => onSelectNavFailed?.()}
-          className="rounded-full"
         >
-          <Text size="xs" className={navFailedSelected ? "font-medium text-primary" : "text-destructive"}>
-            {t("invoices.list.filterCount", { label: t("invoices.list.filterNavFailed"), count: navFailedCount })}
+          <Text className={navFailedSelected ? choicePillTextClass("filter", true) : "text-sm font-medium text-err"}>
+            {t("invoices.list.filterNavFailed")}
+          </Text>
+          <Text numeric className={`ml-1 text-sm ${navFailedSelected ? "font-semibold text-white" : "text-err"}`}>
+            {navFailedCount}
           </Text>
         </ChoicePill>
       ) : null}
@@ -92,10 +97,11 @@ export function InvoiceFilterChips({
         <Box
           testID="invoice-filter-other"
           accessibilityLabel={t("invoices.list.filterOtherHint")}
-          className="items-center justify-center rounded-full border border-dashed border-border bg-transparent px-3 py-2 opacity-70"
+          className="min-h-11 flex-row items-center justify-center rounded-full border border-dashed border-line-strong bg-transparent px-3.5 py-2 opacity-80"
         >
-          <Text size="xs" className="text-muted-foreground">
-            {t("invoices.list.filterCount", { label: t("invoices.list.filterOther"), count: otherCount })}
+          <Text className="text-sm text-muted-ink">{t("invoices.list.filterOther")}</Text>
+          <Text numeric className="ml-1 text-sm text-faint">
+            {otherCount}
           </Text>
         </Box>
       ) : null}

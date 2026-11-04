@@ -1,24 +1,22 @@
 // components/invoices/composer/StepReview.tsx
-// Step 3: read-back summary + explicit, default-OFF e-mail and NAV toggles
-// that spell out their consequence (fixes INV-2's silent e-mail arm and
-// INV-12's notes-field soup — spec §2.5).
+// The read-only read-back of a FINALIZED invoice (the composer's read-only
+// branch): partner, dates and payment, line items with their totals, notes.
+// The editable page no longer has a review step — its sections are all open
+// and editable on one page (redesign 2026-11); the send / NAV block is
+// DispatchCard and the notes field lives in MoreSettingsCard.
+import * as React from "react";
+import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
-import { Pressable } from "@/components/ui/pressable";
-import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
-import { Textarea, TextareaInput } from "@/components/ui/textarea";
 import { VStack } from "@/components/ui/vstack";
-import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
+import { ComposerCard } from "@/components/invoices/composer/ComposerSection";
 import { groupVatRows } from "@/components/invoices/composer/composer-logic";
 import { formatCurrency, lineItemGrossTotal } from "@/lib/invoices/calculations";
 import type { InvoiceComposerState } from "@/components/invoices/composer/useInvoiceComposer";
 
-export function StepReview(
-  composer: InvoiceComposerState & { readOnly?: boolean; variant?: "full" | "dispatch" }
-) {
+export function StepReview(composer: InvoiceComposerState) {
   const {
     t,
-    documentType,
     clientName,
     clientTaxNumber,
     clientEmail,
@@ -35,174 +33,74 @@ export function StepReview(
     exchangeRate,
     lineItems,
     notes,
-    setNotes,
-    emailOnSend,
-    setEmailOnSend,
-    canEnableEmailOnSend,
-    setStep,
     totals,
-    readOnly,
-    // "dispatch" drops the partner/dates/items summary cards: the desktop
-    // one-page composer has those sections open and editable right above,
-    // so repeating them read-only only made the page longer.
-    variant = "full",
   } = composer;
-  const showSummaries = variant === "full";
 
   const vatRows = groupVatRows(lineItems);
   const address = [clientZip, clientCity, clientAddress].filter(Boolean).join(" ");
 
   return (
-    <VStack space="lg">
-      {showSummaries ? (
-        <>
-      <ReviewSection title={t("invoices.composer.reviewPartner")} onEdit={readOnly ? undefined : () => setStep("partner")} t={t}>
-        <Text className="font-medium text-foreground">{clientName || "—"}</Text>
-        {clientTaxNumber ? <Text size="sm" className="text-muted-foreground">{clientTaxNumber}</Text> : null}
-        {address ? <Text size="sm" className="text-muted-foreground">{address}</Text> : null}
+    <VStack space="lg" testID="composer-readonly-summary">
+      <ComposerCard title={t("invoices.composer.reviewPartner")}>
+        <Text className="text-sm font-semibold text-ink">{clientName || "—"}</Text>
+        {clientTaxNumber ? <Text className="text-[13px] text-muted-ink">{clientTaxNumber}</Text> : null}
+        {address ? <Text className="text-[13px] text-muted-ink">{address}</Text> : null}
         {clientCountry && clientCountry !== "Magyarország" ? (
-          <Text size="sm" className="text-muted-foreground">{clientCountry}</Text>
+          <Text className="text-[13px] text-muted-ink">{clientCountry}</Text>
         ) : null}
-        {clientEmail ? <Text size="sm" className="text-muted-foreground">{clientEmail}</Text> : null}
-      </ReviewSection>
+        {clientEmail ? <Text className="text-[13px] text-muted-ink">{clientEmail}</Text> : null}
+      </ComposerCard>
 
-      <ReviewSection title={t("invoices.sections.datesPayment")} onEdit={readOnly ? undefined : () => setStep("partner")} t={t}>
-        <Text size="sm" className="text-foreground">
+      <ComposerCard title={t("invoices.sections.datesPayment")}>
+        <Text className="text-sm text-ink">
           {t("invoices.fields.fulfillmentDate")}: {fulfillmentDate}
         </Text>
-        <Text size="sm" className="text-foreground">
+        <Text className="text-sm text-ink">
           {t("invoices.fields.issueDate")}: {issueDate} · {t("invoices.fields.paymentDeadline")}: {dueDate}
         </Text>
-        <Text size="sm" className="text-foreground">
+        <Text className="text-sm text-ink">
           {t(`invoices.paymentMethods.${paymentMethod}`)}
           {bankAccount ? ` · ${bankAccount}` : ""}
         </Text>
-        <Text size="sm" className="text-foreground">
+        <Text className="text-sm text-ink">
           {currency}
           {currency !== "HUF" && exchangeRate ? ` · ${exchangeRate}` : ""}
         </Text>
-      </ReviewSection>
+      </ComposerCard>
 
-      <ReviewSection title={t("invoices.sections.lineItems")} onEdit={readOnly ? undefined : () => setStep("items")} t={t}>
+      <ComposerCard title={t("invoices.sections.lineItems")}>
         <VStack space="xs">
           {lineItems
             .filter((item) => item.description.trim())
             .map((item) => (
-              <HStack key={item.id} className="justify-between">
-                <Text size="sm" className="flex-1 text-foreground">
+              <HStack key={item.id} className="justify-between gap-3">
+                <Text className="flex-1 text-sm text-ink">
                   {item.description} × {item.quantity} {item.unit || "db"}
                 </Text>
-                <Text size="sm" className="tabular-nums text-foreground">
+                <Text className="text-sm tabular-nums text-ink">
                   {formatCurrency(lineItemGrossTotal(item), currency)}
                 </Text>
               </HStack>
             ))}
-          <VStack className="mt-2 items-end gap-1 border-t border-subtle pt-2">
-            <Text size="sm" className="text-muted-foreground">
+          <Box className="mt-2 items-end gap-1 border-t border-line pt-2">
+            <Text className="text-sm text-muted-ink">
               {t("invoices.totals.netTotal")}: {formatCurrency(totals.subtotal, currency)}
             </Text>
             {vatRows.map((row) => (
-              <Text key={row.key} size="sm" className="text-muted-foreground">
+              <Text key={row.key} className="text-sm text-muted-ink">
                 {t("invoices.composer.vatRowLabel", { label: row.label })}: {formatCurrency(row.vat, currency)}
               </Text>
             ))}
-            <Text className="font-semibold text-foreground">
+            <Text className="text-sm font-semibold text-ink">
               {t("invoices.totals.grossTotal")}: {formatCurrency(totals.totalAmount, currency)}
             </Text>
-          </VStack>
+          </Box>
         </VStack>
-      </ReviewSection>
-        </>
-      ) : null}
+      </ComposerCard>
 
-      {!readOnly ? (
-        <ReviewSection title={t("invoices.composer.dispatchTitle")} t={t}>
-          <VStack space="md">
-            <HStack className="items-start justify-between gap-3">
-              <VStack className="flex-1">
-                <Text size="sm" className="font-medium text-foreground">
-                  {clientEmail
-                    ? t("invoices.composer.sendEmailLabel", { email: clientEmail })
-                    : t("invoices.fields.sendEmail")}
-                </Text>
-                {!clientEmail ? (
-                  <Text size="xs" className="text-muted-foreground">
-                    {t("invoices.composer.sendEmailDisabledHint")}
-                  </Text>
-                ) : null}
-              </VStack>
-              <Switch
-                value={emailOnSend}
-                onValueChange={setEmailOnSend}
-                disabled={!canEnableEmailOnSend}
-                accessibilityLabel={t("invoices.fields.sendEmail")}
-              />
-            </HStack>
-
-            {/* No toggle: every finalized számla goes to NAV automatically
-                (server-side) when NAV is configured; a díjbekérő never does. */}
-            {documentType === "invoice" || documentType === "advance" ? (
-              <VStack testID="composer-nav-auto-note">
-                <Text size="sm" className="font-medium text-foreground">
-                  {t("invoices.fields.navSubmit")}
-                </Text>
-                <Text size="xs" className="text-muted-foreground">
-                  {t("invoices.fields.navSubmitHint")}
-                </Text>
-              </VStack>
-            ) : null}
-          </VStack>
-        </ReviewSection>
-      ) : null}
-
-      <ReviewSection title={t("invoices.fields.notes")} t={t}>
-        {readOnly ? (
-          <Text size="sm" className="text-foreground">{notes || "—"}</Text>
-        ) : (
-          <Textarea>
-            <TextareaInput
-              placeholder={t("invoices.placeholders.notes")}
-              value={notes}
-              onChangeText={setNotes}
-            />
-          </Textarea>
-        )}
-      </ReviewSection>
-    </VStack>
-  );
-}
-
-function ReviewSection({
-  title,
-  onEdit,
-  children,
-  t,
-}: {
-  title: string;
-  onEdit?: () => void;
-  children: React.ReactNode;
-  t: (key: string, opts?: Record<string, unknown>) => string;
-}) {
-  return (
-    <VStack space="sm" className="rounded-lg border border-border bg-card p-4">
-      <HStack className="items-center justify-between">
-        <Text size="sm" className="font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </Text>
-        {onEdit ? (
-          <Pressable
-            onPress={onEdit}
-            accessibilityRole="button"
-            accessibilityLabel={`${t("invoices.composer.editSection")} — ${title}`}
-            className={`justify-center px-2 ${TAP_TARGET_MIN_H}`}
-          >
-            <Text size="sm" className="font-medium text-primary">
-              {t("invoices.composer.editSection")}
-            </Text>
-          </Pressable>
-        ) : null}
-      </HStack>
-      {children}
+      <ComposerCard title={t("invoices.fields.notes")}>
+        <Text className="text-sm text-ink">{notes || "—"}</Text>
+      </ComposerCard>
     </VStack>
   );
 }

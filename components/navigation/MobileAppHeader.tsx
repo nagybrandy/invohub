@@ -1,104 +1,62 @@
 // components/navigation/MobileAppHeader.tsx
-import { Bell } from "lucide-react-native";
+// Phone top bar (SPEC §5.3, tokens.md §6.11): the account button on the left
+// (opens the account menu as a bottom sheet), a search icon and the bell on
+// the right. Tapping the search icon turns the whole bar into a full-width
+// search field with a close button. No logo, no title.
+import * as React from "react";
+import { Search } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
-import { ThemeToggle } from "@/components/navigation/ThemeToggle";
+import { GlobalSearchField } from "@/components/navigation/GlobalSearchField";
+import { NotificationBell } from "@/components/navigation/NotificationBell";
 import { Box } from "@/components/ui/box";
-import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
-import { isWeb } from "@/lib/platform";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { TAP_TARGET_ICON_BOX, hitSlopExcept } from "@/lib/ui/tap-target";
 
-// Fixed on-navy ink for icons on this always-navy header, matching AppSidebar.
-const ON_DARK_ICON = "#ffffff";
-
-type MobileAppHeaderProps = {
-  userName?: string;
-  userRole?: string;
-  companyName?: string;
+export type MobileAppHeaderProps = {
+  /** The account button (AccountMenu variant="header"). */
+  accountMenu: React.ReactNode;
   unreadCount: number;
   onOpenNotifications: () => void;
+  notificationsOpen?: boolean;
 };
 
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 export function MobileAppHeader({
-  userName,
-  companyName,
+  accountMenu,
   unreadCount,
   onOpenNotifications,
+  notificationsOpen = false,
 }: MobileAppHeaderProps) {
   const { t } = useTranslation();
   const icons = useIconColors();
-  const displayName = companyName?.trim() || userName?.trim() || "InvoHub";
-  // The avatar monogram is always derived from the signed-in USER's name,
-  // never the company's — two entrepreneurs at the same company must see
-  // their own initials, not "InvoHub Demo"'s (M3 fix).
-  const monogramSource = userName?.trim() || displayName;
+  const [searchOpen, setSearchOpen] = React.useState(false);
 
   return (
-    <Box className="bg-secondary px-4 py-3">
-      <HStack className="items-center justify-between">
-        <HStack space="sm" className="flex-1 items-center">
-          <Box className="h-9 w-9 items-center justify-center rounded-full bg-secondary-foreground/15">
-            <Text className="text-xs font-bold text-white">
-              {initials(monogramSource)}
-            </Text>
-          </Box>
-          <VStack className="flex-1">
-            <Text
-              className="font-semibold text-white"
-              isTruncated
-              {...(isWeb() ? {} : { numberOfLines: 1 })}
-            >
-              {displayName}
-            </Text>
-            {userName && companyName ? (
-              <Text size="xs" className="text-secondary-foreground/70">
-                {userName}
-              </Text>
-            ) : null}
-          </VStack>
-        </HStack>
-
-        <HStack space="sm" className="items-center">
+    <Box
+      testID="mobile-app-header"
+      className="relative z-10 h-14 flex-row items-center gap-2 border-b border-line bg-surface px-3"
+    >
+      {searchOpen ? (
+        <GlobalSearchField variant="phone" autoFocus onClose={() => setSearchOpen(false)} />
+      ) : (
+        <>
+          <Box className="min-w-0 flex-1 items-start">{accountMenu}</Box>
           <Pressable
-            onPress={onOpenNotifications}
-            className={`relative rounded-full ${TAP_TARGET_ICON_BOX}`}
-            // Right side faces the LanguageSwitcher across an 8px gap — trim
-            // it to 0 so the bell's touch rect never steals a tap meant for
-            // the switcher's HU pill.
-            hitSlop={hitSlopExcept(["right"])}
-            accessibilityLabel={
-              unreadCount > 0 ? t("nav.notificationsUnread", { count: unreadCount }) : t("nav.notifications")
-            }
+            testID="mobile-search-button"
+            onPress={() => setSearchOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t("shell.search.open")}
+            className="h-10 w-10 items-center justify-center rounded-control data-[hover=true]:bg-neutral-wash"
           >
-            <Bell size={22} color={ON_DARK_ICON} />
-            {unreadCount > 0 ? (
-              // Offset INSIDE the enlarged 44px box (not the box corner) so
-              // the badge stays visually attached to the bell glyph instead
-              // of drifting to the far corner of the bigger tap target.
-              <Box className="absolute right-1.5 top-1.5 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 py-0.5">
-                <Text size="xs" className="font-bold text-white">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </Text>
-              </Box>
-            ) : null}
+            <Search size={20} color={icons.foreground} />
           </Pressable>
-          <ThemeToggle tone="onDark" testID="mobile-header-theme-toggle" />
-          <LanguageSwitcher tone="onDark" />
-        </HStack>
-      </HStack>
+          <NotificationBell
+            unreadCount={unreadCount}
+            onPress={onOpenNotifications}
+            expanded={notificationsOpen}
+            testID="mobile-notification-bell"
+          />
+        </>
+      )}
     </Box>
   );
 }

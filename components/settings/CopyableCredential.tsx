@@ -2,6 +2,7 @@
 // Label + monospace value with one-click copy feedback.
 import * as React from "react";
 import { Copy, Check } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
@@ -16,6 +17,7 @@ type CopyableCredentialProps = {
 };
 
 export function CopyableCredential({ label, value, hint }: CopyableCredentialProps) {
+  const { t } = useTranslation();
   const icons = useIconColors();
   const [copied, setCopied] = React.useState(false);
   const copiedTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,23 +46,17 @@ export function CopyableCredential({ label, value, hint }: CopyableCredentialPro
 
   return (
     <VStack space="xs" className="w-full">
-      <Text size="xs" className="font-medium text-muted-foreground">
-        {label}
-      </Text>
-      <HStack className="items-center gap-2 rounded-md border border-border bg-muted/40 p-2">
-        <Text selectable size="xs" className="flex-1 break-all font-mono text-foreground">
+      <Text className="text-[13px] font-semibold text-ink">{label}</Text>
+      <HStack className="items-center gap-2 rounded-control border border-line-strong bg-wash2 p-2 pl-3">
+        <Text selectable className="min-w-0 flex-1 break-all font-mono text-xs text-ink">
           {value}
         </Text>
-        <Button size="sm" variant="outline" onPress={() => void handleCopy()}>
-          {copied ? <Check size={14} color={icons.muted} /> : <Copy size={14} color={icons.muted} />}
-          <ButtonText>{copied ? "Copied" : "Copy"}</ButtonText>
+        <Button size="sm" variant="secondary" onPress={() => void handleCopy()}>
+          {copied ? <Check size={14} color={icons.ok} /> : <Copy size={14} color={icons.muted} />}
+          <ButtonText>{copied ? t("settingsPages.copied") : t("settingsPages.copy")}</ButtonText>
         </Button>
       </HStack>
-      {hint ? (
-        <Text size="xs" className="text-muted-foreground">
-          {hint}
-        </Text>
-      ) : null}
+      {hint ? <Text className="text-[13px] text-muted-ink">{hint}</Text> : null}
     </VStack>
   );
 }

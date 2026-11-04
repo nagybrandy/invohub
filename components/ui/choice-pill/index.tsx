@@ -41,11 +41,44 @@ export type ChoicePillProps = {
   testID?: string;
   /** Extra layout classes from the caller (width, rounding, flex). */
   className?: string;
+  /**
+   * default: the existing rounded choice (VAT category, payment method, ...).
+   * filter:  tokens.md §6.4 filter chip (sheet status chips): pill, pressed = primary-ink fill.
+   * quick:   composer quick chip (deadline days, Ma / Előző hó vége): pill, pressed = primary wash.
+   */
+  variant?: ChoicePillVariant;
 };
+
+export type ChoicePillVariant = "default" | "filter" | "quick";
 
 const BASE = "flex-row items-center justify-center rounded-lg border px-3 py-2";
 const SELECTED_TOKENS = "border-primary bg-primary/10";
 const UNSELECTED_TOKENS = "border-border bg-background";
+
+// The 44px floor stays on every variant (it is appended last below); only the
+// shape and colours change. Pill variants use the design tokens directly.
+const VARIANT_CLASSES: Record<
+  Exclude<ChoicePillVariant, "default">,
+  { base: string; selected: string; unselected: string }
+> = {
+  filter: {
+    base: "flex-row items-center justify-center rounded-full border px-3.5 py-2",
+    selected: "border-primary-ink bg-primary-ink",
+    unselected: "border-line-strong bg-surface data-[hover=true]:bg-neutral-wash",
+  },
+  quick: {
+    base: "flex-row items-center justify-center rounded-full border px-3 py-2",
+    selected: "border-primary bg-primary-wash",
+    unselected: "border-line-strong bg-surface data-[hover=true]:bg-neutral-wash",
+  },
+};
+
+/** Text classes for a label rendered inside a pill of the given variant. */
+export function choicePillTextClass(variant: ChoicePillVariant, selected: boolean): string {
+  if (variant === "filter") return selected ? "text-sm font-semibold text-white" : "text-sm font-medium text-ink";
+  if (variant === "quick") return selected ? "text-[13px] font-semibold text-primary-ink" : "text-[13px] font-medium text-ink";
+  return selected ? "text-sm font-medium text-primary" : "text-sm text-foreground";
+}
 
 export function ChoicePill({
   selected = false,
@@ -56,7 +89,11 @@ export function ChoicePill({
   accessibilityRole = "radio",
   testID,
   className = "",
+  variant = "default",
 }: ChoicePillProps) {
+  const v = variant === "default" ? null : VARIANT_CLASSES[variant];
+  const base = v ? v.base : BASE;
+  const state = selected ? (v ? v.selected : SELECTED_TOKENS) : v ? v.unselected : UNSELECTED_TOKENS;
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -65,7 +102,7 @@ export function ChoicePill({
       accessibilityState={{ selected, disabled }}
       accessibilityLabel={accessibilityLabel}
       testID={testID}
-      className={`${BASE} ${selected ? SELECTED_TOKENS : UNSELECTED_TOKENS} ${className} ${
+      className={`${base} ${state} ${className} ${
         disabled ? "opacity-50" : ""
       } ${TAP_TARGET_MIN_H}`}
     >

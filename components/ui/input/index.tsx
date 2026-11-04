@@ -9,7 +9,6 @@ import { withStyleContext } from '@gluestack-ui/utils/nativewind-utils';
 import { cssInterop } from 'nativewind';
 import type { VariantProps } from '@gluestack-ui/utils/nativewind-utils';
 import { UIIcon } from '@gluestack-ui/core/icon/creator';
-import { TAP_TARGET_H } from '@/lib/ui/tap-target';
 
 const SCOPE = 'INPUT';
 
@@ -33,16 +32,15 @@ cssInterop(UIIcon, {
   },
 });
 
-// The 44px floor (Apple HIG 44pt / WCAG 2.5.8 AAA) is part of the BASE
-// string, not a caller-supplied className, deliberately: Input composes with
-// tva() (twMerge), so a call site that explicitly writes its own `h-*` still
-// wins — unlike ChoicePill, whose plain-template-literal composition puts
-// its floor last so no caller className can strip it (see
-// components/ui/choice-pill/index.tsx). Inputs are a smaller, more
-// deliberate call-site surface than pills, so an explicit override staying
-// greppable is the right trade-off here. Do not "unify" the two conventions.
+// Redesign 2026-11 (tokens.md §6.3): inputs are 42px high with an 8px radius,
+// a line-strong border on the surface colour; focus is a 2px primary outline
+// hugging the border (offset 0) with the border turning primary; invalid is
+// an err border; disabled is a wash2 field with faint text. The height is in
+// the BASE string (tva/twMerge), so a call site that explicitly writes its own
+// `h-*` still wins, which stays greppable in a diff.
+export const INPUT_HEIGHT_PX = 42;
 const inputStyleVariants = tva({
-  base: `${TAP_TARGET_H} w-full flex-row items-center rounded-lg border border-border dark:bg-input/30 bg-card shadow-xs transition-[color,box-shadow] overflow-hidden data-[focus=true]:outline-none data-[focus=true]:border-ring dark:data-[focus=true]:border-ring data-[focus=true]:web:ring-[3px] data-[focus=true]:web:ring-ring/30 data-[invalid=true]:border-destructive/40 dark:data-[invalid=true]:border-destructive/40 data-[invalid=true]:web:ring-destructive/20 dark:data-[invalid=true]:web:ring-destructive/40 data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50 px-3 gap-2`,
+  base: `focus-ring-host h-[42px] w-full flex-row items-center rounded-control border border-line-strong bg-surface transition-[color,border-color] overflow-hidden data-[focus=true]:border-primary data-[focus=true]:web:outline data-[focus=true]:web:outline-2 data-[focus=true]:web:outline-primary data-[invalid=true]:border-err data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:bg-wash2 px-3 gap-2`,
 });
 // tva()'s returned function destructures its argument directly, so calling
 // it with zero arguments throws instead of resolving to the base string
@@ -53,7 +51,7 @@ const inputStyleVariants = tva({
 export const inputStyle: typeof inputStyleVariants = (props) => inputStyleVariants(props ?? {});
 
 const inputIconStyle = tva({
-  base: 'justify-center items-center text-muted-foreground fill-none h-4 w-4',
+  base: 'justify-center items-center text-muted-ink fill-none h-4 w-4',
 });
 
 const inputSlotStyle = tva({
@@ -61,7 +59,7 @@ const inputSlotStyle = tva({
 });
 
 const inputFieldStyle = tva({
-  base: 'flex-1 text-foreground font-light text-sm md:text-sm py-1 h-full placeholder:text-muted-foreground  web:outline-none ios:leading-[0px] web:cursor-text web:data-[disabled=true]:cursor-not-allowed',
+  base: 'flex-1 text-ink font-normal text-sm md:text-sm py-1 h-full placeholder:text-faint web:data-[disabled=true]:text-faint  web:outline-none ios:leading-[0px] web:cursor-text web:data-[disabled=true]:cursor-not-allowed',
 });
 
 type IInputProps = React.ComponentProps<typeof UIInput> &

@@ -1,31 +1,38 @@
 // components/ui/button/tap-target.test.ts
-// AC1–AC3: the 44px floor (Apple HIG 44pt / WCAG 2.5.8 AAA) lives in
-// buttonStyle itself, not at each call site. Pure unit test on the exported
-// `buttonStyle` — no rendering, so it can't be defeated by cssInterop
-// indirection under jest-expo.
+// Redesign 2026-11 (tokens.md §6.2): button heights are the design's, not
+// the old 44px floor: sm 34 (40 on phones), md 40, form 42, lg 46. Touch
+// targets stay >= 40px on phones. Pure unit test on the exported
+// `buttonStyle` so cssInterop indirection under jest-expo cannot defeat it.
 import { buttonStyle } from "@/components/ui/button";
-import { MIN_TAP_TARGET_PX, TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
-describe("Button size variants clear the 44px tap-target floor", () => {
-  it.each(["default", "sm", "lg"] as const)("size=%s clears the 44px floor", (size) => {
-    expect(buttonStyle({ size })).toContain(TAP_TARGET_MIN_H);
+describe("Button sizes follow the design heights", () => {
+  it.each([
+    ["md", "h-10"],
+    ["form", "h-[42px]"],
+    ["lg", "h-[46px]"],
+  ] as const)("size=%s is %s", (size, cls) => {
+    expect(buttonStyle({ size })).toContain(cls);
   });
 
-  it("icon size is a 44x44 box", () => {
-    expect(buttonStyle({ size: "icon" })).toContain("h-11 w-11");
+  it("sm is 34px and grows to 40px on phones", () => {
+    const sm = buttonStyle({ size: "sm" });
+    expect(sm).toContain("h-[34px]");
+    expect(sm).toContain("phone:h-10");
   });
 
-  it("keeps the size scale's horizontal/type differences", () => {
+  it("icon size is a 34px square (40 on phones)", () => {
+    const icon = buttonStyle({ size: "icon" });
+    expect(icon).toContain("h-[34px] w-[34px]");
+    expect(icon).toContain("phone:h-10 phone:w-10");
+  });
+
+  it("the default size is the 40px md size", () => {
+    expect(buttonStyle()).toContain("h-10");
+  });
+
+  it("keeps the size scale's horizontal padding differences", () => {
     expect(buttonStyle({ size: "sm" })).toContain("px-3");
-    expect(buttonStyle({ size: "sm" })).toContain("text-xs");
-    expect(buttonStyle({ size: "lg" })).toContain("px-8");
-  });
-
-  it("defaults to the floor with no args", () => {
-    expect(buttonStyle()).toContain(TAP_TARGET_MIN_H);
-  });
-
-  it("documents the floor it enforces", () => {
-    expect(MIN_TAP_TARGET_PX).toBe(44);
+    expect(buttonStyle({ size: "lg" })).toContain("px-[22px]");
+    expect(buttonStyle({ size: "md" })).toContain("px-4");
   });
 });

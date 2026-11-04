@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type PDFDocument from "pdfkit";
 import { collectSearchRoots } from "@/lib/invoices/pdf-document";
+import type { PdfFontStyle } from "@/lib/invoices/pdf-template/types";
 
 type PdfDocumentInstance = InstanceType<typeof PDFDocument>;
 
@@ -86,4 +87,121 @@ export function documentFontNames(doc: PdfDocumentInstance): { regular: string; 
     return { regular: PDF_FONT_REGULAR, bold: PDF_FONT_BOLD };
   }
   return { regular: FALLBACK_FONT_REGULAR, bold: FALLBACK_FONT_BOLD };
+}
+
+// ---------------------------------------------------------------------------
+// Paper fonts (2026-11 redesign): three heading + body pairings, all SIL OFL
+// static TTFs vendored under assets/fonts/pdf/<dir>/ (provenance in the README
+// there) and copied to dist/server/assets/pdf-fonts/<dir>/ by
+// scripts/prepare-server-pdf-deps.mjs.
+// ---------------------------------------------------------------------------
+
+export type PaperFontRole = "head500" | "head600" | "head700" | "body400" | "body700";
+export const PAPER_FONT_ROLES: PaperFontRole[] = ["head500", "head600", "head700", "body400", "body700"];
+
+/** Files per font style, relative to the pdf-fonts root (dist/server/assets/pdf-fonts or assets/fonts/pdf). */
+export const PAPER_FONT_FILES: Record<PdfFontStyle, Record<PaperFontRole, string>> = {
+  invohub: {
+    head500: "stack-sans/StackSansNotch-Medium.ttf",
+    head600: "stack-sans/StackSansNotch-SemiBold.ttf",
+    head700: "stack-sans/StackSansNotch-Bold.ttf",
+    body400: "stack-sans/StackSansText-Regular.ttf",
+    body700: "stack-sans/StackSansText-Bold.ttf",
+  },
+  classic: {
+    head500: "source/SourceSerif4-Medium.ttf",
+    head600: "source/SourceSerif4-SemiBold.ttf",
+    head700: "source/SourceSerif4-Bold.ttf",
+    body400: "source/SourceSans3-Regular.ttf",
+    body700: "source/SourceSans3-Bold.ttf",
+  },
+  round: {
+    head500: "nunito/Nunito-Medium.ttf",
+    head600: "nunito/Nunito-SemiBold.ttf",
+    head700: "nunito/Nunito-Bold.ttf",
+    body400: "nunito/NunitoSans-Regular.ttf",
+    body700: "nunito/NunitoSans-Bold.ttf",
+  },
+};
+
+/** Every vendored paper font file (15), for the bundling scripts and tests. */
+export const ALL_PAPER_FONT_FILES: string[] = Object.values(PAPER_FONT_FILES).flatMap((files) =>
+  Object.values(files)
+);
+
+export type PaperFonts = Record<PaperFontRole, string> & {
+  /** False only on the Helvetica last resort (ő/ű must be transliterated by the caller). */
+  embedded: boolean;
+  /** Which family actually got registered. */
+  source: "style" | "noto" | "helvetica";
+};
+
+const fontBufferCache = new Map<string, Buffer>();
+
+function readFontBuffer(file: string): Buffer {
+  let buffer = fontBufferCache.get(file);
+  if (!buffer) {
+    buffer = fs.readFileSync(file);
+    fontBufferCache.set(file, buffer);
+  }
+  return buffer;
+}
+
+/** Absolute paths of a style's five files, or null unless all five exist in one font root. */
+export function resolvePaperFontFiles(style: PdfFontStyle): Record<PaperFontRole, string> | null {
+  const wanted = PAPER_FONT_FILES[style];
+  for (const root of collectSearchRoots()) {
+    for (const dir of fontDirCandidates(root)) {
+      const resolved = {} as Record<PaperFontRole, string>;
+      let complete = true;
+      for (const role of PAPER_FONT_ROLES) {
+        const file = path.join(dir, wanted[role]);
+        if (!fs.existsSync(file)) {
+          complete = false;
+          break;
+        }
+        resolved[role] = file;
+      }
+      if (complete) return resolved;
+    }
+  }
+  return null;
+}
+
+let warnedPaperFontFallback = false;
+
+/**
+ * Registers the five fonts of `style` on `doc` under non-base-14 names
+ * (IHPaper-<style>-<role>); buffers are read once per process. If the style's
+ * files are missing, every role falls back to the Noto Sans pair, and if that
+ * is missing too to Helvetica (embedded: false). Never throws.
+ */
+export function registerPaperFonts(doc: PdfDocumentInstance, style: PdfFontStyle): PaperFonts {
+  const files = resolvePaperFontFiles(style);
+  if (files) {
+    const names = {} as Record<PaperFontRole, string>;
+    for (const role of PAPER_FONT_ROLES) {
+      const name = `IHPaper-${style}-${role}`;
+      doc.registerFont(name, readFontBuffer(files[role]));
+      names[role] = name;
+    }
+    return { ...names, embedded: true, source: "style" };
+  }
+
+  if (!warnedPaperFontFallback) {
+    warnedPaperFontFallback = true;
+    console.error(
+      `registerPaperFonts: the "${style}" paper fonts are unresolvable, falling back to Noto Sans / Helvetica`
+    );
+  }
+  const noto = registerDocumentFonts(doc);
+  return {
+    head500: noto.regular,
+    head600: noto.bold,
+    head700: noto.bold,
+    body400: noto.regular,
+    body700: noto.bold,
+    embedded: noto.embedded,
+    source: noto.embedded ? "noto" : "helvetica",
+  };
 }

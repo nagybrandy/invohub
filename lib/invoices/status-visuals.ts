@@ -14,47 +14,29 @@ export type StatusVisual = {
   border: string;
 };
 
+// Redesign 2026-11 (tokens.md §6.4): one colour per status, from the design
+// tokens. Only `paid` is ever green; overdue is the only red; "waiting"
+// (sent / unpaid) is the blue wash; draft, proforma and cancelled are neutral.
+const NEUTRAL: StatusVisual = {
+  chip: "bg-neutral-wash",
+  text: "text-muted-ink",
+  border: "border-transparent",
+};
+const WAITING: StatusVisual = {
+  chip: "bg-primary-wash",
+  text: "text-primary-ink",
+  border: "border-transparent",
+};
+
 export const STATUS_VISUALS: Record<InvoiceStatus, StatusVisual> = {
-  paid: {
-    chip: "bg-[#15803d]/10",
-    text: "text-[#15803d]",
-    border: "border-[#15803d]/30",
-  },
-  partially_paid: {
-    chip: "bg-amber-500/10",
-    text: "text-amber-700",
-    border: "border-amber-500/30",
-  },
-  sent: {
-    chip: "bg-primary/10",
-    text: "text-primary",
-    border: "border-primary/30",
-  },
-  unpaid: {
-    chip: "bg-muted",
-    text: "text-foreground",
-    border: "border-border",
-  },
-  overdue: {
-    chip: "bg-destructive/10",
-    text: "text-destructive",
-    border: "border-destructive/30",
-  },
-  draft: {
-    chip: "bg-muted",
-    text: "text-muted-foreground",
-    border: "border-border",
-  },
-  proforma: {
-    chip: "bg-accent",
-    text: "text-accent-foreground",
-    border: "border-primary/20",
-  },
-  cancelled: {
-    chip: "bg-muted/60",
-    text: "text-muted-foreground/70",
-    border: "border-border/50",
-  },
+  paid: { chip: "bg-ok-wash", text: "text-ok", border: "border-transparent" },
+  partially_paid: { chip: "bg-warn-wash", text: "text-warn", border: "border-transparent" },
+  sent: WAITING,
+  unpaid: WAITING,
+  overdue: { chip: "bg-err-wash", text: "text-err", border: "border-transparent" },
+  draft: NEUTRAL,
+  proforma: NEUTRAL,
+  cancelled: NEUTRAL,
 };
 
 const OVERDUE_ELIGIBLE_STATUSES: InvoiceStatus[] = [

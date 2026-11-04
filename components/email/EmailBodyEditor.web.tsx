@@ -1,19 +1,15 @@
 // components/email/EmailBodyEditor.web.tsx
-// The visual e-mail body editor: a contentEditable surface with a small
+// The visual e-mail body editor: a contentEditable surface with an attached
 // toolbar (bold, italic, list, link) and one chip per placeholder that
 // inserts {{variable}} at the caret. The value in and out is the same
 // bodyHtml the mail sender renders — what you see is what gets sent.
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Bold, Italic, Link, List } from "lucide-react-native";
-import { HStack } from "@/components/ui/hstack";
+import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
-import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
-import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
+import { InsertChips } from "@/components/email/InsertChips";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { TAP_TARGET_ICON_BOX } from "@/lib/ui/tap-target";
-import { placeholder, TEMPLATE_VARIABLE_KEYS } from "@/lib/email/templates/editor";
 import type { EmailBodyEditorProps } from "@/components/email/EmailBodyEditor";
 
 export type { EmailBodyEditorProps };
@@ -91,9 +87,12 @@ export function EmailBodyEditor({ value, onChange, testID = "email-body-editor" 
   }
 
   return (
-    <VStack space="sm">
-      <HStack space="sm" className="flex-wrap items-center">
-        <HStack space="xs" className="items-center rounded-lg border border-subtle p-0.5" testID="email-editor-toolbar">
+    // One field: the toolbar and the placeholder chips are attached to the
+    // editable surface (a --wash2 bar on top), the border turns primary while
+    // the surface has focus.
+    <div className="overflow-hidden rounded-control border border-line-strong bg-surface focus-within:border-primary focus-within:outline focus-within:outline-2 focus-within:outline-primary">
+      <Box className="gap-2 border-b border-line bg-wash2 px-2.5 py-2">
+        <Box className="flex-row gap-0.5" testID="email-editor-toolbar" accessibilityRole="toolbar">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
             return (
@@ -102,23 +101,16 @@ export function EmailBodyEditor({ value, onChange, testID = "email-body-editor" 
                 accessibilityRole="button"
                 accessibilityLabel={t(tool.labelKey)}
                 onPress={() => run(tool.command)}
-                className={`${TAP_TARGET_ICON_BOX} rounded-md data-[hover=true]:bg-muted`}
+                className="h-8 w-[34px] items-center justify-center rounded-md data-[hover=true]:bg-neutral-wash"
                 testID={`email-tool-${tool.key}`}
               >
                 <Icon size={16} color={icons.foreground} />
               </Pressable>
             );
           })}
-        </HStack>
-        <Text size="xs" className="text-muted-foreground">{t("emailEditor.insertVariable")}</Text>
-        <ChoicePillGroup>
-          {TEMPLATE_VARIABLE_KEYS.map((key) => (
-            <ChoicePill key={key} selected={false} onPress={() => insert(placeholder(key))} testID={`email-var-${key}`}>
-              <Text size="xs">{t(`emailEditor.variables.${key}`)}</Text>
-            </ChoicePill>
-          ))}
-        </ChoicePillGroup>
-      </HStack>
+        </Box>
+        <InsertChips onInsert={insert} />
+      </Box>
       <div
         ref={surfaceRef}
         contentEditable
@@ -137,8 +129,8 @@ export function EmailBodyEditor({ value, onChange, testID = "email-body-editor" 
           rememberSelection();
           emit();
         }}
-        className="min-h-[260px] rounded-lg border border-subtle bg-surface px-4 py-3 text-[15px] leading-6 text-foreground outline-none focus:border-primary [&_a]:text-primary [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2"
+        className="min-h-[220px] px-3.5 py-3 text-[15px] leading-6 text-ink outline-none [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2"
       />
-    </VStack>
+    </div>
   );
 }

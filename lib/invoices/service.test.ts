@@ -124,6 +124,12 @@ jest.mock("@/db/transaction", () => ({
   ),
 }));
 
+// Finalizing reads the live PDF appearance to freeze onto the document
+// (covered in atomic-numbering.test.ts); the db mock here doesn't model it.
+jest.mock("@/lib/invoices/pdf-template/service", () => ({
+  getPdfTemplate: jest.fn().mockResolvedValue({}),
+}));
+
 // Every service.ts test in this file numbers a document (or doesn't) via
 // the real db mock above — the company profile itself is mocked separately
 // here so those tests never need to also queue a company select. Defaults

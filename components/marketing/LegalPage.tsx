@@ -1,10 +1,11 @@
 // components/marketing/LegalPage.tsx
-// Shared accessible layout for public legal drafts.
+// Shared layout for the public legal pages: landing header and footer, prose
+// column (max 680px, h1 32, h2 20, body 16/1.6). The text itself comes from
+// lib/legal-content.ts and is not changed by the restyle.
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
-import { ScrollView } from "react-native";
 import { useTranslation } from "react-i18next";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { PublicPage, proseStyles } from "@/components/marketing/PublicPage";
 import { Box } from "@/components/ui/box";
 import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
@@ -15,54 +16,48 @@ import {
   getLegalDocument,
   type LegalDocumentId,
 } from "@/lib/legal-content";
+import { useIconColors } from "@/lib/theme/icon-colors";
 
 export function LegalPage({ documentId }: { documentId: LegalDocumentId }) {
   const { i18n, t } = useTranslation();
+  const icons = useIconColors();
   const document = getLegalDocument(documentId, i18n.language);
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="mx-auto w-full max-w-[860px] px-4 py-8 md:px-8 md:py-16"
-      >
-        <VStack space="xl">
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.replace("/")}
-            className="self-start rounded-lg p-2 data-[focus-visible=true]:web:ring-2 data-[focus-visible=true]:web:ring-primary"
-          >
-            <HStack space="sm" className="items-center">
-              <ArrowLeft size={18} color="#4675ca" />
-              <Text className="font-medium text-primary">
-                {t("legal.back")}
-              </Text>
-            </HStack>
-          </Pressable>
+    <PublicPage testID={`legal-page-${documentId}`}>
+      <VStack className={`${proseStyles.column} gap-8`}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.replace("/")}
+          className="min-h-10 justify-center self-start rounded-control web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-primary"
+          testID="legal-back"
+        >
+          <HStack className="items-center gap-2">
+            <ArrowLeft size={18} color={icons.primary} />
+            <Text className="text-sm font-medium text-primary">{t("legal.back")}</Text>
+          </HStack>
+        </Pressable>
 
-          <Box className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
-            <Text className="font-semibold text-amber-950">
-              {t("legal.draftBadge")}
-            </Text>
-          </Box>
+        <Box className="rounded-card bg-warn-wash p-4" testID="legal-draft-badge">
+          <Text className="text-sm font-semibold text-warn">{t("legal.draftBadge")}</Text>
+        </Box>
 
-          <VStack space="xs">
-            <Heading size="3xl">{document.title}</Heading>
-            <Text size="sm" className="font-light text-muted-foreground">
-              {document.updated}
-            </Text>
-          </VStack>
-
-          {document.sections.map((section) => (
-            <VStack key={section.heading} space="sm">
-              <Heading size="lg">{section.heading}</Heading>
-              <Text className="font-light leading-7 text-muted-foreground">
-                {section.body}
-              </Text>
-            </VStack>
-          ))}
+        <VStack className="gap-1">
+          <Heading size="3xl" className={proseStyles.h1}>
+            {document.title}
+          </Heading>
+          <Text className={proseStyles.meta}>{document.updated}</Text>
         </VStack>
-      </ScrollView>
-    </SafeAreaView>
+
+        {document.sections.map((section) => (
+          <VStack key={section.heading} className="gap-2">
+            <Heading size="xl" className={proseStyles.h2}>
+              {section.heading}
+            </Heading>
+            <Text className={proseStyles.body}>{section.body}</Text>
+          </VStack>
+        ))}
+      </VStack>
+    </PublicPage>
   );
 }

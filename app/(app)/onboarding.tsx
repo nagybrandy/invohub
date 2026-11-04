@@ -156,13 +156,13 @@ export default function OnboardingScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-background"
+      className="flex-1 bg-canvas"
       contentContainerClassName="items-center gap-6 p-6 pb-12"
       keyboardShouldPersistTaps="handled"
     >
       <VStack space="xs" className="w-full max-w-lg">
         <Heading size="2xl">{t("company.onboarding.title")}</Heading>
-        <Text className="font-light text-muted-foreground">
+        <Text className="font-light text-muted-ink">
           {t("company.onboarding.subtitle")}
         </Text>
       </VStack>
@@ -233,17 +233,17 @@ export default function OnboardingScreen() {
                   {taxNumberError}
                 </Text>
               ) : null}
-              <Text size="xs" className="mt-1 font-light text-muted-foreground">
+              <Text size="xs" className="mt-1 font-light text-muted-ink">
                 {t("company.onboarding.taxNumberHint")}
               </Text>
             </FormControl>
 
             <HStack className="items-start justify-between gap-3">
               <VStack className="flex-1">
-                <Text size="sm" className="font-medium text-foreground">
+                <Text size="sm" className="font-medium text-ink">
                   {t("company.vatExempt")}
                 </Text>
-                <Text size="xs" className="font-light text-muted-foreground">
+                <Text size="xs" className="font-light text-muted-ink">
                   {t("company.vatExemptHint")}
                 </Text>
               </VStack>
@@ -322,7 +322,7 @@ export default function OnboardingScreen() {
                   className="font-light"
                 />
               </Input>
-              <Text size="xs" className="mt-1 font-light text-muted-foreground">
+              <Text size="xs" className="mt-1 font-light text-muted-ink">
                 {t("company.onboarding.bankAccountHint")}
               </Text>
             </FormControl>
@@ -347,7 +347,7 @@ export default function OnboardingScreen() {
           <VStack space="md">
             <VStack space="xs">
               <Heading size="lg">{t("company.onboarding.navSetup")}</Heading>
-              <Text size="sm" className="font-light text-muted-foreground">
+              <Text size="sm" className="font-light text-muted-ink">
                 {t("company.onboarding.navSetupHint")}
               </Text>
             </VStack>
@@ -362,7 +362,7 @@ export default function OnboardingScreen() {
             </FormControl>
 
             {navEnv === "demo" ? (
-              <Text size="sm" className="font-light text-muted-foreground">
+              <Text size="sm" className="font-light text-muted-ink">
                 {t("company.onboarding.navDemoHint")}
               </Text>
             ) : (
@@ -438,7 +438,7 @@ export default function OnboardingScreen() {
                   </Input>
                 </FormControl>
 
-                <Text size="xs" className="font-light text-muted-foreground">
+                <Text size="xs" className="font-light text-muted-ink">
                   {t("company.onboarding.navOwnOrSharedHint")}
                 </Text>
               </>
@@ -459,7 +459,7 @@ export default function OnboardingScreen() {
             </Button>
 
             <Pressable onPress={handleSkip} className="items-center py-1">
-              <Text size="sm" className="text-muted-foreground">
+              <Text size="sm" className="text-muted-ink">
                 {t("company.onboarding.skip")}
               </Text>
             </Pressable>

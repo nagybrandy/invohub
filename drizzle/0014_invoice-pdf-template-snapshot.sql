@@ -1,0 +1,1 @@
+ALTER TABLE "invoice" ADD COLUMN "pdf_template_snapshot" jsonb;

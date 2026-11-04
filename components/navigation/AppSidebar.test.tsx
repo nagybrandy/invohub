@@ -1,201 +1,150 @@
 // components/navigation/AppSidebar.test.tsx
+// The navy sidebar: 248 / 72px, head with logo + collapse toggle, the split
+// create button, six primary rows in order, the real secondary rows, the
+// account slot in the footer; the rail carries tooltips instead of labels.
 import * as React from "react";
-import { Platform } from "react-native";
 import TestRenderer, { act } from "react-test-renderer";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
+import { routes } from "@/lib/navigation";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@/components/ui/box", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
-// These tests render the full product; the flag-off default (no Importálás)
-// is pinned in lib/app-navigation.test.ts.
-jest.mock("@/lib/import/import-flag", () => ({ isInvoiceImportEnabled: () => true }));
-jest.mock("@/components/marketing/BrandLogo", () => ({
-  BrandLogo: () => {
-    const { Text } = require("react-native");
-    return <Text testID="brand-logo">InvoHub</Text>;
+jest.mock("@/lib/theme/icon-colors", () => ({
+  useIconColors: () => ({ onNavy: "#ccd", onNavyActive: "#fff" }),
+}));
+jest.mock("lucide-react-native", () => {
+  const { View } = require("react-native");
+  return new Proxy({}, { get: (_t, name) => (props: object) => <View testID={`icon-${String(name)}`} {...props} /> });
+});
+for (const m of ["box", "pressable", "text", "vstack"]) jest.mock(`@/components/ui/${m}`, () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/ui/tooltip", () => ({
+  Tooltip: ({ content, children }: { content: string; children: React.ReactNode }) => {
+    const { View } = require("react-native");
+    return <View testID="tooltip-wrapper" accessibilityHint={content}>{children}</View>;
   },
-  BrandMark: () => {
-    const { Text } = require("react-native");
-    return <Text testID="brand-mark">IH</Text>;
+}));
+jest.mock("@/components/navigation/NewCreateButton", () => ({
+  NewCreateButton: (props: { collapsed?: boolean; onNewInvoice: () => void }) => {
+    const { Pressable, Text } = require("@/__tests__/mocks/gluestack-ui");
+    return (
+      <Pressable testID="stub-create" onPress={props.onNewInvoice}>
+        <Text>{`create:${String(props.collapsed)}`}</Text>
+      </Pressable>
+    );
   },
 }));
 
-const baseProps = {
-  activePathname: "/dashboard",
-  role: "entrepreneur" as string | undefined,
-  companyName: "TestCorp Kft.",
-  companyTaxId: "12345678-1-42",
-  collapsed: false,
-  onNavigate: jest.fn(),
-  onNewInvoice: jest.fn(),
-  onOpenCompanySettings: jest.fn(),
-  onSignOut: jest.fn(),
-};
+function render(props: Partial<React.ComponentProps<typeof AppSidebar>> = {}) {
+  const handlers = {
+    onToggleCollapsed: jest.fn(),
+    onNavigate: jest.fn(),
+    onNewInvoice: jest.fn(),
+    onNewReceipt: jest.fn(),
+    onNewPartner: jest.fn(),
+  };
+  let tree!: TestRenderer.ReactTestRenderer;
+  act(() => {
+    tree = TestRenderer.create(
+      <AppSidebar
+        activePathname="/dashboard"
+        role="entrepreneur"
+        collapsed={false}
+        accountMenu={<></>}
+        {...handlers}
+        {...props}
+      />,
+    );
+  });
+  const row = (id: string) => tree.root.findAll((n) => n.props?.testID === id && typeof n.props.onPress === "function")[0];
+  return { tree, row, ...handlers };
+}
 
 describe("AppSidebar", () => {
-  const originalPlatform = Platform.OS;
-
-  beforeEach(() => {
-    Platform.OS = "web";
+  it("is navy, 248px wide and uses the white focus ring on navy", () => {
+    const { tree } = render();
+    const root = tree.root.findByProps({ testID: "app-sidebar" });
+    expect(root.props.className).toContain("bg-navy");
+    expect(root.props.className).toContain("on-navy");
+    expect(root.props.style).toEqual({ width: 248 });
   });
 
-  afterEach(() => {
-    Platform.OS = originalPlatform;
+  it("collapses to a 72px rail", () => {
+    expect(render({ collapsed: true }).tree.root.findByProps({ testID: "app-sidebar" }).props.style).toEqual({ width: 72 });
   });
 
-  it("renders exactly the six primary sections in order, plus Importálás and Admin below a divider", async () => {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} role="admin" />);
-    });
+  it("head: the logo link and the collapse toggle (labelled for the state)", () => {
+    const { tree, row, onToggleCollapsed } = render();
+    expect(JSON.stringify(tree.toJSON())).toContain("shell.brand");
+    expect(row("sidebar-collapse-toggle").props.accessibilityLabel).toBe("nav.collapseSidebar");
+    act(() => row("sidebar-collapse-toggle").props.onPress());
+    expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
+    const rail = render({ collapsed: true });
+    expect(rail.row("sidebar-collapse-toggle").props.accessibilityLabel).toBe("nav.expandSidebar");
+    expect(JSON.stringify(rail.tree.toJSON())).not.toContain("shell.brand");
+  });
+
+  it("the logo goes home", () => {
+    const { row, onNavigate } = render();
+    act(() => row("sidebar-logo").props.onPress());
+    expect(onNavigate).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("renders the split create button between the head and the nav, passing the collapsed state", () => {
+    const { tree } = render({ collapsed: true });
+    expect(JSON.stringify(tree.toJSON())).toContain("create:true");
+  });
+
+  it("lists the six primary rows in order: Főoldal, Számlák, Nyugták, Partnerek, Termékek, Beállítások", () => {
+    const { tree } = render();
     const json = JSON.stringify(tree.toJSON());
-    const order = [
-      "nav.dashboard",
-      "nav.invoices",
-      "nav.receipts",
-      "nav.partners",
-      "nav.products",
-      "nav.settings",
-      "nav.import",
-      "nav.admin",
-    ];
-    let lastIndex = -1;
-    for (const key of order) {
-      const idx = json.indexOf(`"${key}"`);
-      expect(idx).toBeGreaterThan(lastIndex);
-      lastIndex = idx;
+    const keys = ["nav.dashboard", "nav.invoices", "nav.receipts", "nav.partners", "nav.products", "nav.settings"];
+    const at = keys.map((k) => json.indexOf(`"${k}"`));
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+  });
+
+  it("lists the real secondary rows (no Importálás unless enabled, Admin only for admins)", () => {
+    const user = JSON.stringify(render().tree.toJSON());
+    for (const key of ["nav.emailEditor", "nav.dataExport", "nav.bulkUpload"]) expect(user).toContain(key);
+    expect(user).not.toContain("nav.admin");
+    expect(JSON.stringify(render({ role: "admin" }).tree.toJSON())).toContain("nav.admin");
+  });
+
+  it("highlights the active row and navigates on press", () => {
+    const { row, onNavigate } = render({ activePathname: "/invoices/abc" });
+    expect(row("sidebar-nav-invoices").props.accessibilityState).toMatchObject({ selected: true });
+    expect(row("sidebar-nav-invoices").props.className).toContain("bg-white/10");
+    expect(row("sidebar-nav-dashboard").props.accessibilityState).toMatchObject({ selected: false });
+    act(() => row("sidebar-nav-partners").props.onPress());
+    expect(onNavigate).toHaveBeenCalledWith(routes.clients);
+  });
+
+  it("rows are 10px-radius-8 links with 9/12 padding expanded, centred 11/0 when collapsed", () => {
+    expect(render().row("sidebar-nav-invoices").props.className).toContain("px-3 py-[9px]");
+    expect(render({ collapsed: true }).row("sidebar-nav-invoices").props.className).toContain("justify-center");
+    expect(render().row("sidebar-nav-invoices").props.accessibilityRole).toBe("link");
+  });
+
+  it("the rail shows no labels but gives every row a tooltip carrying the label", () => {
+    const rail = render({ collapsed: true });
+    const hints = rail.tree.root.findAllByProps({ testID: "tooltip-wrapper" }).map((n) => n.props.accessibilityHint);
+    for (const key of ["nav.dashboard", "nav.invoices", "nav.receipts", "nav.partners", "nav.products", "nav.settings", "nav.dataExport"]) {
+      expect(hints).toContain(key);
     }
-    act(() => tree.unmount());
+    expect(JSON.stringify(rail.tree.toJSON())).not.toMatch(/"children":\["nav\./);
+    // expanded: no tooltips
+    expect(render().tree.root.findAllByProps({ testID: "tooltip-wrapper" })).toHaveLength(0);
   });
 
-  it("does not show the admin link for a non-admin role", async () => {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} role="entrepreneur" />);
+  it("puts the account menu in the footer, below the nav", () => {
+    const { tree } = render({ accountMenu: <></> });
+    expect(tree.root.findByProps({ testID: "app-sidebar" })).toBeTruthy();
+    const withMenu = render({
+      accountMenu: React.createElement(require("react-native").Text, { testID: "footer-slot" }, "ACCOUNT"),
     });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).not.toContain('"nav.admin"');
-    act(() => tree.unmount());
-  });
-
-  it("puts a full-width + Új számla button at the top and wires it to onNewInvoice", async () => {
-    const onNewInvoice = jest.fn();
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} onNewInvoice={onNewInvoice} />);
-    });
-    const newInvoiceButton = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "nav.newInvoice",
-    );
-    act(() => newInvoiceButton.props.onPress?.());
-    expect(onNewInvoice).toHaveBeenCalledTimes(1);
-    act(() => tree.unmount());
-  });
-
-  it("adds a + Új nyugta shortcut under it when onNewReceipt is given", async () => {
-    const onNewReceipt = jest.fn();
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} onNewReceipt={onNewReceipt} />);
-    });
-    const button = tree.root.find((node) => node.props?.accessibilityLabel === "nav.newReceipt");
-    act(() => button.props.onPress?.());
-    expect(onNewReceipt).toHaveBeenCalledTimes(1);
-    act(() => tree.unmount());
-  });
-
-  it("marks the active row with a background token, not only font weight", async () => {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} activePathname="/invoices" />);
-    });
-    const activeRow = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "nav.invoices",
-    );
-    expect(activeRow.props.className).toContain("bg-white/14");
-    const inactiveRow = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "nav.dashboard",
-    );
-    expect(inactiveRow.props.className).not.toContain("bg-white/14");
-    act(() => tree.unmount());
-  });
-
-  it("navigates when a nav row is pressed", async () => {
-    const onNavigate = jest.fn();
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} onNavigate={onNavigate} />);
-    });
-    const productsRow = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "nav.products",
-    );
-    act(() => productsRow.props.onPress?.());
-    expect(onNavigate).toHaveBeenCalledWith("/products");
-    act(() => tree.unmount());
-  });
-
-  it("opens company settings without a chevron dropdown affordance, in one tap", async () => {
-    const onOpenCompanySettings = jest.fn();
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(
-        <AppSidebar {...baseProps} onOpenCompanySettings={onOpenCompanySettings} />,
-      );
-    });
-    const companyButton = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "nav.companySettings",
-    );
-    act(() => companyButton.props.onPress?.());
-    expect(onOpenCompanySettings).toHaveBeenCalledTimes(1);
-    act(() => tree.unmount());
-  });
-
-  it("signs out in one tap from the bottom row", async () => {
-    const onSignOut = jest.fn();
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} onSignOut={onSignOut} />);
-    });
-    const signOutButton = tree.root.find(
-      (node) => node.props?.accessibilityLabel === "nav.signOut",
-    );
-    act(() => signOutButton.props.onPress?.());
-    expect(onSignOut).toHaveBeenCalledTimes(1);
-    act(() => tree.unmount());
-  });
-
-  it("renders narrow (72px) when collapsed and wide (248px) when expanded", async () => {
-    let narrowTree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      narrowTree = TestRenderer.create(<AppSidebar {...baseProps} collapsed />);
-    });
-    const narrowRoot = narrowTree.root.find((node) => node.props?.testID === "app-sidebar");
-    expect(narrowRoot.props.className).toContain("w-[72px]");
-    act(() => narrowTree.unmount());
-
-    let wideTree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      wideTree = TestRenderer.create(<AppSidebar {...baseProps} collapsed={false} />);
-    });
-    const wideRoot = wideTree.root.find((node) => node.props?.testID === "app-sidebar");
-    expect(wideRoot.props.className).toContain("w-[248px]");
-    act(() => wideTree.unmount());
-  });
-
-  it("does not render its own collapse toggle — that lives in AppTopStrip now", async () => {
-    let tree!: TestRenderer.ReactTestRenderer;
-    await act(() => {
-      tree = TestRenderer.create(<AppSidebar {...baseProps} />);
-    });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).not.toContain("nav.collapseSidebar");
-    expect(json).not.toContain("nav.expandSidebar");
-    act(() => tree.unmount());
+    const json = JSON.stringify(withMenu.tree.toJSON());
+    expect(json.indexOf("ACCOUNT")).toBeGreaterThan(json.indexOf("nav.settings"));
+    expect(json.indexOf("ACCOUNT")).toBeGreaterThan(json.indexOf("nav.dataExport"));
   });
 });

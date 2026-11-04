@@ -31,10 +31,10 @@ export function FeatureLinkCard({
           <VStack space="xs" className="flex-1 pr-2">
             <HStack space="sm" className="items-center">
               <Icon size={20} color={icons.accent} />
-              <Text className="font-semibold text-foreground">{title}</Text>
+              <Text className="font-semibold text-ink">{title}</Text>
             </HStack>
             {description ? (
-              <Text size="xs" className="text-muted-foreground">
+              <Text size="xs" className="text-muted-ink">
                 {description}
               </Text>
             ) : null}

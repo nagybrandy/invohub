@@ -85,12 +85,28 @@ describe("PageHeader", () => {
     expect(() => tree.root.findByProps({ testID: "overflow-menu-trigger" })).toThrow();
   });
 
-  it("uses the display type scale for the title (32/38 bold heading font)", () => {
-    const tree = render({ title: "Vezérlőpult" });
-    const heading = tree.root.findByProps({ children: "Vezérlőpult" });
-    expect(heading.props.className).toContain("text-[32px]");
-    expect(heading.props.className).toContain("leading-[38px]");
+  it("uses the page-title type scale (26/700 heading font, 22 on phones; tokens.md §3)", () => {
+    const tree = render({ title: "Főoldal" });
+    const heading = tree.root.findByProps({ children: "Főoldal" });
+    expect(heading.props.className).toContain("text-[26px]");
+    expect(heading.props.className).toContain("phone:text-[22px]");
+    expect(heading.props.className).toContain("font-bold");
     expect(heading.props.className).toContain("font-heading");
+  });
+
+  it("renders the subtitle as the muted lead", () => {
+    const tree = render({ title: "Főoldal", subtitle: "2 teendő vár rád" });
+    const lead = tree.root.findByProps({ children: "2 teendő vár rád" });
+    expect(lead.props.className).toContain("text-muted-ink");
+  });
+
+  it("renders the breadcrumb above the title", () => {
+    const tree = render({
+      title: "INV-2026-0042",
+      breadcrumb: [{ label: "Számlák", href: "/invoices" as never }, { label: "INV-2026-0042" }],
+    });
+    const order = JSON.stringify(tree.toJSON());
+    expect(order.indexOf("Számlák")).toBeLessThan(order.lastIndexOf("INV-2026-0042"));
   });
 
   it("labels the overflow trigger 'Továbbiak' when overflowLabel is omitted", () => {

@@ -38,4 +38,19 @@ describe("ThemeToggle", () => {
     const btn = render().root.findAll((n) => n.props.testID === "tt" && n.props.accessibilityLabel)[0];
     expect(btn.props.accessibilityLabel).toBe("nav.switchToLight");
   });
+
+  it("flips explicitly (toggleTheme writes light or dark, never system)", () => {
+    mockIsDark = true;
+    const tree = render();
+    const btn = tree.root.findAll((n) => n.props.testID === "tt" && n.props.accessibilityLabel)[0];
+    act(() => btn.props.onPress());
+    expect(mockToggleTheme).toHaveBeenCalledTimes(1);
+    expect(mockToggleTheme).toHaveBeenCalledWith();
+  });
+
+  it("uses the neutral wash hover token", () => {
+    mockIsDark = false;
+    const btn = render().root.findAll((n) => n.props.testID === "tt" && n.props.accessibilityLabel)[0];
+    expect(btn.props.className).toContain("data-[hover=true]:bg-neutral-wash");
+  });
 });

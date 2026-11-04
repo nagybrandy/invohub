@@ -855,7 +855,8 @@ describe("InvoiceDetailScreen", () => {
     expect(addRateButton).toBeTruthy();
     expect(String(addRateButton!.props.className)).toContain("min-h-11");
     expect(String(addRateButton!.props.className)).toContain("self-start");
-    expect(String(addRateButton!.props.className)).toContain("border-destructive/40");
+    // Redesign 2026-11: the red outline now comes from the danger button variant.
+    expect(addRateButton!.props.variant).toBe("danger");
     expect(addRateButton!.props.size).toBeUndefined();
   });
 

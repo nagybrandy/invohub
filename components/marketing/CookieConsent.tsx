@@ -69,7 +69,7 @@ export function CookieConsent({
       <Pressable
         accessibilityRole="button"
         onPress={() => setVisible(true)}
-        className="fixed bottom-3 left-3 z-40 rounded-lg border border-border bg-card px-3 py-2 shadow-lg"
+        className="fixed bottom-3 left-3 z-40 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg"
         testID="cookie-consent-reopen"
       >
         <Text size="xs" className="font-medium text-primary">
@@ -85,12 +85,12 @@ export function CookieConsent({
         >
           <Box
             accessibilityRole="alert"
-            className="w-full max-w-[560px] rounded-2xl border border-border bg-card p-5 shadow-lg md:p-6"
+            className="w-full max-w-[560px] rounded-2xl border border-border bg-surface p-5 shadow-lg md:p-6"
           >
             <VStack space="lg">
               <VStack space="xs">
                 <Heading size="lg">{t("cookies.title")}</Heading>
-                <Text size="sm" className="font-light text-muted-foreground">
+                <Text size="sm" className="font-light text-muted-ink">
                   {t("cookies.description")}
                 </Text>
                 <Pressable accessibilityRole="link" onPress={onOpenPolicy}>
@@ -168,7 +168,7 @@ function CookieCategory({
         <Text size="sm" className="font-medium">
           {label}
         </Text>
-        <Text size="xs" className="font-light text-muted-foreground">
+        <Text size="xs" className="font-light text-muted-ink">
           {description}
         </Text>
       </VStack>

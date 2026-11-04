@@ -7,18 +7,14 @@
 import * as React from "react";
 import { Dimensions, Modal, Pressable as RNPressable, View } from "react-native";
 import { Box } from "@/components/ui/box";
+import {
+  MENU_PANEL_CLASS,
+  POPOVER_PANEL_CLASS,
+  type AnchoredPopoverProps,
+} from "@/components/layout/menu-shared";
 
-export type AnchoredPopoverProps = {
-  open: boolean;
-  onClose: () => void;
-  /** The trigger; rendered by the popover so it can be measured. */
-  anchor: React.ReactNode;
-  children: React.ReactNode;
-  align?: "left" | "right";
-  /** Panel width in px. */
-  width?: number;
-  testID?: string;
-};
+export type { AnchoredPopoverProps };
+export { POPOVER_PANEL_CLASS, MENU_PANEL_CLASS };
 
 const GAP = 6;
 const MARGIN = 8;
@@ -31,26 +27,33 @@ export function AnchoredPopover({
   align = "right",
   width = 360,
   testID = "anchored-popover",
+  placement = "below",
+  panelClassName = POPOVER_PANEL_CLASS,
 }: AnchoredPopoverProps) {
   const anchorRef = React.useRef<View | null>(null);
   // Rendered from the first frame at a safe default and moved once the
   // anchor has been measured — measureInWindow answers asynchronously (and
   // not at all under the jest renderer), and a form must never depend on it.
-  const [position, setPosition] = React.useState<{ top: number; left: number }>({ top: MARGIN, left: MARGIN });
+  const [position, setPosition] = React.useState<{ top?: number; bottom?: number; left: number }>({
+    top: MARGIN,
+    left: MARGIN,
+  });
 
   React.useEffect(() => {
     if (!open) return;
     const node = anchorRef.current;
     if (!node || typeof node.measureInWindow !== "function") return;
     node.measureInWindow((x, y, w, h) => {
-      const screen = Dimensions.get("window").width;
+      const { width: screen, height: screenHeight } = Dimensions.get("window");
       const rawLeft = align === "right" ? x + w - width : x;
-      setPosition({
-        top: y + h + GAP,
-        left: Math.max(MARGIN, Math.min(rawLeft, screen - width - MARGIN)),
-      });
+      const left = Math.max(MARGIN, Math.min(rawLeft, screen - width - MARGIN));
+      setPosition(
+        placement === "above"
+          ? { bottom: screenHeight - y + GAP, left }
+          : { top: y + h + GAP, left },
+      );
     });
-  }, [open, align, width]);
+  }, [open, align, width, placement]);
 
   return (
     <>
@@ -67,8 +70,8 @@ export function AnchoredPopover({
         />
         <Box
           testID={testID}
-          className="absolute rounded-xl border border-subtle bg-surface-raised p-4 shadow-md"
-          style={{ top: position.top, left: position.left, width }}
+          className={`absolute ${panelClassName}`}
+          style={{ top: position.top, bottom: position.bottom, left: position.left, width }}
         >
           {children}
         </Box>

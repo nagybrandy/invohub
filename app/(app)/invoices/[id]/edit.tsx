@@ -27,7 +27,7 @@ export default function EditInvoiceScreen() {
 
   if (loading || !invoice) {
     return (
-      <Box className="flex-1 items-center justify-center bg-background">
+      <Box className="flex-1 items-center justify-center bg-canvas">
         <ActivityIndicator />
       </Box>
     );

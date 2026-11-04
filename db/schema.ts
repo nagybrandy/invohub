@@ -4,6 +4,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -273,6 +274,16 @@ export const invoice = pgTable(
       (): AnyPgColumn => invoice.id,
       { onDelete: "set null" }
     ),
+    /**
+     * PDF appearance (invoice_pdf_template fields) SNAPSHOT as of issuance —
+     * written once, in the transaction that assigns the invoice number, so
+     * changing the template later never restyles a document already sent.
+     * Never written by mapInvoiceToDb, so later saves can't clear it. NULL on
+     * drafts and on invoices issued before this column existed; those render
+     * with the live template, which upsertPdfTemplate freezes onto them just
+     * before it changes (lib/invoices/pdf-template/service.ts).
+     */
+    pdfTemplateSnapshot: jsonb("pdf_template_snapshot"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -395,6 +406,14 @@ export const invoicePdfTemplate = pgTable(
     footerText: text("footer_text").default("Thank you for your business."),
     notesLabel: text("notes_label").notNull().default("Notes"),
     fontScale: text("font_scale").notNull().default("medium"),
+    // Paper redesign (2026-11). The column default 'legacy' keeps every row
+    // that existed before the redesign on today's look; rows created by the
+    // service always write explicit values (new users: Dóri's 'frame').
+    layout: text("layout").notNull().default("legacy"),
+    fontStyle: text("font_style").notNull().default("invohub"),
+    logoMode: text("logo_mode").notNull().default("monogram"),
+    logoSize: text("logo_size").notNull().default("M"),
+    logoPosition: text("logo_position").notNull().default("left"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

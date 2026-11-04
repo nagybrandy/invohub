@@ -12,8 +12,8 @@ import { PRIMARY_CURRENCIES } from "@/lib/currency/currencies";
 import { TAP_TARGET_MIN_H } from "@/lib/ui/tap-target";
 
 const chipClass = (selected: boolean) =>
-  `mb-2 items-center justify-center rounded-lg border px-4 py-2 ${TAP_TARGET_MIN_H} ${
-    selected ? "border-primary bg-primary/10" : "border-border bg-card"
+  `mb-2 items-center justify-center rounded-full border px-4 py-2 ${TAP_TARGET_MIN_H} ${
+    selected ? "border-primary-line bg-primary-wash" : "border-line-strong bg-surface data-[hover=true]:bg-wash2"
   }`;
 
 export function CurrencyPicker({
@@ -48,7 +48,7 @@ export function CurrencyPicker({
             testID={`${testIDPrefix}-${code}`}
             className={chipClass(code === value)}
           >
-            <Text size="sm" className={code === value ? "font-semibold text-primary" : "text-foreground"}>
+            <Text size="sm" className={code === value ? "font-semibold text-primary-ink" : "text-ink"}>
               {code}
             </Text>
           </Pressable>
@@ -60,14 +60,14 @@ export function CurrencyPicker({
             testID={`${testIDPrefix}-more`}
             className={chipClass(false)}
           >
-            <Text size="sm" className="text-foreground">
+            <Text size="sm" className="text-ink">
               {t("currency.other")}
             </Text>
           </Pressable>
         ) : null}
       </HStack>
       {moreOpen ? (
-        <HStack space="xs" className="flex-wrap rounded-lg border border-border bg-card p-2" testID={`${testIDPrefix}-others`}>
+        <HStack space="xs" className="flex-wrap rounded-control border border-line-strong bg-surface p-2" testID={`${testIDPrefix}-others`}>
           {others.map((code) => (
             <Pressable
               key={code}
@@ -77,16 +77,16 @@ export function CurrencyPicker({
               }}
               accessibilityRole="button"
               testID={`${testIDPrefix}-${code}`}
-              className="mb-1 rounded-md border border-border px-3 py-1.5"
+              className="mb-1 rounded-control border border-line-strong px-3 py-1.5"
             >
-              <Text size="sm" className={code === value ? "font-semibold text-primary" : "text-foreground"}>
+              <Text size="sm" className={code === value ? "font-semibold text-primary-ink" : "text-ink"}>
                 {code}
               </Text>
             </Pressable>
           ))}
         </HStack>
       ) : null}
-      <Text size="xs" className="text-muted-foreground">
+      <Text size="xs" className="text-muted-ink">
         {t("currency.hint")}
       </Text>
     </VStack>

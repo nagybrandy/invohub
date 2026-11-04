@@ -23,10 +23,10 @@ import { useIconColors } from "@/lib/theme/icon-colors";
 function CheckRow({ label, ok, code }: { label: string; ok: boolean; code?: string }) {
   return (
     <HStack className="items-center justify-between">
-      <Text size="sm" className="text-foreground">
+      <Text size="sm" className="text-ink">
         {label}
       </Text>
-      <Text size="sm" className={ok ? "text-primary" : "text-destructive"}>
+      <Text size="sm" className={ok ? "text-ok" : "text-err"}>
         {ok ? "OK" : (code ?? "—")}
       </Text>
     </HStack>
@@ -50,7 +50,7 @@ export function M2mDemoCard() {
   const isDemo = mode === "demo";
 
   return (
-    <Card className="border-subtle bg-background p-0" testID="m2m-demo-card">
+    <Card className="border border-line bg-surface p-0" testID="m2m-demo-card">
       <Pressable
         testID="m2m-demo-toggle"
         onPress={() => setOpen((v) => !v)}
@@ -58,10 +58,10 @@ export function M2mDemoCard() {
         className="flex-row items-center justify-between p-4"
       >
         <HStack space="xs" className="items-center flex-wrap">
-          <Text className="font-medium text-muted-foreground">{t("dashboard.devDiagnostics")}</Text>
+          <Text className="font-medium text-muted-ink">{t("dashboard.devDiagnostics")}</Text>
           {isDemo ? (
-            <Badge variant="outline" className="border-border">
-              <BadgeText className="text-[10px] text-muted-foreground">
+            <Badge variant="outline" className="border-line-strong">
+              <BadgeText className="text-[10px] text-muted-ink">
                 {t("dashboard.m2m.demoBadge")}
               </BadgeText>
             </Badge>
@@ -75,14 +75,14 @@ export function M2mDemoCard() {
       </Pressable>
 
       {open ? (
-        <Box className="border-t border-subtle p-4" testID="m2m-demo-content">
+        <Box className="border-t border-line p-4" testID="m2m-demo-content">
           <VStack space="md">
             <HStack className="items-start justify-between">
               <VStack space="xs" className="flex-1">
-                <Text className="font-semibold text-foreground">
+                <Text className="font-semibold text-ink">
                   {isDemo ? t("dashboard.m2m.titleDemo") : t("dashboard.m2m.titleTest")}
                 </Text>
-                <Text size="sm" className="text-muted-foreground">
+                <Text size="sm" className="text-muted-ink">
                   {isDemo ? t("dashboard.m2m.subtitleDemo") : t("dashboard.m2m.subtitleTest")}
                 </Text>
               </VStack>
@@ -95,7 +95,7 @@ export function M2mDemoCard() {
             {loading && !snapshot ? <Text size="sm">{t("dashboard.m2m.loading")}</Text> : null}
 
             {error ? (
-              <Text size="sm" className="text-destructive">
+              <Text size="sm" className="text-err">
                 {error}
               </Text>
             ) : null}
@@ -103,20 +103,20 @@ export function M2mDemoCard() {
             {snapshot ? (
               <VStack space="sm">
                 <VStack space="xs">
-                  <Text className="font-medium text-foreground">{snapshot.taxpayer.label}</Text>
-                  <Text size="sm" className="text-muted-foreground">
+                  <Text className="font-medium text-ink">{snapshot.taxpayer.label}</Text>
+                  <Text size="sm" className="text-muted-ink">
                     ID {snapshot.taxpayer.id}
                     {snapshot.taxpayer.hint ? ` · ${snapshot.taxpayer.hint}` : ""}
                   </Text>
                   {snapshot.detailedTaxpayer?.name ? (
-                    <Text size="sm" className="text-foreground">
+                    <Text size="sm" className="text-ink">
                       {snapshot.detailedTaxpayer.name}
                     </Text>
                   ) : null}
                 </VStack>
 
-                <VStack space="xs" className="rounded-md bg-muted/40 p-3">
-                  <Text size="sm" className="font-medium text-foreground">
+                <VStack space="xs" className="rounded-md bg-wash2 p-3">
+                  <Text size="sm" className="font-medium text-ink">
                     {t("dashboard.m2m.checksLabel")}
                   </Text>
                   {snapshot.checks.map((check) => (
@@ -127,7 +127,7 @@ export function M2mDemoCard() {
                 {snapshot.taxSummary ? (
                   <HStack space="md" className="flex-wrap">
                     <VStack>
-                      <Text size="xs" className="text-muted-foreground">
+                      <Text size="xs" className="text-muted-ink">
                         {t("dashboard.m2m.balance")}
                       </Text>
                       <Text size="sm" className="font-medium">
@@ -135,7 +135,7 @@ export function M2mDemoCard() {
                       </Text>
                     </VStack>
                     <VStack>
-                      <Text size="xs" className="text-muted-foreground">
+                      <Text size="xs" className="text-muted-ink">
                         {t("dashboard.m2m.debt")}
                       </Text>
                       <Text size="sm" className="font-medium">
@@ -146,13 +146,13 @@ export function M2mDemoCard() {
                 ) : null}
 
                 {snapshot.missingDeclarations.length > 0 ? (
-                  <Text size="sm" className="text-foreground">
+                  <Text size="sm" className="text-ink">
                     {t("dashboard.m2m.missingDeclarations", { count: snapshot.missingDeclarations.length })}
                   </Text>
                 ) : null}
 
                 {snapshot.publicDebt && snapshot.publicDebt.outstanding > 0 ? (
-                  <Text size="sm" className="text-foreground">
+                  <Text size="sm" className="text-ink">
                     {t("dashboard.m2m.publicDebt", {
                       amount: formatCurrency(snapshot.publicDebt.outstanding, "HUF"),
                     })}
@@ -161,7 +161,7 @@ export function M2mDemoCard() {
 
                 <Text
                   size="sm"
-                  className={snapshot.allEndpointsReachable ? "text-muted-foreground" : "text-destructive"}
+                  className={snapshot.allEndpointsReachable ? "text-muted-ink" : "text-err"}
                 >
                   {snapshot.allEndpointsReachable ? t("dashboard.m2m.allOk") : t("dashboard.m2m.someFailed")}
                 </Text>

@@ -1,7 +1,8 @@
 // components/invoices/InvoiceStatusChip.tsx
-// Status pill reading from the single status-color source (L3, V5). Not
-// uppercase — the previous BadgeText uppercase base read as shouting in a
-// dense list (V5 follow-up).
+// THE status pill (tokens.md §6.4): 6px radius, 12px regular text, one colour
+// per status from the single status-colour source. The same component is used
+// in lists, cards, detail pages, the dashboard and notifications. Not
+// uppercase, no border.
 import { useTranslation } from "react-i18next";
 import { Text } from "@/components/ui/text";
 import { Box } from "@/components/ui/box";
@@ -11,24 +12,20 @@ import type { InvoiceStatus } from "@/lib/invoices/types";
 
 export type InvoiceStatusChipProps = {
   status: InvoiceStatus;
-  /** "sm" (list rows, dense tables) or "md" (headers, detail pages). Default "md". */
+  /** Kept for existing call sites: both sizes render the design's single 12px pill. */
   size?: "sm" | "md";
 };
 
-export function InvoiceStatusChip({ status, size = "md" }: InvoiceStatusChipProps) {
+export function InvoiceStatusChip({ status }: InvoiceStatusChipProps) {
   const { t } = useTranslation();
   const visual = STATUS_VISUALS[status];
-  const sizeClass = size === "sm" ? "px-2 py-0.5" : "px-2.5 py-0.5";
-  const textSizeClass = size === "sm" ? "text-[11px]" : "text-xs";
 
   return (
     <Box
       testID="invoice-status-chip"
-      className={`self-start rounded-full border ${sizeClass} ${visual.chip} ${visual.border}`}
+      className={`self-start rounded-pill px-[9px] py-[2px] ${visual.chip}`}
     >
-      <Text className={`font-medium ${textSizeClass} ${visual.text}`}>
-        {t(STATUS_I18N_KEY[status])}
-      </Text>
+      <Text className={`text-xs ${visual.text}`}>{t(STATUS_I18N_KEY[status])}</Text>
     </Box>
   );
 }

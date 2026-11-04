@@ -22,10 +22,10 @@ export function ClientPartyTypeSwitch({
   return (
     <HStack className="items-center justify-between">
       <VStack className="flex-1 pr-3">
-        <Text size="sm" className="font-medium text-foreground">
+        <Text size="sm" className="font-medium text-ink">
           {t("clients.privatePerson")}
         </Text>
-        <Text size="xs" className="text-muted-foreground">
+        <Text size="xs" className="text-muted-ink">
           {t("clients.privatePersonHint")}
         </Text>
       </VStack>

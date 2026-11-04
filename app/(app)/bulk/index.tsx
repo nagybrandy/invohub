@@ -130,9 +130,9 @@ export default function BulkUploadScreen() {
         <Card className="p-4">
           <VStack space="sm">
             <Heading size="md">{t("bulk.step1")}</Heading>
-            <Text size="sm" className="text-muted-foreground">{t("bulk.format")}</Text>
-            <Text size="xs" className="font-mono text-muted-foreground">{BULK_COLUMNS.join(", ")}</Text>
-            <Text size="xs" className="text-muted-foreground">{t("bulk.formatHint", { max: BULK_MAX_ROWS })}</Text>
+            <Text size="sm" className="text-muted-ink">{t("bulk.format")}</Text>
+            <Text size="xs" className="font-mono text-muted-ink">{BULK_COLUMNS.join(", ")}</Text>
+            <Text size="xs" className="text-muted-ink">{t("bulk.formatHint", { max: BULK_MAX_ROWS })}</Text>
             <Button
               variant="outline"
               testID="bulk-template"
@@ -169,7 +169,7 @@ export default function BulkUploadScreen() {
           <Card className="p-4" testID="bulk-preview">
             <VStack space="md">
               <Heading size="md">{t("bulk.step3")}</Heading>
-              <Text size="sm" className="text-foreground">
+              <Text size="sm" className="text-ink">
                 {fileName} — {t("bulk.summary", { total: checked.length, valid: validCount, errors: errorCount })}
               </Text>
               <VStack space="xs">
@@ -177,9 +177,9 @@ export default function BulkUploadScreen() {
                   const doc = r.invoice ?? r.receipt;
                   return (
                     <HStack key={r.row} space="sm" className="items-start border-b border-subtle pb-2">
-                      <Text size="xs" className="w-10 text-muted-foreground">#{r.row}</Text>
+                      <Text size="xs" className="w-10 text-muted-ink">#{r.row}</Text>
                       <VStack className="flex-1">
-                        <Text size="sm" className="text-foreground">
+                        <Text size="sm" className="text-ink">
                           {doc ? `${t(`bulk.kinds.${doc.kind}`)} · ${r.invoice ? r.invoice.partner.name : t("bulk.noPartner")} · ${doc.lineItem.description}` : "—"}
                         </Text>
                         {r.errors.map((e) => (
@@ -197,7 +197,7 @@ export default function BulkUploadScreen() {
               </VStack>
 
               <VStack space="xs">
-                <Text size="sm" className="font-medium text-foreground">{t("bulk.modeTitle")}</Text>
+                <Text size="sm" className="font-medium text-ink">{t("bulk.modeTitle")}</Text>
                 <OptionChips
                   testIDPrefix="bulk-mode"
                   value={mode}
@@ -207,7 +207,7 @@ export default function BulkUploadScreen() {
                     { value: "issue" as Mode, label: t("bulk.modeIssue") },
                   ]}
                 />
-                <Text size="xs" className="text-muted-foreground">{issueNow ? t("bulk.modeIssueHint") : t("bulk.modeDraftHint")}</Text>
+                <Text size="xs" className="text-muted-ink">{issueNow ? t("bulk.modeIssueHint") : t("bulk.modeDraftHint")}</Text>
               </VStack>
 
               <Button onPress={() => void handleCreate()} disabled={running || validCount === 0} testID="bulk-create">
@@ -223,7 +223,7 @@ export default function BulkUploadScreen() {
           <Card className="p-4" testID="bulk-result">
             <VStack space="sm">
               <Heading size="md">{t("bulk.result")}</Heading>
-              <Text size="sm" className="text-foreground">{t("bulk.resultSummary", { ok: created.length, failed: failed.length })}</Text>
+              <Text size="sm" className="text-ink">{t("bulk.resultSummary", { ok: created.length, failed: failed.length })}</Text>
               {failed.map((o) => (
                 <Text key={o.row} size="xs" className="text-destructive">#{o.row}: {o.error}</Text>
               ))}

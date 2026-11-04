@@ -142,6 +142,41 @@ describe("useInvoiceComposer", () => {
     expect(ref.current!.clientId).toBe("client-1");
   });
 
+  it("choosing a partner fills exactly what applyClientToFormFields fills, and nothing else", async () => {
+    const { applyClientToFormFields } = require("@/lib/invoices/client-form-fields");
+    const ref = await renderComposer({ mode: "create" });
+    const before = {
+      currency: ref.current!.currency,
+      paymentMethod: ref.current!.paymentMethod,
+      deadlineDays: ref.current!.deadlineDays,
+      language: ref.current!.language,
+    };
+
+    await act(async () => {
+      ref.current!.handleSelectClient(CLIENT);
+    });
+
+    const expected = applyClientToFormFields(CLIENT);
+    expect({
+      clientId: ref.current!.clientId,
+      clientName: ref.current!.clientName,
+      clientTaxNumber: ref.current!.clientTaxNumber,
+      clientEmail: ref.current!.clientEmail,
+      clientCountry: ref.current!.clientCountry,
+      clientZip: ref.current!.clientZip,
+      clientCity: ref.current!.clientCity,
+      clientAddress: ref.current!.clientAddress,
+      clientEuVatNumber: ref.current!.clientEuVatNumber,
+    }).toEqual(expected);
+    // No last-invoice defaults: terms stay as they were.
+    expect({
+      currency: ref.current!.currency,
+      paymentMethod: ref.current!.paymentMethod,
+      deadlineDays: ref.current!.deadlineDays,
+      language: ref.current!.language,
+    }).toEqual(before);
+  });
+
   it("has no saved-at time until a save actually succeeds (INV-1)", async () => {
     const ref = await renderComposer({ mode: "create" });
 

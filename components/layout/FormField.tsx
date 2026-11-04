@@ -44,17 +44,14 @@ export function FormField({
   return (
     <VStack testID="form-field" space="xs" className={className}>
       <HStack space="xs" className="items-center">
-        <Text
-          size="xs"
-          className="font-medium uppercase tracking-wide text-muted-foreground"
-        >
+        <Text size="sm" className="font-semibold text-ink">
           {label}
         </Text>
         {required ? (
           <Text
             testID="form-field-required"
-            size="xs"
-            className="font-medium text-destructive"
+            size="sm"
+            className="font-semibold text-err"
             accessibilityLabel="required"
           >
             *
@@ -65,11 +62,11 @@ export function FormField({
         {hasError ? withDestructiveBorder(children) : children}
       </Box>
       {hasError ? (
-        <Text testID="form-field-error" size="xs" className="text-destructive">
+        <Text testID="form-field-error" size="sm" className="text-[13px] font-semibold text-err">
           {error}
         </Text>
       ) : hint ? (
-        <Text testID="form-field-hint" size="xs" className="text-muted-foreground">
+        <Text testID="form-field-hint" size="sm" className="text-[13px] text-muted-ink">
           {hint}
         </Text>
       ) : null}

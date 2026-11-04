@@ -1,5 +1,6 @@
 // components/marketing/BrandLogo.tsx
-// InvoHub brand lockup: the SVG hub mark plus the Ranade typography wordmark.
+// InvoHub brand lockup: the brand tile carrying the SVG hub mark plus the
+// Stack Sans Notch wordmark.
 //
 // The mark ships in two design directions (see brand-mark-geometry.ts and
 // marketing/brand-directions.html). Pass `mark="angular" | "rounded"` to force
@@ -18,6 +19,7 @@ import {
   type BrandMarkVariant,
 } from "@/components/marketing/brand-mark-geometry";
 import { landingColors } from "@/components/marketing/landing-theme";
+import { useIconColors } from "@/lib/theme/icon-colors";
 
 export type BrandTone = "onDark" | "onLight";
 
@@ -46,7 +48,7 @@ type BrandLogoProps = {
   variant?: "composed" | "lockup";
   /** Design direction for the paired mark. */
   mark?: BrandMarkVariant;
-  /** Pair the wordmark with the SVG mark. Off by default so chrome stays calm. */
+  /** Show the brand tile with the SVG mark next to the wordmark. On by default. */
   withMark?: boolean;
   testID?: string;
 };
@@ -114,41 +116,23 @@ export function BrandMark({
   );
 }
 
+/**
+ * The lockup used on every public page and the auth layout: the brand tile
+ * (the sidebar's primary-blue rounded square, here carrying the white hub mark)
+ * plus the "InvoHub" wordmark in Stack Sans Notch. `onDark` is for the navy
+ * bands (white wordmark); `onLight` follows the page ink in both themes.
+ */
 export function BrandLogo({
   tone = "onDark",
   height = 32,
   mark = BRAND_MARK_DEFAULT,
-  withMark = false,
+  withMark = true,
   testID = "brand-logo",
 }: BrandLogoProps) {
-  const ink = tone === "onDark" ? "text-white" : "text-secondary";
-  const accent = "text-primary";
-  const fontSize = Math.max(18, Math.round(height * 0.72));
-
-  const wordmark = (
-    <HStack className="items-baseline">
-      <Text
-        className={`font-heading font-bold tracking-tight ${ink}`}
-        style={{ fontSize, lineHeight: fontSize * 1.08, letterSpacing: -0.35 }}
-      >
-        Invo
-      </Text>
-      <Text
-        className={`font-heading font-bold tracking-tight ${accent}`}
-        style={{ fontSize, lineHeight: fontSize * 1.08, letterSpacing: -0.35 }}
-      >
-        Hub
-      </Text>
-    </HStack>
-  );
-
-  if (!withMark) {
-    return (
-      <HStack className="items-baseline" testID={testID} accessibilityLabel="InvoHub">
-        {wordmark}
-      </HStack>
-    );
-  }
+  const icons = useIconColors();
+  const ink = tone === "onDark" ? "text-white" : "text-ink";
+  const tile = Math.max(24, Math.round(height * 0.72));
+  const fontSize = Math.max(18, Math.round(tile * 0.76));
 
   return (
     <HStack
@@ -157,14 +141,28 @@ export function BrandLogo({
       testID={testID}
       accessibilityLabel="InvoHub"
     >
-      <BrandMark
-        size={Math.round(height * 0.86)}
-        tone={tone}
-        mark={mark}
-        labelled={false}
-        testID={`${testID}-mark`}
-      />
-      {wordmark}
+      {withMark ? (
+        <Box
+          className="items-center justify-center rounded-[7px] bg-primary"
+          style={{ width: tile, height: tile }}
+        >
+          <BrandMark
+            size={Math.round(tile * 0.7)}
+            tone="onDark"
+            mark={mark}
+            color={icons.onNavyActive}
+            accentColor={icons.onNavy}
+            labelled={false}
+            testID={`${testID}-mark`}
+          />
+        </Box>
+      ) : null}
+      <Text
+        className={`font-heading font-bold ${ink}`}
+        style={{ fontSize, lineHeight: fontSize * 1.1, letterSpacing: -0.2 }}
+      >
+        InvoHub
+      </Text>
     </HStack>
   );
 }

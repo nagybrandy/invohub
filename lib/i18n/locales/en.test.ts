@@ -5,7 +5,8 @@ import hu from "@/lib/i18n/locales/hu";
 describe("i18n en locale", () => {
   it("defines navigation keys", () => {
     expect(en.nav.invoices).toBe("Invoices");
-    expect(en.nav.dashboard).toBe("Dashboard");
+    expect(en.nav.dashboard).toBe("Home");
+    expect(hu.nav.dashboard).toBe("Főoldal");
     expect(en.settings.darkMode).toBe("Appearance");
   });
 });
@@ -16,6 +17,42 @@ function keyPaths(obj: unknown, prefix = ""): string[] {
     keyPaths(value, prefix ? `${prefix}.${key}` : key)
   );
 }
+
+// Redesign 2026-11 (SPEC §13.2): the foundation creates one empty namespace per
+// track, each directly after the namespace it relates to, so the five tracks
+// edit five distant regions of the files.
+describe("redesign track namespaces (SPEC §13.2)", () => {
+  const PLACEMENT: Array<[string, string]> = [
+    ["lists", "invoices"],
+    ["home", "dashboard"],
+    ["globalSearch", "notifications"],
+    ["composer", "receipts"],
+    ["settingsPages", "settings"],
+    ["publicSite", "landing"],
+  ];
+
+  it.each([
+    ["hu", hu],
+    ["en", en],
+  ] as const)("%s has each namespace, placed directly after its related one", (_name, locale) => {
+    const order = Object.keys(locale);
+    for (const [namespace, after] of PLACEMENT) {
+      expect(locale).toHaveProperty(namespace);
+      expect(order.indexOf(namespace)).toBe(order.indexOf(after) + 1);
+    }
+  });
+
+  it("the shell and ui namespaces exist in both locales", () => {
+    for (const locale of [en, hu]) {
+      expect(locale.shell.search.placeholder).toBeTruthy();
+      expect(locale.shell.logout.title).toBeTruthy();
+      expect(locale.shell.account.signOut).toBeTruthy();
+      expect(locale.ui.close).toBeTruthy();
+    }
+    expect(hu.shell.search.placeholder).toBe("Keresés");
+    expect(hu.shell.logout.title).toBe("Kijelentkezel?");
+  });
+});
 
 describe("hu/en locale parity", () => {
   it("defines the exact same set of keys in both locales", () => {

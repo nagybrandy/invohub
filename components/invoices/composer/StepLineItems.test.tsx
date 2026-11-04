@@ -1,31 +1,54 @@
 // components/invoices/composer/StepLineItems.test.tsx
-// Step 2's grid: the merged Menny./Egység column exists (INV-6), the VAT
-// row is never dropped from the live summary (INV-13), picking a catalogue
-// product wires through onAddFromProduct (INV-5), the header/grid-width
-// come from the shared COMPOSER_GRID_COLUMNS table (composer-line-item-
-// horizontal-scroll-1440, AC5), and the totals bar is sticky and renders
-// the previewSlot it's handed (AC9, AC10).
+// "Mit számlázol?" after the redesign: one header line and one row per item at
+// container >= 820 (the header cells come from the shared COMPOSER_GRID_COLUMNS
+// table, so header and rows cannot drift), the stacked layout below that, the
+// "+ Új tétel" button, the "Gyors hozzáadás" chips (first five products), the
+// gross-entry switch, the VAT row that is never dropped from the totals
+// (INV-13) and the totals block.
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { StepLineItems } from "@/components/invoices/composer/StepLineItems";
-import { COMPOSER_GRID_COLUMNS, composerGridMinWidth } from "@/components/invoices/composer/grid-columns";
+import { COMPOSER_GRID_COLUMNS } from "@/components/invoices/composer/grid-columns";
 import { makeLineItem } from "@/__tests__/fixtures/invoices";
 import type { Product } from "@/lib/products/service";
 
+const mockUi = require("@/__tests__/mocks/gluestack-ui");
+jest.mock("@/components/ui/box", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/hstack", () => require("@/__tests__/mocks/gluestack-ui"));
-jest.mock("@/components/ui/vstack", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/pressable", () => require("@/__tests__/mocks/gluestack-ui"));
 jest.mock("@/components/ui/text", () => require("@/__tests__/mocks/gluestack-ui"));
+jest.mock("@/components/ui/heading", () => ({ Heading: require("@/__tests__/mocks/gluestack-ui").Text }));
+jest.mock("@/components/ui/button", () => ({
+  Button: require("@/__tests__/mocks/gluestack-ui").Pressable,
+  ButtonText: require("@/__tests__/mocks/gluestack-ui").Text,
+}));
+jest.mock("lucide-react-native", () => {
+  const { View } = require("react-native");
+  return new Proxy({}, { get: () => View });
+});
+jest.mock("@/lib/theme/icon-colors", () => ({
+  useIconColors: () => ({ foreground: "#000", muted: "#666", primary: "#4f46e5" }),
+}));
 
-// LineItemRow has its own dependency graph (VatCategoryPicker, confirmAsync,
-// icon colors) already covered by VatCategoryPicker.test.tsx — stub it here
-// so this file stays focused on StepLineItems' own header/totals/catalog
-// wiring, not a second copy of that coverage.
+// LineItemRow has its own coverage (LineItemRow.test.tsx) — stub it so this
+// file stays about the section's own header / totals / chips wiring.
 jest.mock("@/components/invoices/composer/LineItemRow", () => ({
-  LineItemRow: ({ item, layout }: { item: { id: string; description: string }; layout: string }) => {
+  LineItemRow: ({
+    item,
+    layout,
+    compact,
+    priceMode,
+    focusDescription,
+  }: {
+    item: { id: string; description: string };
+    layout: string;
+    compact: boolean;
+    priceMode: string;
+    focusDescription: boolean;
+  }) => {
     const { Text } = require("react-native");
     return (
-      <Text testID={`row-${item.id}`} accessibilityHint={`layout:${layout}`}>
+      <Text testID={`row-${item.id}`} accessibilityHint={`layout:${layout};compact:${compact};mode:${priceMode};focus:${focusDescription}`}>
         {item.description}
       </Text>
     );
@@ -35,16 +58,18 @@ jest.mock("@/components/invoices/composer/LineItemRow", () => ({
 const t = (key: string, opts?: Record<string, unknown>) =>
   opts ? `${key}:${JSON.stringify(opts)}` : key;
 
-const PRODUCT: Product = {
-  id: "prod-1",
-  userId: "u1",
-  name: "Consulting day",
-  unit: "day",
-  unitPrice: 350,
-  vatRate: 27,
-  createdAt: "",
-  updatedAt: "",
-};
+function product(n: number): Product {
+  return {
+    id: `prod-${n}`,
+    userId: "u1",
+    name: `Termék ${n}`,
+    unit: "db",
+    unitPrice: 100 * n,
+    vatRate: 27,
+    createdAt: "",
+    updatedAt: "",
+  };
+}
 
 function render(overrides: Partial<React.ComponentProps<typeof StepLineItems>> = {}) {
   const onUpdate = jest.fn();
@@ -55,15 +80,17 @@ function render(overrides: Partial<React.ComponentProps<typeof StepLineItems>> =
   act(() => {
     tree = TestRenderer.create(
       <StepLineItems
-        lineItems={overrides.lineItems ?? [makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 450000 })]}
+        lineItems={overrides.lineItems ?? [makeLineItem({ id: "l1", description: "Tanácsadás", quantity: 1, unitPrice: 450000 })]}
         currency={overrides.currency ?? "HUF"}
-        products={overrides.products ?? [PRODUCT]}
+        products={overrides.products ?? [product(1)]}
         onUpdate={onUpdate}
         onAdd={onAdd}
         onAddFromProduct={onAddFromProduct}
         onRemove={onRemove}
-        previewSlot={overrides.previewSlot}
         isModification={overrides.isModification}
+        error={overrides.error}
+        focusField={overrides.focusField}
+        onFocusHandled={overrides.onFocusHandled}
         t={t}
       />
     );
@@ -71,7 +98,7 @@ function render(overrides: Partial<React.ComponentProps<typeof StepLineItems>> =
   return { tree: tree!, onUpdate, onAdd, onAddFromProduct, onRemove };
 }
 
-/** Simulates the form column being laid out at `width` px (onLayout). */
+/** Simulates the section being laid out at `width` px (onLayout). */
 function measure(tree: TestRenderer.ReactTestRenderer, width: number) {
   const container = tree.root.findAll((n) => n.props?.testID === "line-items-container" && typeof n.props?.onLayout === "function")[0];
   act(() => {
@@ -79,207 +106,145 @@ function measure(tree: TestRenderer.ReactTestRenderer, width: number) {
   });
 }
 
-function findPressableWithText(root: TestRenderer.ReactTestInstance, text: string) {
-  return root
-    .findAll((node) => typeof node.props?.onPress === "function")
-    .find((node) => node.findAll((child) => child.props?.children === text).length > 0);
+function byTestID(root: TestRenderer.ReactTestInstance, testID: string) {
+  return root.findAll((n) => n.props?.testID === testID);
 }
 
-describe("StepLineItems", () => {
-  it("shows the merged Menny./Egység column header (INV-6)", () => {
-    const { tree } = render();
-    measure(tree, 1000);
-    expect(JSON.stringify(tree.toJSON())).toContain("invoices.lineItemEditor.quantityUnit");
-  });
+function json(tree: TestRenderer.ReactTestRenderer) {
+  return JSON.stringify(tree.toJSON());
+}
 
-  it("renders one desktop header cell per COMPOSER_GRID_COLUMNS entry, labels via t(col.labelKey) (AC5)", () => {
+describe("StepLineItems — layout follows the section's own width", () => {
+  it("shows one header line with a cell per COMPOSER_GRID_COLUMNS entry from 820px", () => {
     const { tree } = render();
     measure(tree, 1000);
-    const json = JSON.stringify(tree.toJSON());
+    const header = byTestID(tree.root, "line-items-grid-header").find((n) => Array.isArray(n.children) && n.children.length > 1);
+    expect(header).toBeTruthy();
+    expect(header!.children).toHaveLength(COMPOSER_GRID_COLUMNS.length);
     for (const col of COMPOSER_GRID_COLUMNS) {
-      if (col.labelKey) expect(json).toContain(col.labelKey);
+      if (col.labelKey && col.key !== "unitPrice") expect(json(tree)).toContain(col.labelKey);
     }
-    // The header row itself is the (mocked-to-View) HStack that carries all
-    // 6 columns as direct children — same shape LineItemRow.test.tsx pins
-    // for the row beneath it, so header and row cannot drift.
-    const candidates = tree.root.findAll((node) => node.props?.testID === "line-items-grid-header");
-    const headerRow = candidates.find((n) => Array.isArray(n.children) && n.children.length > 1);
-    expect(headerRow).toBeTruthy();
-    expect(headerRow!.children).toHaveLength(COMPOSER_GRID_COLUMNS.length);
+    expect(byTestID(tree.root, "row-l1")[0].props.accessibilityHint).toContain("layout:row");
   });
 
-  it("renders compact cards before the container has been measured (never overflows on first paint)", () => {
-    const { tree } = render({ lineItems: [makeLineItem({ id: "a", description: "A" })] });
-    expect(tree.root.findByProps({ testID: "row-a" }).props.accessibilityHint).toBe("layout:card");
-    expect(tree.root.findAll((n) => n.props?.testID === "line-items-grid-header")).toHaveLength(0);
-  });
-
-  it.each([320, 375, 620, composerGridMinWidth() - 1])(
-    "switches every row to the card layout and drops the column header at %ipx",
-    (width) => {
-      const { tree } = render({
-        lineItems: [makeLineItem({ id: "a", description: "A" }), makeLineItem({ id: "b", description: "B" })],
-      });
-      measure(tree, width);
-      expect(tree.root.findByProps({ testID: "row-a" }).props.accessibilityHint).toBe("layout:card");
-      expect(tree.root.findByProps({ testID: "row-b" }).props.accessibilityHint).toBe("layout:card");
-      expect(tree.root.findAll((n) => n.props?.testID === "line-items-grid-header")).toHaveLength(0);
-    }
-  );
-
-  it.each([composerGridMinWidth(), 1000])("keeps the single-row grid with its header at %ipx", (width) => {
-    const { tree } = render({ lineItems: [makeLineItem({ id: "a", description: "A" })] });
-    measure(tree, width);
-    expect(tree.root.findByProps({ testID: "row-a" }).props.accessibilityHint).toBe("layout:grid");
-    expect(tree.root.findAll((n) => n.props?.testID === "line-items-grid-header").length).toBeGreaterThan(0);
-  });
-
-  it("switches back to cards when the column shrinks (e.g. the live preview is shown again)", () => {
-    const { tree } = render({ lineItems: [makeLineItem({ id: "a", description: "A" })] });
-    measure(tree, 1000);
-    measure(tree, 620);
-    expect(tree.root.findByProps({ testID: "row-a" }).props.accessibilityHint).toBe("layout:card");
-  });
-
-  it.each([375, 620, 1000])("never forces a fixed minimum width or horizontal scroll container at %ipx", (width) => {
-    const { tree } = render();
-    measure(tree, width);
-    const forced = tree.root.findAll(
-      (n) => typeof n.props?.style?.minWidth === "number" && n.props.style.minWidth > width
-    );
-    expect(forced).toHaveLength(0);
-    const scrollers = tree.root.findAll(
-      (n) => typeof n.props?.className === "string" && n.props.className.includes("overflow-x-auto")
-    );
-    expect(scrollers).toHaveLength(0);
-    expect(JSON.stringify(tree.toJSON())).not.toContain("1040");
-  });
-
-  it("makes the add-line and catalogue buttons full width with 44px targets in card layout", () => {
-    const { tree } = render();
-    measure(tree, 375);
-    const add = findPressableWithText(tree.root, "invoices.lineItemEditor.addLineItem")!;
-    expect(String(add.props.className)).toContain("w-full");
-    expect(String(add.props.className)).toContain("min-h-11");
-    const catalog = findPressableWithText(tree.root, "invoices.composer.addFromCatalog")!;
-    expect(String(catalog.props.className)).toContain("min-h-11");
-  });
-
-  it("keeps the compact inline add-line button in grid layout", () => {
+  it("labels the unit-price column with the entry mode", () => {
     const { tree } = render();
     measure(tree, 1000);
-    const add = findPressableWithText(tree.root, "invoices.lineItemEditor.addLineItem")!;
-    expect(String(add.props.className)).not.toContain("w-full");
+    expect(json(tree)).toContain("invoices.lineItemEditor.priceNet");
+    act(() => byTestID(tree.root, "unit-price-mode-switch")[0].props.onValueChange?.(true) ?? byTestID(tree.root, "unit-price-mode-switch")[0].props.onPress?.());
+    expect(json(tree)).toContain("invoices.lineItemEditor.priceGross");
   });
 
-  it("renders the previewSlot node inside the sticky totals bar (AC10)", () => {
-    const { Text } = require("react-native");
-    const { tree } = render({ previewSlot: <Text testID="preview-slot-probe">Teljes előnézet</Text> });
-    expect(tree.root.findByProps({ testID: "preview-slot-probe" })).toBeTruthy();
-  });
-
-  it("keeps the previewSlot wrapper desktop-only so it adds no mobile tap target (fix round 1)", () => {
-    const { Text } = require("react-native");
-    const { tree } = render({ previewSlot: <Text testID="preview-slot-probe">Teljes előnézet</Text> });
-    const probe = tree.root.findByProps({ testID: "preview-slot-probe" });
-    const wrapper = probe.parent!;
-    expect(typeof wrapper.props.className).toBe("string");
-    expect(wrapper.props.className).toContain("hidden");
-    expect(wrapper.props.className).toContain("md:flex");
-  });
-
-  it("gives the totals bar a sticky-bottom, opaque-background className (AC9)", () => {
+  it("drops the header line and stacks each item below 820px (and while unmeasured)", () => {
     const { tree } = render();
-    const stickyBar = tree.root.findAll(
-      (node) =>
-        typeof node.props?.className === "string" &&
-        node.props.className.includes("md:sticky") &&
-        node.props.className.includes("md:bottom-0")
-    );
-    expect(stickyBar.length).toBeGreaterThan(0);
-    expect(stickyBar.some((n) => /bg-background|bg-card/.test(n.props.className))).toBe(true);
+    expect(byTestID(tree.root, "line-items-grid-header")).toHaveLength(0);
+    expect(byTestID(tree.root, "row-l1")[0].props.accessibilityHint).toContain("layout:stacked");
+    measure(tree, 819);
+    expect(byTestID(tree.root, "line-items-grid-header")).toHaveLength(0);
   });
 
-  it("computes a live VAT row alongside Nettó/Bruttó — never just two numbers (INV-13)", () => {
+  it("moves Összesen to its own line only in a narrow container", () => {
+    const { tree } = render();
+    measure(tree, 343);
+    expect(byTestID(tree.root, "row-l1")[0].props.accessibilityHint).toContain("compact:true");
+    measure(tree, 700);
+    expect(byTestID(tree.root, "row-l1")[0].props.accessibilityHint).toContain("compact:false");
+  });
+
+  it("renders one row per item, in order, with no numbering of its own", () => {
     const { tree } = render({
-      lineItems: [makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 450000, vatRate: 27 })],
+      lineItems: [makeLineItem({ id: "a", description: "Első" }), makeLineItem({ id: "b", description: "Második" })],
     });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("invoices.totals.netTotal");
-    expect(json).toContain("invoices.composer.vatRowLabel");
-    expect(json).toContain("27%");
-    expect(json).toContain("invoices.totals.grossTotal");
-  });
-
-  it("recomputes totals live as line items change", () => {
-    const items = [makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 100000, vatRate: 27 })];
-    const { tree } = render({ lineItems: items, currency: "HUF" });
-    expect(JSON.stringify(tree.toJSON())).toContain("127,000");
-
-    act(() => {
-      tree.update(
-        <StepLineItems
-          lineItems={[makeLineItem({ description: "Tanácsadás", quantity: 1, unitPrice: 450000, vatRate: 27 })]}
-          currency="HUF"
-          products={[PRODUCT]}
-          onUpdate={jest.fn()}
-          onAdd={jest.fn()}
-          onAddFromProduct={jest.fn()}
-          onRemove={jest.fn()}
-          t={t}
-        />
-      );
-    });
-    expect(JSON.stringify(tree.toJSON())).toContain("571,500");
-  });
-
-  it("opens the catalogue and wires a pick through onAddFromProduct (INV-5)", () => {
-    const { tree, onAddFromProduct } = render();
-    const catalogToggle = findPressableWithText(tree.root, "invoices.composer.addFromCatalog");
-    act(() => {
-      catalogToggle?.props.onPress?.();
-    });
-    const productOption = findPressableWithText(tree.root, "Consulting day");
-    expect(productOption).toBeTruthy();
-    act(() => {
-      productOption?.props.onPress?.();
-    });
-    expect(onAddFromProduct).toHaveBeenCalledWith(PRODUCT);
-  });
-
-  it("renders one row per line item", () => {
-    const { tree } = render({
-      lineItems: [
-        makeLineItem({ id: "a", description: "First" }),
-        makeLineItem({ id: "b", description: "Second" }),
-      ],
-    });
-    expect(tree.root.findByProps({ testID: "row-a" })).toBeTruthy();
-    expect(tree.root.findByProps({ testID: "row-b" })).toBeTruthy();
+    expect(byTestID(tree.root, "row-a").length).toBeGreaterThan(0);
+    expect(byTestID(tree.root, "row-b").length).toBeGreaterThan(0);
+    expect(json(tree).indexOf("Első")).toBeLessThan(json(tree).indexOf("Második"));
+    expect(json(tree)).not.toContain("lineLabel");
   });
 });
 
-describe("StepLineItems — helyesbítő (modify) draft", () => {
-  it("shows the difference hint only for a modification draft", () => {
-    const normal = render();
-    expect(normal.tree.root.findAll((n) => n.props?.testID === "modification-draft-hint")).toHaveLength(0);
-
-    const modify = render({ isModification: true });
-    const hint = modify.tree.root.findAll((n) => n.props?.testID === "modification-draft-hint");
-    expect(hint.length).toBeGreaterThan(0);
-    expect(JSON.stringify(modify.tree.toJSON())).toContain("invoices.correction.draftHint");
+describe("StepLineItems — adding items", () => {
+  it("adds an empty line from '+ Új tétel'", () => {
+    const { tree, onAdd } = render();
+    act(() => byTestID(tree.root, "composer-add-item")[0].props.onPress());
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(json(tree)).toContain("composer.addItem");
   });
 
-  it("shows a zero total for a freshly created draft (reversal + copy net out)", () => {
+  it("offers the first five products as dashed 'Gyors hozzáadás' chips and adds from a chip (INV-5)", () => {
+    const products = [1, 2, 3, 4, 5, 6, 7].map(product);
+    const { tree, onAddFromProduct } = render({ products });
+    expect(json(tree)).toContain("composer.quickAdd");
+    for (const n of [1, 2, 3, 4, 5]) expect(byTestID(tree.root, `composer-quick-add-prod-${n}`).length).toBeGreaterThan(0);
+    expect(byTestID(tree.root, "composer-quick-add-prod-6")).toHaveLength(0);
+    const chip = byTestID(tree.root, "composer-quick-add-prod-3")[0];
+    expect(String(chip.props.className)).toContain("border-dashed");
+    act(() => chip.props.onPress());
+    expect(onAddFromProduct).toHaveBeenCalledWith(products[2]);
+  });
+
+  it("shows no quick-add row when the user has no products", () => {
+    const { tree } = render({ products: [] });
+    expect(byTestID(tree.root, "composer-quick-add")).toHaveLength(0);
+    expect(json(tree)).not.toContain("composer.quickAdd");
+  });
+
+  it("does not claim an Enter-adds-a-row tip (the composer does not do that)", () => {
+    expect(json(render().tree)).not.toMatch(/\bEnter\b|enterTip/i);
+  });
+});
+
+describe("StepLineItems — gross entry", () => {
+  it("starts in net mode and flips every row to gross with the switch", () => {
+    const { tree } = render();
+    expect(byTestID(tree.root, "row-l1")[0].props.accessibilityHint).toContain("mode:net");
+    const toggle = byTestID(tree.root, "unit-price-mode-switch").find((n) => typeof n.props.onPress === "function")!;
+    act(() => toggle.props.onPress());
+    expect(byTestID(tree.root, "row-l1")[0].props.accessibilityHint).toContain("mode:gross");
+    expect(json(tree)).toContain("invoices.fields.grossToggle");
+  });
+});
+
+describe("StepLineItems — totals", () => {
+  it("shows net, a VAT row per rate and the gross total", () => {
     const { tree } = render({
-      isModification: true,
       lineItems: [
-        makeLineItem({ id: "r", description: "Tanácsadás", quantity: -2, unitPrice: 1000, vatRate: 27 }),
-        makeLineItem({ id: "c", description: "Tanácsadás", quantity: 2, unitPrice: 1000, vatRate: 27 }),
+        makeLineItem({ id: "a", description: "x", quantity: 1, unitPrice: 1000, vatRate: 27, vatCategory: "normal" }),
+        makeLineItem({ id: "b", description: "y", quantity: 1, unitPrice: 1000, vatRate: 5, vatCategory: "normal" }),
       ],
     });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).not.toMatch(/-0\s?Ft/);
-    expect(json).toMatch(/0\sFt/);
+    const out = json(tree);
+    expect(out).toContain("invoices.totals.netTotal");
+    expect(out).toContain("invoices.composer.vatRowLabel");
+    expect(out).toContain("27%");
+    expect(out).toContain("5%");
+    expect(out).toContain("invoices.totals.grossTotal");
+    expect(byTestID(tree.root, "composer-totals-gross").length).toBeGreaterThan(0);
+  });
+
+  it("never drops the VAT row, even before any line has a description (INV-13)", () => {
+    const { tree } = render({ lineItems: [makeLineItem({ id: "a", description: "" })] });
+    expect(json(tree)).toContain("invoices.composer.vatRowEmpty");
+  });
+});
+
+describe("StepLineItems — messages and requests", () => {
+  it("shows the line-item error under the rows", () => {
+    const { tree } = render({ error: "Legalább egy tételt adj meg." });
+    expect(byTestID(tree.root, "composer-items-error").length).toBeGreaterThan(0);
+    expect(json(tree)).toContain("Legalább egy tételt adj meg.");
+  });
+
+  it("shows the helyesbítő hint for a correction draft", () => {
+    expect(byTestID(render({ isModification: true }).tree.root, "modification-draft-hint").length).toBeGreaterThan(0);
+    expect(byTestID(render().tree.root, "modification-draft-hint")).toHaveLength(0);
+  });
+
+  it("asks only the first row to take focus when a failed save wants the first description", () => {
+    const { tree } = render({
+      focusField: "lineItem-0-description",
+      lineItems: [makeLineItem({ id: "a", description: "" }), makeLineItem({ id: "b", description: "" })],
+    });
+    expect(byTestID(tree.root, "row-a")[0].props.accessibilityHint).toContain("focus:true");
+    expect(byTestID(tree.root, "row-b")[0].props.accessibilityHint).toContain("focus:false");
   });
 });

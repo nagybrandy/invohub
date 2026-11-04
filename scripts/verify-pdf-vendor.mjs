@@ -92,5 +92,48 @@ if (!fontPdf.includes("FontFile2")) {
 
 console.log(`Embedded PDF font vendor check OK (${fontPdf.length} bytes)`);
 
+// Paper redesign (2026-11): every one of the 15 vendored paper fonts must be
+// present in the bundle and embed as a real font program (FontFile2) — a missing
+// file would silently drop a document to the Noto/Helvetica fallback.
+const paperFontFiles = [
+  "stack-sans/StackSansNotch-Medium.ttf",
+  "stack-sans/StackSansNotch-SemiBold.ttf",
+  "stack-sans/StackSansNotch-Bold.ttf",
+  "stack-sans/StackSansText-Regular.ttf",
+  "stack-sans/StackSansText-Bold.ttf",
+  "source/SourceSerif4-Medium.ttf",
+  "source/SourceSerif4-SemiBold.ttf",
+  "source/SourceSerif4-Bold.ttf",
+  "source/SourceSans3-Regular.ttf",
+  "source/SourceSans3-Bold.ttf",
+  "nunito/Nunito-Medium.ttf",
+  "nunito/Nunito-SemiBold.ttf",
+  "nunito/Nunito-Bold.ttf",
+  "nunito/NunitoSans-Regular.ttf",
+  "nunito/NunitoSans-Bold.ttf",
+];
+for (const file of paperFontFiles) {
+  const fontPath = path.join(root, "dist/server/assets/pdf-fonts", file);
+  if (!fs.existsSync(fontPath)) {
+    console.error(`Missing vendored paper font: ${path.relative(root, fontPath)}. Run npm run vercel-build first.`);
+    process.exit(1);
+  }
+  const paperDoc = new PDFDocument({ size: "A4", margin: 48 });
+  const paperChunks = [];
+  paperDoc.on("data", (chunk) => paperChunks.push(chunk));
+  await new Promise((resolve, reject) => {
+    paperDoc.on("end", resolve);
+    paperDoc.on("error", reject);
+    paperDoc.registerFont("InvoHubPaperVendorCheck", fontPath);
+    paperDoc.font("InvoHubPaperVendorCheck").fontSize(18).text("Árvíztűrő tükörfúrógép ŐŰ", 48, 48);
+    paperDoc.end();
+  });
+  if (paperDoc._font?.constructor?.name !== "EmbeddedFont" || !Buffer.concat(paperChunks).includes("FontFile2")) {
+    console.error(`Paper font vendor check failed for ${file}: not embedded as a font program.`);
+    process.exit(1);
+  }
+}
+console.log(`Paper font vendor check OK (${paperFontFiles.length} fonts)`);
+
 // Optional: exercise generateInvoicePdf when tsx/ts-node available via dynamic import in CI later.
 void pathToFileURL;

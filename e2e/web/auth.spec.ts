@@ -94,7 +94,7 @@ test.describe("Authentication flow", () => {
     test("shows error on empty credentials submission", async ({ page }) => {
       await page.getByRole("button", { name: "Bejelentkezés" }).click();
       await page.waitForTimeout(2000);
-      const errorText = page.locator('[class*="destructive"]');
+      const errorText = page.getByTestId("login-error");
       // TODO: Requires running auth backend; error message depends on server response
       await expect(errorText.first()).toBeVisible({ timeout: 5000 });
     });

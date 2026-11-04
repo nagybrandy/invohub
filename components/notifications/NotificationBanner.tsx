@@ -59,7 +59,7 @@ export function NotificationBanner({
   return (
     <Box
       testID="notification-banner"
-      className="h-10 flex-row items-center border-b border-primary/20 bg-accent px-4"
+      className="h-10 flex-row items-center border-b border-primary-line bg-primary-wash px-4"
     >
       <Pressable
         onPress={onPress}
@@ -69,7 +69,7 @@ export function NotificationBanner({
         <Box className="h-2 w-2 rounded-full bg-primary" />
         <Text
           size="sm"
-          className="flex-1 text-foreground"
+          className="flex-1 text-ink"
           isTruncated
           {...(isWeb() ? {} : { numberOfLines: 1 })}
         >

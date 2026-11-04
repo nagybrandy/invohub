@@ -28,14 +28,12 @@ export function Switch({
       className={`h-11 w-11 items-center justify-center ${disabled ? "opacity-40" : ""}`}
     >
       <Box
-        className={`h-[22px] w-10 justify-center rounded-full px-0.5 data-[focus-visible=true]:web:ring-2 data-[focus-visible=true]:web:ring-primary/50 ${
-          value ? "bg-primary" : "bg-[#a6a8ab]"
+        className={`h-[26px] w-[44px] justify-center rounded-full px-[3px] web:transition-colors web:duration-150 ${
+          value ? "bg-primary" : "bg-line-strong"
         }`}
       >
         <Box
-          className={`h-[18px] w-[18px] rounded-full bg-white shadow-sm ${
-            value ? "self-end" : "self-start"
-          }`}
+          className={`h-5 w-5 rounded-full bg-surface shadow-sm ${value ? "self-end" : "self-start"}`}
         />
       </Box>
     </Pressable>
