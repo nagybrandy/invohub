@@ -1977,6 +1977,29 @@ Remaining for the launch gate:
       HUF-only adoertek on foreign-currency invoices, exempt rows at
       adokulcs 0, no EV nyilvántartási szám) needs owner / tax-professional
       sign-off before merge.
+### Redesign 2026-11 follow-ups (shipped 2026-11-04, PR #96)
+
+- [ ] **Desktop deep link / reload of a Beállítások subpage lands on Céges
+      profil.** Reproduced in dev (`expo start --web`, 1440 wide): loading
+      `/settings/billing` or `/settings/pdf` directly is replaced by
+      `/settings` (a navigation-state change, `onStateChange` → `replace`),
+      and the wide settings frame then redirects to `/settings/company`.
+      Clicking the menu works, and so does a 375 wide load. Stabilising
+      `<Slot/>` in `AppShell` and `settings/_layout` did NOT fix it, so the
+      cause is elsewhere. It is not yet checked on the production build
+      (no automated prod login).
+- [ ] **Authenticated web E2E specs describe the old UI** (`e2e/web/dashboard.spec.ts`
+      and the other signed-in specs). CI skips them because it has no
+      E2E_TEST_* secrets, so nothing goes red, but they no longer match the
+      redesign: no create buttons on Főoldal, KPI strip on Számlák, "Fizetésre vár".
+      Rewrite them against `docs/design/redesign-2026-11/SPEC.md`.
+- [ ] **Owner decisions still open from the redesign:**
+      - Keep the "KIÁLLÍTVA" chip on issued invoices?
+      - Freeze the own logo in the appearance snapshot before logo upload ships.
+      - The buyer tax number is always printed on the new invoice layouts.
+      - Status filter is single-choice, because the API takes one status.
+      - Főoldal has no quarter switcher and no NAV-resend or reminder buttons.
+
 ### Owner spec 2026-10-21 — remaining items (checked against main 2026-11-03)
 
 Positioning: a simple, easy-to-use invoicer whose edge is expat-friendly
