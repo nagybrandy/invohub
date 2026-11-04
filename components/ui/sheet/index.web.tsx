@@ -113,7 +113,10 @@ export function Sheet({
     : { maxWidth };
 
   return createPortal(
-    <div data-testid={testID}>
+    // The root wrapper only holds fixed-position children, so it has no box
+    // of its own; the visible panel carries `testID` so E2E visibility
+    // checks see what the user sees.
+    <div data-testid={`${testID}-root`}>
       <div
         data-testid={`${testID}-scrim`}
         aria-hidden="true"
@@ -122,6 +125,7 @@ export function Sheet({
       />
       <div
         ref={panelRef}
+        data-testid={testID}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title && !accessibilityLabel ? titleId : undefined}
