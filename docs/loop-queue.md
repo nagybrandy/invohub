@@ -2045,6 +2045,25 @@ one-row-per-document CSV/Excel (#85–#93). Still open:
       new locale needs a `lib/i18n/locales/<lang>.ts` with key parity and
       the language picker extended; landing copy still has no
       future-feature claims.
+- [ ] **Recurring invoices (ismétlődő számlázás)** — requested by the owner
+      2026-11-05; nothing exists yet (no table, route or cron). Today a
+      monthly retainer has to be re-created by hand or with "Másolat".
+      Scope for v1: save an issued invoice (or a draft) as a recurring
+      template with a partner, line items, currency, language, payment
+      method/terms and a schedule (monthly / quarterly / yearly, start date,
+      optional end date or count); a daily cron (next to
+      `/api/reminders/run` in `vercel.json`) turns every due template into a
+      **draft** invoice and notifies the user, who reviews and issues it as
+      usual — so numbering, the MNB rate on the issue date, the teljesítés
+      date per period and NAV submission all stay on the existing issue
+      path. A list of templates (pause / edit / delete, next run date) under
+      Számlák, in Dóri's list pattern. Tests: schedule maths (month-end,
+      leap year, end date), idempotent cron (never two drafts for one
+      period), billing-account scoping. Additive migration only.
+      NAV-GATED: **automatic issuing** (draft → issued → NAV without a
+      human click) is out of v1 and needs explicit owner sign-off before it
+      is built; so does any default teljesítés-date rule for a recurring
+      period (see the MNB fulfillment-date decision of 2026-09-22).
 
 ### Research refill 2026-09-21 (market/NAV research, product strategist)
 
