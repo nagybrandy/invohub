@@ -2000,6 +2000,85 @@ Remaining for the launch gate:
       - Status filter is single-choice, because the API takes one status.
       - Főoldal has no quarter switcher and no NAV-resend or reminder buttons.
 
+### Owner feedback 2026-11-06 (screenshots of Főoldal and Új számla, desktop)
+
+Planned 2026-11-06; scheduled to start 2026-11-07 afternoon, one item at a
+time, one Sonnet builder per item, one branch + PR per item. Dóri's design
+(`docs/design/redesign-2026-11/`) stays the baseline for every layout call.
+Order = execution order (bugs first).
+
+- [ ] **Composer partner dropdown overlaps and sits under the form.** On
+      Új számla (desktop), typing in "Partner neve vagy adószáma" opens the
+      suggestion list *behind* the "A partner adatai" card, and its
+      "Nincs találat" row is drawn on top of the "Vagy: Másolás korábbi
+      számlából" link (`components/invoices/composer/StepPartner.tsx`,
+      `CopyFromInvoice.tsx`). Fix: the list is an overlay above everything
+      in the composer (portal / anchored popover, correct z-order on web),
+      and the copy-from link sits below the field, never under the list.
+      Test: render test for order/visibility; check at 1440 and 375.
+- [ ] **E-mail preview has no body text.** Beállítások → E-mail szerkesztő
+      (`app/(app)/settings/templates.tsx`, `components/email/EmailPreview*.tsx`)
+      shows the subject/frame but not the template body. The preview must
+      render the same body the sent e-mail would (placeholders filled with
+      sample data). Test the preview with a body containing placeholders.
+- [ ] **Sidebar: real logo, collapsed alignment, toggle position, long
+      account names.** (`components/navigation/AppSidebar.tsx`,
+      `AccountMenu.tsx`/`AccountAvatar.tsx`)
+      - Top-left shows the real InvoHub mark + wordmark (the brand mark from
+        `components/marketing/BrandLogo.tsx`), not the blue placeholder square.
+      - Collapsed (72px): every icon (logo, new-invoice button, nav rows,
+        secondary rows, account avatar) is centred on the same vertical axis;
+        the collapse/expand toggle sits **below the logo**, not beside it.
+      - Account button: the billing-account name wraps to at most 2 lines,
+        then ellipsis (web `line-clamp-2`, native `numberOfLines={2}`); the
+        tax number stays one line.
+      Tests: AppSidebar collapsed/expanded render tests, name clamp.
+- [ ] **Főoldal: "Következő lépések" as the third column of the top row.**
+      At wide widths (≥1100 container) the top row is Kintlévőség |
+      Beérkezett fizetések + Becsült fizetendő ÁFA | Következő lépések, so
+      the next-steps card no longer sits alone on its own row. Below that it
+      stacks as today. (`app/(app)/dashboard*`, `components/dashboard/*`).
+      Test: layout test at wide/narrow widths.
+- [ ] **Invoice appearance: drop "Korábbi", default "Letisztult".** The
+      Számla testreszabása picker (`app/(app)/settings/pdf.tsx`) offers only
+      Letisztult / Sávos / Keretes; a new account and an account still on
+      `legacy` get **Letisztult** for new invoices. Already issued invoices
+      keep their frozen look: the `pdf_template_snapshot` (and invoices
+      issued before snapshots existed, which render `legacy`) must not
+      change — the legacy renderer and its golden test stay. Change the
+      `invoice_pdf_template.layout` default to `clean` (additive
+      `ALTER … SET DEFAULT`, no data rewrite); treat a stored `legacy`
+      template as `clean` when rendering drafts/new invoices. Tests:
+      picker options, default, legacy template → clean for new invoices,
+      issued-invoice snapshot unchanged, golden test still green.
+- [ ] **Partner suggestions from past invoices, with the usual settings
+      prefilled.** In the composer partner field, suggest partners you have
+      already invoiced (most recent / most frequent first, matching name or
+      tax number while typing; also show the top few on focus). Picking one
+      fills the partner block **and** what you usually set for them, taken
+      from their most recent issued invoice: currency, document language,
+      payment method, payment term (days), VAT rate / AAM-type exemption,
+      and optionally the last line items (offered as "Előző tételek
+      betöltése", not silently added). Every prefilled value stays
+      editable; dates are always today-based, never copied; the MNB rate is
+      fetched for the new date. Needs a read-only endpoint (e.g.
+      `GET /api/clients/suggestions?q=`) scoped to the active billing
+      account. Tests: endpoint scoping + ranking, prefill mapping, hook,
+      composer interaction.
+- [ ] **Developer API documentation.** A public, readable page for
+      integrators (e.g. `/developers`, in the public-page design) generated
+      from or kept in sync with `docs/external-api.md`: authentication with
+      API keys (where to create them: Beállítások → API kulcsok), base URL,
+      errors, rate limits if any, and every `/api/v1` endpoint that really
+      exists (`app/api/v1/**`: invoices incl. finalize/send/storno/modify/
+      mark-paid/pdf/nav/convert, clients, products, exchange-rates) with
+      request/response examples and curl snippets. Verify each documented
+      field against the route code; document only what ships (no future
+      endpoints, NAV production stays "test/demo" wording as in the app).
+      Link it from the API kulcsok settings page and the landing footer.
+      hu + en. Tests: route + navigation tests, a test that every
+      documented endpoint path exists under `app/api/v1`.
+
 ### Owner spec 2026-10-21 — remaining items (checked against main 2026-11-03)
 
 Positioning: a simple, easy-to-use invoicer whose edge is expat-friendly
