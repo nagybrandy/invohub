@@ -177,8 +177,9 @@ export default function DashboardScreen() {
         <Box onLayout={onRowLayout} className="w-full" testID="dashboard-top-row">
           {threeColumns ? (
             // Container >= 1100: Kintlévőség | received + VAT | next steps.
-            // The next-steps cards stack inside their (narrow) column.
-            <HStack className="items-stretch gap-4" testID="dashboard-grid">
+            // The next-steps cards stack inside their (narrow) column. Columns are
+            // top-aligned (not stretched) so each keeps its natural height.
+            <HStack className="items-start gap-4" testID="dashboard-grid">
               <Box className="min-w-0" style={{ flex: 1.4 }} testID="dashboard-col-outstanding">
                 {hero}
               </Box>

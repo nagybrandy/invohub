@@ -163,6 +163,14 @@ describe("Főoldal top row layout", () => {
     expect(grid).toContain("dashboard-next-steps");
   });
 
+  it("container >= 1100: columns are top-aligned, not stretched to the tallest", () => {
+    const renderer = render();
+    measure(renderer, 1110);
+    const grid = renderer.root.findAll((n) => n.props.testID === "dashboard-grid")[0];
+    expect(grid.props.className).toContain("items-start");
+    expect(grid.props.className).not.toContain("items-stretch");
+  });
+
   it("container < 1100: next steps stays outside the top grid, as before", () => {
     const renderer = render();
     measure(renderer, 1099);
