@@ -2065,7 +2065,7 @@ Order = execution order (bugs first).
       `GET /api/clients/suggestions?q=`) scoped to the active billing
       account. Tests: endpoint scoping + ranking, prefill mapping, hook,
       composer interaction.
-- [ ] **Developer API documentation.** A public, readable page for
+- [x] **Developer API documentation.** A public, readable page for
       integrators (e.g. `/developers`, in the public-page design) generated
       from or kept in sync with `docs/external-api.md`: authentication with
       API keys (where to create them: Beállítások → API kulcsok), base URL,
@@ -2078,6 +2078,9 @@ Order = execution order (bugs first).
       Link it from the API kulcsok settings page and the landing footer.
       hu + en. Tests: route + navigation tests, a test that every
       documented endpoint path exists under `app/api/v1`.
+      _Shipped: public `/developers` page (`components/marketing/DeveloperDocs.tsx`,
+      data in `lib/developers/api-reference.ts`, drift test against `app/api/v1/**`),
+      linked from the API kulcsok settings page and the landing footer._
 
 ### Owner spec 2026-10-21 — remaining items (checked against main 2026-11-03)
 
