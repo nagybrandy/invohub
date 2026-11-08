@@ -100,7 +100,13 @@ jest.mock("@/components/layout/ScreenLayout", () => ({
 }));
 jest.mock("@/components/ui/sheet", () => ({ Sheet: () => null }));
 jest.mock("@/components/ui/select", () => ({ Select: () => null }));
-jest.mock("@/components/layout/OverflowMenu", () => ({ OverflowMenu: () => null }));
+const mockMenus: { label: string; onPress: () => void }[][] = [];
+jest.mock("@/components/layout/OverflowMenu", () => ({
+  OverflowMenu: ({ items }: { items: { label: string; onPress: () => void }[] }) => {
+    mockMenus.push(items);
+    return null;
+  },
+}));
 const mockUi = require("@/__tests__/mocks/gluestack-ui");
 jest.mock("@/components/ui/box", () => mockUi);
 jest.mock("@/components/ui/vstack", () => mockUi);
@@ -153,6 +159,7 @@ beforeEach(() => {
   mockContainerWidth = 1200;
   mockNavFailed = 0;
   mockPush.mockClear();
+  mockMenus.length = 0;
   mockUseInvoices.mockReset();
   mockUseInvoices.mockReturnValue({
     invoices: [makeInvoice()],
@@ -229,5 +236,28 @@ describe("/invoices screen", () => {
     expect(tree.root.findAllByProps({ testID: "status-tabs" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "invoice-list-filter-button" }).length).toBeGreaterThan(0);
     expect(tree.root.findAllByProps({ testID: "invoice-list-export" })).toHaveLength(0);
+  });
+
+  it("swaps a converted díjbekérő's convert action for 'open existing' and opens the converted invoice", () => {
+    const proforma = makeInvoice({ id: "p1", documentType: "proforma", invoiceNumber: "DBK-2026-001" });
+    const fresh = makeInvoice({ id: "p2", documentType: "proforma", invoiceNumber: "DBK-2026-002" });
+    mockUseInvoices.mockReturnValue({
+      ...mockUseInvoices(),
+      invoices: [proforma, fresh],
+      total: 2,
+      convertedProformaIds: { p1: "inv-converted-9" },
+    });
+    render();
+    const labelsOf = (menu: { label: string }[]) => menu.map((i) => i.label);
+    const converted = mockMenus.find((m) => labelsOf(m).includes("invoices.convert.openExisting"));
+    expect(converted).toBeDefined();
+    expect(labelsOf(converted!)).not.toContain("invoices.convert.action");
+    // The unconverted proforma keeps the plain convert action.
+    expect(mockMenus.some((m) => labelsOf(m).includes("invoices.convert.action"))).toBe(true);
+
+    act(() => {
+      converted!.find((i) => i.label === "invoices.convert.openExisting")!.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/invoices/inv-converted-9");
   });
 });
