@@ -213,7 +213,7 @@ before or alongside Phase 1 items that depend on it.
       unique constraint (see plan). No change to NAV environment selection,
       demo exclusion, or `vercel.json`'s schedule. Plan:
       `docs/plans/2026-09-21-nav-receipt-report-cron-retry-backfill.md`
-- [ ] Manual receipt NAV submit uses the server's UTC day and marks only
+- [x] Manual receipt NAV submit uses the server's UTC day and marks only
       one receipt, while the nightly cron now uses the Europe/Budapest
       calendar day and marks the whole day — `app/api/receipts/[id]/submit-nav+api.ts`
       still calls `getDailyVatAggregation` (server-local day) and only sets
@@ -227,6 +227,7 @@ before or alongside Phase 1 items that depend on it.
       exist). Found while shipping
       `slice/nav-receipt-report-cron-retry-backfill` (2026-09-21); out of
       scope there per that slice's plan §10.2.
+      Closed 2026-11-08 as obsolete: app/api/receipts/[id]/submit-nav+api.ts now uses receiptReportDate/budapestDayRange/getReceiptsByDateRange and markReceiptsSubmittedForRange (test mode); demo mode deliberately marks one receipt.
 - [ ] No error tracking or cron-failure alerting exists —
       `@opentelemetry/api` is a dependency but is imported nowhere, and
       `app/api/health+api.ts` is a bare liveness probe. Both Vercel crons in
@@ -512,13 +513,14 @@ bugs:
   `pageAdded` listener survives `generateInvoicePdf()` returning.
   `npx tsc --noEmit` and `npm run test:unit` are green (213 suites, 1350
   tests).
-- [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
+- [x] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
   2026-09-16)** — no note needed for app-level action: this slice only
   touched `lib/invoices/{generate-pdf.ts,pdf-layout.ts,*.test.ts}` and
   `lib/i18n/locales/`, no `app/` or `components/` screens, so the standard
   Playwright screen-viewport audit doesn't apply here. Future ux-reviewer
   passes on backend-only PDF-generation slices like this should skip or
   rescope the screen-viewport audit rather than flag its absence.
+      Closed 2026-11-08 as obsolete: informational reviewer-process note with no action; the slice shipped.
 - [x] **General layout gap vs. the HTML preview** — the PDF's content area
   is sparse (lots of empty vertical space, thin single-column line-item
   table, no card/section framing) next to the HTML preview's denser,
@@ -1009,7 +1011,7 @@ screenshots before writing a fix plan:
     only prepares the draft.
     Plan: `docs/plans/2026-09-21-retro-correct-non-huf-invoices-nav-modify.md`.
 
-- [ ] `text-destructive` title on `bg-destructive/10` is below WCAG AA
+- [x] `text-destructive` title on `bg-destructive/10` is below WCAG AA
       contrast — `NavExchangeRateAuditCard.tsx:64-66` recomputed at ~4.13:1
       against `WCAG_AA_NORMAL_TEXT` (4.5) using `lib/theme/contrast.ts`'s own
       formulas (`--destructive` #dc2626 over `--card` white, composited at
@@ -1021,6 +1023,7 @@ screenshots before writing a fix plan:
       `--destructive` or reducing the `bg-destructive` alpha delta so both
       cards clear AA together, rather than patching per-card (2026-09-21
       fix round, ux)
+      Closed 2026-11-08 as obsolete: NavExchangeRateAuditCard and the invoice detail fix card were redesigned onto err/err-wash tokens, and lib/theme/tokens.test.ts asserts err on err-wash >= 4.5:1.
 
 Launch gate (see `docs/product-roadmap.md`): Hungarian invoicing rules
 verified against Áfa tv. 169. §, NAV OSA end-to-end certified with test
@@ -1314,7 +1317,7 @@ Remaining for the launch gate:
       status to a receipt. Moving to the stable `missing_exchange_rate`
       code removes that latent bug, which is why this "low" item is worth
       doing properly rather than as a one-line `t()` wrap.
-- [ ] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
+- [x] **Ship-review follow-up (low, `slice/e-nyugta-nav-receipt-api`,
       2026-09-18)** — the new NAV-report-id row in
       `app/(app)/receipts/[id]/index.tsx` repeats a pre-existing
       `selectable` prop console error on web ("Received `true` for a
@@ -1323,6 +1326,7 @@ Remaining for the launch gate:
       for this PR — but worth a follow-up to replace `selectable` on web
       Gluestack `Text` with the web-safe equivalent (or gate it behind
       `Platform.OS !== 'web'`) across both occurrences in this file.
+      Closed 2026-11-08 as obsolete: components/ui/text/index.web.tsx consumes `selectable` (becomes the select-text class) and no longer forwards it to the DOM.
 - [ ] **Ship-review follow-up (low, `slice/receipt-blocked-message-i18n-fallback`,
       2026-09-18)** — vacuous assertion in
       `components/receipts/ReceiptNavCard.test.tsx` never exercises anything.
@@ -1340,7 +1344,7 @@ Remaining for the launch gate:
       provides no coverage), or replace it with a real negative check such as
       `expect(json).not.toContain('"missing_exchange_rate"')` to assert the
       raw code string is absent from the serialized tree.
-- [ ] **Ship-review follow-up (low, `slice/receipt-blocked-message-i18n-fallback`,
+- [x] **Ship-review follow-up (low, `slice/receipt-blocked-message-i18n-fallback`,
       2026-09-18)** — live UX screenshot capture for the receipt NAV card
       could not be completed in this review environment (no DB/auth
       credentials); informational only, not a code defect. CONFIRMED on
@@ -1366,6 +1370,7 @@ Remaining for the launch gate:
       session with E2E test credentials and a scratch (non-production)
       `DATABASE_URL`, e.g. during a future Ship phase's own worktree smoke
       pass.
+      Closed 2026-11-08 as obsolete: informational review-environment note, explicitly 'no action required'; ReceiptNavCard shipped.
 - [~] folyamatban (slice/non-huf-invoice-exchange-rate-nav-xml)
       Non-HUF invoices report a false HUF VAT base to NAV — confirmed
       resolved: `lib/nav/invoice-xml.ts` now emits the real
@@ -1475,7 +1480,7 @@ Remaining for the launch gate:
       Same item as priority #2 above. Plan:
       `docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md`
       See priority #2's note above for implementation status (2026-09-15).
-- [ ] Ranade weight 500 is defined (`global.css`, `@font-face`,
+- [x] Ranade weight 500 is defined (`global.css`, `@font-face`,
       `public/fonts/ranade-500.woff2`) but never actually requested by any
       heading — every `font-heading` usage is paired with
       `font-bold`/`font-semibold`, and `components/ui/heading/styles.tsx`
@@ -1490,6 +1495,7 @@ Remaining for the launch gate:
       gap, not a regression. Either rewrite AC4 to check weight 700, or
       apply `font-medium` somewhere in the heading scale and add the
       missing e2e check. (2026-09-15 audit, acceptance)
+      Closed 2026-11-08 as obsolete: Ranade was removed in the 2026-11 redesign (SPEC.md: remove Ranade; fonts are now Stack Sans), so the weight-500 AC4 no longer applies.
 - [x] Composer line-item row still needs horizontal scrolling within
       itself at 1440px to show every column beside the fixed 400px
       summary panel (~680px available vs. ~1068px needed for the spec's
@@ -1558,7 +1564,7 @@ Remaining for the launch gate:
       or `processPaymentReminders` (its own TDD slice — out of scope for a
       "risk: none, presentational only" plan) and restore "emlékeztetők" to
       the copy.
-- [ ] `components/notifications/NotificationPanel.tsx:99` — the close
+- [x] `components/notifications/NotificationPanel.tsx:99` — the close
       button's `className` duplicates centering utilities already provided
       by `TAP_TARGET_ICON_BOX`: `` `items-center justify-center rounded-full
       ${TAP_TARGET_ICON_BOX}` `` where `TAP_TARGET_ICON_BOX`
@@ -1568,7 +1574,8 @@ Remaining for the launch gate:
       Fix: drop the explicit `items-center justify-center` and keep
       `className={`rounded-full ${TAP_TARGET_ICON_BOX}`}`.
       (ship-review, notification-panel-i18n-chrome-text, ux, low)
-- [ ] The tap-target/overflow review of
+      Closed 2026-11-08 as obsolete: NotificationPanel.tsx was rewritten in the redesign and has no close button at line 99 (it delegates to NotificationPanelContent).
+- [x] The tap-target/overflow review of
       `components/notifications/NotificationPanel.tsx` reached its
       "no regression" conclusion by static code tracing only (Button's
       `size="sm"` is `min-h-8` per `components/ui/button/index.tsx:53`,
@@ -1586,6 +1593,7 @@ Remaining for the launch gate:
       Storybook harness so `NotificationPanel` can be screenshotted without
       live credentials. (ship-review, notification-panel-i18n-chrome-text,
       ux, low)
+      Closed 2026-11-08 as obsolete: NotificationPanel was rewritten in the redesign; the old tap-target/overflow static review no longer describes the current panel.
 - [x] Notification rows created before the 2026-09-15 i18n-key encoding
       fix (in the same DB, from earlier test runs) still render as literal
       English text — by design, only newly-synced/newly-seeded
@@ -2181,7 +2189,7 @@ one-row-per-document CSV/Excel (#85–#93). Still open:
       line-item unit persistence, the 2026-01-01 NAV validation set, the
       AAM/KATA bevételi keret meter, and notes backfill — are separate,
       not started here.
-- [ ] Fulfillment-date hint wraps unevenly on desktop; plan's conditional
+- [x] Fulfillment-date hint wraps unevenly on desktop; plan's conditional
       fallback not implemented — `components/invoices/composer/
       StepPartner.tsx` lines 229-231 render the `fulfillmentDateHint` Text
       unconditionally inside the first `VStack` (`min-w-[160px] flex-1`),
@@ -2206,6 +2214,7 @@ one-row-per-document CSV/Excel (#85–#93). Still open:
       `</HStack>` per the plan's own fallback guidance.
       (2026-09-21 ship review of slice/invoice-fulfillment-date-persist-nav,
       ux)
+      Closed 2026-11-08 as obsolete: StepPartner no longer renders the hint; it now lives as a FormField hint in StepDatesPayment.tsx inside a flex-wrap column with min-w-[260px], so the old three-column layout is gone.
 
 ## Phase 2 — Bank data connection & paid/unpaid matching
 
