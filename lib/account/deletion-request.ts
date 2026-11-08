@@ -9,9 +9,9 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { accountDeletionRequest } from "@/db/schema";
+import { DELETION_GRACE_DAYS } from "@/lib/account/deletion-constants";
 
-/** Cancellable waiting period between request and (future) closure. Product proposal, not a legal figure. */
-export const DELETION_GRACE_DAYS = 30;
+export { DELETION_GRACE_DAYS };
 const MAX_REASON_LENGTH = 500;
 const DAY_MS = 86_400_000;
 

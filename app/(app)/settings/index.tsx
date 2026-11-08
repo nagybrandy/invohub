@@ -6,7 +6,7 @@
 import * as React from "react";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Database, Shield } from "lucide-react-native";
+import { Database, Shield, UserX } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -18,6 +18,7 @@ import {
   SettingsStartList,
   SettingsStartRow,
 } from "@/components/settings/SettingsStartList";
+import { isAccountDeletionUiVisible } from "@/lib/account/deletion-flag";
 import { apiFetch } from "@/lib/api/client";
 import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/navigation";
@@ -90,6 +91,19 @@ export default function SettingsScreen() {
             title={t("admin.title")}
             description={t("admin.subtitle")}
             onPress={() => router.push(routes.admin)}
+          />
+        </SettingsRowCard>
+      ) : null}
+
+      {isAccountDeletionUiVisible() ? (
+        // Feature flag EXPO_PUBLIC_ACCOUNT_DELETION_ENABLED, default OFF: the row does not exist otherwise.
+        <SettingsRowCard testID="settings-account-card">
+          <SettingsStartRow
+            testID="settings-account"
+            icon={UserX}
+            title={t("accountDeletion.title")}
+            description={t("accountDeletion.navHint")}
+            onPress={() => router.push(routes.settingsAccount)}
           />
         </SettingsRowCard>
       ) : null}
