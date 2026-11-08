@@ -2051,7 +2051,7 @@ Order = execution order (bugs first).
       template as `clean` when rendering drafts/new invoices. Tests:
       picker options, default, legacy template → clean for new invoices,
       issued-invoice snapshot unchanged, golden test still green.
-- [ ] **Partner suggestions from past invoices, with the usual settings
+- [x] **Partner suggestions from past invoices, with the usual settings
       prefilled.** In the composer partner field, suggest partners you have
       already invoiced (most recent / most frequent first, matching name or
       tax number while typing; also show the top few on focus). Picking one

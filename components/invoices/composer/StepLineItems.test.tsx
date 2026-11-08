@@ -88,6 +88,8 @@ function render(overrides: Partial<React.ComponentProps<typeof StepLineItems>> =
         onAddFromProduct={onAddFromProduct}
         onRemove={onRemove}
         isModification={overrides.isModification}
+        previousItemCount={overrides.previousItemCount}
+        onLoadPreviousItems={overrides.onLoadPreviousItems}
         error={overrides.error}
         focusField={overrides.focusField}
         onFocusHandled={overrides.onFocusHandled}
@@ -246,5 +248,23 @@ describe("StepLineItems — messages and requests", () => {
     });
     expect(byTestID(tree.root, "row-a")[0].props.accessibilityHint).toContain("focus:true");
     expect(byTestID(tree.root, "row-b")[0].props.accessibilityHint).toContain("focus:false");
+  });
+});
+
+describe("StepLineItems — Előző tételek betöltése", () => {
+  it("is hidden without previous items", () => {
+    const { tree } = render({ onLoadPreviousItems: jest.fn(), previousItemCount: 0 });
+    expect(byTestID(tree.root, "composer-load-previous-items")).toHaveLength(0);
+  });
+
+  it("is offered with previous items and only fires on press", () => {
+    const onLoad = jest.fn();
+    const { tree } = render({ onLoadPreviousItems: onLoad, previousItemCount: 2 });
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(json(tree)).toContain("invoices.composer.loadPreviousItems");
+    act(() => {
+      byTestID(tree.root, "composer-load-previous-items")[0].props.onPress();
+    });
+    expect(onLoad).toHaveBeenCalledTimes(1);
   });
 });

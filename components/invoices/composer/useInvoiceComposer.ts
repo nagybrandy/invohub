@@ -32,7 +32,13 @@ import { partnerToRemember, productsToRemember } from "@/lib/invoices/remember-e
 import type { Client } from "@/lib/clients/service";
 import { isCompanyProfileComplete } from "@/lib/companies/completeness";
 import { calculateInvoiceTotals, createEmptyLineItem, createId } from "@/lib/invoices/calculations";
-import { applyClientToFormFields } from "@/lib/invoices/client-form-fields";
+import { applyClientToFormFields, type InvoiceClientFormFields } from "@/lib/invoices/client-form-fields";
+import {
+  appendPreviousItems,
+  applyVatToPristineLines,
+  usualToComposerPatch,
+} from "@/lib/clients/partner-prefill";
+import type { PartnerSuggestion, SuggestedLineItem } from "@/lib/clients/suggestions-core";
 import { parseExchangeRateInput } from "@/lib/invoices/exchange-rate";
 import { SEND_INVOICE_ERROR_I18N_KEY } from "@/lib/invoices/send-error-i18n";
 import type { Product } from "@/lib/products/service";
@@ -206,9 +212,12 @@ export function useInvoiceComposer({
     setIsDirty(true);
   }
 
+  // The last invoice's lines for the partner picked from the suggestions —
+  // offered ("Előző tételek betöltése"), never added silently.
+  const [previousItems, setPreviousItems] = React.useState<SuggestedLineItem[]>([]);
+
   // Apply saved-partner data to all the partner-step fields.
-  const handleSelectClient = React.useCallback((client: Client) => {
-    const fields = applyClientToFormFields(client);
+  const applyPartnerFields = React.useCallback((fields: InvoiceClientFormFields) => {
     setClientIdState(fields.clientId);
     setClientNameState(fields.clientName);
     setClientTaxNumber(fields.clientTaxNumber);
@@ -226,6 +235,14 @@ export function useInvoiceComposer({
     );
     markDirty();
   }, []);
+
+  const handleSelectClient = React.useCallback(
+    (client: Client) => {
+      setPreviousItems([]);
+      applyPartnerFields(applyClientToFormFields(client));
+    },
+    [applyPartnerFields]
+  );
 
   // Clear a step's error banner as soon as its condition is actually fixed,
   // instead of leaving a stale "Legalább egy tételt adj meg." on screen
@@ -353,6 +370,7 @@ export function useInvoiceComposer({
   }
 
   function clearClient() {
+    setPreviousItems([]);
     setClientIdState(null);
     setClientNameState("");
     setClientTaxNumber("");
@@ -362,6 +380,48 @@ export function useInvoiceComposer({
     setClientAddress("");
     setClientEuVatNumber("");
     setEmailOnSend(false);
+    markDirty();
+  }
+
+  /**
+   * A partner picked from "already invoiced" suggestions: the partner block
+   * plus what is usually set for them (currency, language, payment method,
+   * term in days, VAT treatment of untouched starter lines). Dates are never
+   * copied — the term is re-applied to today's issue date and the currency
+   * effect above fetches the MNB rate for the current date. Every value
+   * stays editable. Not used when editing an existing document.
+   */
+  function handleSelectSuggestion(suggestion: PartnerSuggestion) {
+    const { partner, usual } = suggestion;
+    applyPartnerFields({
+      clientId: partner.clientId,
+      clientName: partner.name,
+      clientTaxNumber: partner.taxNumber ?? "",
+      clientEmail: partner.email ?? "",
+      clientCountry: partner.country?.trim() || "Magyarország",
+      clientZip: partner.zipCode ?? "",
+      clientCity: partner.city ?? "",
+      clientAddress: partner.address ?? "",
+      clientEuVatNumber: partner.euVatNumber ?? "",
+    });
+    const patch = usualToComposerPatch(usual);
+    if (patch.currency) setCurrency(patch.currency);
+    if (patch.language) setLanguage(patch.language);
+    if (patch.paymentMethod) setPaymentMethod(patch.paymentMethod);
+    if (patch.deadlineDays !== undefined) {
+      dueDateTouched.current = true;
+      setDeadlineDaysState(patch.deadlineDays);
+      setDueDate(addDaysIso(issueDate, patch.deadlineDays));
+    }
+    const vat = patch.vat;
+    if (vat) setLineItems((items) => applyVatToPristineLines(items, vat));
+    setPreviousItems(usual.lineItems);
+  }
+
+  /** "Előző tételek betöltése": replaces the empty starter line, otherwise appends. */
+  function loadPreviousItems() {
+    setLineItems((items) => appendPreviousItems(items, previousItems, createId));
+    setPreviousItems([]);
     markDirty();
   }
 
@@ -763,6 +823,9 @@ export function useInvoiceComposer({
       markDirty();
     },
     handleSelectClient,
+    handleSelectSuggestion,
+    previousItems,
+    loadPreviousItems,
     clearClient,
     showClientDetails,
     setShowClientDetails,

@@ -38,6 +38,8 @@ export function StepLineItems({
   onAdd,
   onAddFromProduct,
   onRemove,
+  previousItemCount = 0,
+  onLoadPreviousItems,
   isModification = false,
   error,
   focusField,
@@ -51,6 +53,9 @@ export function StepLineItems({
   onAdd: () => void;
   onAddFromProduct: (product: Product) => void;
   onRemove: (id: string) => void;
+  /** Lines of the picked partner's last invoice, offered as "Előző tételek betöltése". */
+  previousItemCount?: number;
+  onLoadPreviousItems?: () => void;
   /**
    * Helyesbítő (modify) draft: it starts as reversing line + editable copy
    * per original line (lib/invoices/modification-lines.ts). Shows the hint
@@ -160,6 +165,11 @@ export function StepLineItems({
           <Button variant="secondary" size="sm" onPress={onAdd} testID="composer-add-item">
             <ButtonText>+ {t("composer.addItem")}</ButtonText>
           </Button>
+          {previousItemCount > 0 && onLoadPreviousItems ? (
+            <Button variant="secondary" size="sm" onPress={onLoadPreviousItems} testID="composer-load-previous-items">
+              <ButtonText>{t("invoices.composer.loadPreviousItems")}</ButtonText>
+            </Button>
+          ) : null}
           {quickProducts.length > 0 ? (
             <Box className="max-w-full flex-row flex-wrap items-center gap-2" testID="composer-quick-add">
               <Text className="text-[13px] text-muted-ink">{t("composer.quickAdd")}</Text>
