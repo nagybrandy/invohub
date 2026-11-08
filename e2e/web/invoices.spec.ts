@@ -247,7 +247,8 @@ authTest.describe("Invoice list (authenticated, desktop)", () => {
     const search = page.getByTestId("invoice-list-search");
     await search.fill("zzz-no-such-partner-zzz");
     await expect(page.getByTestId("invoice-list-row")).toHaveCount(0, { timeout: 20_000 });
-    await expect(page.getByText("Nincs találat")).toBeVisible();
+    // The empty state appears once the (debounced) search request has answered.
+    await expect(page.getByText("Nincs találat")).toBeVisible({ timeout: 20_000 });
   });
 
   authTest("the status can be deep-linked (?status=overdue)", async ({ page }) => {
