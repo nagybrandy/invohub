@@ -27,7 +27,7 @@ authTest.describe("Create -> preview -> PDF of a draft (authenticated)", () => {
     // Partner: type a fresh name and take the "+ Új partner" row.
     await search.fill(partner);
     // Keyboard, not a click: on desktop the "+ Új partner" row sits under the
-    // partner-details card (the card intercepts pointer events), see TESTING.md.
+    // partner-details card (the card intercepts pointer events; reported as an app bug).
     await expect(page.getByTestId("composer-partner-new")).toBeVisible();
     await search.press("ArrowDown");
     await search.press("Enter");

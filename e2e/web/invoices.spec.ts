@@ -306,7 +306,8 @@ authTest.describe("Invoice list (authenticated, desktop)", () => {
 
     await page.getByTestId("export-dataset-invoices").click();
     await page.getByTestId("export-status-paid").click();
-    await expect(page.getByText(/\d+ sor lesz a fájlban/)).toBeVisible();
+    // Invoices load through the paged API first.
+    await expect(page.getByText(/\d+ sor lesz a fájlban/)).toBeVisible({ timeout: 30_000 });
   });
 });
 
