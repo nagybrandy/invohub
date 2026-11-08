@@ -471,7 +471,7 @@ bugs:
   repeats the column header + draws the folytatás caption on its
   continuation page. Plan:
   `docs/plans/2026-09-16-pdf-broken-pagination-blank-page.md`.
-- [ ] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
+- [x] **Ship-review follow-up (low, `slice/pdf-broken-pagination-blank-page`,
   2026-09-16)** — `lib/invoices/generate-pdf.test.ts` line 489 claims the
   empty-`footerText` centred-lockup branch (`drawFooterOnCurrentPage`,
   align:"center") "is covered elsewhere," but no such test exists anywhere
