@@ -782,3 +782,25 @@ export const companyDirectory = pgTable("company_directory", {
   country: text("country").notNull().default("HU"),
   fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
 });
+
+/**
+ * One row per scheduled-job run (Vercel crons). Powers the public health
+ * timestamps and the owner failure alert. Holds NO PII: errorSummary is a
+ * fixed code / error class only, counts are plain integers.
+ */
+export const cronRun = pgTable(
+  "cron_run",
+  {
+    id: text("id").primaryKey(),
+    job: text("job").notNull(),
+    startedAt: timestamp("started_at").notNull(),
+    finishedAt: timestamp("finished_at").notNull(),
+    /** success | partial | failure */
+    status: text("status").notNull(),
+    counts: jsonb("counts"),
+    errorSummary: text("error_summary"),
+    /** Set when the owner alert e-mail for this run was sent (throttle marker). */
+    alertSentAt: timestamp("alert_sent_at"),
+  },
+  (table) => [index("cron_run_job_started_idx").on(table.job, table.startedAt.desc())]
+);

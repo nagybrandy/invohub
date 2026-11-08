@@ -1,4 +1,8 @@
 // __tests__/api/health.test.ts
+jest.mock("@/lib/observability/cron-run", () => ({
+  getCronHealth: jest.fn().mockResolvedValue(null),
+}));
+
 import { GET } from "@/app/api/health+api";
 
 describe("GET /api/health", () => {

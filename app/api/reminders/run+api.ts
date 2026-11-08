@@ -2,6 +2,7 @@
 // Manual (POST, authenticated user) and cron (GET, Vercel cron convention) trigger for
 // payment reminder processing.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
+import { summarizeReminders, withCronRunLog } from "@/lib/observability/cron-run";
 import { processPaymentReminders } from "@/lib/reminders/process";
 
 /**
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     return unauthorizedResponse();
   }
 
-  return runReminders();
+  return withCronRunLog("reminders", () => runReminders(), summarizeReminders);
 }
 
 export async function POST(request: Request) {

@@ -1,4 +1,10 @@
 // __tests__/api/reminders/run.test.ts
+jest.mock("@/lib/observability/cron-run", () => ({
+  withCronRunLog: (_job: string, handler: () => Promise<Response>) => handler(),
+  summarizeReminders: jest.fn(),
+  summarizeNavReceipt: jest.fn(),
+}));
+
 jest.mock("@/lib/api/session", () => ({
   requireSession: jest.fn(),
   unauthorizedResponse: () =>
