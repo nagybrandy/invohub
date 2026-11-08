@@ -12,11 +12,11 @@ import { Box } from "@/components/ui/box";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { PartnerListOverlay } from "@/components/invoices/composer/PartnerListOverlay";
 import { highlightParts } from "@/components/invoices/composer/composer-view";
 import type { Client } from "@/lib/clients/service";
 import type { CompanySearchResult } from "@/lib/company/search";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { LISTBOX_ROLE } from "@/lib/ui/tap-target";
 
 const MAX_RESULTS = 8;
 
@@ -72,6 +72,7 @@ export function PartnerPicker({
   const icons = useIconColors();
   const [focused, setFocused] = React.useState(false);
   const [active, setActive] = React.useState(-1);
+  const anchorRef = React.useRef<unknown>(null);
   const query = value.trim();
 
   const results = React.useMemo(
@@ -170,6 +171,8 @@ export function PartnerPicker({
 
   return (
     <Box className="relative z-30" testID="composer-partner-picker">
+      {/* @ts-expect-error — on web Box forwards the ref to its DOM node (the list anchors to it). */}
+      <Box ref={anchorRef}>
       <Input data-invalid={Boolean(error)}>
         <InputField
           ref={inputRef as never}
@@ -187,20 +190,14 @@ export function PartnerPicker({
           onKeyPress={handleKeyPress}
         />
       </Input>
+      </Box>
       {error ? (
         <Text accessibilityRole="alert" className="mt-1 text-[13px] font-semibold text-err">
           {error}
         </Text>
       ) : null}
 
-      {open ? (
-        <Box
-          nativeID="composer-partner-results"
-          role={LISTBOX_ROLE}
-          accessibilityRole="list"
-          className="absolute left-0 right-0 top-[46px] z-40 overflow-hidden rounded-menu border border-line-strong bg-surface p-1.5 shadow-menu"
-          testID="composer-partner-results"
-        >
+      <PartnerListOverlay open={open} anchorRef={anchorRef} id="composer-partner-results" testID="composer-partner-results">
           {showRecent ? (
             <>
               <Text className="px-2.5 pb-1 pt-1 text-xs font-semibold text-muted-ink">
@@ -265,8 +262,7 @@ export function PartnerPicker({
               </Pressable>
             </>
           )}
-        </Box>
-      ) : null}
+      </PartnerListOverlay>
     </Box>
   );
 }
