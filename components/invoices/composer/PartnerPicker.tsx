@@ -12,11 +12,11 @@ import { Box } from "@/components/ui/box";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { PartnerListOverlay } from "@/components/invoices/composer/PartnerListOverlay";
 import { highlightParts } from "@/components/invoices/composer/composer-view";
 import type { Client } from "@/lib/clients/service";
 import type { CompanySearchResult } from "@/lib/company/search";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { LISTBOX_ROLE } from "@/lib/ui/tap-target";
 
 const MAX_RESULTS = 8;
 
@@ -72,6 +72,10 @@ export function PartnerPicker({
   const icons = useIconColors();
   const [focused, setFocused] = React.useState(false);
   const [active, setActive] = React.useState(-1);
+  const anchorRef = React.useRef<unknown>(null);
+  // Set when a row is picked; the (web) input keeps focus, so the list is kept
+  // closed until the user types again or re-focuses the field.
+  const [dismissed, setDismissed] = React.useState(false);
   const query = value.trim();
 
   const results = React.useMemo(
@@ -85,8 +89,8 @@ export function PartnerPicker({
     return companyResults.filter((c) => !savedTax.has((c.taxNumber ?? "").replace(/\D/g, "").slice(0, 8)) || !c.taxNumber);
   }, [clients, companyResults]);
 
-  const showResults = focused && query.length > 0;
-  const showRecent = focused && query.length === 0 && recentClients.length > 0;
+  const showResults = focused && !dismissed && query.length > 0;
+  const showRecent = focused && !dismissed && query.length === 0 && recentClients.length > 0;
   const open = showResults || showRecent;
 
   const entries = React.useMemo<Entry[]>(() => {
@@ -111,11 +115,16 @@ export function PartnerPicker({
     setActive(-1);
   }, [value, focused]);
 
+  function close() {
+    setDismissed(true);
+    setFocused(false);
+  }
+
   function pick(entry: Entry) {
     if (entry.kind === "client") onSelect(entry.client);
     else if (entry.kind === "company") onSelectCompany?.(entry.company);
     else void onCreateNew({ name: query, email: "", taxNumber: "", zip: "", city: "", address: "" });
-    setFocused(false);
+    close();
   }
 
   function handleKeyPress(event: { nativeEvent?: { key?: string }; preventDefault?: () => void }) {
@@ -147,7 +156,10 @@ export function PartnerPicker({
         <Pressable
           key={client.id}
           nativeID={`composer-partner-option-${offset + i}`}
-          onPress={() => onSelect(client)}
+          onPress={() => {
+            onSelect(client);
+            close();
+          }}
           role="option"
           aria-selected={active === offset + i}
           accessibilityRole="button"
@@ -169,7 +181,8 @@ export function PartnerPicker({
     });
 
   return (
-    <Box className="relative z-30" testID="composer-partner-picker">
+    // @ts-expect-error — on web Box forwards the ref to its DOM node (the list anchors to it, below any error text).
+    <Box ref={anchorRef} className="relative z-30" testID="composer-partner-picker">
       <Input data-invalid={Boolean(error)}>
         <InputField
           ref={inputRef as never}
@@ -177,12 +190,19 @@ export function PartnerPicker({
           accessibilityLabel={t("invoices.fields.partnerNameOrTax")}
           placeholder={t("invoices.composer.partnerSearchPlaceholder")}
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={(text) => {
+            setDismissed(false);
+            setFocused(true);
+            onChangeText(text);
+          }}
           role="combobox"
           aria-expanded={open}
           aria-controls="composer-partner-results"
           aria-activedescendant={active >= 0 ? `composer-partner-option-${active}` : undefined}
-          onFocus={() => setFocused(true)}
+          onFocus={() => {
+            setDismissed(false);
+            setFocused(true);
+          }}
           onBlur={() => setTimeout(() => setFocused(false), 120)}
           onKeyPress={handleKeyPress}
         />
@@ -193,14 +213,7 @@ export function PartnerPicker({
         </Text>
       ) : null}
 
-      {open ? (
-        <Box
-          nativeID="composer-partner-results"
-          role={LISTBOX_ROLE}
-          accessibilityRole="list"
-          className="absolute left-0 right-0 top-[46px] z-40 overflow-hidden rounded-menu border border-line-strong bg-surface p-1.5 shadow-menu"
-          testID="composer-partner-results"
-        >
+      <PartnerListOverlay open={open} anchorRef={anchorRef} id="composer-partner-results" testID="composer-partner-results">
           {showRecent ? (
             <>
               <Text className="px-2.5 pb-1 pt-1 text-xs font-semibold text-muted-ink">
@@ -227,7 +240,10 @@ export function PartnerPicker({
                       <Pressable
                         key={`${company.taxNumber}|${company.registrationNumber ?? ""}|${company.name}`}
                         nativeID={`composer-partner-option-${index}`}
-                        onPress={() => onSelectCompany(company)}
+                        onPress={() => {
+                          onSelectCompany(company);
+                          close();
+                        }}
                         role="option"
                         aria-selected={active === index}
                         accessibilityRole="button"
@@ -265,8 +281,7 @@ export function PartnerPicker({
               </Pressable>
             </>
           )}
-        </Box>
-      ) : null}
+      </PartnerListOverlay>
     </Box>
   );
 }

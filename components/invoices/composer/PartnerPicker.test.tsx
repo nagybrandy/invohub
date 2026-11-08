@@ -100,6 +100,25 @@ describe("PartnerPicker (INV-18)", () => {
     expect(onSelect).toHaveBeenCalledWith(clients[11]);
   });
 
+  it("closes the list after a row is pressed even though the input keeps focus, and reopens on typing", () => {
+    const clients = makeClients(2);
+    const { tree, onChangeText } = render({ clients, value: "Partner" });
+    const input = () => findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input().props.onFocus?.();
+    });
+    act(() => {
+      findByTestId(tree.root, "composer-partner-option-client-1").props.onPress?.();
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain("Partner 1 Kft.");
+
+    act(() => {
+      input().props.onChangeText?.("Partner 2");
+    });
+    expect(onChangeText).toHaveBeenCalledWith("Partner 2");
+    expect(JSON.stringify(tree.toJSON())).toContain("Partner 1 Kft.");
+  });
+
   it("offers '+ Új partner: „…”' as the last row and takes the typed text as the new partner's name", async () => {
     const { tree, onCreateNew } = render({ clients: makeClients(2), value: "new co" });
     const input = findByTestId(tree.root, "composer-partner-search");

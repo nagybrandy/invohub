@@ -107,7 +107,7 @@ export function StepPartner(composer: RecipientProps) {
 
   return (
     <ComposerSection title={t("invoices.sections.recipient")} first testID="composer-section-partner">
-      <FormField label={t("invoices.fields.partnerNameOrTax")} required>
+      <FormField label={t("invoices.fields.partnerNameOrTax")} required className="relative z-30">
         <PartnerPicker
           companyResults={companySearch.results}
           companyLoading={companySearch.loading}
