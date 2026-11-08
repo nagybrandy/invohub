@@ -38,6 +38,30 @@ E2E_TEST_EMAIL=e2e-test@invohub.test E2E_TEST_PASSWORD='...' \
   npm run test:e2e:web
 ```
 
+### Running the authenticated specs locally (opt-in env vars)
+
+Two local-only switches in `playwright.config.ts` (CI sets neither, so CI is unchanged):
+
+| Variable | Effect |
+|---|---|
+| `E2E_LOAD_DOTENV=1` | Loads the checkout's `.env` (via `dotenv`) so `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` are found without exporting them or printing them. |
+| `E2E_BROWSER_CHANNEL=chrome` | Drives an installed browser (`chrome`, `msedge`) instead of Playwright's bundled one, for machines where `playwright install` was not run. |
+
+```bash
+# reuse a dev server already running on :8081
+E2E_LOAD_DOTENV=1 E2E_BROWSER_CHANNEL=chrome E2E_SKIP_SERVER=1 \
+  npx playwright test --project=chromium --workers=1
+```
+
+**A local `.env` usually points at the production database.** Every authenticated
+spec therefore has to be safe there: navigate, read, type into forms, open menus,
+and at most create and save *drafts* (marked `E2E <timestamp>` in the partner name and
+line description, see `e2e/web/invoice-preview-pdf.spec.ts`). Never issue
+(Kiállítás), send e-mail, mark paid, storno/helyesbítő, delete, submit to NAV, issue a
+receipt, or save settings. If a flow can only be tested that way, leave it out or run it
+against a scratch database in CI. The dev server is slow on first hit, so the
+authenticated specs use generous timeouts.
+
 Without `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` set, those authenticated specs report a
 clear skip reason instead of running against an unauthenticated page (see
 `e2e/web/fixtures/auth.ts`).
