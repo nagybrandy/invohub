@@ -3,6 +3,11 @@
 // payment reminder processing.
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { processPaymentReminders } from "@/lib/reminders/process";
+import { generateDueDrafts } from "@/lib/recurring/service";
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error && e.message ? e.message : "Unknown error";
+}
 
 /**
  * The run isolates per-user and per-invoice failures itself and reports them
@@ -21,10 +26,42 @@ async function runReminders(userId?: string): Promise<Response> {
       : await processPaymentReminders(userId);
     return jsonResponse(result);
   } catch (e) {
-    const message = e instanceof Error && e.message ? e.message : "Unknown error";
+    const message = errorMessage(e);
     console.error(`[reminders] run failed: ${message}`);
     return jsonResponse({ error: message }, 500);
   }
+}
+
+/**
+ * The whole-instance daily run: payment reminders AND recurring-invoice
+ * draft generation. Recurring templates ride on this existing cron instead of
+ * a third `crons` entry in vercel.json (the plan may cap cron jobs). The two
+ * are isolated — each has its own try/catch, so a failure in one never
+ * breaks the other — and both results are in the JSON body.
+ *
+ * Status: unchanged for reminders (500 only if the reminder run could not
+ * happen at all, so Vercel retries). A recurring failure is reported in
+ * `recurring.error` with the reminders' status — retrying the whole cron
+ * would re-run reminders, and generation is idempotent and retried by the
+ * next daily tick anyway.
+ *
+ * Recurring generation creates DRAFTS ONLY. Auto-issuing needs explicit owner
+ * sign-off (see lib/recurring/service.ts).
+ */
+async function runDaily(): Promise<Response> {
+  const remindersResponse = await runReminders();
+
+  let recurring: unknown;
+  try {
+    recurring = await generateDueDrafts();
+  } catch (e) {
+    const message = errorMessage(e);
+    console.error(`[recurring] run failed: ${message}`);
+    recurring = { error: message };
+  }
+
+  const reminders = (await remindersResponse.json()) as Record<string, unknown>;
+  return jsonResponse({ ...reminders, recurring }, remindersResponse.status);
 }
 
 function isAuthorizedCronRequest(request: Request): boolean {
@@ -40,12 +77,12 @@ export async function GET(request: Request) {
     return unauthorizedResponse();
   }
 
-  return runReminders();
+  return runDaily();
 }
 
 export async function POST(request: Request) {
   if (isAuthorizedCronRequest(request)) {
-    return runReminders();
+    return runDaily();
   }
 
   const session = await requireSession(request);
