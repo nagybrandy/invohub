@@ -2016,7 +2016,7 @@ Order = execution order (bugs first).
       in the composer (portal / anchored popover, correct z-order on web),
       and the copy-from link sits below the field, never under the list.
       Test: render test for order/visibility; check at 1440 and 375.
-- [ ] **E-mail preview has no body text.** Beállítások → E-mail szerkesztő
+- [x] **E-mail preview has no body text.** Beállítások → E-mail szerkesztő
       (`app/(app)/settings/templates.tsx`, `components/email/EmailPreview*.tsx`)
       shows the subject/frame but not the template body. The preview must
       render the same body the sent e-mail would (placeholders filled with
