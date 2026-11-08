@@ -130,7 +130,7 @@ Query paraméterek (ugyanaz a szűrés, mint a belső listánál):
 | `offset` | Lapozás |
 
 ```bash
-curl "https://invohub.vercel.app/api/v1/invoices?status=sent&limit=10" \
+curl "https://app.invohub.hu/api/v1/invoices?status=sent&limit=10" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET"
 ```
 
@@ -192,7 +192,7 @@ Draft vagy azonnal véglegesített számlát hoz létre. Alapértelmezetten **ne
 #### Példa — cURL (draft létrehozása, e-mail nélkül — ez az alapértelmezés, a `sendEmail: false` csak az egyértelműség kedvéért szerepel)
 
 ```bash
-curl -X POST "https://invohub.vercel.app/api/v1/invoices" \
+curl -X POST "https://app.invohub.hu/api/v1/invoices" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 6e6e6f76-invoice-2026-001" \
@@ -211,7 +211,7 @@ curl -X POST "https://invohub.vercel.app/api/v1/invoices" \
 ```json
 {
   "invoice": {
-    "id": "abc123",
+    "id": "EXAMPLE_INVOICE_ID",
     "invoiceNumber": "",
     "status": "draft",
     "clientName": "Acme Kft.",
@@ -230,7 +230,7 @@ Hibák: `400` — validációs hiba vagy hibás JSON (az `error` megnevezi a mez
 `GET /api/v1/invoices/{id}`
 
 ```bash
-curl "https://invohub.vercel.app/api/v1/invoices/abc123" \
+curl "https://app.invohub.hu/api/v1/invoices/EXAMPLE_INVOICE_ID" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET"
 ```
 
@@ -247,7 +247,7 @@ Válasz (`200`): `{ "invoice": { "...": "..." } }`
 ```
 
 ```bash
-curl -X PATCH "https://invohub.vercel.app/api/v1/invoices/abc123" \
+curl -X PATCH "https://app.invohub.hu/api/v1/invoices/EXAMPLE_INVOICE_ID" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
@@ -271,7 +271,7 @@ Draftból véglegesített bizonylatot csinál — **pontosan ugyanazon a kódút
 Nem-draft számlán `409` + `code: "notDraft"`. Hiányos vevő cím esetén (Áfa tv. 169. § e) — lásd az 5.2 figyelmeztetést) `422` + `code: "buyerAddressMissing"`, szám kiosztása nélkül.
 
 ```bash
-curl -X POST "https://invohub.vercel.app/api/v1/invoices/abc123/finalize" \
+curl -X POST "https://app.invohub.hu/api/v1/invoices/EXAMPLE_INVOICE_ID/finalize" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
   -H "Idempotency-Key: 6e6e6f76-invoice-2026-001-finalize"
 ```
@@ -310,7 +310,7 @@ A draft végösszege így 0; a másolatokat kell a helyes értékekre átírni (
 `Content-Type: application/pdf` — ugyanaz a generátor, mint a belső alkalmazásban (Beállítások → PDF megjelenés testreszabással).
 
 ```bash
-curl "https://invohub.vercel.app/api/v1/invoices/abc123/pdf" \
+curl "https://app.invohub.hu/api/v1/invoices/EXAMPLE_INVOICE_ID/pdf" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET" \
   -o invoice.pdf
 ```
@@ -418,7 +418,7 @@ dátumát.
 | `date` | igen | `YYYY-MM-DD` |
 
 ```bash
-curl "https://invohub.vercel.app/api/v1/exchange-rates?currency=EUR&date=2026-09-22" \
+curl "https://app.invohub.hu/api/v1/exchange-rates?currency=EUR&date=2026-09-22" \
   -H "Authorization: Bearer ih_pk_YOUR_PUBLIC:ih_sk_YOUR_SECRET"
 ```
 

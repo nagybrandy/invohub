@@ -187,7 +187,7 @@ const BUYER_ADDRESS_MISSING: ApiError = {
   status: 422,
   code: "buyerAddressMissing",
   description: {
-    hu: "Véglegesítéshez a vevő neve és teljes címe (clientZipCode, clientCity, clientAddress) kötelező (Áfa tv. 169. § e). Szám nem kerül kiosztásra.",
+    hu: "Véglegesítéshez a vevő neve és teljes címe (clientZipCode, clientCity, clientAddress) kötelező. Szám nem kerül kiosztásra.",
     en: "Finalizing needs the buyer name and full address (clientZipCode, clientCity, clientAddress). No number is assigned.",
   },
 };
@@ -203,7 +203,7 @@ const NOT_DRAFT: ApiError = {
   status: 409,
   code: "notDraft",
   description: {
-    hu: "Csak draft állapotú számlán végezhető el.",
+    hu: "Csak piszkozat állapotú számlán végezhető el.",
     en: "Only possible on an invoice that is still a draft.",
   },
 };
@@ -237,7 +237,7 @@ const INVOICE_WRITE_PARAMS: ApiParam[] = [
     type: "string",
     required: false,
     description: {
-      hu: "A számlán szereplő vevőcím (a kiállításkori pillanatkép, nem az `/clients` végponton tárolt ügyfél címe). Draftnál elhagyható; véglegesítéskor mindhárom kötelező. Díjbekérőnél soha nem kötelező.",
+      hu: "A számlán szereplő vevőcím (a kiállításkori pillanatkép, nem az `/clients` végponton tárolt ügyfél címe). Piszkozatnál elhagyható; véglegesítéskor mindhárom kötelező. Díjbekérőnél soha nem kötelező.",
       en: "The buyer address printed on the invoice (a snapshot at issue time, not the address stored on the client). Optional on a draft; all three are required to finalize. Never required on a proforma.",
     },
   },
@@ -256,7 +256,7 @@ const INVOICE_WRITE_PARAMS: ApiParam[] = [
 ];
 
 const INVOICE_CREATE_ONLY_PARAMS: ApiParam[] = [
-  { name: "sendEmail", location: "body", type: "boolean", required: false, description: { hu: "Alapértelmezés: `false` (nem küld e-mailt). `true` esetén és draft számlánál a küldés előtt véglegesítés történik (szám kiosztás, `status` -> `sent`).", en: "Default `false` (no email). With `true`, a draft is finalized first (number assigned, `status` becomes `sent`) and then emailed." } },
+  { name: "sendEmail", location: "body", type: "boolean", required: false, description: { hu: "Alapértelmezés: `false` (nem küld e-mailt). `true` esetén és piszkozat számlánál a küldés előtt véglegesítés történik (szám kiosztás, `status` -> `sent`).", en: "Default `false` (no email). With `true`, a draft is finalized first (number assigned, `status` becomes `sent`) and then emailed." } },
   { name: "emailTo", location: "body", type: "string | string[]", required: false, description: { hu: "Címzett(ek) felülírása.", en: "Override the To recipients." } },
   { name: "emailCc", location: "body", type: "string | string[]", required: false, description: { hu: "Másolat (Cc) címzettek.", en: "Cc recipients." } },
   { name: "submitToNav", location: "body", type: "boolean", required: false, description: { hu: "`true`: NAV-beküldést kér akkor is, ha az automatikus nem futott le. Idempotens.", en: "`true` requests a NAV submission even if the automatic one did not run. Idempotent." } },
@@ -293,7 +293,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     path: "/api/v1/invoices",
     summary: { hu: "Számla létrehozása", en: "Create an invoice" },
     description: withIdem({
-      hu: "Draft vagy azonnal végleges számlát hoz létre. Alapértelmezés szerint draftot készít, szám nélkül és e-mail küldése nélkül. A válasz `email` mezője jelzi, történt-e küldés; a `nav` / `navSubmission` mező a NAV-beküldés eredménye (vagy `null`).",
+      hu: "Piszkozat vagy azonnal végleges számlát hoz létre. Alapértelmezés szerint piszkozatot készít, szám nélkül és e-mail küldése nélkül. A válasz `email` mezője jelzi, történt-e küldés; a `nav` / `navSubmission` mező a NAV-beküldés eredménye (vagy `null`).",
       en: "Creates a draft or an immediately final invoice. By default it creates a number-less draft and sends no email. The `email` field of the response says whether an email went out; `nav` / `navSubmission` carry the NAV submission result (or `null`).",
     }),
     idempotent: true,
@@ -331,9 +331,9 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     group: "invoices",
     method: "PATCH",
     path: "/api/v1/invoices/{id}",
-    summary: { hu: "Draft frissítése", en: "Update a draft" },
+    summary: { hu: "Piszkozat frissítése", en: "Update a draft" },
     description: {
-      hu: "Csak draft számla módosítható. A törzset a létrehozással azonos szabályok szerint ellenőrzi, és teljes törzset vár (`clientName` és `lineItems` kötelező). Nem módosítja a `fulfillmentDate`, az `emailTo`, az `emailCc` és a `sendEmail` mezőt. Ha a `status` már nem `draft`, a PATCH véglegesíti a számlát, és a válasz `nav` mezője a NAV-beküldés eredménye.",
+      hu: "Csak piszkozat számla módosítható. A törzset a létrehozással azonos szabályok szerint ellenőrzi, és teljes törzset vár (`clientName` és `lineItems` kötelező). Nem módosítja a `fulfillmentDate`, az `emailTo`, az `emailCc` és a `sendEmail` mezőt. Ha a `status` már nem `draft`, a PATCH véglegesíti a számlát, és a válasz `nav` mezője a NAV-beküldés eredménye.",
       en: "Only a draft can be updated. The body is validated like a create and must be complete (`clientName` and `lineItems` are required). It does not change `fulfillmentDate`, `emailTo`, `emailCc` or `sendEmail`. If `status` is no longer `draft`, the PATCH finalizes the invoice and the `nav` field of the response carries the NAV submission result.",
     },
     params: [INVOICE_ID, ...INVOICE_WRITE_PARAMS],
@@ -357,9 +357,9 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     group: "invoices",
     method: "DELETE",
     path: "/api/v1/invoices/{id}",
-    summary: { hu: "Draft törlése", en: "Delete a draft" },
+    summary: { hu: "Piszkozat törlése", en: "Delete a draft" },
     description: {
-      hu: "Csak draft számla törölhető. Véglegesített számla a folytonos számozás miatt soha nem törölhető; helyette sztornózni kell.",
+      hu: "Csak piszkozat számla törölhető. Véglegesített számla a folytonos számozás miatt soha nem törölhető; helyette sztornózni kell.",
       en: "Only a draft can be deleted. A finalized invoice is never deleted because numbering must stay continuous; issue a storno instead.",
     },
     params: [INVOICE_ID],
@@ -373,7 +373,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     path: "/api/v1/invoices/{id}/finalize",
     summary: { hu: "Véglegesítés", en: "Finalize a draft" },
     description: withIdem({
-      hu: "Draftból végleges bizonylatot készít és kiosztja a számlaszámot, ugyanazon a kódúton, mint az alkalmazás Véglegesítés gombja. Díjbekérő `proforma`, minden más `unpaid` státuszt kap. Nem küld e-mailt. Hiányzó árfolyamot (nem HUF) a hivatalos MNB árfolyammal pótol. A válasz `nav` mezője a NAV-beküldés eredménye, ha a NAV be van állítva.",
+      hu: "Piszkozatból végleges bizonylatot készít és kiosztja a számlaszámot, ugyanazon a kódúton, mint az alkalmazás Véglegesítés gombja. Díjbekérő `proforma`, minden más `unpaid` státuszt kap. Nem küld e-mailt. Hiányzó árfolyamot (nem HUF) a hivatalos MNB árfolyammal pótol. A válasz `nav` mezője a NAV-beküldés eredménye, ha a NAV be van állítva.",
       en: "Turns a draft into a final document and assigns the invoice number, through the same code path as the app's Finalize button. A proforma becomes `proforma`, anything else `unpaid`. Sends no email. A missing non-HUF rate is filled from the official MNB rate. The `nav` field of the response carries the NAV submission result when NAV is configured.",
     }),
     idempotent: true,
@@ -389,8 +389,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     path: "/api/v1/invoices/{id}/storno",
     summary: { hu: "Sztornó", en: "Cancel with a storno" },
     description: withIdem({
-      hu: "Sztornó (törlő) bizonylatot hoz létre, az eredetit `cancelled` állapotba állítja. A sztornó már végleges, ezért a NAV felé is jelentésre kerül, ha a NAV be van állítva (`nav` mező). Ez a hibás, végleges számla javításának útja.",
-      en: "Creates a storno (cancellation) document and marks the original `cancelled`. The storno is final on creation, so it is reported to NAV when NAV is configured (`nav` field). This is the way to correct an issued invoice.",
+      hu: "Sztornó (törlő) bizonylatot hoz létre, az eredetit `cancelled` állapotba állítja. A sztornó már végleges, ezért a NAV-beküldés is megtörténik, ha a NAV be van állítva (`nav` mező); a fiók beállítása szerint demó (szimulált) vagy teszt módban. Ez a hibás, végleges számla javításának útja.",
+      en: "Creates a storno (cancellation) document and marks the original `cancelled`. The storno is final on creation, so it is submitted to NAV when NAV is configured (`nav` field), in demo (simulated) or test mode according to the account setting. This is the way to correct an issued invoice.",
     }),
     idempotent: true,
     params: [INVOICE_ID],
@@ -410,9 +410,9 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     group: "invoices",
     method: "POST",
     path: "/api/v1/invoices/{id}/modify",
-    summary: { hu: "Helyesbítő draft indítása", en: "Start a correction draft" },
+    summary: { hu: "Helyesbítő piszkozat indítása", en: "Start a correction draft" },
     description: withIdem({
-      hu: "Helyesbítő (korrekciós) draftot indít. A NAV a helyesbítő tételeit különbözetként kezeli, ezért a draft nulla különbözettel indul: az eredeti minden tételéhez egy ellentételező sor (negatív mennyiség) és az eredeti tétel szerkeszthető másolata kerül bele. A másolatokat írd át a helyes értékekre (PATCH), majd véglegesítsd (finalize).",
+      hu: "Helyesbítő (korrekciós) piszkozatot indít. A NAV a helyesbítő tételeit különbözetként kezeli, ezért a piszkozat nulla különbözettel indul: az eredeti minden tételéhez egy ellentételező sor (negatív mennyiség) és az eredeti tétel szerkeszthető másolata kerül bele. A másolatokat írd át a helyes értékekre (PATCH), majd véglegesítsd (finalize).",
       en: "Starts a correction (helyesbítő) draft. NAV treats correction lines as differences, so the draft starts at zero difference: for every original line it holds a reversing line (negative quantity) and an editable copy of the original. Rewrite the copies to the correct values (PATCH), then finalize.",
     }),
     idempotent: true,
@@ -433,7 +433,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     path: "/api/v1/invoices/{id}/convert",
     summary: { hu: "Díjbekérő számlává alakítása", en: "Convert a proforma to an invoice" },
     description: withIdem({
-      hu: "A díjbekérőből draft számlát készít. Ugyanaz a díjbekérő csak egyszer konvertálható, amíg a konverzió nem sztornózott.",
+      hu: "A díjbekérőből piszkozat számlát készít. Ugyanaz a díjbekérő csak egyszer konvertálható, amíg a konverzió nem sztornózott.",
       en: "Creates a draft invoice from a proforma. The same proforma can only be converted once while the conversion has not been cancelled.",
     }),
     idempotent: true,
@@ -469,7 +469,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     path: "/api/v1/invoices/{id}/send",
     summary: { hu: "Számla küldése e-mailben", en: "Email an invoice" },
     description: withIdem({
-      hu: "A számlát PDF csatolmánnyal e-mailben elküldi. A törzs elhagyható. Ha a számla még draft, a küldés előtt véglegesíti (a véglegesítés kapui itt is érvényesek).",
+      hu: "A számlát PDF csatolmánnyal e-mailben elküldi. A törzs elhagyható. Ha a számla még piszkozat, a küldés előtt véglegesíti (a véglegesítés kapui itt is érvényesek).",
       en: "Emails the invoice with the PDF attached. The body is optional. If the invoice is still a draft it is finalized first (the same finalization checks apply).",
     }),
     idempotent: true,
@@ -487,7 +487,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       { status: 422, code: "noRecipient", description: { hu: "Nincs címzett.", en: "There is no recipient." } },
       BUYER_ADDRESS_MISSING,
       COMPANY_PROFILE_INCOMPLETE,
-      { status: 409, code: "invoiceFinalized", description: { hu: "Másik kérés közben véglegesítette ugyanezt a draftot.", en: "Another request finalized the same draft first." } },
+      { status: 409, code: "invoiceFinalized", description: { hu: "Másik kérés közben véglegesítette ugyanezt a piszkozatot.", en: "Another request finalized the same draft first." } },
       { status: 502, code: "emailSendFailed", description: { hu: "Az e-mail kiküldése sikertelen.", en: "The email could not be delivered." } },
       { status: 500, description: { hu: "`pdfFailed` vagy `templateNotFound` `code`-dal: a PDF vagy a sablon hiba miatt nem készült el.", en: "With `code` `pdfFailed` or `templateNotFound`: the PDF or template could not be produced." } },
     ],
@@ -550,8 +550,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     path: "/api/v1/invoices/{id}/nav",
     summary: { hu: "Beküldés a NAV-nak", en: "Submit to NAV" },
     description: {
-      hu: "A kimenő számlát továbbítja a NAV Online Számla felé. A NAV-környezet a fiók NAV-beállítását követi (demó vagy teszt mód), a kérés nem választ környezetet. Idempotens: ha már van folyamatban lévő vagy sikeres beküldés, azt adja vissza (`alreadySubmitted: true`), és nem küld újat. Díjbekérő nem küldhető be. A végleges számlák egyébként véglegesítéskor automatikusan beküldésre kerülnek, ha a NAV be van állítva.",
-      en: "Forwards the issued invoice to NAV Online Számla. The NAV environment follows the account's NAV settings (demo or test mode); the request does not choose one. Idempotent: if a submission is already in progress or done, that one is returned (`alreadySubmitted: true`) and nothing new is sent. A proforma cannot be submitted. Final invoices are otherwise submitted automatically on finalization when NAV is configured.",
+      hu: "A kimenő számlát továbbítja a NAV Online Számla felé. A NAV-környezet a fiók NAV-beállítását követi (demó vagy teszt mód), a kérés nem választ környezetet. A demó mód szimuláció: semmit nem küld a NAV-nak. Teszt módban a számla a NAV tesztkörnyezetébe kerül. Idempotens: ha már van folyamatban lévő vagy sikeres beküldés, azt adja vissza (`alreadySubmitted: true`), és nem küld újat. Díjbekérő nem küldhető be. A végleges számlák egyébként véglegesítéskor automatikusan beküldésre kerülnek, ha a NAV be van állítva.",
+      en: "Forwards the issued invoice to NAV Online Számla. The NAV environment follows the account's NAV settings (demo or test mode); the request does not choose one. Demo mode is a simulation and sends nothing to NAV; test mode submits to the NAV test environment. Idempotent: if a submission is already in progress or done, that one is returned (`alreadySubmitted: true`) and nothing new is sent. A proforma cannot be submitted. Final invoices are otherwise submitted automatically on finalization when NAV is configured.",
     },
     params: [INVOICE_ID],
     responseStatus: 200,
@@ -561,7 +561,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     }),
     errors: [
       NOT_FOUND_INVOICE,
-      { status: 409, code: "draftNotSubmittable", description: { hu: "A draft (szám nélküli) bizonylat nem küldhető be.", en: "A draft (number-less) document cannot be submitted." } },
+      { status: 409, code: "draftNotSubmittable", description: { hu: "A piszkozat (szám nélküli) bizonylat nem küldhető be.", en: "A draft (number-less) document cannot be submitted." } },
       { status: 409, code: "missingExchangeRate", description: { hu: "Nem HUF-os számlához nincs használható árfolyam.", en: "A non-HUF invoice has no usable exchange rate." } },
       { status: 422, code: "proformaNotSubmittable", description: { hu: "A díjbekérő nem számla, nem jelenthető.", en: "A proforma is not an invoice and is not reported." } },
       { status: 502, code: "navSubmitFailed", description: { hu: "A beküldés sikertelen; a hiba rögzítve van (`navSubmission`), újrapróbálható.", en: "The submission failed; the failure is recorded (`navSubmission`) and can be retried." } },

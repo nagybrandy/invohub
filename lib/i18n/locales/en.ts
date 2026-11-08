@@ -1960,7 +1960,7 @@ export default {
       },
       nav: {
         title: "NAV Online Számla",
-        body: "Issued invoices are reported to NAV when the account has its NAV connection set up. This happens automatically on finalization and on storno, and `POST /api/v1/invoices/{id}/nav` submits an invoice on request. The NAV environment comes from the account's setting (demo or test mode) and cannot be chosen in the request. The examples show a demo-mode result.",
+        body: "When the account has its NAV connection set up, issued invoices are submitted: automatically on finalization and on storno, and on request with `POST /api/v1/invoices/{id}/nav`. The NAV environment comes from the account's setting (demo or test mode) and cannot be chosen in the request. Demo mode is a simulation and sends nothing to NAV; test mode submits to the NAV test environment. The examples show a demo-mode result.",
       },
       endpoints: {
         title: "Endpoints",

@@ -1958,7 +1958,7 @@ export default {
       },
       nav: {
         title: "NAV Online Számla",
-        body: "A kiállított számlák a NAV felé jelentésre kerülnek, ha a fiókban be van állítva a NAV-kapcsolat. Véglegesítéskor és sztornózáskor ez automatikusan megtörténik, a `POST /api/v1/invoices/{id}/nav` pedig kérésre (újra) beküldi a számlát. A NAV-környezetet a fiók beállítása adja (demó vagy teszt mód), a kérésben nem választható. A példák demó módú eredményt mutatnak.",
+        body: "Ha a fiókban be van állítva a NAV-kapcsolat, a kiállított számlák beküldésre kerülnek: véglegesítéskor és sztornózáskor automatikusan, a `POST /api/v1/invoices/{id}/nav` végponttal pedig kérésre. A NAV-környezetet a fiók beállítása adja (demó vagy teszt mód), a kérésben nem választható. A demó mód szimuláció: semmit nem küld a NAV-nak. Teszt módban a számla a NAV tesztkörnyezetébe kerül. A példák demó módú eredményt mutatnak.",
       },
       endpoints: {
         title: "Végpontok",

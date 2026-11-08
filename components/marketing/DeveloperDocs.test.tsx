@@ -72,6 +72,8 @@ describe("DeveloperDocsScreen", () => {
     expect(text).toContain("legfeljebb 120 kérést");
     expect(text).toContain("nem pontos globális kvóta");
     expect(text).toContain("demó vagy teszt mód");
+    expect(text).toContain("A demó mód szimuláció: semmit nem küld a NAV-nak.");
+    expect(text).not.toMatch(/[Dd]raft(ot|ból|nál|os)/);
     expect(text).toContain("https://app.invohub.hu/api/v1/...");
   });
 
@@ -80,6 +82,7 @@ describe("DeveloperDocsScreen", () => {
     expect(text).toContain("Settings → API keys");
     expect(text).toContain("rather than a precise global quota");
     expect(text).toContain("demo or test mode");
+    expect(text).toContain("Demo mode is a simulation and sends nothing to NAV");
     expect(text).toContain("Create an invoice");
   });
 
