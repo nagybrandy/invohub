@@ -480,8 +480,9 @@ describe("InvoiceComposer — finalize is one click, sending is the secondary op
     expect(findByTestID(tree, "composer-bottom-error").length).toBeGreaterThan(0);
     // Nothing is saved. A debounced company lookup left over from an earlier
     // test can still land here on a slow runner, so only it is tolerated.
+    // The partner field's read-only suggestions fetch is not a save either.
     const nonSearchCalls = mockApiFetch.mock.calls.filter(
-      ([url]) => !String(url).startsWith("/api/company/search")
+      ([url]) => !String(url).startsWith("/api/company/search") && !String(url).startsWith("/api/clients/suggestions")
     );
     expect(nonSearchCalls).toHaveLength(0);
   });
@@ -499,6 +500,61 @@ describe("InvoiceComposer — finalize is one click, sending is the secondary op
     const tree = await renderComposer({ mode: "create" });
     const [finalize] = findByTestID(tree, "composer-action-finalize");
     expect(finalize.props.disabled).toBe(true);
+  });
+});
+
+describe("InvoiceComposer — partner suggestions prefill the usual settings", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCompany = COMPLETE_COMPANY;
+    mockInvoices = [];
+    mockApiFetch.mockImplementation(async (path: string) => {
+      if (path.startsWith("/api/clients/suggestions")) {
+        return {
+          suggestions: [
+            {
+              partner: { clientId: null, name: "Régi Partner Kft.", taxNumber: "11111111-2-13", city: "Győr" },
+              invoiceCount: 4,
+              lastIssueDate: "2026-09-01",
+              latestInvoiceId: "i1",
+              usual: {
+                currency: "HUF",
+                paymentTermDays: 30,
+                lineItems: [
+                  { description: "Havi karbantartás", quantity: 1, unit: "hó", unitPrice: 50000, vatRate: 27, vatCategory: "normal" },
+                ],
+              },
+            },
+          ],
+        };
+      }
+      return {};
+    });
+  });
+
+  it("offers the top partners on focus, fills the partner on pick, and adds items only on 'Előző tételek betöltése'", async () => {
+    const tree = await renderComposer({ mode: "create" });
+    const [search] = findByTestID(tree, "composer-partner-search");
+    await act(async () => {
+      search.props.onFocus?.();
+      await Promise.resolve();
+    });
+    const [row] = findByTestID(tree, "composer-partner-suggestion-0");
+    await act(async () => {
+      row.props.onPress();
+      await Promise.resolve();
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain("Régi Partner Kft.");
+    // not silently added
+    expect(JSON.stringify(tree.toJSON())).not.toContain("Havi karbantartás");
+
+    const [load] = findByTestID(tree, "composer-load-previous-items");
+    await act(async () => {
+      load.props.onPress();
+      await Promise.resolve();
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain("Havi karbantartás");
+    expect(findByTestID(tree, "composer-load-previous-items")).toHaveLength(0);
   });
 });
 
