@@ -542,7 +542,7 @@ export function FinalCta({
 
 export type FooterRoute = (typeof routes)[keyof Pick<
   typeof routes,
-  "terms" | "privacy" | "cookies" | "imprint" | "blog"
+  "terms" | "privacy" | "cookies" | "imprint" | "blog" | "developers"
 >];
 
 export function LandingFooter({
@@ -586,6 +586,11 @@ export function LandingFooter({
               label={t("landing.footer.blog")}
               onPress={onOpenBlog}
               testID="landing-footer-blog"
+            />
+            <FooterLink
+              label={t("landing.footer.developers")}
+              onPress={() => onNavigateRoute(routes.developers)}
+              testID="landing-footer-developers"
             />
           </FooterColumn>
           <FooterColumn title={t("landing.footer.legal")}>
