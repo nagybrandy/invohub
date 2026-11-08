@@ -114,6 +114,12 @@ describe("InvoiceList table", () => {
     expect(json).toContain("–");
   });
 
+  it("shows no converted badge on a non-proforma row even when convertedIds has its id", () => {
+    const invoice = makeInvoice({ id: "i1", documentType: "invoice", invoiceNumber: "INV-2026-001" });
+    const tree = render({ invoices: [invoice], convertedIds: { i1: "inv-9" } });
+    expect(JSON.stringify(tree.toJSON())).not.toContain("invoices.convert.convertedBadge");
+  });
+
   it("renders the converted label for a converted díjbekérő only", () => {
     const invoice = makeInvoice({ id: "p1", documentType: "proforma", invoiceNumber: "DBK-2026-001" });
     const other = makeInvoice({ id: "p2", documentType: "proforma", invoiceNumber: "DBK-2026-002" });

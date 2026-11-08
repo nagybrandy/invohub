@@ -1876,7 +1876,7 @@ Remaining for the launch gate:
       navigation target.
       (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
       ux)
-- [ ] `InvoiceListRow`'s converted badge (`components/invoices/InvoiceListRow.tsx`
+- [x] `InvoiceListRow`'s converted badge (`components/invoices/InvoiceListRow.tsx`
       ~56-65) is not gated on `documentType`, unlike `InvoiceCard.tsx`
       (~106: `invoice.documentType === "proforma" && converted`) — it
       renders whenever the `converted` prop is true, with no proforma
@@ -1890,6 +1890,9 @@ Remaining for the launch gate:
       `documentType` guard inside `InvoiceListRow` for defense-in-depth, or
       add a test asserting a non-proforma invoice with `converted=true`
       does not render the badge.
+      Done: the component moved to `components/lists/InvoiceList.tsx`
+      (`InvoiceNumberCell`); the badge is now gated on
+      `documentType === "proforma"` and covered by a test.
       (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
       ux)
 - [ ] The branch this shipped from was 2 commits stale behind `main`
