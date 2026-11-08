@@ -2,6 +2,14 @@
 // Playwright E2E config for InvoHub web (Expo web dev server) and the static marketing site.
 import { defineConfig, devices } from "@playwright/test";
 
+// Local-only opt-ins (CI sets neither): load the checkout's .env so the authenticated
+// specs find E2E_TEST_*, and drive an installed browser instead of Playwright's bundle.
+if (process.env.E2E_LOAD_DOTENV === "1") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("dotenv").config();
+}
+const BROWSER_CHANNEL = process.env.E2E_BROWSER_CHANNEL || undefined;
+
 const PORT = Number(process.env.E2E_WEB_PORT ?? 8081);
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
 
@@ -52,12 +60,12 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: { ...devices["Desktop Chrome"], channel: BROWSER_CHANNEL },
       testIgnore: [MARKETING_TESTS, PRODUCTION_TESTS],
     },
     {
       name: "mobile-chrome",
-      use: { ...devices["Pixel 7"] },
+      use: { ...devices["Pixel 7"], channel: BROWSER_CHANNEL },
       testIgnore: [MARKETING_TESTS, PRODUCTION_TESTS],
     },
     {

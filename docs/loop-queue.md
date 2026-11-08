@@ -1037,7 +1037,7 @@ Already shipped:
       cookie-consent CTA
 
 Remaining for the launch gate:
-- [ ] Authenticated create→preview→PDF E2E (blocked on the Phase 0 auth
+- [x] Authenticated create→preview→PDF E2E (`e2e/web/invoice-preview-pdf.spec.ts`; blocked on the Phase 0 auth
       test-user item above)
 - [x] AAM/TAM/fordított adózás review — confirm invoice VAT-treatment text
       and 0%-VAT handling match `.claude/skills/hu-invoicing-rules/SKILL.md`
@@ -1988,7 +1988,7 @@ Remaining for the launch gate:
       `<Slot/>` in `AppShell` and `settings/_layout` did NOT fix it, so the
       cause is elsewhere. It is not yet checked on the production build
       (no automated prod login).
-- [ ] **Authenticated web E2E specs describe the old UI** (`e2e/web/dashboard.spec.ts`
+- [x] **Authenticated web E2E specs describe the old UI** (`e2e/web/dashboard.spec.ts`
       and the other signed-in specs). CI skips them because it has no
       E2E_TEST_* secrets, so nothing goes red, but they no longer match the
       redesign: no create buttons on Főoldal, KPI strip on Számlák, "Fizetésre vár".
