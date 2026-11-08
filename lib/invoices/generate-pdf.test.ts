@@ -186,6 +186,7 @@ import { LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
 import { documentInk } from "@/lib/invoices/document-ink";
 import { landingColors } from "@/components/marketing/landing-theme";
 import * as pdfFontsModule from "@/lib/invoices/pdf-fonts";
+import * as brandMarkModule from "@/lib/invoices/pdf-brand-mark";
 import { CONTENT_MARGIN_BOTTOM, PAGE_MARGIN, readableTextOn, tint } from "@/lib/invoices/pdf-layout";
 import { makeInvoice, makeLineItem } from "@/__tests__/fixtures/invoices";
 
@@ -524,6 +525,35 @@ describe("generateInvoicePdf — document geometry (AC2)", () => {
   });
 });
 
+describe("generateInvoicePdf — footer brand lockup placement", () => {
+  let lockupSpy: jest.SpyInstance;
+  beforeEach(() => {
+    lockupSpy = jest.spyOn(brandMarkModule, "drawBrandLockup");
+  });
+  afterEach(() => lockupSpy.mockRestore());
+
+  it("centres the brand lockup on a single page when the issuer's footerText is empty", async () => {
+    mockBufferedPageRange = { start: 0, count: 1 };
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." }, template: { footerText: "" } });
+
+    expect(lockupSpy).toHaveBeenCalledTimes(1);
+    expect(lockupSpy.mock.calls[0]![1]).toMatchObject({ align: "center", text: documentLabels().footer });
+    // No issuer footer text and no page indicator is drawn beside it.
+    expect(mockDrawnTexts).not.toContain(LEGACY_PDF_TEMPLATE.footerText);
+    expect(mockDrawnTexts.some((t) => /\d+\/\d+\.\s*oldal/.test(t))).toBe(false);
+  });
+
+  it("right-aligns the lockup when the issuer's footerText is set", async () => {
+    const invoice = makeInvoice();
+
+    await generateInvoicePdf({ invoice, company: { name: "Demo Kft." }, template: { footerText: "Köszönjük" } });
+
+    expect(lockupSpy.mock.calls[0]![1]).toMatchObject({ align: "right" });
+  });
+});
+
 describe("generateInvoicePdf — footer page indicator (AC12)", () => {
   it("draws no page indicator when there is exactly 1 buffered page", async () => {
     mockBufferedPageRange = { start: 0, count: 1 };
@@ -532,9 +562,8 @@ describe("generateInvoicePdf — footer page indicator (AC12)", () => {
     await generateInvoicePdf({ invoice, company: { name: "Demo Kft." } });
 
     expect(mockDrawnTexts.some((t) => /\d+\/\d+\.\s*oldal/.test(t))).toBe(false);
-    // Existing empty-footerText behaviour (lockup centred) is unchanged —
-    // the issuer footerText is set by default here so this only guards the
-    // indicator itself; the centred-lockup case is covered elsewhere.
+    // The empty-footerText centred lockup is asserted in "footer brand
+    // lockup placement" below; this case only guards the indicator itself.
   });
 
   it("draws '1/3. oldal', '2/3. oldal' and '3/3. oldal' exactly once each with 3 buffered pages", async () => {
