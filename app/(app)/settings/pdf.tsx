@@ -7,9 +7,9 @@
 // >= 760px wide (sticky); below that an Előnézet button reveals it above the
 // form. Save is PATCH /api/pdf-template (validated server side).
 //
-// A user who still has the legacy layout keeps it (shown as "Korábbi") until
-// they choose a new one; nothing here migrates the stored layout silently.
-// The buyer tax number is always printed on the new layouts, so that switch is
+// Only Letisztult / Sávos / Keretes are offered; a stored legacy layout is
+// read as Letisztult by the API (resolveLiveTemplate), issued invoices keep
+// their own frozen look. The buyer tax number is always printed on the new layouts, so that switch is
 // locked there.
 import * as React from "react";
 import { ActivityIndicator } from "react-native";
@@ -36,13 +36,12 @@ import {
 import { usePdfTemplate } from "@/hooks/usePdfTemplate";
 import { darkOf } from "@/lib/invoices/paper/brand-color";
 import {
-  applyPdfTemplateInput,
   DEFAULT_PDF_TEMPLATE,
-  PDF_FONT_SCALES,
+  PDF_SELECTABLE_LAYOUTS,
+  resolveLiveTemplate,
 } from "@/lib/invoices/pdf-template/defaults";
 import type {
   InvoicePdfTemplate,
-  PdfFontScale,
   PdfFontStyle,
   PdfLayout,
   PdfLogoMode,
@@ -60,13 +59,10 @@ import { useIconColors } from "@/lib/theme/icon-colors";
 import { type } from "@/lib/ui/type";
 import { useMeasuredWidth } from "@/lib/ui/use-measured-width";
 
-const FONT_LABELS: Record<PdfFontScale, string> = { small: "S", medium: "M", large: "L" };
-
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const LOGO_SIZES: PdfLogoSize[] = ["S", "M", "L"];
 const LOGO_POSITIONS: PdfLogoPosition[] = ["left", "right"];
 const FONT_STYLES: PdfFontStyle[] = ["invohub", "classic", "round"];
-const NEW_LAYOUTS: PdfLayout[] = ["clean", "band", "frame"];
 
 const TEMPLATE_KEYS = Object.keys(DEFAULT_PDF_TEMPLATE) as Array<keyof InvoicePdfTemplate>;
 
@@ -121,7 +117,7 @@ export default function PdfSettingsScreen() {
   const beside = measured && width >= LAYOUT.previewBesideMin;
 
   React.useEffect(() => {
-    if (template) setDraft(template);
+    if (template) setDraft(resolveLiveTemplate(template));
   }, [template]);
 
   function updateDraft(partial: Partial<InvoicePdfTemplate>) {
@@ -129,10 +125,8 @@ export default function PdfSettingsScreen() {
     setDraft((prev) => ({ ...prev, ...partial }));
   }
 
-  const saved = template ?? DEFAULT_PDF_TEMPLATE;
+  const saved = resolveLiveTemplate(template ?? DEFAULT_PDF_TEMPLATE);
   const dirty = Boolean(template) && TEMPLATE_KEYS.some((key) => draft[key] !== saved[key]);
-  const legacyUser = saved.layout === "legacy";
-  const onLegacy = draft.layout === "legacy";
   const colorValid = HEX_COLOR.test(draft.accentColor.trim());
   // The server rejects a malformed colour, so the preview keeps the last good one.
   const previewDraft = React.useMemo(
@@ -141,20 +135,12 @@ export default function PdfSettingsScreen() {
   );
   const colorHex = colorValid ? (draft.accentColor.trim().length === 4 ? expandHex(draft.accentColor) : draft.accentColor.trim()) : null;
   // The header uses a darker shade of a light colour (contrast); say so.
-  const shade = colorHex && !onLegacy ? darkOf(colorHex) : null;
+  const shade = colorHex ? darkOf(colorHex) : null;
   const showShade = shade !== null && colorHex !== null && shade.toLowerCase() !== colorHex.toLowerCase();
 
   function chooseLayout(layout: PdfLayout) {
     setMessage(null);
-    if (layout === "legacy") {
-      // Back to exactly what is stored (only offered while the stored layout is legacy).
-      setDraft(saved);
-    } else if (draft.layout === "legacy") {
-      // Leaving legacy: values the user never changed take Dóri's defaults.
-      setDraft((prev) => applyPdfTemplateInput(prev, { layout }));
-    } else {
-      setDraft((prev) => ({ ...prev, layout }));
-    }
+    setDraft((prev) => ({ ...prev, layout }));
   }
 
   function handleReset() {
@@ -182,9 +168,9 @@ export default function PdfSettingsScreen() {
   }
 
   const accentForThumbs = colorValid ? draft.accentColor.trim() : saved.accentColor;
-  const layoutOptions: PdfLayout[] = legacyUser ? ["legacy", ...NEW_LAYOUTS] : NEW_LAYOUTS;
+  const layoutOptions: PdfLayout[] = PDF_SELECTABLE_LAYOUTS;
   const layoutLabel: Record<PdfLayout, string> = {
-    legacy: t("settings.pdfScreen.layoutLegacy"),
+    legacy: t("settings.pdfScreen.layoutClean"),
     clean: t("settings.pdfScreen.layoutClean"),
     band: t("settings.pdfScreen.layoutBand"),
     frame: t("settings.pdfScreen.layoutFrame"),
@@ -210,7 +196,7 @@ export default function PdfSettingsScreen() {
         </Input>
       </SettingsSection>
 
-      {onLegacy ? null : (
+      {(
         <SettingsSection title={t("settings.pdfScreen.logo")} hint={t("settings.pdfScreen.logoHint")}>
           <SegmentedControl<PdfLogoMode>
             outlined
@@ -298,23 +284,7 @@ export default function PdfSettingsScreen() {
         ) : null}
       </SettingsSection>
 
-      {onLegacy ? (
-        <SettingsSection title={t("settingsPages.pdf.fontTitle")} hint={t("settingsPages.pdf.fontHint")}>
-          <SegmentedControl<PdfFontScale>
-            outlined
-            testID="pdf-font-scale"
-            accessibilityLabel={t("settings.pdfScreen.fontSize")}
-            value={draft.fontScale}
-            onChange={(scale) => updateDraft({ fontScale: scale })}
-            options={PDF_FONT_SCALES.map((scale) => ({
-              value: scale,
-              label: FONT_LABELS[scale],
-              accessibilityLabel: t(`settingsPages.pdf.fontSizes.${scale}`),
-              testID: `pdf-font-scale-${scale}`,
-            }))}
-          />
-        </SettingsSection>
-      ) : (
+      {(
         <SettingsSection title={t("settings.pdfScreen.fontStyle")} hint={t("settings.pdfScreen.fontStyleHint")}>
           <PdfOptionCards<PdfFontStyle>
             testID="pdf-font-style"
@@ -347,11 +317,6 @@ export default function PdfSettingsScreen() {
             sample: <LayoutThumb layout={layout} color={accentForThumbs} />,
           }))}
         />
-        {onLegacy ? (
-          <Text testID="pdf-layout-legacy-note" className={type.meta}>
-            {t("settings.pdfScreen.layoutLegacyNote")}
-          </Text>
-        ) : null}
       </SettingsSection>
 
       <SettingsSection title={t("settingsPages.pdf.visibleTitle")} hint={t("settingsPages.pdf.visibleHint")}>
@@ -372,9 +337,9 @@ export default function PdfSettingsScreen() {
             testID="pdf-show-client-tax"
             last
             label={t("settings.pdfScreen.showClientTaxNumber")}
-            value={onLegacy ? draft.showClientTaxNumber : true}
-            disabled={!onLegacy}
-            hint={onLegacy ? undefined : t("settings.pdfScreen.clientTaxLocked")}
+            value
+            disabled
+            hint={t("settings.pdfScreen.clientTaxLocked")}
             onChange={(v) => updateDraft({ showClientTaxNumber: v })}
           />
         </Box>

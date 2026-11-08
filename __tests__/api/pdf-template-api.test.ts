@@ -22,7 +22,7 @@ import { GET, PATCH, POST } from "@/app/api/pdf-template+api";
 import { requireSession } from "@/lib/api/session";
 import { buildSamplePdfContext } from "@/lib/invoices/build-pdf-context";
 import { generateInvoicePdf } from "@/lib/invoices/generate-pdf";
-import { DEFAULT_PDF_TEMPLATE, LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
+import { DEFAULT_PDF_TEMPLATE, LEGACY_PDF_TEMPLATE, resolveLiveTemplate } from "@/lib/invoices/pdf-template/defaults";
 import { getPdfTemplate, upsertPdfTemplate } from "@/lib/invoices/pdf-template/service";
 
 const mockSession = requireSession as jest.MockedFunction<typeof requireSession>;
@@ -58,7 +58,7 @@ describe("/api/pdf-template", () => {
   it("GET returns the user's template", async () => {
     const response = await GET(request("GET"));
     expect(response.status).toBe(200);
-    expect((await response.json()).template.layout).toBe("frame");
+    expect((await response.json()).template.layout).toBe("clean");
   });
 
   describe("PATCH", () => {
@@ -73,10 +73,11 @@ describe("/api/pdf-template", () => {
       expect(mockUpsert.mock.calls[0]![1]).not.toHaveProperty("layout");
     });
 
-    it("accepts layout 'legacy' so a round-tripped legacy row stays legacy", async () => {
+    it("rejects layout 'legacy' for writes (read-only; the picker no longer offers it)", async () => {
       const response = await PATCH(request("PATCH", { layout: "legacy" }));
-      expect(response.status).toBe(200);
-      expect(mockUpsert).toHaveBeenCalledWith("user-1", { layout: "legacy" });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "invalidPdfTemplate", fields: ["layout"] });
+      expect(mockUpsert).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -118,10 +119,10 @@ describe("/api/pdf-template", () => {
     it("does not lock out a user whose STORED text is longer than the new limits", async () => {
       const longFooter = "Hosszú lábléc. ".repeat(20).trim();
       const longTitle = "NAGYON HOSSZÚ SZÁMLA CÍM ".repeat(3).trim();
-      mockGet.mockResolvedValue({ ...LEGACY_PDF_TEMPLATE, footerText: longFooter, titleText: longTitle });
-      // the old screen PATCHes the whole template back
+      mockGet.mockResolvedValue({ ...DEFAULT_PDF_TEMPLATE, footerText: longFooter, titleText: longTitle });
+      // the settings screen PATCHes the whole template back
       const ok = await PATCH(
-        request("PATCH", { ...LEGACY_PDF_TEMPLATE, footerText: longFooter, titleText: longTitle, accentColor: "#112233" })
+        request("PATCH", { ...DEFAULT_PDF_TEMPLATE, footerText: longFooter, titleText: longTitle, accentColor: "#112233" })
       );
       expect(ok.status).toBe(200);
       // a NEW over-limit text is still rejected
@@ -140,10 +141,14 @@ describe("/api/pdf-template", () => {
       expect(ctx.template).toEqual({ ...DEFAULT_PDF_TEMPLATE, layout: "clean", accentColor: "#e8590c", fontStyle: "round" });
     });
 
-    it("an omitted field means 'as saved': a legacy user's sample stays on the legacy layout", async () => {
-      mockGet.mockResolvedValue({ ...LEGACY_PDF_TEMPLATE });
+    it("an omitted field means 'as saved': a legacy user's sample is drawn as Letisztult (the service resolves legacy)", async () => {
+      mockGet.mockResolvedValue(resolveLiveTemplate({ ...LEGACY_PDF_TEMPLATE }));
       await POST(request("POST", { showBankDetails: false }));
-      expect(mockGenerate.mock.calls[0]![0].template).toEqual({ ...LEGACY_PDF_TEMPLATE, showBankDetails: false });
+      expect(mockGenerate.mock.calls[0]![0].template).toEqual({
+        ...DEFAULT_PDF_TEMPLATE,
+        layout: "clean",
+        showBankDetails: false,
+      });
     });
 
     it("previewing a layout for a legacy user swaps the never-edited legacy defaults for Dóri's", async () => {

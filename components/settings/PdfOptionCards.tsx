@@ -102,7 +102,6 @@ export function PdfOptionCards<T extends string>({
 export function LayoutThumb({ layout, color }: { layout: PdfLayout; color: string }) {
   const framed = layout === "frame";
   const band = layout === "band";
-  const legacy = layout === "legacy";
   return (
     <Box aria-hidden className="h-[52px] w-[40px] gap-[3px] rounded-[3px] bg-white p-[4px]">
       <Box className="h-[3px] w-[60%] rounded-full" style={{ backgroundColor: color }} />
@@ -113,7 +112,7 @@ export function LayoutThumb({ layout, color }: { layout: PdfLayout; color: strin
       />
       <Box
         className="h-[5px] w-full"
-        style={{ backgroundColor: band || framed ? color : legacy ? "#e5e7eb" : "#ffffff", borderBottomWidth: layout === "clean" ? 1 : 0, borderColor: color }}
+        style={{ backgroundColor: band || framed ? color : "#ffffff", borderBottomWidth: layout === "clean" ? 1 : 0, borderColor: color }}
       />
       <Box className="h-px w-full bg-neutral-300" />
       <Box className="h-px w-full bg-neutral-300" />

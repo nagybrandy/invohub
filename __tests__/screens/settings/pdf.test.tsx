@@ -1,7 +1,7 @@
 // __tests__/screens/settings/pdf.test.tsx
 // Számla testreszabása: the controls of Dóri's screen are wired to the real
-// invoice_pdf_template fields, a legacy user keeps the legacy layout until they
-// pick another one, and what is sent to PATCH is a full valid template.
+// invoice_pdf_template fields, a legacy account is shown Letisztult (no "Korábbi"
+// option), and what is sent to PATCH is a full valid template.
 import * as React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { DEFAULT_PDF_TEMPLATE, LEGACY_PDF_TEMPLATE } from "@/lib/invoices/pdf-template/defaults";
@@ -80,7 +80,7 @@ describe("PdfSettingsScreen", () => {
     expect(radio("pdf-logo-mode-none").props.accessibilityState.checked).toBe(true);
   });
 
-  it("offers InvoHub, Klasszikus and Kerek only, and three new layouts", () => {
+  it("offers InvoHub, Klasszikus and Kerek only, and exactly the three layouts Letisztult / Sávos / Keretes", () => {
     const { all } = render();
     expect(all("pdf-font-style-custom")).toHaveLength(0);
     expect(all("pdf-layout-legacy")).toHaveLength(0);
@@ -144,34 +144,34 @@ describe("PdfSettingsScreen", () => {
     expect(byId("pdf-show-bank").props.disabled).toBeFalsy();
   });
 
-  describe("legacy user", () => {
+  describe("account still on the legacy layout", () => {
     beforeEach(() => {
       mockTemplate = { ...LEGACY_PDF_TEMPLATE, accentColor: "#112233", showClientTaxNumber: false };
     });
 
-    it("shows the legacy layout as current, with no pending change", () => {
+    it("shows Letisztult as current, never offers Korábbi, with no pending change", () => {
       const { radio, all } = render();
-      expect(radio("pdf-layout-legacy").props.accessibilityState.checked).toBe(true);
-      // the save button (and its bar) only exist while there is an unsaved change
+      expect(all("pdf-layout-legacy")).toHaveLength(0);
+      expect(all("pdf-layout-legacy-note")).toHaveLength(0);
+      expect(radio("pdf-layout-clean").props.accessibilityState.checked).toBe(true);
       expect(all("pdf-save")).toHaveLength(0);
-      expect(mockPanelProps!.draft.layout).toBe("legacy");
+      expect(mockPanelProps!.draft.layout).toBe("clean");
     });
 
-    it("keeps the buyer tax toggle editable and the font size control on legacy", () => {
+    it("uses the paper-layout controls (font style, locked buyer tax), not the legacy ones", () => {
       const { byId, all } = render();
-      expect(byId("pdf-show-client-tax").props.disabled).toBeFalsy();
-      expect(byId("pdf-show-client-tax").props.value).toBe(false);
-      expect(all("pdf-font-scale").length).toBeGreaterThan(0);
-      expect(all("pdf-font-style")).toHaveLength(0);
+      expect(byId("pdf-show-client-tax").props.disabled).toBe(true);
+      expect(all("pdf-font-scale")).toHaveLength(0);
+      expect(all("pdf-font-style").length).toBeGreaterThan(0);
     });
 
-    it("does not migrate the layout when other things are saved", async () => {
+    it("saves Letisztult (never legacy) when other things are saved", async () => {
       const { type, byId, saved } = render();
       type("pdf-title", "DÍJBEKÉRŐ");
       await act(async () => {
         byId("pdf-save").props.onPress();
       });
-      expect(saved().layout).toBe("legacy");
+      expect(saved().layout).toBe("clean");
     });
 
     it("moves to a new layout only on an explicit choice, adopting Dóri's untouched defaults", async () => {
