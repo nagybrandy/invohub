@@ -26,7 +26,7 @@ export type DomainRedirectConfig = {
 };
 
 export function isMarketingPublicPath(pathname: string): boolean {
-  if (pathname === "/" || pathname === "/blog" || pathname === "/sitemap.xml" || pathname === "/robots.txt") {
+  if (pathname === "/" || pathname === "/blog" || pathname === "/developers" || pathname === "/sitemap.xml" || pathname === "/robots.txt") {
     return true;
   }
   if (pathname.startsWith("/blog/")) {

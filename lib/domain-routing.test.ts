@@ -33,6 +33,15 @@ describe("domain routing", () => {
     ).toBe("https://invohub.hu/blog/magyar-szamlazas-alapok");
   });
 
+  it("serves the public developer docs from the marketing host, API calls stay put", () => {
+    expect(getDomainRedirect("app.invohub.hu", "/developers", config)).toBe(
+      "https://invohub.hu/developers",
+    );
+    expect(getDomainRedirect("invohub.hu", "/developers", config)).toBeNull();
+    expect(getDomainRedirect("app.invohub.hu", "/api/v1/invoices", config)).toBeNull();
+    expect(getDomainRedirect("invohub.hu", "/api/v1/invoices", config)).toBeNull();
+  });
+
   it("ignores preview and local hosts", () => {
     expect(getDomainRedirect("localhost:8081", "/dashboard", config)).toBeNull();
   });

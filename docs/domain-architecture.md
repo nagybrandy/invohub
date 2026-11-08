@@ -45,7 +45,7 @@ No DNS or production settings are changed by this repository update.
 
 ## Canonical paths
 
-Marketing/legal: `/`, `/aszf`, `/adatkezeles`, `/cookie-tajekoztato`, `/impresszum`.
+Marketing/legal: `/`, `/blog`, `/developers` (public API docs), `/aszf`, `/adatkezeles`, `/cookie-tajekoztato`, `/impresszum`.
 
 Product: `/login`, `/onboarding`, `/dashboard`, `/invoices`, `/receipts`, `/clients`, `/products`, `/import`, `/settings`, `/admin`.
 

@@ -19,6 +19,7 @@ export function buildMarketingSitemapEntries(): SitemapEntry[] {
   const staticEntries: SitemapEntry[] = [
     { path: "/", changeFrequency: "weekly", priority: 1.0 },
     { path: "/blog", changeFrequency: "weekly", priority: 0.9 },
+    { path: "/developers", changeFrequency: "monthly", priority: 0.5 },
     ...LEGAL_PUBLIC_PATHS.map((path) => ({
       path,
       changeFrequency: "yearly" as const,

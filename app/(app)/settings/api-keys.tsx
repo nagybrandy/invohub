@@ -11,6 +11,7 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { FormField } from "@/components/layout/FormField";
+import { DeveloperDocsLink } from "@/components/settings/DeveloperDocsLink";
 import { CopyableCredential } from "@/components/settings/CopyableCredential";
 import {
   SettingsNote,
@@ -188,6 +189,8 @@ export default function ApiKeysSettingsScreen() {
           ))}
         </SettingsSection>
       </SettingsSheet>
+
+      <DeveloperDocsLink />
 
       <Box className="overflow-hidden rounded-card bg-surface shadow-card" testID="api-keys-example">
         <Pressable

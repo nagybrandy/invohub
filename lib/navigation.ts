@@ -9,6 +9,7 @@ export const routes = {
   resetPassword: "/reset-password" as Href,
   blog: "/blog" as Href,
   blogPost: (slug: string) => `/blog/${slug}` as Href,
+  developers: "/developers" as Href,
   terms: "/aszf" as Href,
   privacy: "/adatkezeles" as Href,
   cookies: "/cookie-tajekoztato" as Href,
