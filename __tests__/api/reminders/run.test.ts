@@ -57,6 +57,13 @@ describe("GET /api/reminders/run (Vercel cron)", () => {
     expect(mockProcess).not.toHaveBeenCalled();
   });
 
+  it("rejects a same-length wrong token and a longer/shorter one (constant-time compare)", async () => {
+    expect((await GET(makeRequest({ authorization: "Bearer test-secreT" }))).status).toBe(401);
+    expect((await GET(makeRequest({ authorization: "Bearer test-secret-and-more" }))).status).toBe(401);
+    expect((await GET(makeRequest({ authorization: "Bearer test" }))).status).toBe(401);
+    expect((await GET(makeRequest({ authorization: "Bearer test-secret" }))).status).toBe(200);
+  });
+
   it("rejects every request when CRON_SECRET is not configured (fail closed)", async () => {
     process.env.CRON_SECRET = "";
     const res = await GET(makeRequest({ authorization: "Bearer test-secret" }));

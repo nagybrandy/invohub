@@ -1656,6 +1656,13 @@ export default {
     },
     deleteConfirmTitle: "Delete this recurring invoice?",
     deleteConfirmMessage: "\"{{name}}\" will stop creating drafts. Drafts that already exist stay.",
+    errors: {
+      invalidSchedule: "The schedule is invalid: check the dates (the first due date may be at most 50 years ahead) and the number of occurrences (at most 1200).",
+      scheduleEnded: "The schedule has already ended, pick a later date.",
+      unsupportedDocumentType: "Only a regular invoice can be saved as recurring (not a proforma, storno, correction or cancelled invoice).",
+      templateLimitReached: "You have reached the limit of 100 recurring invoices per account. Delete one before saving another.",
+      invalidInput: "Invalid input: the name may be at most 120 and the note at most 2000 characters; the payment term must be 0 to 365 days.",
+    },
     form: {
       createTitle: "Save as recurring",
       editTitle: "Edit schedule",

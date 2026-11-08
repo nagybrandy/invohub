@@ -1655,6 +1655,13 @@ export default {
     },
     deleteConfirmTitle: "Törlöd az ismétlődő számlát?",
     deleteConfirmMessage: "„{{name}}” nem készít több piszkozatot. A már elkészült piszkozatok megmaradnak.",
+    errors: {
+      invalidSchedule: "Az ütemezés érvénytelen: ellenőrizd a dátumokat (az első esedékesség legfeljebb 50 évre lehet) és az alkalmak számát (legfeljebb 1200).",
+      scheduleEnded: "Az ütemezés már lejárt, válassz későbbi dátumot.",
+      unsupportedDocumentType: "Csak rendes számla menthető ismétlődőként (díjbekérő, stornó, helyesbítő és sztornózott számla nem).",
+      templateLimitReached: "Elérted a fiókonkénti legfeljebb 100 ismétlődő számlát. Törölj egyet, mielőtt újat mentesz.",
+      invalidInput: "Érvénytelen adat: a megnevezés legfeljebb 120, a megjegyzés legfeljebb 2000 karakter, a fizetési határidő 0 és 365 nap között lehet.",
+    },
     form: {
       createTitle: "Mentés ismétlődőként",
       editTitle: "Ütemezés szerkesztése",

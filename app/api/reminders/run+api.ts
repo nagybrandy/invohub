@@ -1,6 +1,7 @@
 // app/api/reminders/run+api.ts
 // Manual (POST, authenticated user) and cron (GET, Vercel cron convention) trigger for
 // payment reminder processing.
+import { timingSafeEqual } from "crypto";
 import { jsonResponse, requireSession, unauthorizedResponse } from "@/lib/api/session";
 import { processPaymentReminders } from "@/lib/reminders/process";
 import { generateDueDrafts } from "@/lib/recurring/service";
@@ -67,7 +68,10 @@ async function runDaily(): Promise<Response> {
 function isAuthorizedCronRequest(request: Request): boolean {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return false;
-  return request.headers.get("authorization") === `Bearer ${cronSecret}`;
+  // Constant-time compare; different lengths can never match.
+  const given = Buffer.from(request.headers.get("authorization") ?? "");
+  const expected = Buffer.from(`Bearer ${cronSecret}`);
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 // Vercel cron sends `Authorization: Bearer $CRON_SECRET` on every scheduled GET request.

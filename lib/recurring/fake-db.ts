@@ -46,6 +46,7 @@ export function createFakeDb(tables: FakeTables, uniques: Map<unknown, string[]>
     from: (t: unknown) => {
       let cond: Cond;
       let order: Cond;
+      let max = Infinity;
       const run = () => {
         let out = rowsOf(t).filter((r) => matches(cond, r)).map((r) => ({ ...r }));
         if (order) {
@@ -53,7 +54,7 @@ export function createFakeDb(tables: FakeTables, uniques: Map<unknown, string[]>
           const dir = order.op === "desc" ? -1 : 1;
           out = out.sort((a, b) => (a[key] > b[key] ? dir : a[key] < b[key] ? -dir : 0));
         }
-        return out;
+        return out.slice(0, max);
       };
       const q: any = {
         where: (c: Cond) => {
@@ -64,7 +65,10 @@ export function createFakeDb(tables: FakeTables, uniques: Map<unknown, string[]>
           order = o;
           return q;
         },
-        limit: () => q,
+        limit: (n: number) => {
+          max = n;
+          return q;
+        },
         then: (res: any, rej: any) => Promise.resolve(run()).then(res, rej),
       };
       return q;

@@ -33,6 +33,7 @@ import { db } from "@/db";
 import { recurringInvoiceRun, recurringInvoiceTemplate } from "@/db/schema";
 import { isDocumentLanguage } from "@/lib/companies/billing-settings";
 import { addBudapestDays, budapestDateKey } from "@/lib/dates/budapest";
+import { canSaveAsRecurring } from "@/lib/recurring/eligibility";
 import { createId } from "@/lib/id";
 import { getInvoiceById, upsertInvoice } from "@/lib/invoices/service";
 import type { Invoice, InvoiceLineItem, PaymentMethod } from "@/lib/invoices/types";
@@ -84,7 +85,28 @@ export type RecurringErrorCode =
   | "invalidSchedule"
   | "scheduleEnded"
   | "unsupportedDocumentType"
+  | "templateLimitReached"
   | "invalidInput";
+
+/** Per billing account — keeps the daily run and the list bounded. */
+export const MAX_TEMPLATES_PER_ACCOUNT = 100;
+const MAX_NAME_LENGTH = 120;
+const MAX_NOTES_LENGTH = 2000;
+/** Templates handled per cron run; the rest stay due for the next tick. */
+const DEFAULT_MAX_TEMPLATES_PER_RUN = 200;
+/** Time budget of one run (Vercel functions are time-limited). */
+const DEFAULT_BUDGET_MS = 20_000;
+
+/**
+ * Error text from drizzle/neon can embed bound parameters (client names, tax
+ * numbers), so logs and the cron JSON only ever get the error class and the
+ * Postgres/domain `code` — never the message.
+ */
+function safeErrorTag(error: unknown): string {
+  const name = error instanceof Error ? error.name : "NonError";
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" && /^[\w.-]{1,40}$/.test(code) ? `${name} (${code})` : name;
+}
 
 export class RecurringTemplateError extends Error {
   constructor(
@@ -166,20 +188,33 @@ export async function createTemplateFromInvoice(
   schedule: RecurrenceSchedule,
   options: Clock & { name?: string } = {}
 ): Promise<RecurringTemplate> {
-  if (source.documentType !== "invoice") {
+  if (!canSaveAsRecurring(source)) {
     throw new RecurringTemplateError(
       "unsupportedDocumentType",
       "Only a regular invoice can be saved as a recurring template."
     );
   }
-  const valid = validateSchedule(schedule);
-  if (!valid.ok) throw new RecurringTemplateError("invalidSchedule", valid.error);
-
   const now = options.now ?? new Date();
   const today = budapestDateKey(now);
+  const valid = validateSchedule(schedule, { today });
+  if (!valid.ok) throw new RecurringTemplateError("invalidSchedule", valid.error);
+  if (options.name && options.name.trim().length > MAX_NAME_LENGTH) {
+    throw new RecurringTemplateError("invalidInput", `name must be at most ${MAX_NAME_LENGTH} characters.`);
+  }
   const pointer = pointerFrom(schedule, today);
   if (pointer.status === "completed") {
     throw new RecurringTemplateError("scheduleEnded", "The schedule has already ended.");
+  }
+
+  const existing = await db
+    .select({ id: recurringInvoiceTemplate.id })
+    .from(recurringInvoiceTemplate)
+    .where(eq(recurringInvoiceTemplate.userId, userId));
+  if (existing.length >= MAX_TEMPLATES_PER_ACCOUNT) {
+    throw new RecurringTemplateError(
+      "templateLimitReached",
+      `At most ${MAX_TEMPLATES_PER_ACCOUNT} recurring invoices per account.`
+    );
   }
 
   const termDays = Math.max(0, dayDiff(source.issueDate, source.dueDate));
@@ -270,6 +305,12 @@ export async function updateTemplate(
   const today = budapestDateKey(now);
   const set: Partial<typeof recurringInvoiceTemplate.$inferInsert> = { updatedAt: now };
 
+  if (patch.name != null && patch.name.trim().length > MAX_NAME_LENGTH) {
+    throw new RecurringTemplateError("invalidInput", `name must be at most ${MAX_NAME_LENGTH} characters.`);
+  }
+  if (patch.notes != null && patch.notes.trim().length > MAX_NOTES_LENGTH) {
+    throw new RecurringTemplateError("invalidInput", `notes must be at most ${MAX_NOTES_LENGTH} characters.`);
+  }
   if (patch.name !== undefined) set.name = patch.name?.trim() || null;
   if (patch.notes !== undefined) set.notes = patch.notes?.trim() || null;
   if (patch.paymentTermDays !== undefined) {
@@ -282,7 +323,10 @@ export async function updateTemplate(
   let schedule = scheduleOf(current);
   let reposition = false;
   if (patch.schedule) {
-    const valid = validateSchedule(patch.schedule);
+    const valid = validateSchedule(patch.schedule, {
+      today,
+      skipMinStart: patch.schedule.startDate === current.startDate,
+    });
     if (!valid.ok) throw new RecurringTemplateError("invalidSchedule", valid.error);
     schedule = patch.schedule;
     set.frequency = schedule.frequency;
@@ -333,7 +377,10 @@ export type GenerateDueResult = {
   /** Period was already claimed by another/earlier run — pointer healed, no draft. */
   skipped: number;
   failed: number;
+  /** Due templates left for the next tick (run limit / time budget hit). */
   errors: string[];
+  /** Due templates left for the next tick (run limit or time budget hit); a lower bound beyond the limit. */
+  deferred: number;
 };
 
 function buildDraft(t: RecurringTemplate, today: string, now: Date): Invoice {
@@ -416,6 +463,25 @@ async function generateForTemplate(
     return "skipped";
   }
 
+  // A pause (or delete) that raced the cron between the due query and the
+  // claim must not produce a draft: re-check the template is still active.
+  const [fresh] = await db
+    .select({ id: recurringInvoiceTemplate.id })
+    .from(recurringInvoiceTemplate)
+    .where(
+      and(
+        eq(recurringInvoiceTemplate.id, t.id),
+        eq(recurringInvoiceTemplate.userId, t.userId),
+        eq(recurringInvoiceTemplate.status, "active")
+      )
+    );
+  if (!fresh) {
+    await db
+      .delete(recurringInvoiceRun)
+      .where(and(eq(recurringInvoiceRun.id, runId), eq(recurringInvoiceRun.userId, t.userId)));
+    return "idle";
+  }
+
   const draft = buildDraft(t, today, now);
   try {
     await upsertInvoice(t.userId, draft);
@@ -443,7 +509,7 @@ async function generateForTemplate(
     });
   } catch (error) {
     // The draft exists; a missed notification must not undo or fail it.
-    console.warn(`[recurring] notification failed for template ${t.id}: ${error instanceof Error ? error.message : error}`);
+    console.warn(`[recurring] notification failed for template ${t.id}: ${safeErrorTag(error)}`);
   }
   return "created";
 }
@@ -454,12 +520,25 @@ async function generateForTemplate(
  * one billing account (manual trigger); omit it for the whole-instance cron.
  */
 export async function generateDueDrafts(
-  options: Clock & { userId?: string } = {}
+  options: Clock & {
+    userId?: string;
+    /** Max templates handled in this call (default 200). */
+    maxTemplates?: number;
+    /** Time budget in ms (default 20 s); checked between templates. */
+    budgetMs?: number;
+    /** Monotonic ms clock, injectable for tests. */
+    clock?: () => number;
+  } = {}
 ): Promise<GenerateDueResult> {
   const now = options.now ?? new Date();
   const today = budapestDateKey(now);
-  const result: GenerateDueResult = { processed: 0, created: 0, skipped: 0, failed: 0, errors: [] };
+  const limit = options.maxTemplates ?? DEFAULT_MAX_TEMPLATES_PER_RUN;
+  const budgetMs = options.budgetMs ?? DEFAULT_BUDGET_MS;
+  const clock = options.clock ?? Date.now;
+  const startedAt = clock();
+  const result: GenerateDueResult = { processed: 0, created: 0, skipped: 0, failed: 0, errors: [], deferred: 0 };
 
+  // Oldest due first; one extra row tells us whether more are waiting.
   const rows = await db
     .select()
     .from(recurringInvoiceTemplate)
@@ -469,9 +548,16 @@ export async function generateDueDrafts(
         lte(recurringInvoiceTemplate.nextRunDate, today),
         options.userId ? eq(recurringInvoiceTemplate.userId, options.userId) : undefined
       )
-    );
+    )
+    .orderBy(asc(recurringInvoiceTemplate.nextRunDate))
+    .limit(limit + 1);
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    if (i >= limit || clock() - startedAt >= budgetMs) {
+      result.deferred = rows.length - i;
+      break;
+    }
+    const row = rows[i];
     result.processed += 1;
     try {
       const outcome = await generateForTemplate(mapRow(row), today, now);
@@ -479,9 +565,9 @@ export async function generateDueDrafts(
       if (outcome === "skipped") result.skipped += 1;
     } catch (error) {
       result.failed += 1;
-      const message = error instanceof Error && error.message ? error.message : String(error);
-      result.errors.push(`template ${row.id}: ${message}`);
-      console.warn(`[recurring] template ${row.id} failed: ${message}`);
+      const tag = safeErrorTag(error);
+      result.errors.push(`template ${row.id}: ${tag}`);
+      console.warn(`[recurring] template ${row.id} failed: ${tag}`);
     }
   }
   return result;

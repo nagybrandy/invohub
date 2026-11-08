@@ -41,6 +41,7 @@ import {
   RecurringTemplateError,
   createTemplateFromInvoice,
   deleteTemplate,
+  MAX_TEMPLATES_PER_ACCOUNT,
   generateDueDrafts,
   listTemplates,
   updateTemplate,
@@ -309,7 +310,7 @@ describe("generateDueDrafts", () => {
     });
     const res = await generateDueDrafts({ now: NOON("2026-11-05") });
     expect(res).toMatchObject({ created: 1, failed: 1 });
-    expect(res.errors[0]).toContain("db down");
+    expect(res.errors[0]).toContain(bad.id);
     // claim for the failed one released, pointer unchanged:
     expect(rowsOf(recurringInvoiceRun).some((r) => r.templateId === bad.id)).toBe(false);
     const retry = await generateDueDrafts({ now: NOON("2026-11-06") });
@@ -335,5 +336,111 @@ describe("generateDueDrafts", () => {
     await dueTemplate();
     await generateDueDrafts({ now: NOON("2026-11-05") });
     for (const call of mockUpsert.mock.calls) expect((call[1] as Invoice).status).toBe("draft");
+  });
+});
+
+describe("hardening", () => {
+  const monthly = { frequency: "monthly" as const, startDate: "2027-01-01" };
+  const make = (user = "u", schedule: Parameters<typeof createTemplateFromInvoice>[2] = monthly) =>
+    createTemplateFromInvoice(user, sourceInvoice(), schedule, { now: NOON("2026-11-08") });
+
+  it("caps templates per billing account (other accounts unaffected)", async () => {
+    for (let i = 0; i < MAX_TEMPLATES_PER_ACCOUNT; i++) await make("u");
+    await expect(make("u")).rejects.toMatchObject({ code: "templateLimitReached" });
+    await expect(make("other")).resolves.toBeDefined();
+  });
+
+  it("rejects cancelled invoices", async () => {
+    await expect(
+      createTemplateFromInvoice("u", sourceInvoice({ status: "cancelled" }), monthly)
+    ).rejects.toMatchObject({ code: "unsupportedDocumentType" });
+  });
+
+  it("bounds the schedule: occurrences, start year", async () => {
+    await expect(make("u", { ...monthly, maxOccurrences: 1201 })).rejects.toMatchObject({ code: "invalidSchedule" });
+    await expect(make("u", { ...monthly, startDate: "2024-01-01" })).rejects.toMatchObject({ code: "invalidSchedule" });
+    await expect(make("u", { ...monthly, startDate: "2077-01-01" })).rejects.toMatchObject({ code: "invalidSchedule" });
+    await expect(make("u", { ...monthly, maxOccurrences: 1200, startDate: "2025-12-01" })).resolves.toBeDefined();
+  });
+
+  it("bounds name and notes on create and update", async () => {
+    await expect(
+      createTemplateFromInvoice("u", sourceInvoice(), monthly, { now: NOON("2026-11-08"), name: "x".repeat(121) })
+    ).rejects.toMatchObject({ code: "invalidInput" });
+    const t = await make("u");
+    await expect(updateTemplate("u", t.id, { name: "x".repeat(121) })).rejects.toMatchObject({ code: "invalidInput" });
+    await expect(updateTemplate("u", t.id, { notes: "x".repeat(2001) })).rejects.toMatchObject({ code: "invalidInput" });
+    await expect(updateTemplate("u", t.id, { paymentTermDays: 366 })).rejects.toMatchObject({ code: "invalidInput" });
+  });
+
+  it("editing an old template without changing its start date is not blocked by the start-year floor", async () => {
+    const t = await make("u");
+    mockTables.get(recurringInvoiceTemplate)![0].startDate = "2020-01-01";
+    mockTables.get(recurringInvoiceTemplate)![0].nextRunDate = "2026-12-01";
+    await expect(
+      updateTemplate("u", t.id, { schedule: { frequency: "monthly", startDate: "2020-01-01", maxOccurrences: 999 } }, { now: NOON("2026-11-08") })
+    ).resolves.toBeDefined();
+  });
+
+  it("bounds a run: limit, deferral count, time budget", async () => {
+    for (let i = 0; i < 5; i++) await make(`u${i}`, { frequency: "monthly", startDate: "2026-11-09" });
+    const limited = await generateDueDrafts({ now: NOON("2026-11-09"), maxTemplates: 3 });
+    // deferred is a lower bound: only one row beyond the limit is fetched.
+    expect(limited).toMatchObject({ created: 3, deferred: 1 });
+    const rest = await generateDueDrafts({ now: NOON("2026-11-09"), maxTemplates: 3 });
+    expect(rest).toMatchObject({ created: 2, deferred: 0 });
+
+    mockTables.clear();
+    for (let i = 0; i < 4; i++) await make(`v${i}`, { frequency: "monthly", startDate: "2026-12-09" });
+    let calls = 0;
+    const timed = await generateDueDrafts({
+      now: NOON("2026-12-09"),
+      budgetMs: 1000,
+      clock: () => (calls++ < 3 ? 0 : 5000), // budget exhausted after the 2nd template
+    });
+    expect(timed.created + timed.deferred).toBe(4);
+    expect(timed.deferred).toBeGreaterThan(0);
+    expect(timed.created).toBeGreaterThan(0);
+  });
+
+  it("never puts an error message (PII) into result.errors or the logs", async () => {
+    await make("u", { frequency: "monthly", startDate: "2026-11-09" });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    mockUpsert.mockImplementationOnce(async () => {
+      const e = new Error('insert into invoice params: Titkos Partner Kft., 12345678-1-23') as Error & { code?: string };
+      e.code = "23505";
+      throw e;
+    });
+    const res = await generateDueDrafts({ now: NOON("2026-11-09") });
+    expect(res.failed).toBe(1);
+    expect(JSON.stringify(res)).not.toContain("Titkos");
+    expect(res.errors[0]).toContain("23505");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("Titkos");
+
+    // notification failure log, too
+    await make("u2", { frequency: "monthly", startDate: "2026-11-09" });
+    mockNotify.mockRejectedValueOnce(new Error("params: Titkos Partner Kft."));
+    await generateDueDrafts({ now: NOON("2026-11-09") });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("Titkos");
+    warn.mockRestore();
+  });
+
+  it("does not generate when the template was paused between read and claim", async () => {
+    const t = await make("u", { frequency: "monthly", startDate: "2026-11-09" });
+    // Pause lands after the due query but before the claim is re-checked.
+    mockUpsert.mockClear();
+    const rows = mockTables.get(recurringInvoiceTemplate)!;
+    const origInsert = (jest.requireMock("@/db").db as { insert: (t: unknown) => unknown }).insert;
+    const db = jest.requireMock("@/db").db as { insert: (t: unknown) => unknown };
+    db.insert = (tbl: unknown) => {
+      if (tbl === recurringInvoiceRun) rows[0].status = "paused"; // racing pause
+      return origInsert(tbl);
+    };
+    const res = await generateDueDrafts({ now: NOON("2026-11-09") });
+    db.insert = origInsert;
+    expect(res.created).toBe(0);
+    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockTables.get(recurringInvoiceRun) ?? []).toHaveLength(0);
+    expect(rows.find((r) => r.id === t.id)).toMatchObject({ nextIndex: 0 });
   });
 });

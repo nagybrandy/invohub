@@ -1,5 +1,6 @@
 import {
   defaultFormValues,
+  errorKeyForCode,
   formValuesFromTemplate,
   parseFormValues,
   templateSummary,
@@ -75,5 +76,13 @@ describe("formValuesFromTemplate / templateSummary", () => {
   it("summarises the display name and gross amount", () => {
     expect(templateSummary(tpl)).toEqual({ title: "Retainer", partner: "Acme Kft.", gross: 254 });
     expect(templateSummary({ ...tpl, name: undefined }).title).toBe("Acme Kft.");
+  });
+});
+
+describe("errorKeyForCode", () => {
+  it("maps known API codes to i18n keys", () => {
+    expect(errorKeyForCode("templateLimitReached")).toBe("recurring.errors.templateLimitReached");
+    expect(errorKeyForCode("nope")).toBeNull();
+    expect(errorKeyForCode(undefined)).toBeNull();
   });
 });

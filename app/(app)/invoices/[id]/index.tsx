@@ -8,6 +8,7 @@ import * as React from "react";
 import { ActivityIndicator, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { canSaveAsRecurring } from "@/lib/recurring/eligibility";
 import { Copy, Download, FileEdit, Mail, Repeat, Wallet, CheckCircle2 } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -382,7 +383,7 @@ export default function InvoiceDetailScreen() {
     { label: t("invoices.list.duplicateAction"), icon: Copy, onPress: () => void handleDuplicate() },
     // Issued or draft — a regular invoice only (not proforma/storno/helyesbítő).
     // The template generates DRAFTS; nothing is issued automatically.
-    ...(invoice.documentType === "invoice" && invoice.status !== "cancelled"
+    ...(canSaveAsRecurring(invoice)
       ? [
           {
             label: t("recurring.save"),

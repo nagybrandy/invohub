@@ -12,6 +12,7 @@ import { RecurringScheduleForm } from "@/components/recurring/RecurringScheduleF
 import { useRecurringInvoices } from "@/hooks/useRecurringInvoices";
 import { budapestDateKey } from "@/lib/dates/budapest";
 import { getBreadcrumb } from "@/lib/app-navigation";
+import { errorKeyForCode } from "@/lib/recurring/form";
 import { routes } from "@/lib/navigation";
 import { defaultFormValues } from "@/lib/recurring/form";
 import { useRouteParam } from "@/lib/routing/route-param";
@@ -55,7 +56,8 @@ export default function NewRecurringInvoiceScreen() {
               });
               router.replace(routes.recurringInvoices);
             } catch (e) {
-              setError(e instanceof Error && e.message ? e.message : t("recurring.form.saveFailed"));
+              const key = errorKeyForCode((e as { code?: string }).code);
+              setError(key ? t(key) : t("recurring.form.saveFailed"));
             } finally {
               setSubmitting(false);
             }

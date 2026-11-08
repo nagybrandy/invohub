@@ -112,7 +112,19 @@ export function resolveDue(
 
 export type ScheduleValidation = { ok: true } | { ok: false; error: string };
 
-export function validateSchedule(schedule: RecurrenceSchedule): ScheduleValidation {
+export const MAX_OCCURRENCES = 1200;
+
+export type ValidateOptions = {
+  /** Budapest day key; when given, startDate must be within [year-1, year+50]. */
+  today?: string;
+  /** Skip the lower start-date bound (editing a template whose start date is unchanged). */
+  skipMinStart?: boolean;
+};
+
+export function validateSchedule(
+  schedule: RecurrenceSchedule,
+  options: ValidateOptions = {}
+): ScheduleValidation {
   if (!RECURRENCE_FREQUENCIES.includes(schedule.frequency)) {
     return { ok: false, error: "frequency must be monthly, quarterly or yearly" };
   }
@@ -130,6 +142,16 @@ export function validateSchedule(schedule: RecurrenceSchedule): ScheduleValidati
   if (schedule.maxOccurrences != null) {
     if (!Number.isInteger(schedule.maxOccurrences) || schedule.maxOccurrences < 1) {
       return { ok: false, error: "maxOccurrences must be a positive integer" };
+    }
+    if (schedule.maxOccurrences > MAX_OCCURRENCES) {
+      return { ok: false, error: `maxOccurrences must be at most ${MAX_OCCURRENCES}` };
+    }
+  }
+  if (options.today) {
+    const year = Number(options.today.slice(0, 4));
+    const startYear = Number(schedule.startDate.slice(0, 4));
+    if (startYear > year + 50 || (!options.skipMinStart && startYear < year - 1)) {
+      return { ok: false, error: "startDate is out of the allowed range" };
     }
   }
   return { ok: true };

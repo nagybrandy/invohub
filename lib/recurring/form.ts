@@ -85,3 +85,10 @@ export function templateSummary(t: TemplateLike): { title: string; partner: stri
   const totals = calculateInvoiceTotals(t.lineItems);
   return { title: t.name?.trim() || t.clientName, partner: t.clientName, gross: totals.totalAmount };
 }
+
+const ERROR_CODES = ["invalidSchedule", "scheduleEnded", "unsupportedDocumentType", "templateLimitReached", "invalidInput"];
+
+/** i18n key for an API error code from /api/recurring-invoices, or null for an unknown one. */
+export function errorKeyForCode(code?: string): string | null {
+  return code && ERROR_CODES.includes(code) ? `recurring.errors.${code}` : null;
+}
