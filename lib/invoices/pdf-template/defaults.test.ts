@@ -8,6 +8,8 @@ import {
   normalizeHexColor,
   parsePdfTemplateSnapshot,
   pdfFontSizes,
+  PDF_SELECTABLE_LAYOUTS,
+  resolveLiveTemplate,
 } from "@/lib/invoices/pdf-template/defaults";
 
 describe("LEGACY_PDF_TEMPLATE", () => {
@@ -31,7 +33,7 @@ describe("LEGACY_PDF_TEMPLATE", () => {
 });
 
 describe("DEFAULT_PDF_TEMPLATE (Dóri's defaults)", () => {
-  it("is the Keretes / InvoHub / Monogram M left design in #3F6BC4 with every toggle on", () => {
+  it("is the Letisztult / InvoHub / Monogram M left design in #3F6BC4 with every toggle on", () => {
     expect(DEFAULT_PDF_TEMPLATE).toEqual({
       titleText: "SZÁMLA",
       accentColor: "#3F6BC4",
@@ -41,7 +43,7 @@ describe("DEFAULT_PDF_TEMPLATE (Dóri's defaults)", () => {
       footerText: "Köszönjük a bizalmát!",
       notesLabel: "Megjegyzés",
       fontScale: "medium",
-      layout: "frame",
+      layout: "clean",
       fontStyle: "invohub",
       logoMode: "monogram",
       logoSize: "M",
@@ -160,6 +162,12 @@ describe("parsePdfTemplateSnapshot", () => {
     expect(parsePdfTemplateSnapshot({ layout: 3 })?.layout).toBe("legacy");
   });
 
+  it("an explicit legacy snapshot stays legacy: issued invoices are never resolved to clean", () => {
+    const stored = { ...LEGACY_PDF_TEMPLATE, accentColor: "#ff0000", footerText: "Régi lábléc" };
+    expect(parsePdfTemplateSnapshot(stored)).toEqual(stored);
+    expect(parsePdfTemplateSnapshot(stored)?.layout).toBe("legacy");
+  });
+
   it("round-trips a full new-shape snapshot", () => {
     const stored = {
       ...DEFAULT_PDF_TEMPLATE,
@@ -232,5 +240,32 @@ describe("applyPdfTemplateInput", () => {
   it("does not touch a row that is already on a paper layout", () => {
     const stored = { ...DEFAULT_PDF_TEMPLATE, layout: "band" as const };
     expect(applyPdfTemplateInput(stored, { layout: "clean" })).toEqual({ ...stored, layout: "clean" });
+  });
+});
+
+describe("PDF_SELECTABLE_LAYOUTS", () => {
+  it("offers Letisztult / Sávos / Keretes only, never the legacy layout", () => {
+    expect(PDF_SELECTABLE_LAYOUTS).toEqual(["clean", "band", "frame"]);
+  });
+});
+
+describe("resolveLiveTemplate (legacy -> clean for drafts and new invoices)", () => {
+  it("turns the frozen legacy template into Letisztult with Dóri's defaults for never-edited values", () => {
+    expect(resolveLiveTemplate(LEGACY_PDF_TEMPLATE)).toEqual({ ...DEFAULT_PDF_TEMPLATE, layout: "clean" });
+  });
+
+  it("keeps what a legacy user did edit", () => {
+    const out = resolveLiveTemplate({ ...LEGACY_PDF_TEMPLATE, accentColor: "#112233", showBankDetails: false });
+    expect(out).toMatchObject({ layout: "clean", accentColor: "#112233", showBankDetails: false });
+  });
+
+  it.each(["clean", "band", "frame"] as const)("leaves a %s template untouched", (layout) => {
+    const t = { ...DEFAULT_PDF_TEMPLATE, layout };
+    expect(resolveLiveTemplate(t)).toBe(t);
+  });
+
+  it("does not mutate its input (the frozen legacy template stays legacy)", () => {
+    resolveLiveTemplate(LEGACY_PDF_TEMPLATE);
+    expect(LEGACY_PDF_TEMPLATE.layout).toBe("legacy");
   });
 });

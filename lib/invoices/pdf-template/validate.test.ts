@@ -26,7 +26,7 @@ describe("validatePdfTemplateInput", () => {
   });
 
   describe.each([
-    ["layout", ["legacy", "clean", "band", "frame"], ["hologram", "", 1, null, "Frame"]],
+    ["layout", ["clean", "band", "frame"], ["legacy", "hologram", "", 1, null, "Frame"]],
     ["fontStyle", ["invohub", "classic", "round"], ["custom", "serif", "", 2, null]],
     ["logoMode", ["monogram", "own", "none"], ["svg", "", 0, null]],
     ["logoSize", ["S", "M", "L"], ["XL", "s", "", 1, null]],

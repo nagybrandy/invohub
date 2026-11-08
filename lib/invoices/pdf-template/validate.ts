@@ -7,7 +7,7 @@
 import {
   PDF_FONT_SCALES,
   PDF_FONT_STYLES,
-  PDF_LAYOUTS,
+  PDF_SELECTABLE_LAYOUTS,
   PDF_LOGO_MODES,
   PDF_LOGO_POSITIONS,
   PDF_LOGO_SIZES,
@@ -59,7 +59,7 @@ const hexColor: FieldRule = (value) => {
 
 // Order is the order `fields` is reported in.
 const RULES: Array<[keyof InvoicePdfTemplateInput, FieldRule]> = [
-  ["layout", enumOf(PDF_LAYOUTS)],
+  ["layout", enumOf(PDF_SELECTABLE_LAYOUTS)],
   ["fontStyle", enumOf(PDF_FONT_STYLES)],
   ["logoMode", enumOf(PDF_LOGO_MODES)],
   ["logoSize", enumOf(PDF_LOGO_SIZES)],

@@ -3,7 +3,8 @@
 //   - LEGACY_PDF_TEMPLATE: today's values, frozen forever. Used for the legacy
 //     renderer and to read old data (snapshots / rows written before the
 //     2026-11 paper redesign), so an issued invoice never changes appearance.
-//   - DEFAULT_PDF_TEMPLATE: Dóri's design, for new users and "restore defaults".
+//   - DEFAULT_PDF_TEMPLATE: Dóri's design (Letisztult layout), for new users and
+//     "restore defaults".
 import type {
   InvoicePdfTemplate,
   PdfFontScale,
@@ -41,7 +42,7 @@ export const DEFAULT_PDF_TEMPLATE: InvoicePdfTemplate = Object.freeze({
   footerText: "Köszönjük a bizalmát!",
   notesLabel: "Megjegyzés",
   fontScale: "medium",
-  layout: "frame",
+  layout: "clean",
   fontStyle: "invohub",
   logoMode: "monogram",
   logoSize: "M",
@@ -50,6 +51,12 @@ export const DEFAULT_PDF_TEMPLATE: InvoicePdfTemplate = Object.freeze({
 
 export const PDF_FONT_SCALES: PdfFontScale[] = ["small", "medium", "large"];
 export const PDF_LAYOUTS: PdfLayout[] = ["legacy", "clean", "band", "frame"];
+/**
+ * The layouts a user can pick and a client may send. "legacy" is read-only:
+ * it still exists to draw invoices issued before the redesign, but is never
+ * offered nor accepted for new writes.
+ */
+export const PDF_SELECTABLE_LAYOUTS: PdfLayout[] = ["clean", "band", "frame"];
 export const PDF_FONT_STYLES: PdfFontStyle[] = ["invohub", "classic", "round"];
 export const PDF_LOGO_MODES: PdfLogoMode[] = ["monogram", "own", "none"];
 export const PDF_LOGO_SIZES: PdfLogoSize[] = ["S", "M", "L"];
@@ -119,6 +126,19 @@ export function applyPdfTemplateInput(
     }
   }
   return out;
+}
+
+/**
+ * THE one place a stored `legacy` template becomes Letisztult (`clean`). Used
+ * for everything that is NOT an already-issued invoice: drafts, the sample
+ * preview, the settings screen and the appearance frozen onto an invoice as
+ * it gets its number. Values the user never edited (still the legacy
+ * defaults) take Dóri's defaults, exactly like picking a new layout does.
+ * Issued invoices never go through this: they render their stored snapshot
+ * (or the legacy appearance when they have none).
+ */
+export function resolveLiveTemplate(template: InvoicePdfTemplate): InvoicePdfTemplate {
+  return template.layout === "legacy" ? applyPdfTemplateInput(template, { layout: "clean" }) : template;
 }
 
 /**

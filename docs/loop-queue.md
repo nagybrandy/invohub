@@ -2039,7 +2039,7 @@ Order = execution order (bugs first).
       the next-steps card no longer sits alone on its own row. Below that it
       stacks as today. (`app/(app)/dashboard*`, `components/dashboard/*`).
       Test: layout test at wide/narrow widths.
-- [ ] **Invoice appearance: drop "Korábbi", default "Letisztult".** The
+- [x] **Invoice appearance: drop "Korábbi", default "Letisztult".** The
       Számla testreszabása picker (`app/(app)/settings/pdf.tsx`) offers only
       Letisztult / Sávos / Keretes; a new account and an account still on
       `legacy` get **Letisztult** for new invoices. Already issued invoices

@@ -563,7 +563,9 @@ describe("InvoiceComposer — saving a draft sends the same request body as befo
       language: "hu",
     });
     expect(payload.lineItems).toEqual(invoice.lineItems);
-    // nothing about sending or NAV is called for a draft
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    // nothing about sending or NAV is called for a draft (the debounced partner
+    // company lookup may legitimately fire, so only the sending paths are checked)
+    const calledPaths = mockApiFetch.mock.calls.map((c) => String(c[0]));
+    expect(calledPaths.filter((path) => /send|finalize|issue|nav|submit/i.test(path))).toEqual([]);
   });
 });

@@ -406,10 +406,11 @@ export const invoicePdfTemplate = pgTable(
     footerText: text("footer_text").default("Thank you for your business."),
     notesLabel: text("notes_label").notNull().default("Notes"),
     fontScale: text("font_scale").notNull().default("medium"),
-    // Paper redesign (2026-11). The column default 'legacy' keeps every row
-    // that existed before the redesign on today's look; rows created by the
-    // service always write explicit values (new users: Dóri's 'frame').
-    layout: text("layout").notNull().default("legacy"),
+    // Paper redesign (2026-11). 'legacy' is read-only (it only draws invoices
+    // issued before the redesign): new rows default to Letisztult ('clean') and
+    // a stored 'legacy' row is read as 'clean' for drafts and new invoices
+    // (lib/invoices/pdf-template/defaults.ts resolveLiveTemplate).
+    layout: text("layout").notNull().default("clean"),
     fontStyle: text("font_style").notNull().default("invohub"),
     logoMode: text("logo_mode").notNull().default("monogram"),
     logoSize: text("logo_size").notNull().default("M"),

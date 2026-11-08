@@ -51,8 +51,8 @@ export async function POST(request: Request) {
   if (!session) return unauthorizedResponse();
 
   // An omitted field means "as saved", exactly as in PATCH, so the preview
-  // matches what the user's documents look like (a legacy user's sample is
-  // drawn on the legacy layout until they pick another one).
+  // matches what the user's new documents look like (a legacy row reads as
+  // Letisztult, see resolveLiveTemplate).
   const stored = await getPdfTemplate(session.user.id);
   const input = await readValidatedBody(request, stored);
   if (!input.ok) return invalidTemplateResponse(input.fields);
