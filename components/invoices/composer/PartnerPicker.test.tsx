@@ -110,13 +110,13 @@ describe("PartnerPicker (INV-18)", () => {
     act(() => {
       findByTestId(tree.root, "composer-partner-option-client-1").props.onPress?.();
     });
-    expect(findByTestId(tree.root, "composer-partner-results")).toBeUndefined();
+    expect(JSON.stringify(tree.toJSON())).not.toContain("Partner 1 Kft.");
 
     act(() => {
       input().props.onChangeText?.("Partner 2");
     });
     expect(onChangeText).toHaveBeenCalledWith("Partner 2");
-    expect(findByTestId(tree.root, "composer-partner-results")).toBeTruthy();
+    expect(JSON.stringify(tree.toJSON())).toContain("Partner 1 Kft.");
   });
 
   it("offers '+ Új partner: „…”' as the last row and takes the typed text as the new partner's name", async () => {
