@@ -804,3 +804,41 @@ describe("generateInvoicePdf — document language and line remarks", () => {
     expect(noteCall && descCall && noteCall.startY).toBeGreaterThan(descCall!.startY);
   });
 });
+
+// AC6: the notes-continuation `pageAdded` listener must never outlive the
+// notes draw. The doc is reached via a spy on the exported
+// `createPdfDocument` (the legacy renderer builds its document there), so
+// this runs against real pdfkit pagination rather than a mock that never
+// emits the event.
+describe("generateInvoicePdf — pageAdded listener cleanup (AC6)", () => {
+  async function generateCapturingDoc(invoice: Invoice) {
+    const docs: ReturnType<typeof createPdfDocument>[] = [];
+    const baselines: number[] = [];
+    const originalCreate = pdfDocumentModule.createPdfDocument;
+    const spy = jest.spyOn(pdfDocumentModule, "createPdfDocument").mockImplementation((options) => {
+      const doc = originalCreate(options);
+      docs.push(doc);
+      baselines.push(doc.listenerCount("pageAdded"));
+      return doc;
+    });
+    try {
+      await generateInvoicePdf({ invoice });
+    } finally {
+      spy.mockRestore();
+    }
+    return { doc: docs[0]!, baseline: baselines[0]! };
+  }
+
+  it("leaves the document's pageAdded listener count at its baseline after notes that paginate, and on a second run", async () => {
+    const invoice = fixtureLongNotes();
+    const first = await generateCapturingDoc(invoice);
+    // Sanity: the fixture really paginates (otherwise the cleanup is untested).
+    const pdf = await generateInvoicePdf({ invoice });
+    expect(countPages(pdf) ?? 0).toBeGreaterThan(1);
+
+    expect(first.doc.listenerCount("pageAdded")).toBe(first.baseline);
+    const second = await generateCapturingDoc(invoice);
+    expect(second.doc.listenerCount("pageAdded")).toBe(second.baseline);
+    expect(second.doc.listenerCount("pageAdded")).toBe(first.doc.listenerCount("pageAdded"));
+  });
+});
