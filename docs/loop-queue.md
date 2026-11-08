@@ -2124,7 +2124,7 @@ one-row-per-document CSV/Excel (#85–#93). Still open:
       new locale needs a `lib/i18n/locales/<lang>.ts` with key parity and
       the language picker extended; landing copy still has no
       future-feature claims.
-- [ ] **Recurring invoices (ismétlődő számlázás)** — requested by the owner
+- [x] **Recurring invoices (ismétlődő számlázás)** — requested by the owner
       2026-11-05; nothing exists yet (no table, route or cron). Today a
       monthly retainer has to be re-created by hand or with "Másolat".
       Scope for v1: save an issued invoice (or a draft) as a recurring
@@ -2143,6 +2143,13 @@ one-row-per-document CSV/Excel (#85–#93). Still open:
       human click) is out of v1 and needs explicit owner sign-off before it
       is built; so does any default teljesítés-date rule for a recurring
       period (see the MNB fulfillment-date decision of 2026-09-22).
+      **v1 built (branch feat/recurring-invoices-v1):** drafts only, riding
+      on the existing `/api/reminders/run` daily cron (no third cron entry),
+      `recurring_invoice_template` + `recurring_invoice_run` (UNIQUE
+      template_id+period_key), at most one draft per template per run
+      (oldest due period), list at Számlák › Ismétlődő számlák. Still
+      **needs owner sign-off before it can be extended:** auto-issue, and a
+      per-period teljesítés-date rule (drafts carry none).
 
 ### Research refill 2026-09-21 (market/NAV research, product strategist)
 

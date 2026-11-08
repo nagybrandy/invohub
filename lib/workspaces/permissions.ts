@@ -56,6 +56,7 @@ const SAFE_POSTS = [/^\/api\/invoices\/preview\/pdf$/, /^\/api\/pdf-template$/];
 /** What an accountant may WRITE to (everything else is owner/admin only). */
 const ACCOUNTANT_WRITABLE = [
   /^\/api\/invoices(\/|$)/,
+  /^\/api\/recurring-invoices(\/|$)/,
   /^\/api\/receipts(\/|$)/,
   /^\/api\/clients(\/|$)/,
   /^\/api\/products(\/|$)/,

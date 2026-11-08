@@ -6,7 +6,7 @@ const API_ID_PATTERNS = [
   /\/api\/v1\/(?:invoices|clients|products)\/([^/]+)/,
   /\/api\/admin\/users\/([^/]+)/,
   /\/api\/workspaces\/(?:members|invites)\/([^/]+)/,
-  /\/api\/(?:invoices|clients|products|receipts|notifications|api-keys|email-templates)\/([^/]+)/,
+  /\/api\/(?:invoices|clients|products|receipts|notifications|api-keys|email-templates|recurring-invoices)\/([^/]+)/,
 ] as const;
 
 function idFromRequestPath(pathname: string): string {

@@ -27,6 +27,12 @@ export const routes = {
    * supports it. */
   newInvoiceForClient: (clientId: string) =>
     ({ pathname: "/invoices/new", params: { clientId } }) as Href,
+  /** Ismétlődő számlák — the recurring templates list, linked from Számlák. */
+  recurringInvoices: "/invoices/recurring" as Href,
+  /** Save an existing invoice (issued or draft) as a recurring template. */
+  newRecurringInvoice: (invoiceId: string) =>
+    ({ pathname: "/invoices/recurring/new", params: { invoiceId } }) as Href,
+  recurringInvoiceEdit: (id: string) => `/invoices/recurring/${id}` as Href,
   invoiceDetail: (id: string) => `/invoices/${id}` as Href,
   /** With `focus`, deep-links into a specific composer field — e.g. the
    * exchange-rate-missing warning card's "Add exchange rate" button

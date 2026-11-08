@@ -49,4 +49,12 @@ describe("resolveIdParam", () => {
     );
     expect(id).toBe("product-id");
   });
+
+  it("falls back for recurring-invoice template routes", async () => {
+    const id = await resolveIdParam(
+      new Request("https://invohub.vercel.app/api/recurring-invoices/tpl-1"),
+      undefined
+    );
+    expect(id).toBe("tpl-1");
+  });
 });

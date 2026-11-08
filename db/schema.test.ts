@@ -3,7 +3,15 @@
 // loads without throwing and exposes the columns the invoicing track added.
 // db/schema.ts needs no DATABASE_URL — only db/index.ts does — so this
 // imports the real module, not a mock.
-import { company, documentSequence, invoice, invoiceLineItem, schema } from "@/db/schema";
+import {
+  company,
+  documentSequence,
+  invoice,
+  invoiceLineItem,
+  recurringInvoiceRun,
+  recurringInvoiceTemplate,
+  schema,
+} from "@/db/schema";
 
 describe("db/schema", () => {
   it("registers document_sequence on the shared schema object", () => {
@@ -42,5 +50,14 @@ describe("db/schema", () => {
     expect(documentSequence.docType).toBeDefined();
     expect(documentSequence.year).toBeDefined();
     expect(documentSequence.lastNumber).toBeDefined();
+  });
+});
+
+describe("recurring invoice tables", () => {
+  it("registers both tables on the schema object", () => {
+    expect(schema.recurringInvoiceTemplate).toBe(recurringInvoiceTemplate);
+    expect(schema.recurringInvoiceRun).toBe(recurringInvoiceRun);
+    expect(recurringInvoiceTemplate.userId).toBeDefined();
+    expect(recurringInvoiceRun.periodKey).toBeDefined();
   });
 });

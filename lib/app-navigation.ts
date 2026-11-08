@@ -247,6 +247,22 @@ export function getBreadcrumb(
     return [...home, { label: t("nav.settings"), href: routes.settings }, { label: options.currentLabel ?? t(settingsKey) }];
   }
 
+  // Ismétlődő számlák live under /invoices but are not invoice records, so
+  // /invoices/recurring/* must not be read as "/invoices/:id".
+  if (path === "/invoices/recurring" || path.startsWith("/invoices/recurring/")) {
+    const invoicesCrumb: BreadcrumbTrailItem = { label: t("nav.invoices"), href: routes.invoices };
+    const recurringLabel = t("nav.recurringInvoices");
+    if (path === "/invoices/recurring") return [...home, invoicesCrumb, { label: recurringLabel }];
+    const leaf =
+      path === "/invoices/recurring/new" ? t("nav.breadcrumb.new") : t("nav.breadcrumb.edit");
+    return [
+      ...home,
+      invoicesCrumb,
+      { label: recurringLabel, href: routes.recurringInvoices },
+      { label: options.currentLabel ?? leaf },
+    ];
+  }
+
   for (const section of BREADCRUMB_SECTIONS) {
     if (path === section.base || !path.startsWith(`${section.base}/`)) continue;
     const rest = path.slice(section.base.length + 1).split("/");

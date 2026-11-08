@@ -15,6 +15,7 @@ import {
   ExternalLink,
   FileEdit,
   FileText,
+  Repeat,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react-native";
@@ -446,7 +447,11 @@ export default function InvoiceListScreen() {
   const header = (
     <PageHeader
       title={t("invoices.title")}
-      actions={
+      overflowActions={[
+        { label: t("recurring.link"), icon: Repeat, onPress: () => router.push(routes.recurringInvoices) },
+      ]}
+      overflowLabel={t("nav.more")}
+      primaryAction={
         <Button testID="invoice-list-new" onPress={() => router.push(routes.newInvoice)}>
           <ButtonText>{t("nav.newInvoice")}</ButtonText>
         </Button>
