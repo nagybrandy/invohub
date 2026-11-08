@@ -61,6 +61,13 @@ describe("BrandLogo", () => {
     await unmount(tree);
   });
 
+  it("can render the mark alone (withWordmark=false), e.g. the collapsed sidebar", async () => {
+    const tree = await render(<BrandLogo tone="onDark" withWordmark={false} />);
+    expect(tree.root.findByProps({ testID: "brand-logo-mark" })).toBeTruthy();
+    expect(tree.root.findAllByProps({ children: "InvoHub" })).toHaveLength(0);
+    await unmount(tree);
+  });
+
   it("keeps contrast classes on light surfaces", async () => {
     const tree = await render(<BrandLogo tone="onLight" height={40} />);
     expect(tree.root.findByProps({ testID: "brand-logo" })).toBeTruthy();

@@ -50,6 +50,8 @@ type BrandLogoProps = {
   mark?: BrandMarkVariant;
   /** Show the brand tile with the SVG mark next to the wordmark. On by default. */
   withMark?: boolean;
+  /** Show the "InvoHub" wordmark. On by default; off gives the mark alone (collapsed sidebar). */
+  withWordmark?: boolean;
   testID?: string;
 };
 
@@ -127,6 +129,7 @@ export function BrandLogo({
   height = 32,
   mark = BRAND_MARK_DEFAULT,
   withMark = true,
+  withWordmark = true,
   testID = "brand-logo",
 }: BrandLogoProps) {
   const icons = useIconColors();
@@ -157,12 +160,14 @@ export function BrandLogo({
           />
         </Box>
       ) : null}
-      <Text
-        className={`font-heading font-bold ${ink}`}
-        style={{ fontSize, lineHeight: fontSize * 1.1, letterSpacing: -0.2 }}
-      >
-        InvoHub
-      </Text>
+      {withWordmark ? (
+        <Text
+          className={`font-heading font-bold ${ink}`}
+          style={{ fontSize, lineHeight: fontSize * 1.1, letterSpacing: -0.2 }}
+        >
+          InvoHub
+        </Text>
+      ) : null}
     </HStack>
   );
 }
