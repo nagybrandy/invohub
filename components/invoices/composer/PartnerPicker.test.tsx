@@ -327,6 +327,14 @@ describe("PartnerPicker — partners already invoiced (suggestions)", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("closes the list after a suggestion is picked", () => {
+    const { tree } = focus({ suggestions: [suggestion("Acme Kft.", "x1")], onSelectSuggestion: jest.fn() });
+    act(() => {
+      findByTestId(tree.root, "composer-partner-suggestion-0").props.onPress();
+    });
+    expect(findByTestId(tree.root, "composer-partner-suggestion-0")).toBeUndefined();
+  });
+
   it("while typing, lists suggestions first and does not repeat the same saved partner", () => {
     const clients: Client[] = [
       { id: "x1", userId: "u", name: "Acme Kft.", createdAt: "", updatedAt: "" },
