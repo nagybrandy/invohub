@@ -32,6 +32,7 @@ describe("routes", () => {
     expect(routes.settingsAppearance).toBe("/settings/appearance");
     expect(routes.settingsNav).toBe("/settings/nav");
     expect(routes.settingsApiKeys).toBe("/settings/api-keys");
+    expect(routes.settingsAccount).toBe("/settings/account");
   });
 
   it("exposes every required public legal route", () => {

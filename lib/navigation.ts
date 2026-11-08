@@ -51,6 +51,7 @@ export const routes = {
   settingsPdf: "/settings/pdf" as Href,
   settingsReminders: "/settings/reminders" as Href,
   settingsApiKeys: "/settings/api-keys" as Href,
+  settingsAccount: "/settings/account" as Href,
   /** Settings > Nyelv és megjelenés (language dropdown + theme cards). The page itself is built by the settings track. */
   settingsAppearance: "/settings/appearance" as Href,
   /** Settings > NAV (the NAV section moved out of the company page). The page itself is built by the settings track. */

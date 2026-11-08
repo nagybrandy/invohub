@@ -12,6 +12,7 @@ import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { SettingsSearchField } from "@/components/settings/SettingsSearchField";
+import { isAccountDeletionUiVisible } from "@/lib/account/deletion-flag";
 import { routes } from "@/lib/navigation";
 import {
   SETTINGS_NAV_ITEMS,
@@ -64,6 +65,24 @@ function SettingsNavRow({ item, active }: { item: SettingsNavItem; active: boole
   );
 }
 
+/** Feature-flagged (default OFF) row for the deletion request page. */
+function AccountDeletionNavRow({ active }: { active: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <Pressable
+      testID="settings-nav-account"
+      accessibilityRole="link"
+      accessibilityState={{ selected: active }}
+      onPress={() => router.push(routes.settingsAccount)}
+      className={`mt-2 rounded-control px-2.5 py-[9px] ${active ? "bg-primary-wash" : "data-[hover=true]:bg-neutral-wash"}`}
+    >
+      <Text className={`text-sm ${active ? "font-semibold text-primary-ink" : "font-medium text-muted-ink"}`}>
+        {t("accountDeletion.title")}
+      </Text>
+    </Pressable>
+  );
+}
+
 export function SettingsSideNav() {
   const { t } = useTranslation();
   const pathname = usePathname();
@@ -90,6 +109,7 @@ export function SettingsSideNav() {
           {after.map((item) => (
             <SettingsNavRow key={item.key} item={item} active={item.key === activeKey} />
           ))}
+          {isAccountDeletionUiVisible() && query.trim() === "" ? <AccountDeletionNavRow active={pathname === "/settings/account"} /> : null}
         </Box>
       )}
     </Box>

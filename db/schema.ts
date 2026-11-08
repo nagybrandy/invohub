@@ -782,3 +782,43 @@ export const companyDirectory = pgTable("company_directory", {
   country: text("country").notNull().default("HU"),
   fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
 });
+
+/**
+ * A self-serve request to close an account (feature-flagged OFF by default —
+ * lib/account/deletion-flag.ts; proposal in
+ * docs/decisions/2026-11-08-self-serve-account-deletion.md). A request is a
+ * reversible intent: requested -> cancelled, or (future, not implemented)
+ * -> completed once a separate closure job has run lib/account/closure.ts.
+ * Kept after closure as the record of who asked and when. Rows are NOT
+ * cascade-deleted with the user: ON DELETE NO ACTION, like the user row
+ * itself, which is never hard-deleted. `reason` is optional free text.
+ */
+export const accountDeletionRequest = pgTable(
+  "account_deletion_request",
+  {
+    id: text("id").primaryKey(),
+    /** The signed-in person who asked. */
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    /** The billing account to close (today always the person's own account). */
+    billingAccountId: text("billing_account_id")
+      .notNull()
+      .references(() => user.id),
+    requestedAt: timestamp("requested_at").notNull().defaultNow(),
+    /** End of the cancellable grace period. */
+    scheduledFor: timestamp("scheduled_for").notNull(),
+    /** requested | cancelled | completed */
+    status: text("status").notNull().default("requested"),
+    reason: text("reason"),
+    cancelledAt: timestamp("cancelled_at"),
+    completedAt: timestamp("completed_at"),
+  },
+  (table) => [
+    index("account_deletion_request_user_idx").on(table.userId),
+    // At most one open request per billing account.
+    uniqueIndex("account_deletion_request_open_idx")
+      .on(table.billingAccountId)
+      .where(sql`${table.status} = 'requested'`),
+  ]
+);
