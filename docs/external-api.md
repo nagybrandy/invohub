@@ -71,7 +71,7 @@ A `code` mező nem mindig van jelen (pl. egy egyszerű 404-nél elég az `error`
 
 ## 3. Rate limit
 
-Kulcsonként **120 kérés / perc** (fix ablak). A limit túllépésekor:
+Kulcsonként **120 kérés / perc** (fix, percre igazított ablak); a számláló API-kulcsonként közös az összes szerverpéldány között. Ha a közös számláló átmenetileg nem érhető el, a szolgáltatás nem áll le: ilyenkor példányonkénti (memóriabeli) számlálóra vált vissza, amíg a tároló helyre nem áll — ezalatt a limit példányonként érvényes. A limit túllépésekor:
 
 ```http
 HTTP/1.1 429 Too Many Requests
