@@ -1858,7 +1858,7 @@ Remaining for the launch gate:
       rule that Ship (not the implementer) records merges.
       (2026-09-18 ship review of slice/dijbekero-proforma-to-invoice-flow,
       acceptance)
-- [ ] AC14's screen-level wiring (`menuItemsFor`/`handleOpenExisting` swap
+- [x] AC14's screen-level wiring (`menuItemsFor`/`handleOpenExisting` swap
       in `app/(app)/invoices/index.tsx`) has no dedicated test with a
       non-empty `convertedProformaIds` map — the only test touching that
       screen (`__tests__/screens/app-pages.smoke.test.tsx`) adds
