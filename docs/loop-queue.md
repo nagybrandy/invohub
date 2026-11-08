@@ -244,6 +244,10 @@ before or alongside Phase 1 items that depend on it.
       (needs tax/legal sign-off — the document retention period and what may
       be deleted vs. anonymized must come from the lawyer review, not from a
       guessed number)
+      **Proposal PR open — needs owner + legal sign-off.** Data export already
+      exists (Adatexport, `/export`). Proposal:
+      `docs/decisions/2026-11-08-self-serve-account-deletion.md`; request flow
+      is built but gated OFF (`ACCOUNT_DELETION_ENABLED`), closure not wired.
 - [ ] Ship-loop review worktrees have no way to take authenticated
       Playwright/browser screenshots — the owner's production Neon
       `DATABASE_URL` (`.env`) exists only in the main checkout, and
