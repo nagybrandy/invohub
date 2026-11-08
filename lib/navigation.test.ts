@@ -41,6 +41,10 @@ describe("routes", () => {
     expect(routes.imprint).toBe("/impresszum");
   });
 
+  it("exposes the public developer docs route", () => {
+    expect(routes.developers).toBe("/developers");
+  });
+
   it("exposes blog index and article routes", () => {
     expect(routes.blog).toBe("/blog");
     expect(routes.blogPost("magyar-szamlazas-alapok")).toBe(

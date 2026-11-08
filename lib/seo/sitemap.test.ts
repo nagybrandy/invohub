@@ -12,6 +12,7 @@ describe("sitemap and robots", () => {
       expect.arrayContaining([
         "/",
         "/blog",
+        "/developers",
         "/aszf",
         "/adatkezeles",
         "/cookie-tajekoztato",
