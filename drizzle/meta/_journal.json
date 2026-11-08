@@ -113,6 +113,13 @@
       "when": 1793708603546,
       "tag": "0015_invoice-pdf-template-paper-layout",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794165838331,
+      "tag": "0016_recurring-invoices",
+      "breakpoints": true
     }
   ]
 }

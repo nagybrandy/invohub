@@ -612,6 +612,95 @@ export const notification = pgTable(
   ]
 );
 
+/**
+ * Recurring invoice template (ismétlődő számlázás, v1). A daily cron turns a
+ * due template into a DRAFT invoice only — never an issued/numbered/NAV
+ * document (auto-issue needs owner sign-off). Owned by a billing account via
+ * `userId`, same pattern as `invoice.userId`.
+ *
+ * The invoice content is a snapshot (line items as jsonb) so later edits to
+ * the source invoice or partner never silently change what gets generated.
+ * `nextIndex` is the 0-based index of the next un-generated occurrence of the
+ * schedule (lib/recurring/schedule.ts); `nextRunDate` is its date
+ * (YYYY-MM-DD, Europe/Budapest) or NULL once the series is completed.
+ */
+export const recurringInvoiceTemplate = pgTable(
+  "recurring_invoice_template",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** Optional label shown in the list; falls back to the partner name. */
+    name: text("name"),
+    /** The invoice this template was saved from (informational). */
+    sourceInvoiceId: text("source_invoice_id").references(() => invoice.id, {
+      onDelete: "set null",
+    }),
+    clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
+    clientName: text("client_name").notNull(),
+    clientTaxNumber: text("client_tax_number"),
+    clientZipCode: text("client_zip_code"),
+    clientCity: text("client_city"),
+    clientAddress: text("client_address"),
+    clientCountry: text("client_country"),
+    clientEuVatNumber: text("client_eu_vat_number"),
+    currency: text("currency").notNull().default("HUF"),
+    language: text("language"),
+    paymentMethod: text("payment_method"),
+    /** Payment term in days; the generated draft's due date = its issue date + this. */
+    paymentTermDays: integer("payment_term_days").notNull().default(8),
+    notes: text("notes"),
+    /** InvoiceLineItem[] snapshot. */
+    lineItems: jsonb("line_items").notNull(),
+    /** monthly | quarterly | yearly */
+    frequency: text("frequency").notNull(),
+    startDate: text("start_date").notNull(),
+    /** Inclusive last occurrence date (YYYY-MM-DD). */
+    endDate: text("end_date"),
+    /** Total occurrences including the first. */
+    maxOccurrences: integer("max_occurrences"),
+    nextIndex: integer("next_index").notNull().default(0),
+    nextRunDate: text("next_run_date"),
+    /** active | paused | completed */
+    status: text("status").notNull().default("active"),
+    lastGeneratedAt: timestamp("last_generated_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("recurring_invoice_template_user_idx").on(table.userId),
+    index("recurring_invoice_template_due_idx").on(table.status, table.nextRunDate),
+  ]
+);
+
+/**
+ * One row per generated period. The UNIQUE (template_id, period_key) is the
+ * idempotency guard: two concurrent or repeated cron runs can claim a period
+ * only once, so a template never produces two drafts for one period.
+ */
+export const recurringInvoiceRun = pgTable(
+  "recurring_invoice_run",
+  {
+    id: text("id").primaryKey(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => recurringInvoiceTemplate.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** The occurrence date (YYYY-MM-DD) this run covers. */
+    periodKey: text("period_key").notNull(),
+    /** The generated draft; NULL if that draft was later deleted. */
+    invoiceId: text("invoice_id").references(() => invoice.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("recurring_invoice_run_period_unique_idx").on(table.templateId, table.periodKey),
+    index("recurring_invoice_run_user_idx").on(table.userId),
+  ]
+);
+
 export const apiKey = pgTable(
   "api_key",
   {
@@ -710,6 +799,8 @@ export const schema = {
   receiptLineItem,
   navReceiptSubmission,
   notification,
+  recurringInvoiceTemplate,
+  recurringInvoiceRun,
   apiKey,
   idempotencyKey,
   exchangeRate,

@@ -44,3 +44,13 @@ describe("db/schema", () => {
     expect(documentSequence.lastNumber).toBeDefined();
   });
 });
+
+describe("recurring invoice tables", () => {
+  it("registers both tables on the schema object", async () => {
+    const mod = await import("@/db/schema");
+    expect(mod.schema.recurringInvoiceTemplate).toBe(mod.recurringInvoiceTemplate);
+    expect(mod.schema.recurringInvoiceRun).toBe(mod.recurringInvoiceRun);
+    expect(mod.recurringInvoiceTemplate.userId).toBeDefined();
+    expect(mod.recurringInvoiceRun.periodKey).toBeDefined();
+  });
+});
