@@ -3,6 +3,7 @@
 // backfill, per-day idempotency, retry-in-place) lives in
 // lib/nav-receipt/daily-report-run.ts, mirroring how
 // app/api/reminders/run+api.ts delegates to lib/reminders/process.ts.
+import { summarizeNavReceipt, withCronRunLog } from "@/lib/observability/cron-run";
 import { runDailyReceiptReports } from "@/lib/nav-receipt/daily-report-run";
 
 export async function GET(request: Request) {
@@ -13,6 +14,9 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await runDailyReceiptReports();
-  return Response.json(result);
+  return withCronRunLog(
+    "nav-receipt-report",
+    async () => Response.json(await runDailyReceiptReports()),
+    summarizeNavReceipt,
+  );
 }

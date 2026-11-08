@@ -235,6 +235,11 @@ before or alongside Phase 1 items that depend on it.
       summary (notification or email) for `/api/reminders/run` and
       `/api/cron/nav-receipt-report`; the Phase 1 launch gate explicitly
       lists monitoring.
+      Partly done (feat/cron-run-log-alerting): `cron_run` log table, both
+      crons record every run, `/api/health` exposes `crons` last-success
+      timestamps, throttled owner alert via `OPS_ALERT_EMAIL`, PII-free
+      `lib/observability/report-error.ts`. Remaining: external error tracking
+      (Sentry etc.) — needs an owner decision + account.
 - [ ] Self-serve data export and account deletion are missing — there is no
       route under `app/api/` and no control in `app/(app)/settings/`, yet
       `lib/legal-content.ts` already promises adattörlés/adatexportálás in
