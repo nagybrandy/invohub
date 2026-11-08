@@ -8,7 +8,7 @@ import * as React from "react";
 import { ActivityIndicator, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Copy, Download, FileEdit, Mail, Wallet, CheckCircle2 } from "lucide-react-native";
+import { Copy, Download, FileEdit, Mail, Repeat, Wallet, CheckCircle2 } from "lucide-react-native";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChoicePill, ChoicePillGroup } from "@/components/ui/choice-pill";
@@ -380,6 +380,17 @@ export default function InvoiceDetailScreen() {
 
   const overflowItems: OverflowMenuItem[] = [
     { label: t("invoices.list.duplicateAction"), icon: Copy, onPress: () => void handleDuplicate() },
+    // Issued or draft — a regular invoice only (not proforma/storno/helyesbítő).
+    // The template generates DRAFTS; nothing is issued automatically.
+    ...(invoice.documentType === "invoice" && invoice.status !== "cancelled"
+      ? [
+          {
+            label: t("recurring.save"),
+            icon: Repeat,
+            onPress: () => router.push(routes.newRecurringInvoice(invoice.id)),
+          } satisfies OverflowMenuItem,
+        ]
+      : []),
     {
       label: t("invoices.correction.action"),
       icon: FileEdit,
