@@ -78,7 +78,7 @@ describe("DeveloperDocsScreen", () => {
   it("shows the English copy when the language is English", () => {
     const text = json(render("en"));
     expect(text).toContain("Settings → API keys");
-    expect(text).toContain("not a precise global quota");
+    expect(text).toContain("rather than a precise global quota");
     expect(text).toContain("demo or test mode");
     expect(text).toContain("Create an invoice");
   });
