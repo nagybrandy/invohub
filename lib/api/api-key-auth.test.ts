@@ -3,6 +3,14 @@ jest.mock("@/lib/api-keys/service", () => ({
   authenticateApiKey: jest.fn(),
 }));
 
+// The shared limiter hits Neon; here we route it to the real in-memory
+// limiter so these tests exercise requireApiKeyForV1's contract without a DB.
+jest.mock("@/lib/api/shared-rate-limit", () => ({
+  checkSharedRateLimit: jest.fn(async (key: string, limit: number, windowMs: number) =>
+    jest.requireActual("@/lib/api/rate-limit").checkRateLimit(key, limit, windowMs)
+  ),
+}));
+
 import { authenticateApiKey } from "@/lib/api-keys/service";
 import { requireApiKey, requireApiKeyForV1 } from "@/lib/api/api-key-auth";
 import { resetRateLimitsForTests } from "@/lib/api/rate-limit";
@@ -114,6 +122,22 @@ describe("requireApiKeyForV1", () => {
       const body = await last.response.json();
       expect(body.code).toBe("rateLimited");
     }
+  });
+
+  it("limits via the shared store keyed by API key id (120 / 60s)", async () => {
+    const { checkSharedRateLimit } = jest.requireMock("@/lib/api/shared-rate-limit");
+    mockAuth.mockResolvedValue({
+      id: "k1",
+      userId: "user-1",
+      name: "Test",
+      publicKey: "ih_pk_abc",
+      enabled: true,
+      lastUsedAt: null,
+      createdAt: "",
+      updatedAt: "",
+    });
+    await requireApiKeyForV1(validRequest());
+    expect(checkSharedRateLimit).toHaveBeenCalledWith("v1:k1", 120, 60_000);
   });
 
   it("keeps separate rate-limit buckets per API key id", async () => {

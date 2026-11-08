@@ -2,7 +2,7 @@
 // Authenticates external API requests via public + secret key pair.
 import { authenticateApiKey, type ApiKeyRecord } from "@/lib/api-keys/service";
 import { parseApiKeyCredentials } from "@/lib/api-keys/credentials";
-import { checkRateLimit } from "@/lib/api/rate-limit";
+import { checkSharedRateLimit } from "@/lib/api/shared-rate-limit";
 
 export { parseApiKeyCredentials };
 
@@ -55,14 +55,14 @@ function rateLimitedResponse(retryAfterSeconds: number) {
 /**
  * Every v1 route (app/api/v1/**) should authenticate with this instead of
  * the bare requireApiKey — same auth check, plus a per-API-key rate limit
- * (see lib/api/rate-limit.ts) so a single leaked/misbehaving key can't
+ * shared across instances via Neon (see lib/api/shared-rate-limit.ts) so a single leaked/misbehaving key can't
  * hammer the API unthrottled.
  */
 export async function requireApiKeyForV1(request: Request): Promise<ApiKeyAuthResult> {
   const auth = await requireApiKey(request);
   if (!auth.ok) return auth;
 
-  const result = checkRateLimit(`v1:${auth.apiKey.id}`, V1_RATE_LIMIT, V1_RATE_LIMIT_WINDOW_MS);
+  const result = await checkSharedRateLimit(`v1:${auth.apiKey.id}`, V1_RATE_LIMIT, V1_RATE_LIMIT_WINDOW_MS);
   if (!result.allowed) {
     return { ok: false, response: rateLimitedResponse(result.retryAfterSeconds) };
   }

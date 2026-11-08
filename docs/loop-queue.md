@@ -287,10 +287,12 @@ first one next, ahead of everything below:**
   caller remembers `sendEmail: false`. There are no external API users
   yet, so flipping the default to `false` is free now and a breaking
   change later. Currently documented in docs/external-api.md §5.2.
-- [ ] v1 rate limiting (`requireApiKeyForV1`, lib/api/rate-limit.ts) is an
+- [x] v1 rate limiting (`requireApiKeyForV1`, lib/api/rate-limit.ts) is an
   in-memory counter per serverless instance, not a global limit per API
   key — acceptable as a baseline, but a shared store is needed before
-  the limit is relied on.
+  the limit is relied on. Done: Neon-backed shared per-key limit
+  (`lib/api/shared-rate-limit.ts`, table `api_rate_limit_bucket`) with
+  in-memory fallback.
 **New owner feedback (2026-09-16) — take this next, ahead of everything
 below** — owner: "a pdf sokkal rosszabbul néz ki mint a html számla, javítsd,
 és legyen ott a rendes invohubos logó" (the PDF looks much worse than the
