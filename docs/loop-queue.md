@@ -2007,7 +2007,7 @@ time, one Sonnet builder per item, one branch + PR per item. Dóri's design
 (`docs/design/redesign-2026-11/`) stays the baseline for every layout call.
 Order = execution order (bugs first).
 
-- [ ] **Composer partner dropdown overlaps and sits under the form.** On
+- [x] **Composer partner dropdown overlaps and sits under the form.** On
       Új számla (desktop), typing in "Partner neve vagy adószáma" opens the
       suggestion list *behind* the "A partner adatai" card, and its
       "Nincs találat" row is drawn on top of the "Vagy: Másolás korábbi
