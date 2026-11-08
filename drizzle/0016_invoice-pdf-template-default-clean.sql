@@ -1,0 +1,1 @@
+ALTER TABLE "invoice_pdf_template" ALTER COLUMN "layout" SET DEFAULT 'clean';

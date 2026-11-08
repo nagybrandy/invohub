@@ -19,6 +19,7 @@ import {
   mergePdfTemplate,
   normalizeHexColor,
   parsePdfTemplateSnapshot,
+  resolveLiveTemplate,
 } from "@/lib/invoices/pdf-template/defaults";
 import type {
   InvoicePdfTemplate,
@@ -85,7 +86,8 @@ export async function getPdfTemplate(userId: string): Promise<InvoicePdfTemplate
     .where(eq(invoicePdfTemplate.userId, userId))
     .limit(1);
 
-  return row ? mapRow(row) : { ...DEFAULT_PDF_TEMPLATE };
+  // A stored `legacy` row is Letisztult for everything new (see resolveLiveTemplate).
+  return row ? resolveLiveTemplate(mapRow(row)) : { ...DEFAULT_PDF_TEMPLATE };
 }
 
 /**
@@ -141,10 +143,10 @@ export async function upsertPdfTemplate(
     .where(eq(invoicePdfTemplate.userId, userId))
     .limit(1);
 
-  // Merge onto what the user has stored, not onto the new-user defaults: a
-  // PATCH that omits `layout` (any older client) must not silently move a
-  // legacy row to the new design.
-  const base = existing ? mapRow(existing) : DEFAULT_PDF_TEMPLATE;
+  // Merge onto what the user has stored, not onto the new-user defaults. A
+  // stored legacy row is read as Letisztult (resolveLiveTemplate), so a PATCH
+  // that omits `layout` persists `clean` and `legacy` is never written again.
+  const base = existing ? resolveLiveTemplate(mapRow(existing)) : DEFAULT_PDF_TEMPLATE;
   const merged = applyPdfTemplateInput(base, input);
   const defaults = defaultsForLayout(merged.layout);
   const normalized: InvoicePdfTemplate = {
@@ -179,7 +181,7 @@ export async function upsertPdfTemplate(
       .set({ ...columns, updatedAt: now })
       .where(eq(invoicePdfTemplate.id, existing.id))
       .returning();
-    return mapRow(row);
+    return resolveLiveTemplate(mapRow(row));
   }
 
   const [row] = await db
@@ -193,5 +195,5 @@ export async function upsertPdfTemplate(
     })
     .returning();
 
-  return mapRow(row);
+  return resolveLiveTemplate(mapRow(row));
 }

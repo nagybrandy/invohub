@@ -102,8 +102,9 @@ describe("getPdfTemplate", () => {
     );
 
     const template = await getPdfTemplate("user-1");
-    // A row without a layout column value is a pre-redesign row: legacy colour fallback.
-    expect(template.accentColor).toBe(LEGACY_PDF_TEMPLATE.accentColor);
+    // A pre-redesign row falls back to the legacy cornflower, which (never edited)
+    // then becomes Dóri's blue because the row is read as Letisztult.
+    expect(template.accentColor).toBe(DEFAULT_PDF_TEMPLATE.accentColor);
   });
 
   it("reads the five paper columns", async () => {
@@ -130,17 +131,17 @@ describe("getPdfTemplate", () => {
     });
   });
 
-  it("maps a pre-redesign row (column defaults) to the legacy layout, and unknown values to legacy-safe ones", async () => {
+  it("reads a pre-redesign `legacy` row as Letisztult for new invoices, and unknown values to safe ones", async () => {
     mockDb.select.mockReturnValue(
       chain([{ ...STORED_ROW, layout: "legacy", fontStyle: "invohub", logoMode: "monogram", logoSize: "M", logoPosition: "left" }])
     );
-    expect((await getPdfTemplate("user-1")).layout).toBe("legacy");
+    expect((await getPdfTemplate("user-1")).layout).toBe("clean");
 
     mockDb.select.mockReturnValue(
       chain([{ ...STORED_ROW, layout: "hologram", fontStyle: "comic", logoMode: "x", logoSize: "XL", logoPosition: "up" }])
     );
     expect(await getPdfTemplate("user-1")).toMatchObject({
-      layout: "legacy",
+      layout: "clean",
       fontStyle: "invohub",
       logoMode: "monogram",
       logoSize: "M",
@@ -295,7 +296,7 @@ describe("upsertPdfTemplate", () => {
     expect(updates[0].values).toEqual({ pdfTemplateSnapshot: LEGACY_PDF_TEMPLATE });
   });
 
-  it("gives a user without a row Dóri's design for the row it inserts, with all five paper columns written", async () => {
+  it("gives a user without a row Letisztult (clean) for the row it inserts, with all five paper columns written", async () => {
     recordUpdates(undefined);
     mockDb.select.mockReturnValue(chain([]));
     const values = jest.fn(() => ({ returning: jest.fn().mockResolvedValue([{ ...STORED_ROW }]) }));
@@ -305,7 +306,7 @@ describe("upsertPdfTemplate", () => {
 
     expect(values).toHaveBeenCalledWith(
       expect.objectContaining({
-        layout: "frame",
+        layout: "clean",
         fontStyle: "invohub",
         logoMode: "monogram",
         logoSize: "M",
@@ -316,7 +317,7 @@ describe("upsertPdfTemplate", () => {
     );
   });
 
-  it("merges the input onto the STORED row: a PATCH without layout keeps a legacy row legacy", async () => {
+  it("merges the input onto the STORED row: a PATCH without layout moves a legacy row to Letisztult (legacy is never written again)", async () => {
     const updates = recordUpdates({ ...STORED_ROW });
     mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, layout: "legacy" }]));
 
@@ -326,13 +327,13 @@ describe("upsertPdfTemplate", () => {
     expect(rowUpdate.values).toMatchObject({
       titleText: "ÚJ",
       accentColor: "#112233",
-      layout: "legacy",
+      layout: "clean",
       fontStyle: "invohub",
       logoMode: "monogram",
       logoSize: "M",
       logoPosition: "left",
     });
-    expect(result.layout).toBe("legacy");
+    expect(result.layout).toBe("clean");
   });
 
   it("writes an explicit layout choice and all five paper columns on update", async () => {
@@ -388,6 +389,12 @@ describe("getLegacyAppearance", () => {
   it("is the frozen legacy template for a user without a row", async () => {
     mockDb.select.mockReturnValue(chain([]));
     expect(await getLegacyAppearance("user-1")).toEqual(LEGACY_PDF_TEMPLATE);
+  });
+
+  it("keeps a stored `legacy` row legacy for issued invoices without a snapshot (only new invoices see Letisztult)", async () => {
+    mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, layout: "legacy", accentColor: "#6495ed" }]));
+    expect(await getLegacyAppearance("user-1")).toMatchObject({ layout: "legacy", accentColor: "#6495ed" });
+    expect((await getPdfTemplate("user-1")).layout).toBe("clean");
   });
 
   it("is the stored row's values with the layout forced to legacy", async () => {

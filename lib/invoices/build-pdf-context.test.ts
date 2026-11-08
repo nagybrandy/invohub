@@ -201,6 +201,13 @@ describe("buildInvoicePdfContext", () => {
       expect(ctx.template).toEqual(await mockLegacy.mock.results[0]!.value);
     });
 
+    it("keeps a snapshot whose layout is legacy exactly as stored (not resolved to clean), without consulting the live template", async () => {
+      mockSnapshot.mockResolvedValue(ISSUED_LOOK);
+      const ctx = await buildInvoicePdfContext("u1", makeInvoice({ status: "unpaid" }));
+      expect(ctx.template?.layout).toBe("legacy");
+      expect(mockTemplate).not.toHaveBeenCalled();
+    });
+
     it("keeps a new-shape snapshot as it is", async () => {
       const newLook = { ...DEFAULT_PDF_TEMPLATE, layout: "band" as const };
       mockSnapshot.mockResolvedValue(newLook);
@@ -213,7 +220,7 @@ describe("buildInvoicePdfContext", () => {
       const ctx = await buildInvoicePdfContext("u1", makeInvoice({ status: "draft", invoiceNumber: "" }));
       expect(mockSnapshot).not.toHaveBeenCalled();
       expect(mockLegacy).not.toHaveBeenCalled();
-      expect(ctx.template?.layout).toBe("frame");
+      expect(ctx.template?.layout).toBe("clean");
     });
   });
 });
