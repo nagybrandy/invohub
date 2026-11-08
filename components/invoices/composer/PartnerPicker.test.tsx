@@ -56,6 +56,8 @@ function render(props: Partial<React.ComponentProps<typeof PartnerPicker>> = {})
         companyResults={props.companyResults}
         companyLoading={props.companyLoading}
         onSelectCompany={props.onSelectCompany}
+        suggestions={props.suggestions}
+        onSelectSuggestion={props.onSelectSuggestion}
         error={props.error}
         t={t}
       />
@@ -98,6 +100,25 @@ describe("PartnerPicker (INV-18)", () => {
       option.props.onPress?.();
     });
     expect(onSelect).toHaveBeenCalledWith(clients[11]);
+  });
+
+  it("closes the list after a row is pressed even though the input keeps focus, and reopens on typing", () => {
+    const clients = makeClients(2);
+    const { tree, onChangeText } = render({ clients, value: "Partner" });
+    const input = () => findByTestId(tree.root, "composer-partner-search");
+    act(() => {
+      input().props.onFocus?.();
+    });
+    act(() => {
+      findByTestId(tree.root, "composer-partner-option-client-1").props.onPress?.();
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain("Partner 1 Kft.");
+
+    act(() => {
+      input().props.onChangeText?.("Partner 2");
+    });
+    expect(onChangeText).toHaveBeenCalledWith("Partner 2");
+    expect(JSON.stringify(tree.toJSON())).toContain("Partner 1 Kft.");
   });
 
   it("offers '+ Új partner: „…”' as the last row and takes the typed text as the new partner's name", async () => {
@@ -258,5 +279,89 @@ describe("PartnerPicker — Hungarian company search", () => {
   it("shows a searching hint while the search is in flight", () => {
     const { tree } = focusAndGet({ companyResults: [], companyLoading: true, onSelectCompany: jest.fn() });
     expect(JSON.stringify(tree.toJSON())).toContain("invoices.composer.companySearching");
+  });
+});
+
+describe("PartnerPicker — partners already invoiced (suggestions)", () => {
+  const suggestion = (name: string, clientId: string | null, over: Record<string, unknown> = {}) => ({
+    partner: { clientId, name, taxNumber: "11111111-1-11", city: "Győr" },
+    invoiceCount: 2,
+    lastIssueDate: "2026-10-01",
+    latestInvoiceId: "i",
+    usual: { currency: "EUR", paymentTermDays: 15, lineItems: [] },
+    ...over,
+  });
+  function focus(props: Partial<React.ComponentProps<typeof PartnerPicker>>) {
+    const r = render(props);
+    act(() => {
+      findByTestId(r.tree.root, "composer-partner-search").props.onFocus?.();
+    });
+    return r;
+  }
+
+  it("shows the top suggestions on focus with an empty field, instead of the plain recent list", () => {
+    const onSelectSuggestion = jest.fn();
+    const clients = makeClients(2);
+    const { tree } = focus({
+      clients,
+      recentClients: clients,
+      suggestions: [suggestion("Acme Kft.", "x1"), suggestion("Beta Bt.", null)],
+      onSelectSuggestion,
+    });
+    const text = JSON.stringify(tree.toJSON());
+    expect(text).toContain("Acme Kft.");
+    expect(text).toContain("EUR");
+    expect(text).toContain("invoices.composer.partnerSuggestionTerm");
+    expect(text).not.toContain("Partner 1 Kft.");
+  });
+
+  it("picking a suggestion calls onSelectSuggestion with the whole suggestion (not onSelect)", () => {
+    const onSelectSuggestion = jest.fn();
+    const onSelect = jest.fn();
+    const s = suggestion("Acme Kft.", "x1");
+    const { tree } = focus({ suggestions: [s], onSelectSuggestion, onSelect });
+    act(() => {
+      findByTestId(tree.root, "composer-partner-suggestion-0").props.onPress();
+    });
+    expect(onSelectSuggestion).toHaveBeenCalledWith(s);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("closes the list after a suggestion is picked", () => {
+    const { tree } = focus({ suggestions: [suggestion("Acme Kft.", "x1")], onSelectSuggestion: jest.fn() });
+    act(() => {
+      findByTestId(tree.root, "composer-partner-suggestion-0").props.onPress();
+    });
+    expect(findByTestId(tree.root, "composer-partner-suggestion-0")).toBeUndefined();
+  });
+
+  it("while typing, lists suggestions first and does not repeat the same saved partner", () => {
+    const clients: Client[] = [
+      { id: "x1", userId: "u", name: "Acme Kft.", createdAt: "", updatedAt: "" },
+      { id: "x2", userId: "u", name: "Acme Másik Zrt.", createdAt: "", updatedAt: "" },
+    ];
+    const { tree } = focus({
+      clients,
+      value: "acme",
+      suggestions: [suggestion("Acme Kft.", "x1")],
+      onSelectSuggestion: jest.fn(),
+    });
+    expect(findByTestId(tree.root, "composer-partner-suggestion-0")).toBeTruthy();
+    expect(findByTestId(tree.root, "composer-partner-option-x1")).toBeUndefined();
+    expect(findByTestId(tree.root, "composer-partner-option-x2")).toBeTruthy();
+  });
+
+  it("gives a suggestion row room for two lines: min height, no fixed height, never shrunk", () => {
+    const { tree } = focus({ suggestions: [suggestion("Acme Kft.", "x1")], onSelectSuggestion: jest.fn() });
+    const cls = String(findByTestId(tree.root, "composer-partner-suggestion-0").props.className);
+    expect(cls).toContain("min-h-11");
+    expect(cls).toContain("shrink-0");
+    expect(cls).not.toMatch(/(^|\s)h-/);
+    expect(JSON.stringify(tree.toJSON())).toContain("leading-4");
+  });
+
+  it("ignores suggestions when no handler is given (edit mode)", () => {
+    const { tree } = focus({ suggestions: [suggestion("Acme Kft.", "x1")], value: "acme" });
+    expect(findByTestId(tree.root, "composer-partner-suggestion-0")).toBeUndefined();
   });
 });

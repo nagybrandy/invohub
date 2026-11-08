@@ -596,6 +596,8 @@ export default {
       partnerSearchPlaceholder: "Partner neve vagy adószáma",
       recentPartners: "Legutóbb számlázva",
       noPartnerResults: "Nincs találat",
+      partnerSuggestionTerm: "{{days}} nap",
+      loadPreviousItems: "Előző tételek betöltése",
       hungarianCompanies: "Magyarországi cégek",
       companySearching: "Keresés…",
       companyTaxNumberMissing: "adószám nincs megadva",

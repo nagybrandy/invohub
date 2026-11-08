@@ -422,6 +422,8 @@ export function InvoiceComposer(props: UseInvoiceComposerOptions) {
         onAdd={composer.addLineItem}
         onAddFromProduct={composer.addLineItemFromProduct}
         onRemove={composer.removeLineItem}
+        previousItemCount={composer.previousItems.length}
+        onLoadPreviousItems={composer.loadPreviousItems}
         isModification={invoice?.documentType === "modify"}
         error={errors.lineItems}
         focusField={focusField}

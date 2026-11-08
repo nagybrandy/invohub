@@ -8,6 +8,7 @@
 // The dates and payment block lives in StepDatesPayment.
 import * as React from "react";
 import { useCompanySearch } from "@/hooks/useCompanySearch";
+import { usePartnerSuggestions } from "@/hooks/usePartnerSuggestions";
 import { Box } from "@/components/ui/box";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
@@ -44,7 +45,9 @@ export function StepPartner(composer: RecipientProps) {
     setClientCity,
     setClientAddress,
     handleSelectClient,
+    handleSelectSuggestion,
     clearClient,
+    mode,
     showClientDetails,
     setShowClientDetails,
     errors,
@@ -83,6 +86,12 @@ export function StepPartner(composer: RecipientProps) {
   // once a saved partner has been picked (the field then holds its name).
   const companySearch = useCompanySearch(clientName, !clientId);
 
+  // Partners already invoiced, with their usual settings. Only for a NEW
+  // document (an edited one must not have its currency/terms swapped), and
+  // not once a saved partner has been picked.
+  const suggestionsEnabled = mode !== "edit" && !clientId;
+  const partnerSuggestions = usePartnerSuggestions(clientName, suggestionsEnabled);
+
   async function handleCreateNewClient(input: {
     name: string;
     email: string;
@@ -107,7 +116,7 @@ export function StepPartner(composer: RecipientProps) {
 
   return (
     <ComposerSection title={t("invoices.sections.recipient")} first testID="composer-section-partner">
-      <FormField label={t("invoices.fields.partnerNameOrTax")} required>
+      <FormField label={t("invoices.fields.partnerNameOrTax")} required className="relative z-30">
         <PartnerPicker
           companyResults={companySearch.results}
           companyLoading={companySearch.loading}
@@ -121,6 +130,8 @@ export function StepPartner(composer: RecipientProps) {
               address: company.address ?? "",
             })
           }
+          suggestions={partnerSuggestions.suggestions}
+          onSelectSuggestion={suggestionsEnabled ? handleSelectSuggestion : undefined}
           inputRef={nameInputRef}
           clients={clients}
           recentClients={recentClients}

@@ -177,6 +177,108 @@ describe("useInvoiceComposer", () => {
     }).toEqual(before);
   });
 
+  describe("partner suggestion prefill (handleSelectSuggestion)", () => {
+    const SUGGESTION = {
+      partner: { clientId: "client-1", name: "Tech Solutions Kft.", taxNumber: "12345678-1-23", city: "Budapest" },
+      invoiceCount: 3,
+      lastIssueDate: "2020-01-05",
+      latestInvoiceId: "old",
+      usual: {
+        currency: "EUR",
+        language: "en" as const,
+        paymentMethod: "cash" as const,
+        paymentTermDays: 15,
+        vat: { rate: 0 as const, category: "AAM" as const },
+        lineItems: [
+          { description: "Fejlesztés", quantity: 3, unit: "óra", unitPrice: 9000, vatRate: 0 as const, vatCategory: "AAM" as const },
+        ],
+      },
+    };
+
+    it("fills the partner and the usual settings, term from TODAY, MNB rate for today", async () => {
+      const { todayIso, addDaysIso } = require("@/components/invoices/composer/useInvoiceComposer");
+      const base = mockApiFetch.getMockImplementation()!;
+      mockApiFetch.mockImplementation(((path: string, init?: RequestInit) => {
+        if (path.startsWith("/api/exchange-rates?")) {
+          return Promise.resolve({ rate: 395.5, rateDate: todayIso() });
+        }
+        return base(path, init);
+      }) as never);
+      const ref = await renderComposer({ mode: "create" });
+
+      await act(async () => {
+        ref.current!.handleSelectSuggestion(SUGGESTION);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const c = ref.current!;
+      expect(c.clientId).toBe("client-1");
+      expect(c.clientName).toBe("Tech Solutions Kft.");
+      expect(c.currency).toBe("EUR");
+      expect(c.language).toBe("en");
+      expect(c.paymentMethod).toBe("cash");
+      expect(c.deadlineDays).toBe(15);
+      // dates are today-based, never the old invoice's
+      expect(c.issueDate).toBe(todayIso());
+      expect(c.dueDate).toBe(addDaysIso(todayIso(), 15));
+      expect(JSON.stringify([c.issueDate, c.dueDate, c.fulfillmentDate])).not.toContain("2020");
+      const rateCall = mockApiFetch.mock.calls.map((x) => x[0] as string).find((u) => u.startsWith("/api/exchange-rates?"));
+      expect(rateCall).toContain("currency=EUR");
+      expect(rateCall).toContain(`date=${todayIso()}`);
+      expect(c.exchangeRate).toBe("395.5");
+      // the untouched starter line takes the usual VAT treatment, but no items were added
+      expect(c.lineItems).toHaveLength(1);
+      expect(c.lineItems[0]).toMatchObject({ description: "", vatRate: 0, vatCategory: "AAM" });
+      expect(c.emailOnSend).toBe(false);
+    });
+
+    it("offers the previous items and only adds them on loadPreviousItems (replacing the empty starter line)", async () => {
+      const ref = await renderComposer({ mode: "create" });
+      await act(async () => {
+        ref.current!.handleSelectSuggestion(SUGGESTION);
+      });
+      expect(ref.current!.previousItems).toHaveLength(1);
+      expect(ref.current!.lineItems.map((l) => l.description)).toEqual([""]);
+
+      await act(async () => {
+        ref.current!.loadPreviousItems();
+      });
+      expect(ref.current!.lineItems).toHaveLength(1);
+      expect(ref.current!.lineItems[0]).toMatchObject({ description: "Fejlesztés", quantity: 3, unitPrice: 9000, unit: "óra" });
+      expect(ref.current!.previousItems).toEqual([]);
+    });
+
+    it("appends after lines the person already typed, and prefilled values stay editable", async () => {
+      const ref = await renderComposer({ mode: "create" });
+      await act(async () => {
+        ref.current!.handleSelectSuggestion(SUGGESTION);
+      });
+      await act(async () => {
+        ref.current!.updateLineItem(ref.current!.lineItems[0].id, { description: "Saját", unitPrice: 5 });
+        ref.current!.setCurrency("HUF");
+        ref.current!.setPaymentMethod("transfer");
+      });
+      await act(async () => {
+        ref.current!.loadPreviousItems();
+      });
+      expect(ref.current!.lineItems.map((l) => l.description)).toEqual(["Saját", "Fejlesztés"]);
+      expect(ref.current!.currency).toBe("HUF");
+      expect(ref.current!.paymentMethod).toBe("transfer");
+    });
+
+    it("picking a plain saved partner afterwards withdraws the previous-items offer", async () => {
+      const ref = await renderComposer({ mode: "create" });
+      await act(async () => {
+        ref.current!.handleSelectSuggestion(SUGGESTION);
+      });
+      await act(async () => {
+        ref.current!.handleSelectClient(CLIENT);
+      });
+      expect(ref.current!.previousItems).toEqual([]);
+    });
+  });
+
   it("has no saved-at time until a save actually succeeds (INV-1)", async () => {
     const ref = await renderComposer({ mode: "create" });
 

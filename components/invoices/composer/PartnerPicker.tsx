@@ -12,11 +12,12 @@ import { Box } from "@/components/ui/box";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { PartnerListOverlay } from "@/components/invoices/composer/PartnerListOverlay";
 import { highlightParts } from "@/components/invoices/composer/composer-view";
 import type { Client } from "@/lib/clients/service";
+import type { PartnerSuggestion } from "@/lib/clients/suggestions-core";
 import type { CompanySearchResult } from "@/lib/company/search";
 import { useIconColors } from "@/lib/theme/icon-colors";
-import { LISTBOX_ROLE } from "@/lib/ui/tap-target";
 
 const MAX_RESULTS = 8;
 
@@ -31,6 +32,7 @@ function matchesQuery(client: Client, query: string): boolean {
 
 type Entry =
   | { kind: "client"; key: string; client: Client }
+  | { kind: "suggestion"; key: string; suggestion: PartnerSuggestion }
   | { kind: "company"; key: string; company: CompanySearchResult }
   | { kind: "new"; key: string };
 
@@ -45,6 +47,8 @@ export function PartnerPicker({
   companyResults = [],
   companyLoading = false,
   onSelectCompany,
+  suggestions = [],
+  onSelectSuggestion,
   error,
   t,
 }: {
@@ -66,17 +70,38 @@ export function PartnerPicker({
   companyResults?: CompanySearchResult[];
   companyLoading?: boolean;
   onSelectCompany?: (company: CompanySearchResult) => void;
+  /**
+   * Partners already invoiced (GET /api/clients/suggestions), most recent
+   * first. Picking one goes through onSelectSuggestion (partner + usual
+   * settings); without that handler the list is ignored.
+   */
+  suggestions?: PartnerSuggestion[];
+  onSelectSuggestion?: (suggestion: PartnerSuggestion) => void;
   error?: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const icons = useIconColors();
   const [focused, setFocused] = React.useState(false);
   const [active, setActive] = React.useState(-1);
+  const anchorRef = React.useRef<unknown>(null);
+  // Set when a row is picked; the (web) input keeps focus, so the list is kept
+  // closed until the user types again or re-focuses the field.
+  const [dismissed, setDismissed] = React.useState(false);
   const query = value.trim();
 
+  const offered = onSelectSuggestion ? suggestions : [];
+  const offeredIds = React.useMemo(
+    () => new Set(offered.map((s) => s.partner.clientId).filter(Boolean) as string[]),
+    [offered]
+  );
+
+  // A saved partner already offered as a suggestion is not listed twice.
   const results = React.useMemo(
-    () => clients.filter((client) => matchesQuery(client, value)).slice(0, MAX_RESULTS),
-    [clients, value]
+    () =>
+      clients
+        .filter((client) => matchesQuery(client, value) && !offeredIds.has(client.id))
+        .slice(0, MAX_RESULTS),
+    [clients, value, offeredIds]
   );
 
   // A company we already have saved is not offered a second time.
@@ -85,14 +110,23 @@ export function PartnerPicker({
     return companyResults.filter((c) => !savedTax.has((c.taxNumber ?? "").replace(/\D/g, "").slice(0, 8)) || !c.taxNumber);
   }, [clients, companyResults]);
 
-  const showResults = focused && query.length > 0;
-  const showRecent = focused && query.length === 0 && recentClients.length > 0;
+  const showResults = focused && !dismissed && query.length > 0;
+  const showRecent =
+    focused && !dismissed && query.length === 0 && (offered.length > 0 || recentClients.length > 0);
   const open = showResults || showRecent;
 
   const entries = React.useMemo<Entry[]>(() => {
-    if (showRecent) return recentClients.map((client) => ({ kind: "client", key: `c-${client.id}`, client }));
+    const suggestionEntries = offered.map(
+      (suggestion, i): Entry => ({ kind: "suggestion", key: `s-${suggestion.partner.clientId ?? i}-${i}`, suggestion })
+    );
+    if (showRecent) {
+      return offered.length > 0
+        ? suggestionEntries
+        : recentClients.map((client): Entry => ({ kind: "client", key: `c-${client.id}`, client }));
+    }
     if (!showResults) return [];
     return [
+      ...suggestionEntries,
       ...results.map((client): Entry => ({ kind: "client", key: `c-${client.id}`, client })),
       ...(onSelectCompany
         ? newCompanies.map(
@@ -105,17 +139,23 @@ export function PartnerPicker({
         : []),
       { kind: "new", key: "new" },
     ];
-  }, [showRecent, showResults, recentClients, results, newCompanies, onSelectCompany]);
+  }, [showRecent, showResults, recentClients, results, newCompanies, onSelectCompany, offered]);
 
   React.useEffect(() => {
     setActive(-1);
   }, [value, focused]);
 
+  function close() {
+    setDismissed(true);
+    setFocused(false);
+  }
+
   function pick(entry: Entry) {
     if (entry.kind === "client") onSelect(entry.client);
+    else if (entry.kind === "suggestion") onSelectSuggestion?.(entry.suggestion);
     else if (entry.kind === "company") onSelectCompany?.(entry.company);
     else void onCreateNew({ name: query, email: "", taxNumber: "", zip: "", city: "", address: "" });
-    setFocused(false);
+    close();
   }
 
   function handleKeyPress(event: { nativeEvent?: { key?: string }; preventDefault?: () => void }) {
@@ -136,9 +176,47 @@ export function PartnerPicker({
   }
 
   const rowClass = (index: number) =>
-    `min-h-11 flex-row items-center gap-2 rounded-control px-2.5 py-2 data-[hover=true]:bg-neutral-wash ${
+    `min-h-11 shrink-0 flex-row items-center gap-2 rounded-control px-2.5 py-2 data-[hover=true]:bg-neutral-wash ${
       active === index ? "bg-neutral-wash" : ""
     }`;
+
+  const suggestionRows = (list: PartnerSuggestion[]) =>
+    list.map((suggestion, i) => {
+      const { partner, usual } = suggestion;
+      const parts = highlightParts(partner.name, query);
+      const hint = [
+        partner.taxNumber,
+        usual.currency,
+        usual.paymentTermDays !== undefined
+          ? t("invoices.composer.partnerSuggestionTerm", { days: usual.paymentTermDays })
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return (
+        <Pressable
+          key={`${partner.clientId ?? "local"}-${i}`}
+          nativeID={`composer-partner-option-${i}`}
+          onPress={() => pick({ kind: "suggestion", key: `s-${i}`, suggestion })}
+          role="option"
+          aria-selected={active === i}
+          accessibilityRole="button"
+          accessibilityLabel={partner.name}
+          testID={`composer-partner-suggestion-${i}`}
+          className={rowClass(i)}
+        >
+          <Box className="min-w-0 flex-1">
+            <Text className="text-sm leading-5 text-ink">
+              {parts.before}
+              {parts.match ? <Text className="text-sm font-bold text-ink">{parts.match}</Text> : null}
+              {parts.after}
+            </Text>
+            {hint ? <Text className="text-xs leading-4 text-muted-ink">{hint}</Text> : null}
+          </Box>
+          {partner.city ? <Text className="shrink-0 text-xs text-muted-ink">{partner.city}</Text> : null}
+        </Pressable>
+      );
+    });
 
   const clientRows = (list: Client[], offset: number) =>
     list.map((client, i) => {
@@ -147,7 +225,10 @@ export function PartnerPicker({
         <Pressable
           key={client.id}
           nativeID={`composer-partner-option-${offset + i}`}
-          onPress={() => onSelect(client)}
+          onPress={() => {
+            onSelect(client);
+            close();
+          }}
           role="option"
           aria-selected={active === offset + i}
           accessibilityRole="button"
@@ -156,12 +237,12 @@ export function PartnerPicker({
           className={rowClass(offset + i)}
         >
           <Box className="min-w-0 flex-1">
-            <Text className="text-sm text-ink">
+            <Text className="text-sm leading-5 text-ink">
               {parts.before}
               {parts.match ? <Text className="text-sm font-bold text-ink">{parts.match}</Text> : null}
               {parts.after}
             </Text>
-            {client.taxNumber ? <Text className="text-xs text-muted-ink">{client.taxNumber}</Text> : null}
+            {client.taxNumber ? <Text className="text-xs leading-4 text-muted-ink">{client.taxNumber}</Text> : null}
           </Box>
           {client.city ? <Text className="shrink-0 text-xs text-muted-ink">{client.city}</Text> : null}
         </Pressable>
@@ -169,7 +250,8 @@ export function PartnerPicker({
     });
 
   return (
-    <Box className="relative z-30" testID="composer-partner-picker">
+    // @ts-expect-error — on web Box forwards the ref to its DOM node (the list anchors to it, below any error text).
+    <Box ref={anchorRef} className="relative z-30" testID="composer-partner-picker">
       <Input data-invalid={Boolean(error)}>
         <InputField
           ref={inputRef as never}
@@ -177,12 +259,19 @@ export function PartnerPicker({
           accessibilityLabel={t("invoices.fields.partnerNameOrTax")}
           placeholder={t("invoices.composer.partnerSearchPlaceholder")}
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={(text) => {
+            setDismissed(false);
+            setFocused(true);
+            onChangeText(text);
+          }}
           role="combobox"
           aria-expanded={open}
           aria-controls="composer-partner-results"
           aria-activedescendant={active >= 0 ? `composer-partner-option-${active}` : undefined}
-          onFocus={() => setFocused(true)}
+          onFocus={() => {
+            setDismissed(false);
+            setFocused(true);
+          }}
           onBlur={() => setTimeout(() => setFocused(false), 120)}
           onKeyPress={handleKeyPress}
         />
@@ -193,25 +282,21 @@ export function PartnerPicker({
         </Text>
       ) : null}
 
-      {open ? (
-        <Box
-          nativeID="composer-partner-results"
-          role={LISTBOX_ROLE}
-          accessibilityRole="list"
-          className="absolute left-0 right-0 top-[46px] z-40 overflow-hidden rounded-menu border border-line-strong bg-surface p-1.5 shadow-menu"
-          testID="composer-partner-results"
-        >
+      <PartnerListOverlay open={open} anchorRef={anchorRef} id="composer-partner-results" testID="composer-partner-results">
           {showRecent ? (
             <>
               <Text className="px-2.5 pb-1 pt-1 text-xs font-semibold text-muted-ink">
                 {t("invoices.composer.recentPartners")}
               </Text>
-              {clientRows(recentClients, 0)}
+              {offered.length > 0 ? suggestionRows(offered) : clientRows(recentClients, 0)}
             </>
           ) : (
             <>
-              {results.length > 0 ? (
-                clientRows(results, 0)
+              {offered.length + results.length > 0 ? (
+                <>
+                  {suggestionRows(offered)}
+                  {clientRows(results, offered.length)}
+                </>
               ) : (
                 <Text className="px-2.5 py-2 text-sm text-muted-ink">{t("invoices.composer.noPartnerResults")}</Text>
               )}
@@ -222,12 +307,15 @@ export function PartnerPicker({
                     {t("invoices.composer.hungarianCompanies")}
                   </Text>
                   {newCompanies.map((company, i) => {
-                    const index = results.length + i;
+                    const index = offered.length + results.length + i;
                     return (
                       <Pressable
                         key={`${company.taxNumber}|${company.registrationNumber ?? ""}|${company.name}`}
                         nativeID={`composer-partner-option-${index}`}
-                        onPress={() => onSelectCompany(company)}
+                        onPress={() => {
+                          onSelectCompany(company);
+                          close();
+                        }}
                         role="option"
                         aria-selected={active === index}
                         accessibilityRole="button"
@@ -265,8 +353,7 @@ export function PartnerPicker({
               </Pressable>
             </>
           )}
-        </Box>
-      ) : null}
+      </PartnerListOverlay>
     </Box>
   );
 }

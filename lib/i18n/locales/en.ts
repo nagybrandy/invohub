@@ -597,6 +597,8 @@ export default {
       partnerSearchPlaceholder: "Partner name or tax number",
       recentPartners: "Recently invoiced",
       noPartnerResults: "No matches",
+      partnerSuggestionTerm: "{{days}} days",
+      loadPreviousItems: "Load previous items",
       hungarianCompanies: "Hungarian companies",
       companySearching: "Searching…",
       companyTaxNumberMissing: "tax number missing",
