@@ -1323,7 +1323,7 @@ Remaining for the launch gate:
       for this PR — but worth a follow-up to replace `selectable` on web
       Gluestack `Text` with the web-safe equivalent (or gate it behind
       `Platform.OS !== 'web'`) across both occurrences in this file.
-- [ ] **Ship-review follow-up (low, `slice/receipt-blocked-message-i18n-fallback`,
+- [x] **Ship-review follow-up (low, `slice/receipt-blocked-message-i18n-fallback`,
       2026-09-18)** — vacuous assertion in
       `components/receipts/ReceiptNavCard.test.tsx` never exercises anything.
       Line ~47: `expect(json).not.toContain(">missing_exchange_rate<")` where

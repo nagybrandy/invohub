@@ -43,9 +43,11 @@ describe("ReceiptNavCard", () => {
     const tree = render({ ...baseProps, navError: "missing_exchange_rate" });
     const json = JSON.stringify(tree.toJSON());
 
-    // The key itself shows up (passthrough mock), never the bare raw code.
+    // The key itself shows up (passthrough mock), and the raw reason code
+    // appears nowhere in the rendered tree (toJSON() holds the Text children
+    // as plain strings, so a leaked code would be a substring of the JSON).
     expect(json).toContain("receipts.navMissingExchangeRate");
-    expect(json).not.toContain(">missing_exchange_rate<");
+    expect(json).not.toContain("missing_exchange_rate");
 
     expect(mockT).toHaveBeenCalledWith("receipts.navMissingExchangeRate", { currency: "EUR" });
   });
