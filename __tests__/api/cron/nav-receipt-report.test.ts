@@ -1,4 +1,10 @@
 // __tests__/api/cron/nav-receipt-report.test.ts
+jest.mock("@/lib/observability/cron-run", () => ({
+  withCronRunLog: (_job: string, handler: () => Promise<Response>) => handler(),
+  summarizeReminders: jest.fn(),
+  summarizeNavReceipt: jest.fn(),
+}));
+
 jest.mock("@/lib/nav-receipt/daily-report-run", () => ({
   runDailyReceiptReports: jest.fn(),
 }));
