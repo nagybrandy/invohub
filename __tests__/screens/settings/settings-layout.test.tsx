@@ -65,10 +65,13 @@ describe("Settings _layout", () => {
     mockWidth = 0;
   });
 
-  it("renders nothing until the frame has been measured", () => {
+  it("mounts the Slot (never a redirect or the nav) before the frame has been measured", () => {
+    mockPathname = "/settings/pdf";
     const { has } = render();
-    expect(has("slot-content")).toBe(false);
+    expect(has("slot-content")).toBe(true);
     expect(has("settings-nav-column")).toBe(false);
+    expect(has("settings-back-link")).toBe(false);
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   describe("at a frame width of 1000 (wide)", () => {
