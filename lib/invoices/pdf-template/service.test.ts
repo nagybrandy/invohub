@@ -272,6 +272,18 @@ describe("upsertPdfTemplate", () => {
     expect(updates[0].params).toEqual(expect.arrayContaining(["user-1", "draft"]));
   });
 
+  it("freezes the OLD legacy layout and accent from the raw stored row, not the resolved clean base, when a PATCH changes the template", async () => {
+    const legacyRow = { ...STORED_ROW, layout: "legacy", accentColor: "#112233" };
+    const updates = recordUpdates({ ...legacyRow, titleText: "ÚJ" });
+    mockDb.select.mockReturnValue(chain([legacyRow]));
+
+    await upsertPdfTemplate("user-1", { titleText: "ÚJ" });
+
+    expect(updates[0].table).toBe(invoice);
+    expect(updates[0].values.pdfTemplateSnapshot).toMatchObject({ layout: "legacy", accentColor: "#112233" });
+    expect(updates.find((u) => u.table === invoicePdfTemplate)!.values).toMatchObject({ layout: "clean" });
+  });
+
   it("freezes the LEGACY appearance (never a paper layout) even when the stored row is already a new design", async () => {
     const updates = recordUpdates({ ...STORED_ROW, layout: "frame" });
     mockDb.select.mockReturnValue(chain([{ ...STORED_ROW, layout: "frame", fontStyle: "round", accentColor: "#3F6BC4" }]));
