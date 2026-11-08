@@ -50,18 +50,11 @@ import type {
   PaymentMethod,
 } from "@/lib/invoices/types";
 import { routes } from "@/lib/navigation";
+import { addDaysIso, todayIso } from "@/components/invoices/composer/composer-dates";
 
 export const DEADLINE_QUICK_DAYS = [8, 15, 30];
 
-export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export function addDaysIso(base: string, days: number): string {
-  const date = new Date(`${base}T00:00:00`);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-}
+export { todayIso, addDaysIso };
 
 function currentTime(): string {
   return new Date().toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" });
