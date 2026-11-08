@@ -12,6 +12,8 @@ import type { EmailPreviewProps } from "@/components/email/EmailPreview";
 
 export type { EmailPreviewProps };
 
+const PREVIEW_FRAME_HEIGHT = 380;
+
 export function EmailPreview({ subject, bodyHtml, testID = "email-preview" }: EmailPreviewProps) {
   const { t } = useTranslation();
   return (
@@ -22,13 +24,16 @@ export function EmailPreview({ subject, bodyHtml, testID = "email-preview" }: Em
           {renderTemplate(subject, SAMPLE_VARIABLES)}
         </Text>
       </Box>
-      <iframe
-        title={t("emailEditor.preview")}
-        sandbox=""
-        srcDoc={buildPreviewDocument(bodyHtml)}
-        data-testid="email-preview-frame"
-        className="block h-[380px] w-full border-0 bg-white"
-      />
+      {/* createElement + inline style, like PdfPreviewEmbed: a className on a raw
+          <iframe> is not reliably turned into a height by NativeWind, and an
+          iframe without one collapses so the body is never seen. */}
+      {React.createElement("iframe", {
+        title: t("emailEditor.preview"),
+        sandbox: "",
+        srcDoc: buildPreviewDocument(bodyHtml),
+        "data-testid": "email-preview-frame",
+        style: { display: "block", width: "100%", height: PREVIEW_FRAME_HEIGHT, border: 0, background: "#fff" },
+      })}
     </Box>
   );
 }
