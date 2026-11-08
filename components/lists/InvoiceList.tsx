@@ -73,7 +73,7 @@ export function InvoiceNumberCell({ invoice, converted }: { invoice: Invoice; co
         </Text>
       )}
       <Text numberOfLines={1} className="whitespace-nowrap text-xs text-muted-ink">
-        {converted ? `${typeLabel} · ${t("invoices.convert.convertedBadge")}` : typeLabel}
+        {converted && invoice.documentType === "proforma" ? `${typeLabel} · ${t("invoices.convert.convertedBadge")}` : typeLabel}
       </Text>
     </Box>
   );
