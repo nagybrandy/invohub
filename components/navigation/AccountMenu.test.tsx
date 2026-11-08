@@ -72,6 +72,16 @@ describe("AccountMenu trigger", () => {
     expect(button.props.accessibilityState).toMatchObject({ expanded: false });
   });
 
+  it("clamps the account name to 2 lines and keeps the tax number on one", () => {
+    const { tree } = render();
+    const button = byId(tree, "account-button");
+    const texts = button.findAll((n) => typeof n.props.numberOfLines === "number" && n.props.className);
+    const name = texts.find((n) => String(n.props.className).includes("font-semibold"))!;
+    const tax = texts.find((n) => String(n.props.className).includes("text-xs"))!;
+    expect(name.props.numberOfLines).toBe(2);
+    expect(tax.props.numberOfLines).toBe(1);
+  });
+
   it("collapsed (the rail): only the avatar, the label carries the name", () => {
     const { tree } = render({ collapsed: true });
     const json = JSON.stringify(tree.toJSON());

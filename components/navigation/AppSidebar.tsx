@@ -14,6 +14,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { Tooltip } from "@/components/ui/tooltip";
+import { BrandLogo } from "@/components/marketing/BrandLogo";
 import { NewCreateButton } from "@/components/navigation/NewCreateButton";
 import {
   getSidebarSecondaryNav,
@@ -108,12 +109,10 @@ export function AppSidebar({
       accessibilityRole="link"
       accessibilityLabel={t("shell.homeLink")}
       onPress={() => onNavigate("/dashboard" as AppRoute)}
-      className="flex-row items-center gap-2.5"
+      className="flex-row items-center justify-center"
     >
-      <Box className="h-[26px] w-[26px] rounded-[7px] bg-primary" />
-      {collapsed ? null : (
-        <Text className="font-heading text-lg font-bold text-white">{t("shell.brand")}</Text>
-      )}
+      {/* The real brand lockup on navy: blue tile + white hub mark + white wordmark. */}
+      <BrandLogo tone="onDark" height={36} withWordmark={!collapsed} testID="sidebar-logo" />
     </Pressable>
   );
 
@@ -138,14 +137,14 @@ export function AppSidebar({
       style={{ width }}
     >
       <VStack className={`h-full justify-between py-4 ${collapsed ? "px-2.5" : "px-3"}`}>
-        <VStack className="gap-3.5">
+        <VStack testID="sidebar-body" className={`gap-3.5 ${collapsed ? "items-center" : ""}`}>
           {collapsed ? (
-            <VStack className="items-center gap-2">
+            <VStack testID="sidebar-head" className="items-center gap-2">
               {logo}
               {toggle}
             </VStack>
           ) : (
-            <Box className="flex-row items-center justify-between px-1">
+            <Box testID="sidebar-head" className="flex-row items-center justify-between px-1">
               {logo}
               {toggle}
             </Box>
@@ -158,7 +157,12 @@ export function AppSidebar({
             onNewPartner={onNewPartner}
           />
 
-          <VStack className="gap-1" role="navigation" aria-label={t("nav.primaryNav")}>
+          <VStack
+            testID="sidebar-nav-primary"
+            className={`gap-1 ${collapsed ? "w-full items-center" : ""}`}
+            role="navigation"
+            aria-label={t("nav.primaryNav")}
+          >
             {SIDEBAR_PRIMARY_NAV.map((item) => (
               <SidebarNavRow
                 key={item.href as string}
@@ -172,7 +176,12 @@ export function AppSidebar({
 
           <Box className="mx-1 my-1.5 h-px bg-white/[0.12]" />
 
-          <VStack className="gap-1" role="navigation" aria-label={t("nav.secondaryNav")}>
+          <VStack
+            testID="sidebar-nav-secondary"
+            className={`gap-1 ${collapsed ? "w-full items-center" : ""}`}
+            role="navigation"
+            aria-label={t("nav.secondaryNav")}
+          >
             {secondaryNav.map((item) => (
               <SidebarNavRow
                 key={item.href as string}
@@ -185,7 +194,12 @@ export function AppSidebar({
           </VStack>
         </VStack>
 
-        <Box className="border-t border-white/[0.12] pt-2.5">{accountMenu}</Box>
+        <Box
+          testID="sidebar-footer"
+          className={`border-t border-white/[0.12] pt-2.5 ${collapsed ? "items-center" : ""}`}
+        >
+          {accountMenu}
+        </Box>
       </VStack>
     </Box>
   );

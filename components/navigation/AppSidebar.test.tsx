@@ -75,13 +75,34 @@ describe("AppSidebar", () => {
 
   it("head: the logo link and the collapse toggle (labelled for the state)", () => {
     const { tree, row, onToggleCollapsed } = render();
-    expect(JSON.stringify(tree.toJSON())).toContain("shell.brand");
+    // the real brand lockup (mark + wordmark), not the blue placeholder square
+    expect(tree.root.findAllByProps({ testID: "sidebar-logo-mark" }).length).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ children: "InvoHub" }).length).toBeGreaterThan(0);
     expect(row("sidebar-collapse-toggle").props.accessibilityLabel).toBe("nav.collapseSidebar");
     act(() => row("sidebar-collapse-toggle").props.onPress());
     expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
     const rail = render({ collapsed: true });
     expect(rail.row("sidebar-collapse-toggle").props.accessibilityLabel).toBe("nav.expandSidebar");
-    expect(JSON.stringify(rail.tree.toJSON())).not.toContain("shell.brand");
+    expect(rail.tree.root.findAllByProps({ children: "InvoHub" })).toHaveLength(0);
+    expect(rail.tree.root.findAllByProps({ testID: "sidebar-logo-mark" }).length).toBeGreaterThan(0);
+  });
+
+  it("expanded: the toggle sits beside the logo; collapsed: below it, all on one centred axis", () => {
+    const exp = render().tree.root.findByProps({ testID: "sidebar-head" });
+    expect(exp.props.className).toContain("flex-row");
+    const col = render({ collapsed: true }).tree.root.findByProps({ testID: "sidebar-head" });
+    expect(col.props.className).toContain("items-center");
+    expect(col.props.className).not.toContain("flex-row");
+    const kids = JSON.stringify(col.props.children.map((c: React.ReactElement) => (c.props as { testID?: string }).testID));
+    expect(kids).toBe('["sidebar-logo","sidebar-collapse-toggle"]');
+  });
+
+  it("collapsed: every section is centred on the same axis", () => {
+    const { tree } = render({ collapsed: true });
+    for (const id of ["sidebar-nav-primary", "sidebar-nav-secondary", "sidebar-footer"]) {
+      expect(tree.root.findByProps({ testID: id }).props.className).toContain("items-center");
+    }
+    expect(tree.root.findByProps({ testID: "sidebar-body" }).props.className).toContain("items-center");
   });
 
   it("the logo goes home", () => {

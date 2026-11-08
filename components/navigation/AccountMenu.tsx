@@ -200,7 +200,8 @@ export function AccountMenu({
         {collapsed ? null : (
           <>
             <Box className="min-w-0 flex-1">
-              <Text numberOfLines={1} className="text-sm font-semibold text-white">
+              {/* up to 2 lines (web line-clamp-2 / native numberOfLines), then ellipsis */}
+              <Text numberOfLines={2} className="text-sm font-semibold leading-tight text-white">
                 {displayName}
               </Text>
               {company?.taxNumber ? (

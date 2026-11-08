@@ -2021,7 +2021,7 @@ Order = execution order (bugs first).
       shows the subject/frame but not the template body. The preview must
       render the same body the sent e-mail would (placeholders filled with
       sample data). Test the preview with a body containing placeholders.
-- [ ] **Sidebar: real logo, collapsed alignment, toggle position, long
+- [x] **Sidebar: real logo, collapsed alignment, toggle position, long
       account names.** (`components/navigation/AppSidebar.tsx`,
       `AccountMenu.tsx`/`AccountAvatar.tsx`)
       - Top-left shows the real InvoHub mark + wordmark (the brand mark from
