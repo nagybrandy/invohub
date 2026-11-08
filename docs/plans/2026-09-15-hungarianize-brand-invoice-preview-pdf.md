@@ -90,6 +90,11 @@ HTML preview is UTF-8 and is **never** transliterated — it shows the correct
 text. The helper carries a TODO pointing at the font item, and a test pins it
 so it is removed, not forgotten.
 
+Update (embedded font shipped, `docs/plans/2026-09-16-pdf-embed-font-fix-ounk-umlaut.md`):
+the transliteration above is now a fallback only. With the Noto Sans files
+embedded, `ő`/`ű` are drawn directly; `toWinAnsiSafe()` runs only when the font
+files cannot be resolved (`lib/invoices/pdf-legacy.ts`, `render-paper.ts`).
+
 ---
 
 ## 2. Acceptance criteria (testable, numbered)
@@ -106,7 +111,7 @@ so it is removed, not forgotten.
    `lib/i18n/locales/en.test.ts`'s existing parity test therefore covers it.
 3. `formatDocumentAmount(1234567, "HUF") === "1 234 567 Ft"` (narrow no-break
    space U+00A0 between groups and before "Ft") and
-   `formatDocumentAmount(1234.5, "EUR") === "1 234,56 €"` — explicit `hu-HU`,
+   `formatDocumentAmount(1234.5, "EUR") === "1 234,50 €"` — explicit `hu-HU`,
    independent of the server's default locale.
 4. `toWinAnsiSafe("Vevő űrlap ŐSZ ŰR")` === `"Vevö ürlap ÖSZ ÜR"`; every other
    character is unchanged; `isWinAnsiSafe("Fordított adózás")` is `true`.
@@ -150,8 +155,14 @@ so it is removed, not forgotten.
 15. With the mocked pdfkit document, `mockDrawnTexts` contains `Kibocsátó`,
     `Vevő`, `Megnevezés`, `Mennyiség`, `Egységár`, `ÁFA`, `Bruttó`,
     `Fizetési határidő` and none of `Bill to`, `Description`, `Qty`,
-    `Subtotal`, `Status: sent`.
-16. Every string in `mockDrawnTexts` satisfies `isWinAnsiSafe` — including for
+    `Subtotal`, `Status: sent`. (As shipped: the PDF embeds a Latin-Extended-A
+    font (Noto Sans, `lib/invoices/pdf-fonts.ts`), so the labels are drawn
+    verbatim with `ő`/`ű` intact. `toWinAnsiSafe()` — `ő→ö`, `ű→ü`, plus
+    uppercase — only rewrites drawn strings on the fallback path, when the
+    embedded font files cannot be resolved, where `Vevő` is drawn as `Vevö`
+    and `Fizetési határidő` as `Fizetési határidö`.)
+16. On the fallback path (embedded font unavailable) every string in
+    `mockDrawnTexts` satisfies `isWinAnsiSafe` — including for
     an invoice whose client name is `"Kőfaragó Kft."` and whose line
     description is `"Tetőfelújítás"` (they are drawn as `Köfaragó Kft.` /
     `Tetöfelújítás`). This is the guard that fails the day someone adds a `ő`

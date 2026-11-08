@@ -1610,7 +1610,7 @@ Remaining for the launch gate:
       `title`/`body`/`updatedAt`, scoped by `userId`). 10 new
       `notifications.content.*` hu/en keys. `npm run typecheck` and
       `npm run test:unit` green (217 suites, 1422 tests).
-- [ ] AC3 of the hungarianize-brand-invoice-preview-pdf plan
+- [x] AC3 of the hungarianize-brand-invoice-preview-pdf plan
       (`docs/plans/2026-09-15-hungarianize-brand-invoice-preview-pdf.md:109`)
       literally reads `formatDocumentAmount(1234.5, "EUR") === "1 234,56 €"`,
       which is a typo — 1234.5 rounded to 2 decimals is 1234,50, not ,56.
@@ -1619,7 +1619,7 @@ Remaining for the launch gate:
       `lib/invoices/document-labels.test.ts:66-67` asserts the correct
       value — no code change needed, just fix the plan/AC's literal
       example for future reference. (2026-09-15 audit, acceptance)
-- [ ] AC15 of the same plan lists literal `"Vevő"` / `"Fizetési
+- [x] AC15 of the same plan lists literal `"Vevő"` / `"Fizetési
       határidő"` (containing ő) as required PDF `mockDrawnTexts` entries,
       which contradicts AC16 ("every mockDrawnTexts entry satisfies
       isWinAnsiSafe") since `isWinAnsiSafe`
