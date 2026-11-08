@@ -1979,7 +1979,7 @@ Remaining for the launch gate:
       sign-off before merge.
 ### Redesign 2026-11 follow-ups (shipped 2026-11-04, PR #96)
 
-- [ ] **Desktop deep link / reload of a Beállítások subpage lands on Céges
+- [x] **Desktop deep link / reload of a Beállítások subpage lands on Céges
       profil.** Reproduced in dev (`expo start --web`, 1440 wide): loading
       `/settings/billing` or `/settings/pdf` directly is replaced by
       `/settings` (a navigation-state change, `onStateChange` → `replace`),
