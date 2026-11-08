@@ -1969,6 +1969,8 @@ export default {
       invoiceSentBody: "Sent to {{clientName}}.",
       navPendingTitle: "NAV submission pending",
       navPendingBody: "{{number}} is waiting for NAV confirmation.",
+      recurringDraftTitle: "New draft from a recurring invoice: {{clientName}}",
+      recurringDraftBody: "Review the draft, then issue it as usual.",
       welcomeTitle: "Welcome to InvoHub",
       welcomeBody: "Load demo data from Settings to explore all features.",
       reminderScheduledTitle: "Payment reminder scheduled",

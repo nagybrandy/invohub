@@ -1967,6 +1967,8 @@ export default {
       invoiceSentBody: "Kiküldve: {{clientName}}.",
       navPendingTitle: "NAV-beküldés folyamatban",
       navPendingBody: "{{number}} a NAV visszaigazolására vár.",
+      recurringDraftTitle: "Új piszkozat ismétlődő számlából: {{clientName}}",
+      recurringDraftBody: "Nézd át a piszkozatot, majd állítsd ki a szokásos módon.",
       welcomeTitle: "Üdvözlünk az InvoHubban",
       welcomeBody:
         "Tölts be demóadatokat a Beállításokban az összes funkció kipróbálásához.",
