@@ -20,6 +20,11 @@ function normalizeParam(value: string | string[] | undefined): string | undefine
 }
 
 export function idFromAppPathname(pathname: string): string | undefined {
+  // /invoices/recurring/* are recurring templates, never an invoice called "recurring".
+  if (/^\/invoices\/recurring(\/|$)/.test(pathname)) {
+    const candidate = pathname.match(/^\/invoices\/recurring\/([^/]+)/)?.[1];
+    return candidate && !RESERVED_SEGMENTS.has(candidate) ? decodeURIComponent(candidate) : undefined;
+  }
   for (const pattern of APP_ID_PATTERNS) {
     const match = pathname.match(pattern);
     const candidate = match?.[1] ? decodeURIComponent(match[1]) : undefined;

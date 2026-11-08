@@ -246,6 +246,15 @@ describe("getBreadcrumb", () => {
     expect(labels("/products/p1/edit")).toEqual(["nav.products", "nav.breadcrumb.product"]);
   });
 
+  it("recurring invoice pages hang under Számlák and are never read as an invoice id", () => {
+    expect(labels("/invoices/recurring")).toEqual(["nav.invoices", "nav.recurringInvoices"]);
+    expect(labels("/invoices/recurring/new")).toEqual(["nav.invoices", "nav.recurringInvoices", "nav.breadcrumb.new"]);
+    const edit = getBreadcrumb("/invoices/recurring/tpl-1", t)!;
+    expect(edit.map((i) => i.label)).toEqual(["nav.invoices", "nav.recurringInvoices", "nav.breadcrumb.edit"]);
+    expect(edit[0].href).toBe(routes.invoices);
+    expect(edit[1].href).toBe(routes.recurringInvoices);
+  });
+
   it("settings subpages hang under Beállítások", () => {
     const trail = getBreadcrumb("/settings/company", t)!;
     expect(trail.map((i) => i.label)).toEqual(["nav.settings", "settings.company"]);

@@ -81,3 +81,18 @@ describe("password reset routes", () => {
     expect(routes.resetPassword).toBe("/reset-password");
   });
 });
+
+describe("recurring invoice routes", () => {
+  it("lists templates under Számlák", () => {
+    expect(routes.recurringInvoices).toBe("/invoices/recurring");
+  });
+  it("creates a template from an invoice via a query param", () => {
+    expect(routes.newRecurringInvoice("inv-1")).toEqual({
+      pathname: "/invoices/recurring/new",
+      params: { invoiceId: "inv-1" },
+    });
+  });
+  it("edits one template", () => {
+    expect(routes.recurringInvoiceEdit("tpl-1")).toBe("/invoices/recurring/tpl-1");
+  });
+});
