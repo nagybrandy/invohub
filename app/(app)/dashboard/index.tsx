@@ -35,7 +35,8 @@ import {
   getAppVersion,
   getSupportEmail,
 } from "@/lib/support/contact";
-import { breakpointForWidth } from "@/lib/theme/layout";
+import { breakpointForWidth, LAYOUT } from "@/lib/theme/layout";
+import { useMeasuredWidth } from "@/lib/ui/use-measured-width";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 
 const CURRENCY = "HUF" as const;
@@ -45,6 +46,11 @@ export default function DashboardScreen() {
   const { summary, draftCount, outstandingCount, loading, refresh } = useDashboardSummary();
   const { width: windowWidth } = useWindowDimensions();
   const breakpoint = breakpointForWidth(windowWidth);
+  // The top row decides from its own (container) width, not the window: the
+  // sidebar eats 248px, so a 1440 window gives a ~1110 container. From
+  // LAYOUT.wideMin it is three columns with "Következő lépések" as the third.
+  const { width: rowWidth, onLayout: onRowLayout } = useMeasuredWidth();
+  const threeColumns = rowWidth >= LAYOUT.wideMin;
   const supportEmail = getSupportEmail();
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
@@ -97,7 +103,7 @@ export default function DashboardScreen() {
 
   const hero = (
     <OutstandingCard
-      className={breakpoint === "wide" ? "flex-1" : ""}
+      className={breakpoint === "wide" || threeColumns ? "flex-1" : ""}
       outstanding={summary.outstanding}
       overdueTotal={summary.overdueTotal}
       outstandingCount={outstandingCount}
@@ -133,6 +139,18 @@ export default function DashboardScreen() {
     />
   );
 
+  const nextActions = (
+    <NextActionsCard
+      navFailedCount={summary.navFailedCount}
+      overdueCount={summary.overdueCount}
+      overdueTotal={summary.overdueTotal}
+      draftCount={draftCount}
+      loading={loading}
+      onSelect={openList}
+      onOpenInvoice={(id) => router.push(routes.invoiceDetail(id))}
+    />
+  );
+
   return (
     <ScreenLayout
       header={
@@ -156,38 +174,48 @@ export default function DashboardScreen() {
       }
     >
       <VStack space="lg">
-        {breakpoint === "wide" ? (
-          // >= 1100: hero 1.55fr beside the two stat cards, which stack and
-          // stretch to the hero's height.
-          <HStack className="items-stretch gap-4" testID="dashboard-grid">
-            <Box className="min-w-0" style={{ flex: 1.55 }}>
-              {hero}
-            </Box>
-            <VStack className="min-w-0 gap-4" style={{ flex: 1 }}>
-              {receivedCard}
-              {vatCard}
-            </VStack>
-          </HStack>
-        ) : (
-          // < 1100: the hero, then the two stat cards side by side.
-          <VStack className="gap-4" testID="dashboard-grid">
-            {hero}
-            <HStack className="items-stretch gap-4">
-              {receivedCard}
-              {vatCard}
+        <Box onLayout={onRowLayout} className="w-full" testID="dashboard-top-row">
+          {threeColumns ? (
+            // Container >= 1100: Kintlévőség | received + VAT | next steps.
+            // The next-steps cards stack inside their (narrow) column. Columns are
+            // top-aligned (not stretched) so each keeps its natural height.
+            <HStack className="items-start gap-4" testID="dashboard-grid">
+              <Box className="min-w-0" style={{ flex: 1.4 }} testID="dashboard-col-outstanding">
+                {hero}
+              </Box>
+              <VStack className="min-w-0 gap-4" style={{ flex: 1 }} testID="dashboard-col-stats">
+                {receivedCard}
+                {vatCard}
+              </VStack>
+              <Box className="min-w-0" style={{ flex: 1.15 }} testID="dashboard-col-next-steps">
+                {nextActions}
+              </Box>
             </HStack>
-          </VStack>
-        )}
+          ) : breakpoint === "wide" ? (
+            // < 1100 container on a wide window: hero 1.55fr beside the two
+            // stat cards, which stack and stretch to the hero's height.
+            <HStack className="items-stretch gap-4" testID="dashboard-grid">
+              <Box className="min-w-0" style={{ flex: 1.55 }}>
+                {hero}
+              </Box>
+              <VStack className="min-w-0 gap-4" style={{ flex: 1 }}>
+                {receivedCard}
+                {vatCard}
+              </VStack>
+            </HStack>
+          ) : (
+            // Narrower: the hero, then the two stat cards side by side.
+            <VStack className="gap-4" testID="dashboard-grid">
+              {hero}
+              <HStack className="items-stretch gap-4">
+                {receivedCard}
+                {vatCard}
+              </HStack>
+            </VStack>
+          )}
+        </Box>
 
-        <NextActionsCard
-          navFailedCount={summary.navFailedCount}
-          overdueCount={summary.overdueCount}
-          overdueTotal={summary.overdueTotal}
-          draftCount={draftCount}
-          loading={loading}
-          onSelect={openList}
-          onOpenInvoice={(id) => router.push(routes.invoiceDetail(id))}
-        />
+        {threeColumns ? null : nextActions}
 
         <RecentInvoices
           invoices={summary.recentInvoices}

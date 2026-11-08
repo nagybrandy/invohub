@@ -2033,7 +2033,7 @@ Order = execution order (bugs first).
         then ellipsis (web `line-clamp-2`, native `numberOfLines={2}`); the
         tax number stays one line.
       Tests: AppSidebar collapsed/expanded render tests, name clamp.
-- [ ] **Főoldal: "Következő lépések" as the third column of the top row.**
+- [x] **Főoldal: "Következő lépések" as the third column of the top row.**
       At wide widths (≥1100 container) the top row is Kintlévőség |
       Beérkezett fizetések + Becsült fizetendő ÁFA | Következő lépések, so
       the next-steps card no longer sits alone on its own row. Below that it
