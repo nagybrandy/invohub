@@ -690,7 +690,26 @@ export const exchangeRate = pgTable(
   ]
 );
 
+/**
+ * Shared fixed-window counters for the v1 API rate limit (one row per
+ * bucket_key + minute-aligned window). bucket_key holds only the API key id,
+ * never key material. Old windows are pruned opportunistically.
+ */
+export const apiRateLimitBucket = pgTable(
+  "api_rate_limit_bucket",
+  {
+    bucketKey: text("bucket_key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.bucketKey, t.windowStart] }),
+    index("api_rate_limit_bucket_window_idx").on(t.windowStart),
+  ]
+);
+
 export const schema = {
+  apiRateLimitBucket,
   user,
   session,
   account,
