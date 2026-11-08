@@ -1940,7 +1940,7 @@ Remaining for the launch gate:
       `#8a90a6` (3.17:1) / `#666666`. Colour-only; no i18n keys, no
       `db/schema.ts` change, no rendered string change.
       (2026-09-21 slice/pdf-footer-attribution-contrast)
-- [ ] AC6 unit test cannot actually exercise a real listener leak — the two
+- [x] AC6 unit test cannot actually exercise a real listener leak — the two
       "notes continuation listener cleanup (AC6)" tests in
       `lib/invoices/generate-pdf.test.ts` (lines 740-756) assert
       `mockDocs[0].listenerCount('pageAdded')` is 0 after
